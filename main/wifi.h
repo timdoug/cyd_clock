@@ -71,4 +71,10 @@ void wifi_set_timezone(const char *tz);
 // Get current IP address as string (returns "0.0.0.0" if not connected)
 void wifi_get_ip_str(char *buf, size_t len);
 
+// Get WiFi RSSI (signal strength in dBm, returns 0 if not connected)
+int8_t wifi_get_rssi(void);
+
+// Get MAC address as string (format: "AA:BB:CC:DD:EE:FF")
+void wifi_get_mac_str(char *buf, size_t len);
+
 #endif // WIFI_H

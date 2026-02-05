@@ -309,3 +309,22 @@ void wifi_get_ip_str(char *buf, size_t len) {
     }
     snprintf(buf, len, "0.0.0.0");
 }
+
+int8_t wifi_get_rssi(void) {
+    if (!wifi_is_connected()) return 0;
+    wifi_ap_record_t ap_info;
+    if (esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK) {
+        return ap_info.rssi;
+    }
+    return 0;
+}
+
+void wifi_get_mac_str(char *buf, size_t len) {
+    uint8_t mac[6];
+    if (esp_wifi_get_mac(WIFI_IF_STA, mac) == ESP_OK) {
+        snprintf(buf, len, "%02X:%02X:%02X:%02X:%02X:%02X",
+                 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    } else {
+        snprintf(buf, len, "??:??:??:??:??:??");
+    }
+}

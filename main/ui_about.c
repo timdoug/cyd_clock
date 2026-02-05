@@ -7,6 +7,7 @@
 #include "esp_log.h"
 #include "version.h"
 #include <string.h>
+#include <stdio.h>
 
 static const char *TAG = "ui_about";
 
@@ -29,12 +30,25 @@ static void draw_screen(void) {
 
     display_string(20, y, "Version:", COLOR_GRAY, COLOR_BLACK);
     display_string(90, y, VERSION_STRING, COLOR_WHITE, COLOR_BLACK);
-    y += 25;
+    y += 20;
 
     char ip_str[16];
     wifi_get_ip_str(ip_str, sizeof(ip_str));
     display_string(20, y, "IP:", COLOR_GRAY, COLOR_BLACK);
     display_string(90, y, ip_str, COLOR_WHITE, COLOR_BLACK);
+    y += 20;
+
+    char rssi_str[16];
+    int8_t rssi = wifi_get_rssi();
+    snprintf(rssi_str, sizeof(rssi_str), "%d dBm", rssi);
+    display_string(20, y, "RSSI:", COLOR_GRAY, COLOR_BLACK);
+    display_string(90, y, rssi_str, COLOR_WHITE, COLOR_BLACK);
+    y += 20;
+
+    char mac_str[18];
+    wifi_get_mac_str(mac_str, sizeof(mac_str));
+    display_string(20, y, "MAC:", COLOR_GRAY, COLOR_BLACK);
+    display_string(90, y, mac_str, COLOR_WHITE, COLOR_BLACK);
 }
 
 void ui_about_init(void) {
