@@ -558,37 +558,41 @@ void display_digit_7seg(int16_t x, int16_t y, uint8_t digit, uint8_t size, uint1
     if (digit > 10) return;
 
     // Size multipliers
-    int16_t seg_len, seg_thick;
+    int16_t seg_len, seg_thick, gap;
     switch (size) {
-        case 1: seg_len = 16; seg_thick = 4; break;
-        case 2: seg_len = 32; seg_thick = 6; break;
+        case 1: seg_len = 16; seg_thick = 4; gap = 1; break;
+        case 2: seg_len = 32; seg_thick = 6; gap = 2; break;
         case 3:
-        default: seg_len = 48; seg_thick = 8; break;
+        default: seg_len = 48; seg_thick = 8; gap = 2; break;
     }
 
     uint8_t pattern = seg7_patterns[digit];
 
+    // All segments shortened by gap and positioned with gaps between them
+    int16_t h_len = seg_len - gap * 2;  // Horizontal segments shorter
+    int16_t v_len = seg_len - gap;       // Vertical segments shorter
+
     // Draw all segments - on segments in color, off segments in bg (no flash)
     // Segment 0: top horizontal
-    draw_segment_h(x + seg_thick / 2, y, seg_len, seg_thick, (pattern & 0x01) ? color : bg);
+    draw_segment_h(x + seg_thick / 2 + gap, y, h_len, seg_thick, (pattern & 0x01) ? color : bg);
 
     // Segment 1: top-right vertical
-    draw_segment_v(x + seg_len, y + seg_thick / 2, seg_len, seg_thick, (pattern & 0x02) ? color : bg);
+    draw_segment_v(x + seg_len, y + seg_thick / 2 + gap, v_len, seg_thick, (pattern & 0x02) ? color : bg);
 
     // Segment 2: bottom-right vertical
-    draw_segment_v(x + seg_len, y + seg_len + seg_thick, seg_len, seg_thick, (pattern & 0x04) ? color : bg);
+    draw_segment_v(x + seg_len, y + seg_len + seg_thick / 2 + gap * 2 + 1, v_len, seg_thick, (pattern & 0x04) ? color : bg);
 
     // Segment 3: bottom horizontal
-    draw_segment_h(x + seg_thick / 2, y + seg_len * 2 + seg_thick, seg_len, seg_thick, (pattern & 0x08) ? color : bg);
+    draw_segment_h(x + seg_thick / 2 + gap, y + seg_len * 2 + seg_thick - 1, h_len, seg_thick, (pattern & 0x08) ? color : bg);
 
     // Segment 4: bottom-left vertical
-    draw_segment_v(x, y + seg_len + seg_thick, seg_len, seg_thick, (pattern & 0x10) ? color : bg);
+    draw_segment_v(x, y + seg_len + seg_thick / 2 + gap * 2 + 1, v_len, seg_thick, (pattern & 0x10) ? color : bg);
 
     // Segment 5: top-left vertical
-    draw_segment_v(x, y + seg_thick / 2, seg_len, seg_thick, (pattern & 0x20) ? color : bg);
+    draw_segment_v(x, y + seg_thick / 2 + gap, v_len, seg_thick, (pattern & 0x20) ? color : bg);
 
     // Segment 6: middle horizontal
-    draw_segment_h(x + seg_thick / 2, y + seg_len + seg_thick / 2, seg_len, seg_thick, (pattern & 0x40) ? color : bg);
+    draw_segment_h(x + seg_thick / 2 + gap, y + seg_len + seg_thick / 2 - 1, h_len, seg_thick, (pattern & 0x40) ? color : bg);
 }
 
 void display_colon_7seg(int16_t x, int16_t y, uint8_t size, uint16_t color, uint16_t bg) {
