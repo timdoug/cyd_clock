@@ -6,8 +6,7 @@
 // Touch zone identifiers
 typedef enum {
     CLOCK_TOUCH_NONE,
-    CLOCK_TOUCH_TOP,     // Timezone selector
-    CLOCK_TOUCH_BOTTOM,  // WiFi setup
+    CLOCK_TOUCH_SETTINGS,
 } clock_touch_zone_t;
 
 // Initialize clock display

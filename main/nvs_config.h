@@ -2,6 +2,7 @@
 #define NVS_CONFIG_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #define MAX_SSID_LEN     32
 #define MAX_PASSWORD_LEN 64
@@ -18,5 +19,9 @@ void nvs_config_clear_wifi(void);
 // Timezone
 bool nvs_config_get_timezone(char *tz);
 void nvs_config_set_timezone(const char *tz);
+
+// Brightness
+bool nvs_config_get_brightness(uint8_t *brightness);
+void nvs_config_set_brightness(uint8_t brightness);
 
 #endif // NVS_CONFIG_H

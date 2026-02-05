@@ -17,7 +17,7 @@ static const char *TAG = "ui_clock";
 #define STATS_LINE3 185
 
 // Colors
-#define COLOR_TIME_FG   COLOR_CYAN
+#define COLOR_TIME_FG   COLOR_RED
 #define COLOR_TIME_BG   COLOR_BLACK
 #define COLOR_DATE_FG   COLOR_WHITE
 #define COLOR_SYNC_OK   COLOR_GREEN
@@ -43,7 +43,6 @@ static const char *month_names[] = {
     "September", "October", "November", "December"
 };
 
-static bool hints_drawn_flag = false;
 
 void ui_clock_init(void) {
     ESP_LOGI(TAG, "Initializing clock UI");
@@ -53,7 +52,6 @@ void ui_clock_init(void) {
     last_day = -1;
     last_synced_state = false;
     last_stats_sec = -1;
-    hints_drawn_flag = false;
 }
 
 void ui_clock_redraw(void) {
@@ -64,7 +62,6 @@ void ui_clock_redraw(void) {
     last_day = -1;
     last_synced_state = false;
     last_stats_sec = -1;
-    hints_drawn_flag = false;
     ui_clock_update();
 }
 
@@ -78,37 +75,45 @@ static void draw_time_digit(int position, int digit) {
     // Format: HH:MM:SS
     // Positions: 0,1 = hours, 2,3 = minutes, 4,5 = seconds
     int x;
-    int digit_width = 56;  // size 3 digit width
-    int colon_width = 16;
+    int digit_width = 38;  // size 2 digit width
+    int digit_spacing = 6; // space between digits
+    int colon_width = 14;
+    int total_width = 6 * digit_width + 5 * digit_spacing + 2 * colon_width;
+    int start_x = (DISPLAY_WIDTH - total_width) / 2;
+    int step = digit_width + digit_spacing;
 
     switch (position) {
-        case 0: x = 10; break;
-        case 1: x = 10 + digit_width; break;
-        case 2: x = 10 + 2 * digit_width + colon_width; break;
-        case 3: x = 10 + 3 * digit_width + colon_width; break;
-        case 4: x = 10 + 4 * digit_width + 2 * colon_width; break;
-        case 5: x = 10 + 5 * digit_width + 2 * colon_width; break;
+        case 0: x = start_x; break;
+        case 1: x = start_x + step; break;
+        case 2: x = start_x + 2 * step + colon_width; break;
+        case 3: x = start_x + 3 * step + colon_width; break;
+        case 4: x = start_x + 4 * step + 2 * colon_width; break;
+        case 5: x = start_x + 5 * step + 2 * colon_width; break;
         default: return;
     }
 
-    display_digit_7seg(x, TIME_Y, digit, 3, COLOR_TIME_FG, COLOR_TIME_BG);
+    display_digit_7seg(x, TIME_Y, digit, 2, COLOR_TIME_FG, COLOR_TIME_BG);
 }
 
 static void draw_colon(int position, bool visible) {
-    int digit_width = 56;
-    int colon_width = 16;
+    int digit_width = 38;
+    int digit_spacing = 6;
+    int colon_width = 14;
+    int total_width = 6 * digit_width + 5 * digit_spacing + 2 * colon_width;
+    int start_x = (DISPLAY_WIDTH - total_width) / 2;
+    int step = digit_width + digit_spacing;
     int x;
 
     if (position == 0) {
-        x = 10 + 2 * digit_width;
+        x = start_x + 2 * step - digit_spacing / 2;
     } else {
-        x = 10 + 4 * digit_width + colon_width;
+        x = start_x + 4 * step + colon_width - digit_spacing / 2;
     }
 
     if (visible) {
-        display_colon_7seg(x, TIME_Y, 3, COLOR_TIME_FG, COLOR_TIME_BG);
+        display_colon_7seg(x, TIME_Y, 2, COLOR_TIME_FG, COLOR_TIME_BG);
     } else {
-        display_colon_7seg(x, TIME_Y, 3, COLOR_TIME_BG, COLOR_TIME_BG);
+        display_colon_7seg(x, TIME_Y, 2, COLOR_TIME_BG, COLOR_TIME_BG);
     }
 }
 
@@ -240,12 +245,6 @@ void ui_clock_update(void) {
         }
     }
 
-    // Draw touch zone hints (small text at edges)
-    if (!hints_drawn_flag) {
-        display_string(5, 5, "TZ", COLOR_GRAY, COLOR_BLACK);
-        display_string(DISPLAY_WIDTH - 40, DISPLAY_HEIGHT - 14, "WiFi", COLOR_GRAY, COLOR_BLACK);
-        hints_drawn_flag = true;
-    }
 }
 
 clock_touch_zone_t ui_clock_check_touch(void) {
@@ -254,11 +253,6 @@ clock_touch_zone_t ui_clock_check_touch(void) {
         return CLOCK_TOUCH_NONE;
     }
 
-    // Top half -> timezone selector
-    if (point.y < DISPLAY_HEIGHT / 2) {
-        return CLOCK_TOUCH_TOP;
-    }
-
-    // Bottom half -> WiFi setup
-    return CLOCK_TOUCH_BOTTOM;
+    // Any touch opens settings
+    return CLOCK_TOUCH_SETTINGS;
 }

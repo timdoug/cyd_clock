@@ -99,3 +99,26 @@ void nvs_config_set_timezone(const char *tz) {
     nvs_close(handle);
     ESP_LOGI(TAG, "Saved timezone: %s", tz);
 }
+
+bool nvs_config_get_brightness(uint8_t *brightness) {
+    nvs_handle_t handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READONLY, &handle);
+    if (err != ESP_OK) {
+        return false;
+    }
+
+    err = nvs_get_u8(handle, "brightness", brightness);
+    nvs_close(handle);
+
+    return err == ESP_OK;
+}
+
+void nvs_config_set_brightness(uint8_t brightness) {
+    nvs_handle_t handle;
+    ESP_ERROR_CHECK(nvs_open(NVS_NAMESPACE, NVS_READWRITE, &handle));
+
+    ESP_ERROR_CHECK(nvs_set_u8(handle, "brightness", brightness));
+    ESP_ERROR_CHECK(nvs_commit(handle));
+
+    nvs_close(handle);
+}
