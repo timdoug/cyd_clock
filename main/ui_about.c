@@ -18,7 +18,7 @@ static bool touched_last = false;
 static void draw_screen(void) {
     // Header
     display_fill_rect(0, 0, DISPLAY_WIDTH, HEADER_HEIGHT, COLOR_BLUE);
-    display_string(130, 8, "About", COLOR_WHITE, COLOR_BLUE);
+    display_string((DISPLAY_WIDTH - 5 * 8) / 2, 8, "About", COLOR_WHITE, COLOR_BLUE);
 
     // Back button
     display_fill_rect(5, 5, 50, 20, COLOR_DARKGRAY);

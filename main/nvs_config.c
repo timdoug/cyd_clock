@@ -122,3 +122,78 @@ void nvs_config_set_brightness(uint8_t brightness) {
 
     nvs_close(handle);
 }
+
+bool nvs_config_get_ntp_interval(uint32_t *interval) {
+    nvs_handle_t handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READONLY, &handle);
+    if (err != ESP_OK) {
+        return false;
+    }
+
+    err = nvs_get_u32(handle, "ntp_interval", interval);
+    nvs_close(handle);
+
+    return err == ESP_OK;
+}
+
+void nvs_config_set_ntp_interval(uint32_t interval) {
+    nvs_handle_t handle;
+    ESP_ERROR_CHECK(nvs_open(NVS_NAMESPACE, NVS_READWRITE, &handle));
+
+    ESP_ERROR_CHECK(nvs_set_u32(handle, "ntp_interval", interval));
+    ESP_ERROR_CHECK(nvs_commit(handle));
+
+    nvs_close(handle);
+}
+
+bool nvs_config_get_custom_ntp_server(char *server) {
+    nvs_handle_t handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READONLY, &handle);
+    if (err != ESP_OK) {
+        return false;
+    }
+
+    size_t len = MAX_NTP_SERVER_LEN;
+    err = nvs_get_str(handle, "ntp_custom", server, &len);
+    nvs_close(handle);
+
+    return err == ESP_OK;
+}
+
+void nvs_config_set_custom_ntp_server(const char *server) {
+    nvs_handle_t handle;
+    ESP_ERROR_CHECK(nvs_open(NVS_NAMESPACE, NVS_READWRITE, &handle));
+
+    ESP_ERROR_CHECK(nvs_set_str(handle, "ntp_custom", server));
+    ESP_ERROR_CHECK(nvs_commit(handle));
+
+    nvs_close(handle);
+}
+
+bool nvs_config_get_rotation(bool *rotated) {
+    nvs_handle_t handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READONLY, &handle);
+    if (err != ESP_OK) {
+        return false;
+    }
+
+    uint8_t value;
+    err = nvs_get_u8(handle, "rotation", &value);
+    nvs_close(handle);
+
+    if (err == ESP_OK) {
+        *rotated = (value != 0);
+        return true;
+    }
+    return false;
+}
+
+void nvs_config_set_rotation(bool rotated) {
+    nvs_handle_t handle;
+    ESP_ERROR_CHECK(nvs_open(NVS_NAMESPACE, NVS_READWRITE, &handle));
+
+    ESP_ERROR_CHECK(nvs_set_u8(handle, "rotation", rotated ? 1 : 0));
+    ESP_ERROR_CHECK(nvs_commit(handle));
+
+    nvs_close(handle);
+}

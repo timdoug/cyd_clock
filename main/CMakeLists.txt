@@ -42,6 +42,7 @@ idf_component_register(
         "ui_timezone.c"
         "ui_settings.c"
         "ui_about.c"
+        "ui_ntp.c"
     INCLUDE_DIRS "."
 )
 

@@ -97,7 +97,7 @@ static uint32_t last_touch_time = 0;
 
 static void draw_header(void) {
     display_fill_rect(0, 0, DISPLAY_WIDTH, HEADER_HEIGHT, COLOR_BLUE);
-    display_string(80, 8, "Select Timezone", COLOR_WHITE, COLOR_BLUE);
+    display_string((DISPLAY_WIDTH - 15 * 8) / 2, 8, "Select Timezone", COLOR_WHITE, COLOR_BLUE);
 
     // Back button
     display_fill_rect(5, 5, 50, 20, COLOR_DARKGRAY);

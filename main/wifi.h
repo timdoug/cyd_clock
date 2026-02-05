@@ -52,8 +52,16 @@ void wifi_get_ntp_stats(ntp_stats_t *stats);
 // Set NTP sync interval (in seconds, minimum 15)
 void wifi_set_ntp_interval(uint32_t seconds);
 
+// Get NTP sync interval
+uint32_t wifi_get_ntp_interval(void);
+
 // Force an immediate NTP sync
 void wifi_force_ntp_sync(void);
+
+// NTP server management
+const char *wifi_get_custom_ntp_server(void);
+void wifi_set_custom_ntp_server(const char *server);
+void wifi_restart_ntp(void);
 
 // Set timezone (POSIX TZ format, e.g., "PST8PDT,M3.2.0,M11.1.0")
 void wifi_set_timezone(const char *tz);

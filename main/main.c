@@ -15,6 +15,7 @@
 #include "ui_timezone.h"
 #include "ui_settings.h"
 #include "ui_about.h"
+#include "ui_ntp.h"
 
 static const char *TAG = "main";
 
@@ -27,9 +28,11 @@ typedef enum {
     APP_STATE_SETTINGS,
     APP_STATE_TIMEZONE,
     APP_STATE_ABOUT,
+    APP_STATE_NTP,
 } app_state_t;
 
 static app_state_t app_state = APP_STATE_INIT;
+static bool wifi_setup_from_settings = false;
 static char stored_ssid[MAX_SSID_LEN];
 static char stored_password[MAX_PASSWORD_LEN];
 static char stored_tz[MAX_TIMEZONE_LEN];
@@ -73,11 +76,18 @@ void app_main(void) {
     nvs_config_init();
     display_init();
     touch_init();
+    led_init();
 
     // Load and apply saved brightness (minimum 32)
     uint8_t brightness;
     if (nvs_config_get_brightness(&brightness) && brightness >= 32) {
         display_set_backlight(brightness);
+    }
+
+    // Load and apply saved rotation
+    bool rotated;
+    if (nvs_config_get_rotation(&rotated)) {
+        display_set_rotation(rotated);
     }
 
     show_splash();
@@ -87,6 +97,16 @@ void app_main(void) {
         strcpy(stored_tz, "UTC0");
     }
     wifi_set_timezone(stored_tz);
+
+    // Load NTP settings
+    char custom_ntp[MAX_NTP_SERVER_LEN];
+    if (nvs_config_get_custom_ntp_server(custom_ntp)) {
+        wifi_set_custom_ntp_server(custom_ntp);
+    }
+    uint32_t ntp_interval;
+    if (nvs_config_get_ntp_interval(&ntp_interval)) {
+        wifi_set_ntp_interval(ntp_interval);
+    }
 
     // Check for stored WiFi credentials
     if (nvs_config_get_wifi(stored_ssid, stored_password)) {
@@ -113,6 +133,7 @@ void app_main(void) {
 
                     // Switch to clock
                     app_state = APP_STATE_CLOCK;
+                    wifi_setup_from_settings = false;
                     ui_clock_init();
                     ui_clock_redraw();
 
@@ -121,6 +142,17 @@ void app_main(void) {
                         wifi_start_ntp();
                         ntp_started = true;
                     }
+                } else if (result == WIFI_SETUP_CANCELLED) {
+                    if (wifi_setup_from_settings) {
+                        // Return to settings
+                        app_state = APP_STATE_SETTINGS;
+                        wifi_setup_from_settings = false;
+                        ui_settings_init();
+                        while (touch_is_pressed()) {
+                            vTaskDelay(pdMS_TO_TICKS(50));
+                        }
+                    }
+                    // If not from settings, stay in WiFi setup (no stored credentials)
                 }
                 break;
             }
@@ -159,10 +191,12 @@ void app_main(void) {
 
                 // Poll faster near second boundary for responsiveness
                 int ms_in_sec = tv.tv_usec / 1000;
-                if (ms_in_sec > 950) {
+                if (ms_in_sec > 980) {
+                    vTaskDelay(pdMS_TO_TICKS(2));
+                } else if (ms_in_sec > 900) {
                     vTaskDelay(pdMS_TO_TICKS(10));
                 } else {
-                    vTaskDelay(pdMS_TO_TICKS(30));
+                    vTaskDelay(pdMS_TO_TICKS(20));
                 }
                 continue;
             }
@@ -177,7 +211,14 @@ void app_main(void) {
                     }
                 } else if (result == SETTINGS_RESULT_WIFI) {
                     app_state = APP_STATE_WIFI_SETUP;
+                    wifi_setup_from_settings = true;
                     ui_wifi_setup_init();
+                    while (touch_is_pressed()) {
+                        vTaskDelay(pdMS_TO_TICKS(50));
+                    }
+                } else if (result == SETTINGS_RESULT_NTP) {
+                    app_state = APP_STATE_NTP;
+                    ui_ntp_init();
                     while (touch_is_pressed()) {
                         vTaskDelay(pdMS_TO_TICKS(50));
                     }
@@ -221,6 +262,18 @@ void app_main(void) {
             case APP_STATE_ABOUT: {
                 about_result_t result = ui_about_update();
                 if (result == ABOUT_RESULT_BACK) {
+                    app_state = APP_STATE_SETTINGS;
+                    ui_settings_init();
+                    while (touch_is_pressed()) {
+                        vTaskDelay(pdMS_TO_TICKS(50));
+                    }
+                }
+                break;
+            }
+
+            case APP_STATE_NTP: {
+                ntp_result_t result = ui_ntp_update();
+                if (result == NTP_RESULT_BACK) {
                     app_state = APP_STATE_SETTINGS;
                     ui_settings_init();
                     while (touch_is_pressed()) {

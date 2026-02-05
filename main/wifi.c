@@ -22,10 +22,13 @@ static bool time_synced = false;
 static int retry_count = 0;
 #define MAX_RETRY 5
 
+// NTP server (custom only, default to pool.ntp.org)
+static char custom_ntp_server[64] = "pool.ntp.org";
+
 // NTP statistics
 static time_t last_sync_time = 0;
 static uint32_t sync_count = 0;
-static uint32_t ntp_interval = 600;  // Default 10 minutes
+static uint32_t ntp_interval = 21600;  // Default 6 hours
 
 static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                                int32_t event_id, void *event_data) {
@@ -201,12 +204,13 @@ void wifi_disconnect(void) {
 }
 
 void wifi_start_ntp(void) {
-    ESP_LOGI(TAG, "Starting NTP sync (interval: %lu sec)", (unsigned long)ntp_interval);
+    const char *server = custom_ntp_server[0] ? custom_ntp_server : "pool.ntp.org";
+
+    ESP_LOGI(TAG, "Starting NTP sync (server: %s, interval: %lu sec)",
+             server, (unsigned long)ntp_interval);
 
     esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
-    esp_sntp_setservername(0, "pool.ntp.org");
-    esp_sntp_setservername(1, "time.google.com");
-    esp_sntp_setservername(2, "time.cloudflare.com");
+    esp_sntp_setservername(0, server);
     esp_sntp_set_sync_interval(ntp_interval * 1000);  // Convert to ms
     sntp_set_time_sync_notification_cb(time_sync_notification_cb);
     esp_sntp_init();
@@ -251,4 +255,25 @@ void wifi_force_ntp_sync(void) {
     if (esp_sntp_enabled()) {
         esp_sntp_restart();
     }
+}
+
+void wifi_restart_ntp(void) {
+    // Restart NTP with current server if running
+    if (esp_sntp_enabled()) {
+        esp_sntp_stop();
+        wifi_start_ntp();
+    }
+}
+
+const char *wifi_get_custom_ntp_server(void) {
+    return custom_ntp_server;
+}
+
+void wifi_set_custom_ntp_server(const char *server) {
+    strncpy(custom_ntp_server, server, sizeof(custom_ntp_server) - 1);
+    custom_ntp_server[sizeof(custom_ntp_server) - 1] = '\0';
+}
+
+uint32_t wifi_get_ntp_interval(void) {
+    return ntp_interval;
 }

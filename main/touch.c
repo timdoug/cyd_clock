@@ -111,6 +111,12 @@ bool touch_read(touch_point_t *point) {
     if (y < 0) y = 0;
     if (y >= DISPLAY_HEIGHT) y = DISPLAY_HEIGHT - 1;
 
+    // Handle 180 degree rotation
+    if (display_is_rotated()) {
+        x = DISPLAY_WIDTH - 1 - x;
+        y = DISPLAY_HEIGHT - 1 - y;
+    }
+
     point->x = x;
     point->y = y;
     point->pressed = true;

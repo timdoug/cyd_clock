@@ -43,6 +43,25 @@ static const char *month_names[] = {
     "September", "October", "November", "December"
 };
 
+// Draw centered string with full-width background (no pre-clear needed)
+static void draw_centered_string(int16_t y, const char *str, uint16_t fg, uint16_t bg) {
+    int len = strlen(str);
+    int text_width = len * 8;
+    int x = (DISPLAY_WIDTH - text_width) / 2;
+
+    // Fill left padding
+    if (x > 0) {
+        display_fill_rect(0, y, x, 16, bg);
+    }
+    // Draw text
+    display_string(x, y, str, fg, bg);
+    // Fill right padding
+    int right_x = x + text_width;
+    if (right_x < DISPLAY_WIDTH) {
+        display_fill_rect(right_x, y, DISPLAY_WIDTH - right_x, 16, bg);
+    }
+}
+
 
 void ui_clock_init(void) {
     ESP_LOGI(TAG, "Initializing clock UI");
@@ -148,11 +167,12 @@ void ui_clock_update(void) {
         draw_time_digit(5, sec % 10);
     }
 
-    // Blink colons every second
+    // Blink colons every second (and sync LED)
     bool new_colon_visible = (sec % 2 == 0);
     if (new_colon_visible != colon_visible || last_sec < 0) {
         draw_colon(0, new_colon_visible);
         draw_colon(1, new_colon_visible);
+        led_set(new_colon_visible);
         colon_visible = new_colon_visible;
     }
 
@@ -169,14 +189,7 @@ void ui_clock_update(void) {
                  timeinfo.tm_mday,
                  timeinfo.tm_year + 1900);
 
-        // Center the date string
-        int len = strlen(date_str);
-        int x = (DISPLAY_WIDTH - len * 8) / 2;
-
-        // Clear date area
-        display_fill_rect(0, DATE_Y, DISPLAY_WIDTH, 20, COLOR_BLACK);
-        display_string(x, DATE_Y, date_str, COLOR_DATE_FG, COLOR_BLACK);
-
+        draw_centered_string(DATE_Y, date_str, COLOR_DATE_FG, COLOR_BLACK);
         last_day = timeinfo.tm_yday;
     }
 
@@ -186,14 +199,12 @@ void ui_clock_update(void) {
 
     // Line 1: Sync status with server
     if (stats.synced != last_synced_state || last_stats_sec < 0) {
-        display_fill_rect(0, STATS_Y, DISPLAY_WIDTH, 14, COLOR_BLACK);
         if (stats.synced) {
             char status_str[48];
             snprintf(status_str, sizeof(status_str), "NTP: %s", stats.server);
-            int x = (DISPLAY_WIDTH - strlen(status_str) * 8) / 2;
-            display_string(x, STATS_Y, status_str, COLOR_SYNC_OK, COLOR_BLACK);
+            draw_centered_string(STATS_Y, status_str, COLOR_SYNC_OK, COLOR_BLACK);
         } else {
-            display_string(120, STATS_Y, "Syncing...", COLOR_SYNC_WAIT, COLOR_BLACK);
+            draw_centered_string(STATS_Y, "Syncing...", COLOR_SYNC_WAIT, COLOR_BLACK);
         }
         last_synced_state = stats.synced;
     }
@@ -203,7 +214,6 @@ void ui_clock_update(void) {
         last_stats_sec = sec;
 
         // Line 2: Last sync and sync count
-        display_fill_rect(0, STATS_LINE2, DISPLAY_WIDTH, 14, COLOR_BLACK);
         if (stats.synced && stats.last_sync_time > 0) {
             time_t time_since = now - stats.last_sync_time;
             char line2[48];
@@ -219,12 +229,12 @@ void ui_clock_update(void) {
                          (long)(time_since / 3600), (long)((time_since % 3600) / 60),
                          (unsigned long)stats.sync_count);
             }
-            int x = (DISPLAY_WIDTH - strlen(line2) * 8) / 2;
-            display_string(x, STATS_LINE2, line2, COLOR_STATS, COLOR_BLACK);
+            draw_centered_string(STATS_LINE2, line2, COLOR_STATS, COLOR_BLACK);
+        } else {
+            draw_centered_string(STATS_LINE2, "", COLOR_BLACK, COLOR_BLACK);
         }
 
         // Line 3: Next sync countdown
-        display_fill_rect(0, STATS_LINE3, DISPLAY_WIDTH, 14, COLOR_BLACK);
         if (stats.synced && stats.last_sync_time > 0) {
             time_t next_sync = stats.last_sync_time + stats.sync_interval;
             time_t until_next = next_sync - now;
@@ -237,14 +247,14 @@ void ui_clock_update(void) {
                     snprintf(line3, sizeof(line3), "Next sync: %ldm %lds",
                              (long)(until_next / 60), (long)(until_next % 60));
                 }
-                int x = (DISPLAY_WIDTH - strlen(line3) * 8) / 2;
-                display_string(x, STATS_LINE3, line3, COLOR_STATS, COLOR_BLACK);
+                draw_centered_string(STATS_LINE3, line3, COLOR_STATS, COLOR_BLACK);
             } else {
-                display_string(110, STATS_LINE3, "Sync pending...", COLOR_SYNC_WAIT, COLOR_BLACK);
+                draw_centered_string(STATS_LINE3, "Sync pending...", COLOR_SYNC_WAIT, COLOR_BLACK);
             }
+        } else {
+            draw_centered_string(STATS_LINE3, "", COLOR_BLACK, COLOR_BLACK);
         }
     }
-
 }
 
 clock_touch_zone_t ui_clock_check_touch(void) {

@@ -35,6 +35,7 @@ static const char *TAG = "display";
 #define MADCTL_BGR 0x08
 
 static spi_device_handle_t spi_dev;
+static bool display_rotated = false;
 
 // Basic 8x16 font (ASCII 32-127)
 static const uint8_t font_8x16[] = {
@@ -239,10 +240,10 @@ static const uint8_t seg7_patterns[10] = {
     0b01001111, // 3
     0b01100110, // 4
     0b01101101, // 5
-    0b01111101, // 6
+    0b01111100, // 6 (no top)
     0b00000111, // 7
     0b01111111, // 8
-    0b01101111, // 9
+    0b01100111, // 9 (no bottom)
 };
 
 static void dc_command(void) {
@@ -486,48 +487,29 @@ void display_digit_7seg(int16_t x, int16_t y, uint8_t digit, uint8_t size, uint1
         default: seg_len = 48; seg_thick = 8; break;
     }
 
-    int16_t w = seg_len + seg_thick;
-    int16_t h = seg_len * 2 + seg_thick * 2;
-
-    // Clear background
-    display_fill_rect(x, y, w, h, bg);
-
     uint8_t pattern = seg7_patterns[digit];
 
+    // Draw all segments - on segments in color, off segments in bg (no flash)
     // Segment 0: top horizontal
-    if (pattern & 0x01) {
-        draw_segment_h(x + seg_thick / 2, y, seg_len, seg_thick, color);
-    }
+    draw_segment_h(x + seg_thick / 2, y, seg_len, seg_thick, (pattern & 0x01) ? color : bg);
 
     // Segment 1: top-right vertical
-    if (pattern & 0x02) {
-        draw_segment_v(x + seg_len, y + seg_thick / 2, seg_len, seg_thick, color);
-    }
+    draw_segment_v(x + seg_len, y + seg_thick / 2, seg_len, seg_thick, (pattern & 0x02) ? color : bg);
 
     // Segment 2: bottom-right vertical
-    if (pattern & 0x04) {
-        draw_segment_v(x + seg_len, y + seg_len + seg_thick, seg_len, seg_thick, color);
-    }
+    draw_segment_v(x + seg_len, y + seg_len + seg_thick, seg_len, seg_thick, (pattern & 0x04) ? color : bg);
 
     // Segment 3: bottom horizontal
-    if (pattern & 0x08) {
-        draw_segment_h(x + seg_thick / 2, y + seg_len * 2 + seg_thick, seg_len, seg_thick, color);
-    }
+    draw_segment_h(x + seg_thick / 2, y + seg_len * 2 + seg_thick, seg_len, seg_thick, (pattern & 0x08) ? color : bg);
 
     // Segment 4: bottom-left vertical
-    if (pattern & 0x10) {
-        draw_segment_v(x, y + seg_len + seg_thick, seg_len, seg_thick, color);
-    }
+    draw_segment_v(x, y + seg_len + seg_thick, seg_len, seg_thick, (pattern & 0x10) ? color : bg);
 
     // Segment 5: top-left vertical
-    if (pattern & 0x20) {
-        draw_segment_v(x, y + seg_thick / 2, seg_len, seg_thick, color);
-    }
+    draw_segment_v(x, y + seg_thick / 2, seg_len, seg_thick, (pattern & 0x20) ? color : bg);
 
     // Segment 6: middle horizontal
-    if (pattern & 0x40) {
-        draw_segment_h(x + seg_thick / 2, y + seg_len + seg_thick / 2, seg_len, seg_thick, color);
-    }
+    draw_segment_h(x + seg_thick / 2, y + seg_len + seg_thick / 2, seg_len, seg_thick, (pattern & 0x40) ? color : bg);
 }
 
 void display_colon_7seg(int16_t x, int16_t y, uint8_t size, uint16_t color, uint16_t bg) {
@@ -539,12 +521,7 @@ void display_colon_7seg(int16_t x, int16_t y, uint8_t size, uint16_t color, uint
         default: seg_len = 48; seg_thick = 8; dot_size = 8; break;
     }
 
-    int16_t w = dot_size + 4;
-    int16_t h = seg_len * 2 + seg_thick * 2;
-
-    // Clear background
-    display_fill_rect(x, y, w, h, bg);
-
+    // Draw dots directly in color (no background clear to avoid flash)
     // Upper dot
     display_fill_rect(x + 2, y + seg_len / 2 + seg_thick / 2, dot_size, dot_size, color);
 
@@ -555,4 +532,43 @@ void display_colon_7seg(int16_t x, int16_t y, uint8_t size, uint16_t color, uint
 void display_set_backlight(uint8_t brightness) {
     ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, brightness);
     ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+}
+
+// CYD RGB LED pins (active low)
+#define LED_PIN_R  4
+#define LED_PIN_G  16
+#define LED_PIN_B  17
+
+void led_init(void) {
+    gpio_config_t io_conf = {
+        .pin_bit_mask = (1ULL << LED_PIN_R) | (1ULL << LED_PIN_G) | (1ULL << LED_PIN_B),
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+    gpio_config(&io_conf);
+    // Turn off LEDs (active low, so high = off)
+    gpio_set_level(LED_PIN_R, 1);
+    gpio_set_level(LED_PIN_G, 1);
+    gpio_set_level(LED_PIN_B, 1);
+}
+
+void led_set(bool on) {
+    // Use red LED, active low
+    gpio_set_level(LED_PIN_R, on ? 0 : 1);
+}
+
+void display_set_rotation(bool rotated) {
+    display_rotated = rotated;
+    write_command(ILI9341_MADCTL);
+    if (rotated) {
+        write_data(MADCTL_MV | MADCTL_MY | MADCTL_MX | MADCTL_BGR);
+    } else {
+        write_data(MADCTL_MV | MADCTL_BGR);
+    }
+}
+
+bool display_is_rotated(void) {
+    return display_rotated;
 }
