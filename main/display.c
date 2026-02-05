@@ -458,28 +458,69 @@ void display_string(int16_t x, int16_t y, const char *str, uint16_t fg, uint16_t
     }
 }
 
+// Blend two RGB565 colors (simple average)
+static uint16_t blend_color(uint16_t c1, uint16_t c2) {
+    uint16_t r = (((c1 >> 11) & 0x1F) + ((c2 >> 11) & 0x1F)) >> 1;
+    uint16_t g = (((c1 >> 5) & 0x3F) + ((c2 >> 5) & 0x3F)) >> 1;
+    uint16_t b = ((c1 & 0x1F) + (c2 & 0x1F)) >> 1;
+    return (r << 11) | (g << 5) | b;
+}
+
+// Get pixel from glyph (returns 1 if set, 0 if not, handles bounds)
+static inline int get_glyph_pixel(const uint8_t *glyph, int row, int col) {
+    if (row < 0 || row >= 16 || col < 0 || col >= 8) return 0;
+    return (glyph[row] >> (7 - col)) & 1;
+}
+
 static void display_char_2x(int16_t x, int16_t y, char c, uint16_t fg, uint16_t bg) {
     if (c < 32 || c > 126) c = '?';
     const uint8_t *glyph = &font_8x16[(c - 32) * 16];
+    uint16_t smooth = blend_color(fg, bg);
 
     set_addr_window(x, y, 16, 32);
     dc_data();
 
     uint8_t buf[1024];  // 16 * 32 * 2 = 1024 bytes
     int idx = 0;
+
     for (int row = 0; row < 16; row++) {
-        uint8_t bits = glyph[row];
-        // Each row is drawn twice (2x vertical scale)
-        for (int dup = 0; dup < 2; dup++) {
-            uint8_t b = bits;
+        for (int dup = 0; dup < 2; dup++) {  // Each source row becomes 2 output rows
             for (int col = 0; col < 8; col++) {
-                uint16_t color = (b & 0x80) ? fg : bg;
-                // Each pixel is drawn twice (2x horizontal scale)
-                buf[idx++] = color >> 8;
-                buf[idx++] = color & 0xFF;
-                buf[idx++] = color >> 8;
-                buf[idx++] = color & 0xFF;
-                b <<= 1;
+                int cur = get_glyph_pixel(glyph, row, col);
+                uint16_t base_color = cur ? fg : bg;
+
+                // Get neighbors for corner smoothing
+                int above = get_glyph_pixel(glyph, row - 1, col);
+                int below = get_glyph_pixel(glyph, row + 1, col);
+                int left = get_glyph_pixel(glyph, row, col - 1);
+                int right = get_glyph_pixel(glyph, row, col + 1);
+
+                // For each source pixel, we output 2 pixels (left and right)
+                uint16_t left_color = base_color;
+                uint16_t right_color = base_color;
+
+                if (cur) {
+                    // Current pixel is ON - check for smoothing at corners
+                    int above_left = get_glyph_pixel(glyph, row - 1, col - 1);
+                    int above_right = get_glyph_pixel(glyph, row - 1, col + 1);
+                    int below_left = get_glyph_pixel(glyph, row + 1, col - 1);
+                    int below_right = get_glyph_pixel(glyph, row + 1, col + 1);
+
+                    if (dup == 0) {
+                        // Top half - check top corners
+                        if (!above_left && !above && !left) left_color = smooth;
+                        if (!above_right && !above && !right) right_color = smooth;
+                    } else {
+                        // Bottom half - check bottom corners
+                        if (!below_left && !below && !left) left_color = smooth;
+                        if (!below_right && !below && !right) right_color = smooth;
+                    }
+                }
+
+                buf[idx++] = left_color >> 8;
+                buf[idx++] = left_color & 0xFF;
+                buf[idx++] = right_color >> 8;
+                buf[idx++] = right_color & 0xFF;
             }
         }
     }
