@@ -29,30 +29,30 @@ static void draw_menu(void) {
     int y = ITEM_START_Y;
 
     // Timezone button
-    display_fill_rect(UI_ITEM_MARGIN, y, DISPLAY_WIDTH - 2 * UI_ITEM_MARGIN, UI_ITEM_HEIGHT - 3, COLOR_ITEM_BG);
-    display_string(20, y + UI_TEXT_Y_OFFSET, "Timezone", COLOR_ITEM_FG, COLOR_ITEM_BG);
-    display_string(DISPLAY_WIDTH - 30, y + UI_TEXT_Y_OFFSET, ">", COLOR_ITEM_FG, COLOR_ITEM_BG);
+    display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, COLOR_ITEM_BG);
+    display_string(10, y + UI_TEXT_Y_OFFSET, "Timezone", COLOR_ITEM_FG, COLOR_ITEM_BG);
+    display_string(DISPLAY_WIDTH - 18, y + UI_TEXT_Y_OFFSET, ">", COLOR_ITEM_FG, COLOR_ITEM_BG);
     y += UI_ITEM_HEIGHT;
 
     // WiFi button
-    display_fill_rect(UI_ITEM_MARGIN, y, DISPLAY_WIDTH - 2 * UI_ITEM_MARGIN, UI_ITEM_HEIGHT - 3, COLOR_ITEM_BG);
-    display_string(20, y + UI_TEXT_Y_OFFSET, "WiFi", COLOR_ITEM_FG, COLOR_ITEM_BG);
-    display_string(DISPLAY_WIDTH - 30, y + UI_TEXT_Y_OFFSET, ">", COLOR_ITEM_FG, COLOR_ITEM_BG);
+    display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, COLOR_ITEM_BG);
+    display_string(10, y + UI_TEXT_Y_OFFSET, "WiFi", COLOR_ITEM_FG, COLOR_ITEM_BG);
+    display_string(DISPLAY_WIDTH - 18, y + UI_TEXT_Y_OFFSET, ">", COLOR_ITEM_FG, COLOR_ITEM_BG);
     y += UI_ITEM_HEIGHT;
 
     // NTP button
-    display_fill_rect(UI_ITEM_MARGIN, y, DISPLAY_WIDTH - 2 * UI_ITEM_MARGIN, UI_ITEM_HEIGHT - 3, COLOR_ITEM_BG);
-    display_string(20, y + UI_TEXT_Y_OFFSET, "NTP", COLOR_ITEM_FG, COLOR_ITEM_BG);
-    display_string(DISPLAY_WIDTH - 30, y + UI_TEXT_Y_OFFSET, ">", COLOR_ITEM_FG, COLOR_ITEM_BG);
+    display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, COLOR_ITEM_BG);
+    display_string(10, y + UI_TEXT_Y_OFFSET, "NTP", COLOR_ITEM_FG, COLOR_ITEM_BG);
+    display_string(DISPLAY_WIDTH - 18, y + UI_TEXT_Y_OFFSET, ">", COLOR_ITEM_FG, COLOR_ITEM_BG);
     y += UI_ITEM_HEIGHT;
 
     // Brightness control
-    display_fill_rect(UI_ITEM_MARGIN, y, DISPLAY_WIDTH - 2 * UI_ITEM_MARGIN, UI_ITEM_HEIGHT - 3, COLOR_ITEM_BG);
-    display_string(20, y + UI_TEXT_Y_OFFSET, "Brightness", COLOR_ITEM_FG, COLOR_ITEM_BG);
+    display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, COLOR_ITEM_BG);
+    display_string(10, y + UI_TEXT_Y_OFFSET, "Brightness", COLOR_ITEM_FG, COLOR_ITEM_BG);
 
     // Brightness bar
-    int bar_x = 120;
-    int bar_w = 100;
+    int bar_x = 110;
+    int bar_w = 110;
     int bar_h = 14;
     int bar_y = y + UI_TEXT_Y_OFFSET;
     display_fill_rect(bar_x, bar_y, bar_w, bar_h, COLOR_BLACK);
@@ -60,29 +60,29 @@ static void draw_menu(void) {
     int fill_w = (brightness * (bar_w - 4)) / BRIGHTNESS_MAX;
     display_fill_rect(bar_x + 2, bar_y + 2, fill_w, bar_h - 4, COLOR_SELECTED);
 
-    // - and + buttons (aligned to right edge, ending at x=300)
-    display_fill_rect(250, y + 2, 22, 22, COLOR_GRAY);
-    display_string(256, y + 5, "-", COLOR_WHITE, COLOR_GRAY);
-    display_fill_rect(278, y + 2, 22, 22, COLOR_GRAY);
-    display_string(284, y + 5, "+", COLOR_WHITE, COLOR_GRAY);
+    // - and + buttons (aligned to right edge)
+    display_fill_rect(260, y + 4, 22, 18, COLOR_GRAY);
+    display_string(266, y + 5, "-", COLOR_WHITE, COLOR_GRAY);
+    display_fill_rect(288, y + 4, 22, 18, COLOR_GRAY);
+    display_string(294, y + 5, "+", COLOR_WHITE, COLOR_GRAY);
     y += UI_ITEM_HEIGHT;
 
-    // Rotation toggle (aligned to right edge, ending at x=300, vertically centered)
-    display_fill_rect(UI_ITEM_MARGIN, y, DISPLAY_WIDTH - 2 * UI_ITEM_MARGIN, UI_ITEM_HEIGHT - 3, COLOR_ITEM_BG);
-    display_string(20, y + UI_TEXT_Y_OFFSET, "Rotate 180", COLOR_ITEM_FG, COLOR_ITEM_BG);
+    // Rotation toggle
+    display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, COLOR_ITEM_BG);
+    display_string(10, y + UI_TEXT_Y_OFFSET, "Rotate 180\x7F", COLOR_ITEM_FG, COLOR_ITEM_BG);
     uint16_t toggle_bg = rotation ? COLOR_GREEN : COLOR_GRAY;
-    display_fill_rect(250, y + 4, 50, 18, toggle_bg);
-    display_string(262, y + 5, rotation ? "On" : "Off", rotation ? COLOR_BLACK : COLOR_WHITE, toggle_bg);
+    display_fill_rect(260, y + 4, 50, 18, toggle_bg);
+    display_string(272, y + 5, rotation ? "On" : "Off", rotation ? COLOR_BLACK : COLOR_WHITE, toggle_bg);
     y += UI_ITEM_HEIGHT;
 
     // About button
-    display_fill_rect(UI_ITEM_MARGIN, y, DISPLAY_WIDTH - 2 * UI_ITEM_MARGIN, UI_ITEM_HEIGHT - 3, COLOR_ITEM_BG);
-    display_string(20, y + UI_TEXT_Y_OFFSET, "About", COLOR_ITEM_FG, COLOR_ITEM_BG);
-    display_string(DISPLAY_WIDTH - 30, y + UI_TEXT_Y_OFFSET, ">", COLOR_ITEM_FG, COLOR_ITEM_BG);
+    display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, COLOR_ITEM_BG);
+    display_string(10, y + UI_TEXT_Y_OFFSET, "About", COLOR_ITEM_FG, COLOR_ITEM_BG);
+    display_string(DISPLAY_WIDTH - 18, y + UI_TEXT_Y_OFFSET, ">", COLOR_ITEM_FG, COLOR_ITEM_BG);
     y += UI_ITEM_HEIGHT;
 
     // Done button
-    display_fill_rect(UI_ITEM_MARGIN, y, DISPLAY_WIDTH - 2 * UI_ITEM_MARGIN, UI_ITEM_HEIGHT - 3, COLOR_GREEN);
+    display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, COLOR_GREEN);
     display_string((DISPLAY_WIDTH - 4 * CHAR_WIDTH) / 2, y + UI_TEXT_Y_OFFSET, "Done", COLOR_BLACK, COLOR_GREEN);
 }
 
@@ -134,7 +134,7 @@ settings_result_t ui_settings_update(void) {
         // Brightness controls
         if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT) {
             // Minus button
-            if (touch.x >= 250 && touch.x < 272) {
+            if (touch.x >= 260 && touch.x < 282) {
                 if (brightness > BRIGHTNESS_MIN) {
                     brightness -= BRIGHTNESS_STEP;
                     display_set_backlight(brightness);
@@ -143,7 +143,7 @@ settings_result_t ui_settings_update(void) {
                 }
             }
             // Plus button
-            else if (touch.x >= 278 && touch.x < 300) {
+            else if (touch.x >= 288 && touch.x < 310) {
                 if (brightness < BRIGHTNESS_MAX) {
                     if (brightness <= BRIGHTNESS_MAX - BRIGHTNESS_STEP) {
                         brightness += BRIGHTNESS_STEP;
@@ -158,8 +158,8 @@ settings_result_t ui_settings_update(void) {
         }
         y += UI_ITEM_HEIGHT;
 
-        // Rotation toggle (only on the button, x=250 to 300)
-        if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT && touch.x >= 250 && touch.x < 300) {
+        // Rotation toggle (only on the button, x=260 to 310)
+        if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT && touch.x >= 260 && touch.x < 310) {
             rotation = !rotation;
             display_set_rotation(rotation);
             nvs_config_set_rotation(rotation);

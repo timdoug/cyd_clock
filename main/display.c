@@ -229,6 +229,8 @@ static const uint8_t font_8x16[] = {
     0x00,0x00,0x70,0x18,0x18,0x18,0x0E,0x18,0x18,0x18,0x18,0x70,0x00,0x00,0x00,0x00,
     // ~ (126)
     0x00,0x00,0x76,0xDC,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+    // degree (127)
+    0x00,0x18,0x24,0x24,0x18,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
 };
 
 // 7-segment patterns for digits 0-9
@@ -431,7 +433,7 @@ void display_rect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) {
 }
 
 void display_char(int16_t x, int16_t y, char c, uint16_t fg, uint16_t bg) {
-    if (c < 32 || c > 126) c = '?';
+    if (c < 32 || c > 127) c = '?';
     const uint8_t *glyph = &font_8x16[(c - 32) * 16];
 
     set_addr_window(x, y, 8, 16);
@@ -473,7 +475,7 @@ static inline int get_glyph_pixel(const uint8_t *glyph, int row, int col) {
 }
 
 static void display_char_2x(int16_t x, int16_t y, char c, uint16_t fg, uint16_t bg) {
-    if (c < 32 || c > 126) c = '?';
+    if (c < 32 || c > 127) c = '?';
     const uint8_t *glyph = &font_8x16[(c - 32) * 16];
     uint16_t smooth = blend_color(fg, bg);
 

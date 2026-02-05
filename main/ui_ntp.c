@@ -65,16 +65,17 @@ static void draw_keyboard(void) {
         }
     }
 
-    // Del button: above keyboard, right side (in gap between input and keys)
-    display_fill_rect(255, 90, 55, 24, COLOR_GRAY);
-    display_string(268, 95, "Del", COLOR_WHITE, COLOR_GRAY);
-
-    // Bottom row: Cancel (left), Done (right)
+    // Bottom row: Cancel (left), Del (center), Done (right)
     int y = KEY_START_Y + 4 * KEY_HEIGHT;
-    display_fill_rect(10, y, 80, KEY_HEIGHT - 2, COLOR_RED);
+    int btn_h = KEY_HEIGHT - 2;
+
+    display_fill_rect(10, y, 80, btn_h, COLOR_RED);
     display_string(26, y + 3, "Cancel", COLOR_WHITE, COLOR_RED);
 
-    display_fill_rect(230, y, 80, KEY_HEIGHT - 2, COLOR_GREEN);
+    display_fill_rect(120, y, 80, btn_h, COLOR_GRAY);
+    display_string(144, y + 3, "Del", COLOR_WHITE, COLOR_GRAY);
+
+    display_fill_rect(230, y, 80, btn_h, COLOR_GREEN);
     display_string(254, y + 3, "Done", COLOR_BLACK, COLOR_GREEN);
 }
 
@@ -100,16 +101,14 @@ static void draw_server_input(void) {
 }
 
 static char get_key_at(int16_t x, int16_t y) {
-    // Del button: above keyboard (y 90-114, x 255-310)
-    if (y >= 90 && y < 114 && x >= 255) return '\x08';
-
     if (y < KEY_START_Y) return 0;
 
     int row = (y - KEY_START_Y) / KEY_HEIGHT;
 
-    // Bottom row: Cancel (left), Done (right)
+    // Bottom row: Cancel (left), Del (center), Done (right)
     if (row >= 4) {
         if (x >= 10 && x < 90) return '\x1B';      // Cancel
+        if (x >= 120 && x < 200) return '\x08';    // Del
         if (x >= 230 && x < 310) return '\x0D';    // Done
         return 0;
     }
@@ -173,8 +172,8 @@ static void draw_main_screen(void) {
     y += 36;
 
     // Sync Now button
-    display_fill_rect(10, y, 100, 28, COLOR_GREEN);
-    display_string(22, y + 7, "Sync Now", COLOR_BLACK, COLOR_GREEN);
+    display_fill_rect(10, y, 80, 28, COLOR_GREEN);
+    display_string(18, y + 7, "Sync Now", COLOR_BLACK, COLOR_GREEN);
 }
 
 static void draw_keyboard_screen(void) {
@@ -233,7 +232,7 @@ ntp_result_t ui_ntp_update(void) {
 
             // Sync Now button
             int sync_y = interval_y + 36;
-            if (touch.y >= sync_y && touch.y < sync_y + 28 && touch.x >= 10 && touch.x < 110) {
+            if (touch.y >= sync_y && touch.y < sync_y + 28 && touch.x >= 10 && touch.x < 90) {
                 wifi_force_ntp_sync();
                 return NTP_RESULT_SYNCED;
             }
