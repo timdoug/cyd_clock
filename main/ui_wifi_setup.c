@@ -126,8 +126,8 @@ static void draw_network_list(void) {
 }
 
 static void draw_back_button(void) {
-    display_fill_rect(5, 5, 50, 20, COLOR_RED);
-    display_string(10, 8, "Back", COLOR_WHITE, COLOR_RED);
+    display_fill_rect(5, 5, 50, 20, COLOR_DARKGRAY);
+    display_string(15, 8, "Back", COLOR_WHITE, COLOR_DARKGRAY);
 }
 
 static void draw_password_input(void) {
@@ -343,9 +343,14 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
 
         case STATE_PASSWORD_ENTRY:
             if (touched) {
-                // Header Back button - return to settings
+                // Header Back button - return to network list
                 if (touch.y < HEADER_HEIGHT && touch.x < 60) {
-                    return WIFI_SETUP_CANCELLED;
+                    state = STATE_NETWORK_LIST;
+                    selected_network = -1;
+                    display_fill(COLOR_BLACK);
+                    draw_header("Select Network", true);
+                    draw_network_list();
+                    break;
                 }
 
                 char key = get_key_at(touch.x, touch.y);

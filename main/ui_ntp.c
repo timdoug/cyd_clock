@@ -4,6 +4,8 @@
 #include "wifi.h"
 #include "nvs_config.h"
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -143,15 +145,10 @@ static void draw_main_screen(void) {
 
     // Show current server in a tappable box
     display_fill_rect(10, y, DISPLAY_WIDTH - 20, 28, COLOR_DARKGRAY);
-    const char *server = wifi_get_custom_ntp_server();
-    if (server && server[0]) {
-        char display_server[38];
-        strncpy(display_server, server, 37);
-        display_server[37] = '\0';
-        display_string(15, y + 7, display_server, COLOR_WHITE, COLOR_DARKGRAY);
-    } else {
-        display_string(15, y + 7, "pool.ntp.org", COLOR_WHITE, COLOR_DARKGRAY);
-    }
+    char display_server[38];
+    strncpy(display_server, wifi_get_custom_ntp_server(), 37);
+    display_server[37] = '\0';
+    display_string(15, y + 7, display_server, COLOR_WHITE, COLOR_DARKGRAY);
     display_string(DISPLAY_WIDTH - 30, y + 7, ">", COLOR_WHITE, COLOR_DARKGRAY);
     y += 40;
 
@@ -173,6 +170,11 @@ static void draw_main_screen(void) {
         int text_x = btn_x + (btn_w - strlen(interval_names[i]) * 8) / 2;
         display_string(text_x, y + 5, interval_names[i], fg, bg);
     }
+    y += 36;
+
+    // Sync Now button
+    display_fill_rect(10, y, 100, 28, COLOR_GREEN);
+    display_string(22, y + 7, "Sync Now", COLOR_BLACK, COLOR_GREEN);
 }
 
 static void draw_keyboard_screen(void) {
@@ -192,15 +194,9 @@ void ui_ntp_init(void) {
     ui_state = NTP_STATE_MAIN;
 
     // Load current custom server
-    const char *current = wifi_get_custom_ntp_server();
-    if (current && current[0]) {
-        strncpy(custom_server, current, sizeof(custom_server) - 1);
-        custom_server_len = strlen(custom_server);
-    } else {
-        // Default to pool.ntp.org
-        strcpy(custom_server, "pool.ntp.org");
-        custom_server_len = strlen(custom_server);
-    }
+    strncpy(custom_server, wifi_get_custom_ntp_server(), sizeof(custom_server) - 1);
+    custom_server[sizeof(custom_server) - 1] = '\0';
+    custom_server_len = strlen(custom_server);
 
     draw_main_screen();
 }
@@ -234,26 +230,28 @@ ntp_result_t ui_ntp_update(void) {
                     draw_main_screen();
                 }
             }
+
+            // Sync Now button
+            int sync_y = interval_y + 36;
+            if (touch.y >= sync_y && touch.y < sync_y + 28 && touch.x >= 10 && touch.x < 110) {
+                wifi_force_ntp_sync();
+                return NTP_RESULT_SYNCED;
+            }
         } else if (ui_state == NTP_STATE_KEYBOARD) {
             char key = get_key_at(touch.x, touch.y);
 
             if (key == '\x1B') {  // Cancel
                 // Restore from saved
-                const char *current = wifi_get_custom_ntp_server();
-                if (current && current[0]) {
-                    strncpy(custom_server, current, sizeof(custom_server) - 1);
-                    custom_server_len = strlen(custom_server);
-                } else {
-                    strcpy(custom_server, "pool.ntp.org");
-                    custom_server_len = strlen(custom_server);
-                }
+                strncpy(custom_server, wifi_get_custom_ntp_server(), sizeof(custom_server) - 1);
+                custom_server[sizeof(custom_server) - 1] = '\0';
+                custom_server_len = strlen(custom_server);
                 ui_state = NTP_STATE_MAIN;
                 draw_main_screen();
             } else if (key == '\x0D') {  // Done
                 if (custom_server_len > 0) {
                     wifi_set_custom_ntp_server(custom_server);
                     nvs_config_set_custom_ntp_server(custom_server);
-                    wifi_restart_ntp();
+                    wifi_force_ntp_sync();
                 }
                 ui_state = NTP_STATE_MAIN;
                 draw_main_screen();

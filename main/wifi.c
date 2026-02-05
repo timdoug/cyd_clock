@@ -22,11 +22,12 @@ static bool time_synced = false;
 static int retry_count = 0;
 #define MAX_RETRY 5
 
-// NTP server (custom only, default to pool.ntp.org)
-static char custom_ntp_server[64] = "pool.ntp.org";
+// NTP server (custom only)
+static char custom_ntp_server[64] = DEFAULT_NTP_SERVER;
 
 // NTP statistics
 static time_t last_sync_time = 0;
+static uint32_t sync_start_ticks = 0;  // Tick count when we started trying to sync
 static uint32_t sync_count = 0;
 static uint32_t ntp_interval = 21600;  // Default 6 hours
 
@@ -204,10 +205,12 @@ void wifi_disconnect(void) {
 }
 
 void wifi_start_ntp(void) {
-    const char *server = custom_ntp_server[0] ? custom_ntp_server : "pool.ntp.org";
+    const char *server = wifi_get_custom_ntp_server();
 
     ESP_LOGI(TAG, "Starting NTP sync (server: %s, interval: %lu sec)",
              server, (unsigned long)ntp_interval);
+
+    sync_start_ticks = xTaskGetTickCount();
 
     esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
     esp_sntp_setservername(0, server);
@@ -232,6 +235,13 @@ void wifi_get_ntp_stats(ntp_stats_t *stats) {
     stats->sync_count = sync_count;
     stats->sync_interval = ntp_interval;
 
+    // Calculate elapsed time since sync started
+    if (!time_synced && sync_start_ticks > 0) {
+        stats->sync_elapsed_ms = pdTICKS_TO_MS(xTaskGetTickCount() - sync_start_ticks);
+    } else {
+        stats->sync_elapsed_ms = 0;
+    }
+
     // Get current server (index 0 is primary)
     stats->server = esp_sntp_getservername(0);
     if (!stats->server) {
@@ -252,8 +262,11 @@ void wifi_set_ntp_interval(uint32_t seconds) {
 }
 
 void wifi_force_ntp_sync(void) {
+    // Full restart to pick up any new server/interval settings
     if (esp_sntp_enabled()) {
-        esp_sntp_restart();
+        time_synced = false;  // Reset so UI shows "Syncing..." state
+        esp_sntp_stop();
+        wifi_start_ntp();
     }
 }
 
@@ -266,7 +279,7 @@ void wifi_restart_ntp(void) {
 }
 
 const char *wifi_get_custom_ntp_server(void) {
-    return custom_ntp_server;
+    return custom_ntp_server[0] ? custom_ntp_server : DEFAULT_NTP_SERVER;
 }
 
 void wifi_set_custom_ntp_server(const char *server) {

@@ -458,6 +458,41 @@ void display_string(int16_t x, int16_t y, const char *str, uint16_t fg, uint16_t
     }
 }
 
+static void display_char_2x(int16_t x, int16_t y, char c, uint16_t fg, uint16_t bg) {
+    if (c < 32 || c > 126) c = '?';
+    const uint8_t *glyph = &font_8x16[(c - 32) * 16];
+
+    set_addr_window(x, y, 16, 32);
+    dc_data();
+
+    uint8_t buf[1024];  // 16 * 32 * 2 = 1024 bytes
+    int idx = 0;
+    for (int row = 0; row < 16; row++) {
+        uint8_t bits = glyph[row];
+        // Each row is drawn twice (2x vertical scale)
+        for (int dup = 0; dup < 2; dup++) {
+            uint8_t b = bits;
+            for (int col = 0; col < 8; col++) {
+                uint16_t color = (b & 0x80) ? fg : bg;
+                // Each pixel is drawn twice (2x horizontal scale)
+                buf[idx++] = color >> 8;
+                buf[idx++] = color & 0xFF;
+                buf[idx++] = color >> 8;
+                buf[idx++] = color & 0xFF;
+                b <<= 1;
+            }
+        }
+    }
+    spi_write_bytes(buf, 1024);
+}
+
+void display_string_2x(int16_t x, int16_t y, const char *str, uint16_t fg, uint16_t bg) {
+    while (*str) {
+        display_char_2x(x, y, *str++, fg, bg);
+        x += 16;
+    }
+}
+
 // Draw a single 7-segment element (horizontal or vertical bar)
 static void draw_segment_h(int16_t x, int16_t y, int16_t w, int16_t thick, uint16_t color) {
     // Horizontal segment with pointed ends

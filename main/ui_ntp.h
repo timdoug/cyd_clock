@@ -4,6 +4,7 @@
 typedef enum {
     NTP_RESULT_NONE,
     NTP_RESULT_BACK,
+    NTP_RESULT_SYNCED,  // Sync triggered, return to clock
 } ntp_result_t;
 
 void ui_ntp_init(void);

@@ -11,10 +11,10 @@ static const char *TAG = "ui_clock";
 
 // Layout constants
 #define TIME_Y      20
-#define DATE_Y      130
-#define STATS_Y     155
-#define STATS_LINE2 170
-#define STATS_LINE3 185
+#define DATE_Y      116
+#define STATS_Y     168
+#define STATS_LINE2 188
+#define STATS_LINE3 208
 
 // Colors
 #define COLOR_TIME_FG   COLOR_RED
@@ -33,14 +33,12 @@ static bool last_synced_state = false;
 static int last_stats_sec = -1;
 
 static const char *day_names[] = {
-    "Sunday", "Monday", "Tuesday", "Wednesday",
-    "Thursday", "Friday", "Saturday"
+    "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
 };
 
 static const char *month_names[] = {
-    "January", "February", "March", "April",
-    "May", "June", "July", "August",
-    "September", "October", "November", "December"
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 };
 
 // Draw centered string with full-width background (no pre-clear needed)
@@ -59,6 +57,25 @@ static void draw_centered_string(int16_t y, const char *str, uint16_t fg, uint16
     int right_x = x + text_width;
     if (right_x < DISPLAY_WIDTH) {
         display_fill_rect(right_x, y, DISPLAY_WIDTH - right_x, 16, bg);
+    }
+}
+
+// Draw centered string at 2x scale with full-width background
+static void draw_centered_string_2x(int16_t y, const char *str, uint16_t fg, uint16_t bg) {
+    int len = strlen(str);
+    int text_width = len * 16;  // 2x scale = 16px per char
+    int x = (DISPLAY_WIDTH - text_width) / 2;
+
+    // Fill left padding
+    if (x > 0) {
+        display_fill_rect(0, y, x, 32, bg);
+    }
+    // Draw text
+    display_string_2x(x, y, str, fg, bg);
+    // Fill right padding
+    int right_x = x + text_width;
+    if (right_x < DISPLAY_WIDTH) {
+        display_fill_rect(right_x, y, DISPLAY_WIDTH - right_x, 32, bg);
     }
 }
 
@@ -182,14 +199,14 @@ void ui_clock_update(void) {
 
     // Update date only when day changes
     if (timeinfo.tm_yday != last_day || last_day < 0) {
-        char date_str[64];
-        snprintf(date_str, sizeof(date_str), "%s, %s %d, %d",
+        char date_str[32];
+        snprintf(date_str, sizeof(date_str), "%s %s %d, %d",
                  day_names[timeinfo.tm_wday],
                  month_names[timeinfo.tm_mon],
                  timeinfo.tm_mday,
                  timeinfo.tm_year + 1900);
 
-        draw_centered_string(DATE_Y, date_str, COLOR_DATE_FG, COLOR_BLACK);
+        draw_centered_string_2x(DATE_Y, date_str, COLOR_DATE_FG, COLOR_BLACK);
         last_day = timeinfo.tm_yday;
     }
 
@@ -199,12 +216,13 @@ void ui_clock_update(void) {
 
     // Line 1: Sync status with server
     if (stats.synced != last_synced_state || last_stats_sec < 0) {
+        char status_str[48];
         if (stats.synced) {
-            char status_str[48];
             snprintf(status_str, sizeof(status_str), "NTP: %s", stats.server);
             draw_centered_string(STATS_Y, status_str, COLOR_SYNC_OK, COLOR_BLACK);
         } else {
-            draw_centered_string(STATS_Y, "Syncing...", COLOR_SYNC_WAIT, COLOR_BLACK);
+            snprintf(status_str, sizeof(status_str), "Syncing: %s", wifi_get_custom_ntp_server());
+            draw_centered_string(STATS_Y, status_str, COLOR_SYNC_WAIT, COLOR_BLACK);
         }
         last_synced_state = stats.synced;
     }
@@ -213,45 +231,48 @@ void ui_clock_update(void) {
     if (sec != last_stats_sec) {
         last_stats_sec = sec;
 
-        // Line 2: Last sync and sync count
-        if (stats.synced && stats.last_sync_time > 0) {
-            time_t time_since = now - stats.last_sync_time;
-            char line2[48];
+        if (stats.synced) {
+            // Line 2: Last sync and sync count
+            if (stats.last_sync_time > 0) {
+                time_t time_since = now - stats.last_sync_time;
+                char line2[48];
 
-            if (time_since < 60) {
-                snprintf(line2, sizeof(line2), "Last: %lds ago  Syncs: %lu",
-                         (long)time_since, (unsigned long)stats.sync_count);
-            } else if (time_since < 3600) {
-                snprintf(line2, sizeof(line2), "Last: %ldm ago  Syncs: %lu",
-                         (long)(time_since / 60), (unsigned long)stats.sync_count);
-            } else {
-                snprintf(line2, sizeof(line2), "Last: %ldh %ldm ago  Syncs: %lu",
-                         (long)(time_since / 3600), (long)((time_since % 3600) / 60),
-                         (unsigned long)stats.sync_count);
-            }
-            draw_centered_string(STATS_LINE2, line2, COLOR_STATS, COLOR_BLACK);
-        } else {
-            draw_centered_string(STATS_LINE2, "", COLOR_BLACK, COLOR_BLACK);
-        }
-
-        // Line 3: Next sync countdown
-        if (stats.synced && stats.last_sync_time > 0) {
-            time_t next_sync = stats.last_sync_time + stats.sync_interval;
-            time_t until_next = next_sync - now;
-
-            if (until_next > 0) {
-                char line3[48];
-                if (until_next < 60) {
-                    snprintf(line3, sizeof(line3), "Next sync: %lds", (long)until_next);
+                if (time_since < 60) {
+                    snprintf(line2, sizeof(line2), "Last: %lds ago  Syncs: %lu",
+                             (long)time_since, (unsigned long)stats.sync_count);
+                } else if (time_since < 3600) {
+                    snprintf(line2, sizeof(line2), "Last: %ldm ago  Syncs: %lu",
+                             (long)(time_since / 60), (unsigned long)stats.sync_count);
                 } else {
-                    snprintf(line3, sizeof(line3), "Next sync: %ldm %lds",
-                             (long)(until_next / 60), (long)(until_next % 60));
+                    snprintf(line2, sizeof(line2), "Last: %ldh %ldm ago  Syncs: %lu",
+                             (long)(time_since / 3600), (long)((time_since % 3600) / 60),
+                             (unsigned long)stats.sync_count);
                 }
-                draw_centered_string(STATS_LINE3, line3, COLOR_STATS, COLOR_BLACK);
-            } else {
-                draw_centered_string(STATS_LINE3, "Sync pending...", COLOR_SYNC_WAIT, COLOR_BLACK);
+                draw_centered_string(STATS_LINE2, line2, COLOR_STATS, COLOR_BLACK);
+
+                // Line 3: Next sync countdown
+                time_t next_sync = stats.last_sync_time + stats.sync_interval;
+                time_t until_next = next_sync - now;
+
+                if (until_next > 0) {
+                    char line3[48];
+                    if (until_next < 60) {
+                        snprintf(line3, sizeof(line3), "Next sync: %lds", (long)until_next);
+                    } else {
+                        snprintf(line3, sizeof(line3), "Next sync: %ldm %lds",
+                                 (long)(until_next / 60), (long)(until_next % 60));
+                    }
+                    draw_centered_string(STATS_LINE3, line3, COLOR_STATS, COLOR_BLACK);
+                } else {
+                    draw_centered_string(STATS_LINE3, "Sync pending...", COLOR_SYNC_WAIT, COLOR_BLACK);
+                }
             }
         } else {
+            // Not synced - show elapsed time on line 2
+            char line2[48];
+            uint32_t elapsed_sec = stats.sync_elapsed_ms / 1000;
+            snprintf(line2, sizeof(line2), "Waiting: %lus", (unsigned long)elapsed_sec);
+            draw_centered_string(STATS_LINE2, line2, COLOR_STATS, COLOR_BLACK);
             draw_centered_string(STATS_LINE3, "", COLOR_BLACK, COLOR_BLACK);
         }
     }

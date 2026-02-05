@@ -6,6 +6,7 @@
 #include <time.h>
 
 #define MAX_SCAN_RESULTS 15
+#define DEFAULT_NTP_SERVER "pool.ntp.org"
 
 // WiFi network info from scan
 typedef struct {
@@ -20,6 +21,7 @@ typedef struct {
     time_t last_sync_time;    // Unix timestamp of last successful sync
     uint32_t sync_count;      // Total number of successful syncs
     uint32_t sync_interval;   // Current sync interval in seconds
+    uint32_t sync_elapsed_ms; // Milliseconds since sync attempt started (when not synced)
     const char *server;       // Current NTP server name
 } ntp_stats_t;
 

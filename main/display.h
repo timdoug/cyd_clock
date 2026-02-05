@@ -47,6 +47,9 @@ void display_char(int16_t x, int16_t y, char c, uint16_t fg, uint16_t bg);
 // Draw string
 void display_string(int16_t x, int16_t y, const char *str, uint16_t fg, uint16_t bg);
 
+// Draw string at 2x scale (16x32 per char)
+void display_string_2x(int16_t x, int16_t y, const char *str, uint16_t fg, uint16_t bg);
+
 // Draw large 7-segment digit (for clock)
 // size: 1=small (20x40), 2=medium (40x80), 3=large (60x120)
 void display_digit_7seg(int16_t x, int16_t y, uint8_t digit, uint8_t size, uint16_t color, uint16_t bg);

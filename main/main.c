@@ -205,7 +205,7 @@ void app_main(void) {
                 settings_result_t result = ui_settings_update();
                 if (result == SETTINGS_RESULT_TIMEZONE) {
                     app_state = APP_STATE_TIMEZONE;
-                    ui_timezone_init();
+                    ui_timezone_init(stored_tz);
                     while (touch_is_pressed()) {
                         vTaskDelay(pdMS_TO_TICKS(50));
                     }
@@ -244,6 +244,8 @@ void app_main(void) {
                 if (result == TZ_SELECT_DONE) {
                     // Save and apply new timezone
                     const char *tz = ui_timezone_get_selected();
+                    strncpy(stored_tz, tz, sizeof(stored_tz) - 1);
+                    stored_tz[sizeof(stored_tz) - 1] = '\0';
                     nvs_config_set_timezone(tz);
                     wifi_set_timezone(tz);
                     ESP_LOGI(TAG, "Timezone set to: %s", ui_timezone_get_name());
@@ -279,6 +281,10 @@ void app_main(void) {
                     while (touch_is_pressed()) {
                         vTaskDelay(pdMS_TO_TICKS(50));
                     }
+                } else if (result == NTP_RESULT_SYNCED) {
+                    app_state = APP_STATE_CLOCK;
+                    ui_clock_init();
+                    ui_clock_redraw();
                 }
                 break;
             }

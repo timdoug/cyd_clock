@@ -127,9 +127,27 @@ static void draw_list(void) {
     }
 }
 
-void ui_timezone_init(void) {
+void ui_timezone_init(const char *current_tz) {
     ESP_LOGI(TAG, "Initializing timezone selector");
     selection_made = false;
+
+    // Find current timezone in list
+    selected_tz = 0;
+    if (current_tz) {
+        for (int i = 0; i < NUM_TIMEZONES; i++) {
+            if (strcmp(timezones[i].tz, current_tz) == 0) {
+                selected_tz = i;
+                break;
+            }
+        }
+    }
+
+    // Scroll so selected item is visible (center it if possible)
+    scroll_offset = selected_tz - LIST_VISIBLE / 2;
+    if (scroll_offset < 0) scroll_offset = 0;
+    if (scroll_offset > NUM_TIMEZONES - LIST_VISIBLE) {
+        scroll_offset = NUM_TIMEZONES - LIST_VISIBLE;
+    }
 
     display_fill(COLOR_BLACK);
     draw_header();

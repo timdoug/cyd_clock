@@ -10,8 +10,8 @@ typedef enum {
     TZ_SELECT_CANCELLED,  // User cancelled
 } tz_select_result_t;
 
-// Initialize timezone selector UI
-void ui_timezone_init(void);
+// Initialize timezone selector UI (pass current TZ to highlight it)
+void ui_timezone_init(const char *current_tz);
 
 // Run one iteration of timezone selector (call in loop)
 tz_select_result_t ui_timezone_update(void);
