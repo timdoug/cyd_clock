@@ -19,6 +19,9 @@ CONFIG_NVS_ENCRYPTION=n
 # FreeRTOS
 CONFIG_FREERTOS_HZ=1000
 
+# RTC clock: use internal 8.5MHz oscillator / 256 (more accurate than RC)
+CONFIG_RTC_CLK_SRC_INT_8MD256=y
+
 # SPI RAM (CYD doesn't have PSRAM, disable)
 CONFIG_SPIRAM=n
 
