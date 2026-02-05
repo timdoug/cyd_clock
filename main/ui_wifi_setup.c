@@ -52,10 +52,10 @@ static const char *keyboard_upper[] = {
 };
 
 static const char *keyboard_symbols[] = {
-    "1234567890",
-    "-_=+[]{}|",
-    ";:'\"<>,.?/",
-    "\\`~",
+    "!@#$%^&*()",
+    "-_=+[]{}\\|",
+    ";:'\"<>,.",
+    "`~?/",
 };
 
 // State variables
