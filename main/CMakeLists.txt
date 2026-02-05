@@ -5,6 +5,7 @@ idf_component_register(
     SRCS
         "main.c"
         "display.c"
+        "led.c"
         "touch.c"
         "wifi.c"
         "nvs_config.c"

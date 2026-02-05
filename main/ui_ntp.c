@@ -1,4 +1,5 @@
 #include "ui_ntp.h"
+#include "ui_common.h"
 #include "display.h"
 #include "touch.h"
 #include "wifi.h"
@@ -11,7 +12,6 @@
 
 static const char *TAG = "ui_ntp";
 
-#define HEADER_HEIGHT 30
 
 // Interval options in seconds
 static const uint32_t intervals[] = {600, 3600, 21600, 86400};
@@ -128,13 +128,7 @@ static char get_key_at(int16_t x, int16_t y) {
 static void draw_main_screen(void) {
     display_fill(COLOR_BLACK);
 
-    // Header
-    display_fill_rect(0, 0, DISPLAY_WIDTH, HEADER_HEIGHT, COLOR_BLUE);
-    display_string((DISPLAY_WIDTH - 12 * 8) / 2, 8, "NTP Settings", COLOR_WHITE, COLOR_BLUE);
-
-    // Back button
-    display_fill_rect(5, 5, 50, 20, COLOR_DARKGRAY);
-    display_string(15, 8, "Back", COLOR_WHITE, COLOR_DARKGRAY);
+    ui_draw_header("NTP Settings", true);
 
     int y = 40;
 
@@ -145,7 +139,7 @@ static void draw_main_screen(void) {
     // Show current server in a tappable box
     display_fill_rect(10, y, DISPLAY_WIDTH - 20, 28, COLOR_DARKGRAY);
     char display_server[38];
-    strncpy(display_server, wifi_get_custom_ntp_server(), 37);
+    strncpy(display_server, wifi_get_custom_ntp_server(), sizeof(display_server) - 1);
     display_server[37] = '\0';
     display_string(15, y + 7, display_server, COLOR_WHITE, COLOR_DARKGRAY);
     display_string(DISPLAY_WIDTH - 30, y + 7, ">", COLOR_WHITE, COLOR_DARKGRAY);
@@ -179,9 +173,7 @@ static void draw_main_screen(void) {
 static void draw_keyboard_screen(void) {
     display_fill(COLOR_BLACK);
 
-    // Header
-    display_fill_rect(0, 0, DISPLAY_WIDTH, HEADER_HEIGHT, COLOR_BLUE);
-    display_string((DISPLAY_WIDTH - 10 * 8) / 2, 8, "NTP Server", COLOR_WHITE, COLOR_BLUE);
+    ui_draw_header("NTP Server", false);
 
     draw_server_input();
     draw_keyboard();
@@ -207,7 +199,7 @@ ntp_result_t ui_ntp_update(void) {
     if (touched && !touched_last) {
         if (ui_state == NTP_STATE_MAIN) {
             // Back button
-            if (touch.y < HEADER_HEIGHT && touch.x < 60) {
+            if (touch.y < UI_HEADER_HEIGHT && touch.x < 60) {
                 touched_last = touched;
                 return NTP_RESULT_BACK;
             }

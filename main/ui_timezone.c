@@ -1,4 +1,5 @@
 #include "ui_timezone.h"
+#include "ui_common.h"
 #include "display.h"
 #include "touch.h"
 #include "esp_log.h"
@@ -83,7 +84,6 @@ static const timezone_entry_t timezones[] = {
 #define NUM_TIMEZONES (sizeof(timezones) / sizeof(timezones[0]))
 
 // Layout
-#define HEADER_HEIGHT 30
 #define LIST_ITEM_H   28
 #define LIST_START_Y  35
 #define LIST_VISIBLE  6
@@ -95,14 +95,7 @@ static int scroll_offset = 0;
 static bool selection_made = false;
 static uint32_t last_touch_time = 0;
 
-static void draw_header(void) {
-    display_fill_rect(0, 0, DISPLAY_WIDTH, HEADER_HEIGHT, COLOR_BLUE);
-    display_string((DISPLAY_WIDTH - 15 * 8) / 2, 8, "Select Timezone", COLOR_WHITE, COLOR_BLUE);
 
-    // Back button
-    display_fill_rect(5, 5, 50, 20, COLOR_DARKGRAY);
-    display_string(15, 8, "Back", COLOR_WHITE, COLOR_DARKGRAY);
-}
 
 static void draw_list(void) {
     display_fill_rect(0, LIST_START_Y, DISPLAY_WIDTH, DISPLAY_HEIGHT - LIST_START_Y, COLOR_BLACK);
@@ -150,7 +143,7 @@ void ui_timezone_init(const char *current_tz) {
     }
 
     display_fill(COLOR_BLACK);
-    draw_header();
+    ui_draw_header("Select Timezone", true);
     draw_list();
 }
 
@@ -163,12 +156,11 @@ tz_select_result_t ui_timezone_update(void) {
     bool touched = touch_read(&touch);
 
     // Debounce
-    uint32_t now = xTaskGetTickCount();
-    if (touched && (now - last_touch_time) < pdMS_TO_TICKS(200)) {
+    if (touched && ui_should_debounce(last_touch_time)) {
         touched = false;
     }
     if (touched) {
-        last_touch_time = now;
+        last_touch_time = xTaskGetTickCount();
     }
 
     if (!touched) {
@@ -176,7 +168,7 @@ tz_select_result_t ui_timezone_update(void) {
     }
 
     // Back button
-    if (touch.y < HEADER_HEIGHT && touch.x < 60) {
+    if (touch.y < UI_HEADER_HEIGHT && touch.x < 60) {
         return TZ_SELECT_CANCELLED;
     }
 

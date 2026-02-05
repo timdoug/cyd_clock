@@ -1,4 +1,5 @@
 #include "touch.h"
+#include "config.h"
 #include "display.h"
 #include "driver/spi_master.h"
 #include "driver/gpio.h"
@@ -19,11 +20,6 @@ static const char *TAG = "touch";
 #define XPT2046_CMD_X  0xD0  // X position
 #define XPT2046_CMD_Y  0x90  // Y position
 
-// Calibration values (adjust for your specific display)
-#define TOUCH_MIN_X  340
-#define TOUCH_MAX_X  3900
-#define TOUCH_MIN_Y  240
-#define TOUCH_MAX_Y  3800
 
 static spi_device_handle_t touch_spi;
 

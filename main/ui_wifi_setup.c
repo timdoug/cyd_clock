@@ -1,4 +1,5 @@
 #include "ui_wifi_setup.h"
+#include "ui_common.h"
 #include "display.h"
 #include "touch.h"
 #include "wifi.h"
@@ -20,7 +21,6 @@ typedef enum {
 } setup_state_t;
 
 // Layout constants
-#define HEADER_HEIGHT   30
 #define LIST_ITEM_H     28
 #define LIST_START_Y    35
 #define LIST_VISIBLE    6
@@ -30,8 +30,6 @@ typedef enum {
 #define KEY_SPACING     2
 
 // Colors
-#define COLOR_HEADER    COLOR_BLUE
-#define COLOR_SELECTED  COLOR_CYAN
 #define COLOR_KEYBOARD  COLOR_DARKGRAY
 #define COLOR_KEY_FG    COLOR_WHITE
 #define COLOR_INPUT     COLOR_GREEN
@@ -72,16 +70,6 @@ static char connected_ssid[33] = {0};
 static char connected_password[64] = {0};
 static uint32_t last_touch_time = 0;
 
-static void draw_header(const char *title, bool show_back) {
-    display_fill_rect(0, 0, DISPLAY_WIDTH, HEADER_HEIGHT, COLOR_HEADER);
-    int x = (DISPLAY_WIDTH - strlen(title) * 8) / 2;
-    display_string(x, 8, title, COLOR_WHITE, COLOR_HEADER);
-
-    if (show_back) {
-        display_fill_rect(5, 5, 50, 20, COLOR_DARKGRAY);
-        display_string(15, 8, "Back", COLOR_WHITE, COLOR_DARKGRAY);
-    }
-}
 
 static void draw_network_list(void) {
     display_fill_rect(0, LIST_START_Y, DISPLAY_WIDTH, DISPLAY_HEIGHT - LIST_START_Y, COLOR_BLACK);
@@ -90,7 +78,7 @@ static void draw_network_list(void) {
         int idx = i + list_scroll;
         int y = LIST_START_Y + i * LIST_ITEM_H;
 
-        uint16_t bg = (idx == selected_network) ? COLOR_SELECTED : COLOR_BLACK;
+        uint16_t bg = (idx == selected_network) ? UI_COLOR_SELECTED : COLOR_BLACK;
         uint16_t fg = (idx == selected_network) ? COLOR_BLACK : COLOR_WHITE;
 
         display_fill_rect(0, y, DISPLAY_WIDTH, LIST_ITEM_H - 2, bg);
@@ -125,10 +113,6 @@ static void draw_network_list(void) {
     }
 }
 
-static void draw_back_button(void) {
-    display_fill_rect(5, 5, 50, 20, COLOR_DARKGRAY);
-    display_string(15, 8, "Back", COLOR_WHITE, COLOR_DARKGRAY);
-}
 
 static void draw_password_input(void) {
     // Clear password area
@@ -188,9 +172,9 @@ static void draw_keyboard(void) {
     int x = 5;
 
     // Shift key
-    display_fill_rect(x, y, 40, KEY_HEIGHT, shift_active ? COLOR_SELECTED : COLOR_KEYBOARD);
+    display_fill_rect(x, y, 40, KEY_HEIGHT, shift_active ? UI_COLOR_SELECTED : COLOR_KEYBOARD);
     display_string(x + 8, y + 3, "Shf", shift_active ? COLOR_BLACK : COLOR_KEY_FG,
-                   shift_active ? COLOR_SELECTED : COLOR_KEYBOARD);
+                   shift_active ? UI_COLOR_SELECTED : COLOR_KEYBOARD);
     x += 45;
 
     // Mode key
@@ -268,18 +252,17 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
     bool touched = touch_read(&touch);
 
     // Debounce touch
-    uint32_t now = xTaskGetTickCount();
-    if (touched && (now - last_touch_time) < pdMS_TO_TICKS(200)) {
+    if (touched && ui_should_debounce(last_touch_time)) {
         touched = false;
     }
     if (touched) {
-        last_touch_time = now;
+        last_touch_time = xTaskGetTickCount();
     }
 
     switch (state) {
         case STATE_SCANNING:
             display_fill(COLOR_BLACK);
-            draw_header("WiFi Setup", true);
+            ui_draw_header("WiFi Setup", true);
             display_string((DISPLAY_WIDTH - 11 * 8) / 2, 120, "Scanning...", COLOR_WHITE, COLOR_BLACK);
 
             wifi_init();
@@ -287,7 +270,7 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
 
             if (network_count > 0) {
                 state = STATE_NETWORK_LIST;
-                draw_header("Select Network", true);
+                ui_draw_header("Select Network", true);
                 draw_network_list();
             } else {
                 display_fill_rect(0, 100, DISPLAY_WIDTH, 40, COLOR_BLACK);
@@ -296,7 +279,7 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
 
                 if (touched) {
                     // Back button
-                    if (touch.y < HEADER_HEIGHT && touch.x < 60) {
+                    if (touch.y < UI_HEADER_HEIGHT && touch.x < 60) {
                         return WIFI_SETUP_CANCELLED;
                     }
                     state = STATE_SCANNING;
@@ -307,7 +290,7 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
         case STATE_NETWORK_LIST:
             if (touched) {
                 // Back button
-                if (touch.y < HEADER_HEIGHT && touch.x < 60) {
+                if (touch.y < UI_HEADER_HEIGHT && touch.x < 60) {
                     return WIFI_SETUP_CANCELLED;
                 }
 
@@ -320,8 +303,7 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
                         password_len = 0;
                         password[0] = '\0';
                         display_fill(COLOR_BLACK);
-                        draw_header("Enter Password", true);
-                        draw_back_button();
+                        ui_draw_header("Enter Password", true);
                         draw_password_input();
                         draw_keyboard();
                     }
@@ -344,11 +326,11 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
         case STATE_PASSWORD_ENTRY:
             if (touched) {
                 // Header Back button - return to network list
-                if (touch.y < HEADER_HEIGHT && touch.x < 60) {
+                if (touch.y < UI_HEADER_HEIGHT && touch.x < 60) {
                     state = STATE_NETWORK_LIST;
                     selected_network = -1;
                     display_fill(COLOR_BLACK);
-                    draw_header("Select Network", true);
+                    ui_draw_header("Select Network", true);
                     draw_network_list();
                     break;
                 }
@@ -371,7 +353,7 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
                 } else if (key == '\x0D') {  // Connect
                     state = STATE_CONNECTING;
                     display_fill(COLOR_BLACK);
-                    draw_header("Connecting", false);
+                    ui_draw_header("Connecting", false);
                     display_string((DISPLAY_WIDTH - 13 * 8) / 2, 100, "Connecting to", COLOR_WHITE, COLOR_BLACK);
                     display_string((DISPLAY_WIDTH - strlen(networks[selected_network].ssid) * 8) / 2,
                                    130, networks[selected_network].ssid, COLOR_CYAN, COLOR_BLACK);
@@ -411,8 +393,7 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
             if (touched) {
                 state = STATE_PASSWORD_ENTRY;
                 display_fill(COLOR_BLACK);
-                draw_header("Enter Password", true);
-                draw_back_button();
+                ui_draw_header("Enter Password", true);
                 draw_password_input();
                 draw_keyboard();
             }

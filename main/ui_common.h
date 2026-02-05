@@ -15,6 +15,7 @@
 #define UI_COLOR_HEADER     0x001F  // COLOR_BLUE
 #define UI_COLOR_ITEM_BG    0x4208  // COLOR_DARKGRAY
 #define UI_COLOR_ITEM_FG    0xFFFF  // COLOR_WHITE
+#define UI_COLOR_SELECTED   0x07FF  // COLOR_CYAN
 
 // Draw a standard header bar with centered title
 // If show_back is true, shows a "Back" button on the left

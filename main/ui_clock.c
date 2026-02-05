@@ -1,6 +1,7 @@
 #include "ui_clock.h"
 #include "config.h"
 #include "display.h"
+#include "led.h"
 #include "touch.h"
 #include "wifi.h"
 #include "nvs_config.h"

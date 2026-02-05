@@ -60,10 +60,6 @@ void display_colon_7seg(int16_t x, int16_t y, uint8_t size, uint16_t color, uint
 // Set backlight (0-255)
 void display_set_backlight(uint8_t brightness);
 
-// LED control (RGB LED on back of CYD)
-void led_init(void);
-void led_set_brightness(uint8_t brightness);
-
 // Display rotation (180 degrees)
 void display_set_rotation(bool rotated);
 bool display_is_rotated(void);

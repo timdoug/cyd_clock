@@ -1,6 +1,7 @@
 #include "ui_settings.h"
 #include "config.h"
 #include "display.h"
+#include "led.h"
 #include "touch.h"
 #include "nvs_config.h"
 #include "ui_common.h"
@@ -12,10 +13,6 @@ static const char *TAG = "ui_settings";
 
 #define ITEM_START_Y    32
 
-#define COLOR_HEADER    COLOR_BLUE
-#define COLOR_ITEM_BG   COLOR_DARKGRAY
-#define COLOR_ITEM_FG   COLOR_WHITE
-#define COLOR_SELECTED  COLOR_CYAN
 
 static uint8_t brightness = BRIGHTNESS_DEFAULT;
 static uint8_t led_brightness = BRIGHTNESS_DEFAULT;
@@ -30,26 +27,26 @@ static void draw_menu(void) {
     int y = ITEM_START_Y;
 
     // Timezone button
-    display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, COLOR_ITEM_BG);
-    display_string(10, y + UI_TEXT_Y_OFFSET, "Time zone", COLOR_ITEM_FG, COLOR_ITEM_BG);
-    display_string(DISPLAY_WIDTH - 18, y + UI_TEXT_Y_OFFSET, ">", COLOR_ITEM_FG, COLOR_ITEM_BG);
+    display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, UI_COLOR_ITEM_BG);
+    display_string(10, y + UI_TEXT_Y_OFFSET, "Time zone", UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
+    display_string(DISPLAY_WIDTH - 18, y + UI_TEXT_Y_OFFSET, ">", UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
     y += UI_ITEM_HEIGHT;
 
     // WiFi button
-    display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, COLOR_ITEM_BG);
-    display_string(10, y + UI_TEXT_Y_OFFSET, "WiFi", COLOR_ITEM_FG, COLOR_ITEM_BG);
-    display_string(DISPLAY_WIDTH - 18, y + UI_TEXT_Y_OFFSET, ">", COLOR_ITEM_FG, COLOR_ITEM_BG);
+    display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, UI_COLOR_ITEM_BG);
+    display_string(10, y + UI_TEXT_Y_OFFSET, "WiFi", UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
+    display_string(DISPLAY_WIDTH - 18, y + UI_TEXT_Y_OFFSET, ">", UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
     y += UI_ITEM_HEIGHT;
 
     // NTP button
-    display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, COLOR_ITEM_BG);
-    display_string(10, y + UI_TEXT_Y_OFFSET, "NTP", COLOR_ITEM_FG, COLOR_ITEM_BG);
-    display_string(DISPLAY_WIDTH - 18, y + UI_TEXT_Y_OFFSET, ">", COLOR_ITEM_FG, COLOR_ITEM_BG);
+    display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, UI_COLOR_ITEM_BG);
+    display_string(10, y + UI_TEXT_Y_OFFSET, "NTP", UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
+    display_string(DISPLAY_WIDTH - 18, y + UI_TEXT_Y_OFFSET, ">", UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
     y += UI_ITEM_HEIGHT;
 
     // Brightness control
-    display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, COLOR_ITEM_BG);
-    display_string(10, y + UI_TEXT_Y_OFFSET, "Brightness", COLOR_ITEM_FG, COLOR_ITEM_BG);
+    display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, UI_COLOR_ITEM_BG);
+    display_string(10, y + UI_TEXT_Y_OFFSET, "Brightness", UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
 
     // Brightness bar
     int bar_x = 100;
@@ -59,7 +56,7 @@ static void draw_menu(void) {
     display_fill_rect(bar_x, bar_y, bar_w, bar_h, COLOR_BLACK);
     display_rect(bar_x, bar_y, bar_w, bar_h, COLOR_GRAY);
     int fill_w = (brightness * (bar_w - 4)) / BRIGHTNESS_MAX;
-    display_fill_rect(bar_x + 2, bar_y + 2, fill_w, bar_h - 4, COLOR_SELECTED);
+    display_fill_rect(bar_x + 2, bar_y + 2, fill_w, bar_h - 4, UI_COLOR_SELECTED);
 
     // - and + buttons (aligned to right edge)
     display_fill_rect(260, y + 3, 22, 18, COLOR_GRAY);
@@ -69,8 +66,8 @@ static void draw_menu(void) {
     y += UI_ITEM_HEIGHT;
 
     // LED brightness control
-    display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, COLOR_ITEM_BG);
-    display_string(10, y + UI_TEXT_Y_OFFSET, "LED Blink", COLOR_ITEM_FG, COLOR_ITEM_BG);
+    display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, UI_COLOR_ITEM_BG);
+    display_string(10, y + UI_TEXT_Y_OFFSET, "LED Blink", UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
 
     // LED bar (same layout as brightness)
     bar_y = y + UI_TEXT_Y_OFFSET;
@@ -87,17 +84,17 @@ static void draw_menu(void) {
     y += UI_ITEM_HEIGHT;
 
     // Rotation toggle
-    display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, COLOR_ITEM_BG);
-    display_string(10, y + UI_TEXT_Y_OFFSET, "Rotate 180\x7F", COLOR_ITEM_FG, COLOR_ITEM_BG);
+    display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, UI_COLOR_ITEM_BG);
+    display_string(10, y + UI_TEXT_Y_OFFSET, "Rotate 180\x7F", UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
     uint16_t rot_bg = rotation ? COLOR_GREEN : COLOR_GRAY;
     display_fill_rect(260, y + 3, 50, 18, rot_bg);
     display_string(272, y + 4, rotation ? "On" : "Off", rotation ? COLOR_BLACK : COLOR_WHITE, rot_bg);
     y += UI_ITEM_HEIGHT;
 
     // About button
-    display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, COLOR_ITEM_BG);
-    display_string(10, y + UI_TEXT_Y_OFFSET, "About", COLOR_ITEM_FG, COLOR_ITEM_BG);
-    display_string(DISPLAY_WIDTH - 18, y + UI_TEXT_Y_OFFSET, ">", COLOR_ITEM_FG, COLOR_ITEM_BG);
+    display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, UI_COLOR_ITEM_BG);
+    display_string(10, y + UI_TEXT_Y_OFFSET, "About", UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
+    display_string(DISPLAY_WIDTH - 18, y + UI_TEXT_Y_OFFSET, ">", UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
     y += UI_ITEM_HEIGHT;
 
     // Done button (1/3 width, centered)
