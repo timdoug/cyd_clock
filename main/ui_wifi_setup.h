@@ -11,7 +11,8 @@ typedef enum {
 } wifi_setup_result_t;
 
 // Initialize WiFi setup UI
-void ui_wifi_setup_init(void);
+// show_back: if true, show a Back button in the header
+void ui_wifi_setup_init(bool show_back);
 
 // Run one iteration of WiFi setup UI (call in loop)
 // Returns the current state

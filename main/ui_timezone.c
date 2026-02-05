@@ -94,6 +94,7 @@ static int selected_tz = 0;
 static int scroll_offset = 0;
 static bool selection_made = false;
 static uint32_t last_touch_time = 0;
+static bool show_back_button = false;
 
 
 
@@ -120,9 +121,10 @@ static void draw_list(void) {
     }
 }
 
-void ui_timezone_init(const char *current_tz) {
+void ui_timezone_init(const char *current_tz, bool show_back) {
     ESP_LOGI(TAG, "Initializing timezone selector");
     selection_made = false;
+    show_back_button = show_back;
 
     // Find current timezone in list
     selected_tz = 0;
@@ -143,7 +145,7 @@ void ui_timezone_init(const char *current_tz) {
     }
 
     display_fill(COLOR_BLACK);
-    ui_draw_header("Select Timezone", true);
+    ui_draw_header("Select Timezone", show_back_button);
     draw_list();
 }
 
@@ -168,7 +170,7 @@ tz_select_result_t ui_timezone_update(void) {
     }
 
     // Back button
-    if (touch.y < UI_HEADER_HEIGHT && touch.x < 60) {
+    if (show_back_button && touch.y < UI_HEADER_HEIGHT && touch.x < 60) {
         return TZ_SELECT_CANCELLED;
     }
 

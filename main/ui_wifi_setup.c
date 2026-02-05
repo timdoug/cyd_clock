@@ -69,6 +69,7 @@ static bool shift_active = false;
 static char connected_ssid[33] = {0};
 static char connected_password[64] = {0};
 static uint32_t last_touch_time = 0;
+static bool show_back_button = false;
 
 
 static void draw_network_list(void) {
@@ -235,7 +236,7 @@ static char get_key_at(int tx, int ty) {
     return keys[col];
 }
 
-void ui_wifi_setup_init(void) {
+void ui_wifi_setup_init(bool show_back) {
     ESP_LOGI(TAG, "Initializing WiFi setup UI");
     state = STATE_SCANNING;
     network_count = 0;
@@ -245,6 +246,7 @@ void ui_wifi_setup_init(void) {
     password[0] = '\0';
     keyboard_mode = 0;
     shift_active = false;
+    show_back_button = show_back;
 }
 
 wifi_setup_result_t ui_wifi_setup_update(void) {
@@ -262,7 +264,7 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
     switch (state) {
         case STATE_SCANNING:
             display_fill(COLOR_BLACK);
-            ui_draw_header("WiFi Setup", true);
+            ui_draw_header("WiFi Setup", show_back_button);
             display_string((DISPLAY_WIDTH - 11 * 8) / 2, 120, "Scanning...", COLOR_WHITE, COLOR_BLACK);
 
             wifi_init();
@@ -270,7 +272,7 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
 
             if (network_count > 0) {
                 state = STATE_NETWORK_LIST;
-                ui_draw_header("Select Network", true);
+                ui_draw_header("Select Network", show_back_button);
                 draw_network_list();
             } else {
                 display_fill_rect(0, 100, DISPLAY_WIDTH, 40, COLOR_BLACK);
@@ -279,7 +281,7 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
 
                 if (touched) {
                     // Back button
-                    if (touch.y < UI_HEADER_HEIGHT && touch.x < 60) {
+                    if (show_back_button && touch.y < UI_HEADER_HEIGHT && touch.x < 60) {
                         return WIFI_SETUP_CANCELLED;
                     }
                     state = STATE_SCANNING;
@@ -290,7 +292,7 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
         case STATE_NETWORK_LIST:
             if (touched) {
                 // Back button
-                if (touch.y < UI_HEADER_HEIGHT && touch.x < 60) {
+                if (show_back_button && touch.y < UI_HEADER_HEIGHT && touch.x < 60) {
                     return WIFI_SETUP_CANCELLED;
                 }
 
@@ -330,7 +332,7 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
                     state = STATE_NETWORK_LIST;
                     selected_network = -1;
                     display_fill(COLOR_BLACK);
-                    ui_draw_header("Select Network", true);
+                    ui_draw_header("Select Network", show_back_button);
                     draw_network_list();
                     break;
                 }

@@ -26,7 +26,7 @@
 // Settings UI
 #define BRIGHTNESS_STEP     16
 #define BRIGHTNESS_MIN      32
-#define BRIGHTNESS_DEFAULT  128
+#define BRIGHTNESS_DEFAULT  255
 #define BRIGHTNESS_MAX      255
 
 // Touch debounce

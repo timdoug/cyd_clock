@@ -36,6 +36,7 @@ typedef enum {
 
 static app_state_t app_state = APP_STATE_INIT;
 static bool wifi_setup_from_settings = false;
+static bool initial_setup = false;
 static char stored_ssid[MAX_SSID_LEN];
 static char stored_password[MAX_PASSWORD_LEN];
 static char stored_tz[MAX_TIMEZONE_LEN];
@@ -69,7 +70,7 @@ static void try_connect_stored_credentials(void) {
     } else {
         ESP_LOGW(TAG, "Failed to connect with stored credentials");
         app_state = APP_STATE_WIFI_SETUP;
-        ui_wifi_setup_init();
+        ui_wifi_setup_init(false);
     }
 }
 
@@ -118,7 +119,8 @@ void app_main(void) {
         try_connect_stored_credentials();
     } else {
         app_state = APP_STATE_WIFI_SETUP;
-        ui_wifi_setup_init();
+        initial_setup = true;
+        ui_wifi_setup_init(false);
     }
 
     // Main loop
@@ -136,17 +138,23 @@ void app_main(void) {
                     ui_wifi_setup_get_credentials(ssid, password);
                     nvs_config_set_wifi(ssid, password);
 
-                    // Switch to clock
-                    app_state = APP_STATE_CLOCK;
-                    wifi_setup_from_settings = false;
-                    ui_clock_init();
-                    ui_clock_redraw();
-
                     // Start NTP if not already started
                     if (!ntp_started) {
                         wifi_start_ntp();
                         ntp_started = true;
                     }
+
+                    if (initial_setup) {
+                        // First boot: prompt for timezone before showing clock
+                        app_state = APP_STATE_TIMEZONE;
+                        ui_timezone_init(stored_tz, false);
+                    } else {
+                        // From settings: go straight to clock
+                        app_state = APP_STATE_CLOCK;
+                        ui_clock_init();
+                        ui_clock_redraw();
+                    }
+                    wifi_setup_from_settings = false;
                 } else if (result == WIFI_SETUP_CANCELLED) {
                     if (wifi_setup_from_settings) {
                         // Return to settings
@@ -205,12 +213,12 @@ void app_main(void) {
                 settings_result_t result = ui_settings_update();
                 if (result == SETTINGS_RESULT_TIMEZONE) {
                     app_state = APP_STATE_TIMEZONE;
-                    ui_timezone_init(stored_tz);
+                    ui_timezone_init(stored_tz, true);
                     ui_wait_for_touch_release();
                 } else if (result == SETTINGS_RESULT_WIFI) {
                     app_state = APP_STATE_WIFI_SETUP;
                     wifi_setup_from_settings = true;
-                    ui_wifi_setup_init();
+                    ui_wifi_setup_init(true);
                     ui_wait_for_touch_release();
                 } else if (result == SETTINGS_RESULT_NTP) {
                     app_state = APP_STATE_NTP;
@@ -239,14 +247,19 @@ void app_main(void) {
                     nvs_config_set_timezone(tz);
                     wifi_set_timezone(tz);
                     ESP_LOGI(TAG, "Timezone set to: %s", ui_timezone_get_name());
-
-                    // Return to settings
-                    app_state = APP_STATE_SETTINGS;
-                    ui_settings_init();
-                } else if (result == TZ_SELECT_CANCELLED) {
-                    // Return to settings without changing
-                    app_state = APP_STATE_SETTINGS;
-                    ui_settings_init();
+                }
+                if (result == TZ_SELECT_DONE || result == TZ_SELECT_CANCELLED) {
+                    if (initial_setup) {
+                        // First boot: go to clock
+                        initial_setup = false;
+                        app_state = APP_STATE_CLOCK;
+                        ui_clock_init();
+                        ui_clock_redraw();
+                    } else {
+                        // From settings: return to settings
+                        app_state = APP_STATE_SETTINGS;
+                        ui_settings_init();
+                    }
                 }
                 break;
             }

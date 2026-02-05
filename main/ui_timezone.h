@@ -11,7 +11,8 @@ typedef enum {
 } tz_select_result_t;
 
 // Initialize timezone selector UI (pass current TZ to highlight it)
-void ui_timezone_init(const char *current_tz);
+// show_back: if true, show a Back button in the header
+void ui_timezone_init(const char *current_tz, bool show_back);
 
 // Run one iteration of timezone selector (call in loop)
 tz_select_result_t ui_timezone_update(void);
