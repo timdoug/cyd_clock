@@ -39,6 +39,7 @@ static bool colon_visible = true;
 static bool last_synced_state = false;
 static int last_stats_sec = -1;
 static uint8_t led_brightness = 128;
+static bool last_time_valid = false;
 
 static const char *day_names[] = {
     "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
@@ -56,6 +57,7 @@ static void reset_display_state(void) {
     last_day = -1;
     last_synced_state = false;
     last_stats_sec = -1;
+    last_time_valid = false;
 }
 
 void ui_clock_init(void) {
@@ -124,54 +126,80 @@ void ui_clock_update(void) {
     time(&now);
     localtime_r(&now, &timeinfo);
 
+    // Check if time is valid (year >= 2025)
+    bool time_valid = (timeinfo.tm_year + 1900 >= 2025);
+
+    // If time just became valid, force redraw
+    if (time_valid && !last_time_valid) {
+        last_hour = -1;
+        last_min = -1;
+        last_sec = -1;
+        last_day = -1;
+    }
+    last_time_valid = time_valid;
+
     int hour = timeinfo.tm_hour;
     int min = timeinfo.tm_min;
     int sec = timeinfo.tm_sec;
 
-    // Update time digits only when they change
-    if (hour / 10 != last_hour / 10 || last_hour < 0) {
-        draw_time_digit(0, hour / 10);
-    }
-    if (hour % 10 != last_hour % 10 || last_hour < 0) {
-        draw_time_digit(1, hour % 10);
-    }
-    if (min / 10 != last_min / 10 || last_min < 0) {
-        draw_time_digit(2, min / 10);
-    }
-    if (min % 10 != last_min % 10 || last_min < 0) {
-        draw_time_digit(3, min % 10);
-    }
-    if (sec / 10 != last_sec / 10 || last_sec < 0) {
-        draw_time_digit(4, sec / 10);
-    }
-    if (sec % 10 != last_sec % 10 || last_sec < 0) {
-        draw_time_digit(5, sec % 10);
-    }
+    if (time_valid) {
+        // Update time digits only when they change
+        if (hour / 10 != last_hour / 10 || last_hour < 0) {
+            draw_time_digit(0, hour / 10);
+        }
+        if (hour % 10 != last_hour % 10 || last_hour < 0) {
+            draw_time_digit(1, hour % 10);
+        }
+        if (min / 10 != last_min / 10 || last_min < 0) {
+            draw_time_digit(2, min / 10);
+        }
+        if (min % 10 != last_min % 10 || last_min < 0) {
+            draw_time_digit(3, min % 10);
+        }
+        if (sec / 10 != last_sec / 10 || last_sec < 0) {
+            draw_time_digit(4, sec / 10);
+        }
+        if (sec % 10 != last_sec % 10 || last_sec < 0) {
+            draw_time_digit(5, sec % 10);
+        }
 
-    // Blink colons every second (and sync LED)
-    bool new_colon_visible = (sec % 2 == 0);
-    if (new_colon_visible != colon_visible || last_sec < 0) {
-        draw_colon(0, new_colon_visible);
-        draw_colon(1, new_colon_visible);
-        led_set_brightness(new_colon_visible ? led_brightness : 0);
-        colon_visible = new_colon_visible;
-    }
+        // Blink colons every second (and sync LED)
+        bool new_colon_visible = (sec % 2 == 0);
+        if (new_colon_visible != colon_visible || last_sec < 0) {
+            draw_colon(0, new_colon_visible);
+            draw_colon(1, new_colon_visible);
+            led_set_brightness(new_colon_visible ? led_brightness : 0);
+            colon_visible = new_colon_visible;
+        }
 
-    last_hour = hour;
-    last_min = min;
-    last_sec = sec;
+        last_hour = hour;
+        last_min = min;
+        last_sec = sec;
 
-    // Update date only when day changes
-    if (timeinfo.tm_yday != last_day || last_day < 0) {
-        char date_str[32];
-        snprintf(date_str, sizeof(date_str), "%s %s %d, %d",
-                 day_names[timeinfo.tm_wday],
-                 month_names[timeinfo.tm_mon],
-                 timeinfo.tm_mday,
-                 timeinfo.tm_year + 1900);
+        // Update date only when day changes
+        if (timeinfo.tm_yday != last_day || last_day < 0) {
+            char date_str[32];
+            snprintf(date_str, sizeof(date_str), "%s %s %d, %d",
+                     day_names[timeinfo.tm_wday],
+                     month_names[timeinfo.tm_mon],
+                     timeinfo.tm_mday,
+                     timeinfo.tm_year + 1900);
 
-        ui_draw_centered_string(DATE_Y, date_str, COLOR_DATE_FG, COLOR_BLACK, true);
-        last_day = timeinfo.tm_yday;
+            ui_draw_centered_string(DATE_Y, date_str, COLOR_DATE_FG, COLOR_BLACK, true);
+            last_day = timeinfo.tm_yday;
+        }
+    } else {
+        // Time not valid - show dashes, no colons, LED off
+        if (last_hour != -2) {
+            for (int i = 0; i < 6; i++) {
+                draw_time_digit(i, 10);  // 10 = dash
+            }
+            draw_colon(0, false);
+            draw_colon(1, false);
+            led_set_brightness(0);
+            ui_draw_centered_string(DATE_Y, "Waiting for NTP...", COLOR_DATE_FG, COLOR_BLACK, true);
+            last_hour = -2;  // Mark as showing dashes
+        }
     }
 
     // Update NTP stats every second

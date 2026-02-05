@@ -233,9 +233,9 @@ static const uint8_t font_8x16[] = {
     0x00,0x18,0x24,0x24,0x18,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
 };
 
-// 7-segment patterns for digits 0-9
+// 7-segment patterns for digits 0-9 and dash
 // Segments: bit 0=top, 1=top-right, 2=bottom-right, 3=bottom, 4=bottom-left, 5=top-left, 6=middle
-static const uint8_t seg7_patterns[10] = {
+static const uint8_t seg7_patterns[11] = {
     0b00111111, // 0
     0b00000110, // 1
     0b01011011, // 2
@@ -246,6 +246,7 @@ static const uint8_t seg7_patterns[10] = {
     0b00000111, // 7
     0b01111111, // 8
     0b01100111, // 9 (no bottom)
+    0b01000000, // 10 = dash (middle segment only)
 };
 
 static void dc_command(void) {
@@ -554,7 +555,7 @@ static void draw_segment_v(int16_t x, int16_t y, int16_t h, int16_t thick, uint1
 }
 
 void display_digit_7seg(int16_t x, int16_t y, uint8_t digit, uint8_t size, uint16_t color, uint16_t bg) {
-    if (digit > 9) return;
+    if (digit > 10) return;
 
     // Size multipliers
     int16_t seg_len, seg_thick;
