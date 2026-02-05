@@ -1,5 +1,6 @@
 # ESP-IDF build artifacts
 build/
+main/version.h
 sdkconfig
 sdkconfig.old
 

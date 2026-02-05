@@ -31,7 +31,7 @@ static void draw_menu(void) {
 
     // Timezone button
     display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, COLOR_ITEM_BG);
-    display_string(10, y + UI_TEXT_Y_OFFSET, "Timezone", COLOR_ITEM_FG, COLOR_ITEM_BG);
+    display_string(10, y + UI_TEXT_Y_OFFSET, "Time zone", COLOR_ITEM_FG, COLOR_ITEM_BG);
     display_string(DISPLAY_WIDTH - 18, y + UI_TEXT_Y_OFFSET, ">", COLOR_ITEM_FG, COLOR_ITEM_BG);
     y += UI_ITEM_HEIGHT;
 
@@ -70,7 +70,7 @@ static void draw_menu(void) {
 
     // LED brightness control
     display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, COLOR_ITEM_BG);
-    display_string(10, y + UI_TEXT_Y_OFFSET, "LED", COLOR_ITEM_FG, COLOR_ITEM_BG);
+    display_string(10, y + UI_TEXT_Y_OFFSET, "LED Blink", COLOR_ITEM_FG, COLOR_ITEM_BG);
 
     // LED bar (same layout as brightness)
     bar_y = y + UI_TEXT_Y_OFFSET;
