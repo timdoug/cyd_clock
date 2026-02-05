@@ -159,8 +159,16 @@ settings_result_t ui_settings_update(void) {
 
         // Brightness controls
         if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT) {
+            // Tap on bar to set value directly
+            if (touch.x >= 100 && touch.x < 250) {
+                brightness = ((touch.x - 100) * BRIGHTNESS_MAX) / 150;
+                if (brightness < BRIGHTNESS_MIN) brightness = BRIGHTNESS_MIN;
+                display_set_backlight(brightness);
+                nvs_config_set_brightness(brightness);
+                draw_menu();
+            }
             // Minus button
-            if (touch.x >= 260 && touch.x < 282) {
+            else if (touch.x >= 260 && touch.x < 282) {
                 if (brightness > BRIGHTNESS_MIN) {
                     brightness -= BRIGHTNESS_STEP;
                     display_set_backlight(brightness);
@@ -186,8 +194,15 @@ settings_result_t ui_settings_update(void) {
 
         // LED brightness controls
         if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT) {
+            // Tap on bar to set value directly (can go to 0)
+            if (touch.x >= 100 && touch.x < 250) {
+                led_brightness = ((touch.x - 100) * BRIGHTNESS_MAX) / 150;
+                led_set_brightness(led_brightness);
+                nvs_config_set_led_brightness(led_brightness);
+                draw_menu();
+            }
             // Minus button (can go to 0)
-            if (touch.x >= 260 && touch.x < 282) {
+            else if (touch.x >= 260 && touch.x < 282) {
                 if (led_brightness >= BRIGHTNESS_STEP) {
                     led_brightness -= BRIGHTNESS_STEP;
                 } else {
