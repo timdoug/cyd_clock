@@ -365,7 +365,7 @@ void display_init(void) {
         .timer_sel = LEDC_TIMER_0,
         .intr_type = LEDC_INTR_DISABLE,
         .gpio_num = PIN_BL,
-        .duty = 255,
+        .duty = 128,
         .hpoint = 0,
     };
     ledc_channel_config(&ledc_channel);

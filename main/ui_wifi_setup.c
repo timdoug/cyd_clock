@@ -26,7 +26,7 @@ typedef enum {
 #define LIST_VISIBLE    6
 #define KEYBOARD_Y      120
 #define KEY_WIDTH       28
-#define KEY_HEIGHT      28
+#define KEY_HEIGHT      22
 #define KEY_SPACING     2
 
 // Colors
@@ -45,7 +45,7 @@ static const char *keyboard_lower[] = {
 };
 
 static const char *keyboard_upper[] = {
-    "!@#$%^&*()",
+    "1234567890",
     "QWERTYUIOP",
     "ASDFGHJKL",
     "ZXCVBNM",
@@ -122,7 +122,7 @@ static void draw_network_list(void) {
 
 static void draw_back_button(void) {
     display_fill_rect(5, 5, 50, 20, COLOR_RED);
-    display_string(10, 8, "BACK", COLOR_WHITE, COLOR_RED);
+    display_string(10, 8, "Back", COLOR_WHITE, COLOR_RED);
 }
 
 static void draw_password_input(void) {
@@ -159,6 +159,9 @@ static void draw_keyboard(void) {
     else if (keyboard_mode == 1 || shift_active) layout = keyboard_upper;
     else layout = keyboard_lower;
 
+    // Clear keyboard area first
+    display_fill_rect(0, KEYBOARD_Y, DISPLAY_WIDTH, DISPLAY_HEIGHT - KEYBOARD_Y, COLOR_BLACK);
+
     int y = KEYBOARD_Y;
 
     for (int row = 0; row < 4; row++) {
@@ -169,7 +172,7 @@ static void draw_keyboard(void) {
         for (int col = 0; col < row_len; col++) {
             display_fill_rect(x, y, KEY_WIDTH, KEY_HEIGHT, COLOR_KEYBOARD);
             display_rect(x, y, KEY_WIDTH, KEY_HEIGHT, COLOR_GRAY);
-            display_char(x + 10, y + 6, keys[col], COLOR_KEY_FG, COLOR_KEYBOARD);
+            display_char(x + 10, y + 3, keys[col], COLOR_KEY_FG, COLOR_KEYBOARD);
             x += KEY_WIDTH + KEY_SPACING;
         }
         y += KEY_HEIGHT + KEY_SPACING;
@@ -181,29 +184,29 @@ static void draw_keyboard(void) {
 
     // Shift key
     display_fill_rect(x, y, 40, KEY_HEIGHT, shift_active ? COLOR_SELECTED : COLOR_KEYBOARD);
-    display_string(x + 8, y + 6, "SHF", shift_active ? COLOR_BLACK : COLOR_KEY_FG,
+    display_string(x + 8, y + 3, "Shf", shift_active ? COLOR_BLACK : COLOR_KEY_FG,
                    shift_active ? COLOR_SELECTED : COLOR_KEYBOARD);
     x += 45;
 
     // Mode key
     display_fill_rect(x, y, 40, KEY_HEIGHT, COLOR_KEYBOARD);
     const char *mode_label = (keyboard_mode == 0) ? "?#@" : "abc";
-    display_string(x + 8, y + 6, mode_label, COLOR_KEY_FG, COLOR_KEYBOARD);
+    display_string(x + 8, y + 3, mode_label, COLOR_KEY_FG, COLOR_KEYBOARD);
     x += 45;
 
     // Space bar
     display_fill_rect(x, y, 100, KEY_HEIGHT, COLOR_KEYBOARD);
-    display_string(x + 35, y + 6, "SPC", COLOR_KEY_FG, COLOR_KEYBOARD);
+    display_string(x + 30, y + 3, "Space", COLOR_KEY_FG, COLOR_KEYBOARD);
     x += 105;
 
     // Backspace
     display_fill_rect(x, y, 40, KEY_HEIGHT, COLOR_KEYBOARD);
-    display_string(x + 8, y + 6, "DEL", COLOR_KEY_FG, COLOR_KEYBOARD);
+    display_string(x + 8, y + 3, "Del", COLOR_KEY_FG, COLOR_KEYBOARD);
     x += 45;
 
     // Connect button
     display_fill_rect(x, y, 60, KEY_HEIGHT, COLOR_GREEN);
-    display_string(x + 15, y + 6, "GO", COLOR_BLACK, COLOR_GREEN);
+    display_string(x + 18, y + 3, "Go", COLOR_BLACK, COLOR_GREEN);
 }
 
 static char get_key_at(int tx, int ty) {
@@ -272,7 +275,7 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
         case STATE_SCANNING:
             display_fill(COLOR_BLACK);
             draw_header("WiFi Setup");
-            display_string(100, 120, "Scanning...", COLOR_WHITE, COLOR_BLACK);
+            display_string((DISPLAY_WIDTH - 11 * 8) / 2, 120, "Scanning...", COLOR_WHITE, COLOR_BLACK);
 
             wifi_init();
             network_count = wifi_scan(networks, MAX_SCAN_RESULTS);
@@ -283,8 +286,8 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
                 draw_network_list();
             } else {
                 display_fill_rect(0, 100, DISPLAY_WIDTH, 40, COLOR_BLACK);
-                display_string(80, 120, "No networks found", COLOR_RED, COLOR_BLACK);
-                display_string(100, 150, "Tap to retry", COLOR_GRAY, COLOR_BLACK);
+                display_string((DISPLAY_WIDTH - 17 * 8) / 2, 120, "No networks found", COLOR_RED, COLOR_BLACK);
+                display_string((DISPLAY_WIDTH - 12 * 8) / 2, 150, "Tap to retry", COLOR_GRAY, COLOR_BLACK);
 
                 if (touched) {
                     state = STATE_SCANNING;
@@ -294,24 +297,19 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
 
         case STATE_NETWORK_LIST:
             if (touched) {
-                // Check for list item touch
+                // Check for list item touch - single tap to select
                 if (touch.y >= LIST_START_Y && touch.y < LIST_START_Y + LIST_VISIBLE * LIST_ITEM_H) {
                     int item = (touch.y - LIST_START_Y) / LIST_ITEM_H + list_scroll;
                     if (item < network_count) {
-                        if (selected_network == item) {
-                            // Double tap to select
-                            state = STATE_PASSWORD_ENTRY;
-                            password_len = 0;
-                            password[0] = '\0';
-                            display_fill(COLOR_BLACK);
-                            draw_header("Enter Password");
-                            draw_back_button();
-                            draw_password_input();
-                            draw_keyboard();
-                        } else {
-                            selected_network = item;
-                            draw_network_list();
-                        }
+                        selected_network = item;
+                        state = STATE_PASSWORD_ENTRY;
+                        password_len = 0;
+                        password[0] = '\0';
+                        display_fill(COLOR_BLACK);
+                        draw_header("Enter Password");
+                        draw_back_button();
+                        draw_password_input();
+                        draw_keyboard();
                     }
                 }
 
@@ -346,8 +344,8 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
                 if (key == '\x01') {  // Shift
                     shift_active = !shift_active;
                     draw_keyboard();
-                } else if (key == '\x02') {  // Mode
-                    keyboard_mode = (keyboard_mode + 1) % 3;
+                } else if (key == '\x02') {  // Mode - toggle between letters and symbols
+                    keyboard_mode = (keyboard_mode == 0) ? 2 : 0;
                     shift_active = false;
                     draw_keyboard();
                 } else if (key == '\x08') {  // Backspace
@@ -360,7 +358,7 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
                     state = STATE_CONNECTING;
                     display_fill(COLOR_BLACK);
                     draw_header("Connecting");
-                    display_string(100, 100, "Connecting to", COLOR_WHITE, COLOR_BLACK);
+                    display_string((DISPLAY_WIDTH - 13 * 8) / 2, 100, "Connecting to", COLOR_WHITE, COLOR_BLACK);
                     display_string((DISPLAY_WIDTH - strlen(networks[selected_network].ssid) * 8) / 2,
                                    130, networks[selected_network].ssid, COLOR_CYAN, COLOR_BLACK);
                 } else if (key >= ' ' && key <= '~' && password_len < 63) {
@@ -387,8 +385,8 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
             } else {
                 state = STATE_FAILED;
                 display_fill_rect(0, 160, DISPLAY_WIDTH, 50, COLOR_BLACK);
-                display_string(90, 160, "Connection failed", COLOR_RED, COLOR_BLACK);
-                display_string(100, 190, "Tap to retry", COLOR_GRAY, COLOR_BLACK);
+                display_string((DISPLAY_WIDTH - 17 * 8) / 2, 160, "Connection failed", COLOR_RED, COLOR_BLACK);
+                display_string((DISPLAY_WIDTH - 12 * 8) / 2, 190, "Tap to retry", COLOR_GRAY, COLOR_BLACK);
             }
             break;
 
