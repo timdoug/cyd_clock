@@ -19,7 +19,9 @@ static void draw_screen(void) {
     // Content
     int y = 50;
 
-    display_string(20, y, "CYD Clock", COLOR_CYAN, COLOR_BLACK);
+    display_string(20, y, "Domaine Nyquist", COLOR_GRAY, COLOR_BLACK);
+    y += 20;
+    display_string(20, y, "The CYD Clock", COLOR_CYAN, COLOR_BLACK);
     y += 30;
 
     display_string(20, y, "Version:", COLOR_GRAY, COLOR_BLACK);

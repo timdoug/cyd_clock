@@ -42,9 +42,10 @@ static bool ntp_started = false;
 
 static void show_splash(void) {
     display_fill(COLOR_BLACK);
-    display_string((DISPLAY_WIDTH - 9 * CHAR_WIDTH) / 2, 100, "CYD Clock", COLOR_CYAN, COLOR_BLACK);
-    display_string((DISPLAY_WIDTH - 14 * CHAR_WIDTH) / 2, 130, "Initializing...", COLOR_GRAY, COLOR_BLACK);
-    vTaskDelay(pdMS_TO_TICKS(500));
+    display_string((DISPLAY_WIDTH - 15 * CHAR_WIDTH) / 2, 85, "Domaine Nyquist", COLOR_GRAY, COLOR_BLACK);
+    display_string((DISPLAY_WIDTH - 13 * CHAR_WIDTH) / 2, 110, "The CYD Clock", COLOR_CYAN, COLOR_BLACK);
+    display_string((DISPLAY_WIDTH - 14 * CHAR_WIDTH) / 2, 140, "Initializing...", COLOR_GRAY, COLOR_BLACK);
+    vTaskDelay(pdMS_TO_TICKS(1500));
 }
 
 static void try_connect_stored_credentials(void) {
