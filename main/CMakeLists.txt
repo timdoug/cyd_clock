@@ -1,4 +1,4 @@
-# Generate version string from git
+# Generate version string from git (runs at configure time)
 execute_process(
     COMMAND git log -1 --format=%cs
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
@@ -30,6 +30,10 @@ else()
     set(VERSION_STRING "unknown")
 endif()
 
+# Write version.h
+set(VERSION_HEADER "${CMAKE_CURRENT_BINARY_DIR}/version.h")
+file(WRITE ${VERSION_HEADER} "#define VERSION_STRING \"${VERSION_STRING}\"\n")
+
 idf_component_register(
     SRCS
         "main.c"
@@ -43,7 +47,11 @@ idf_component_register(
         "ui_settings.c"
         "ui_about.c"
         "ui_ntp.c"
-    INCLUDE_DIRS "."
+    INCLUDE_DIRS "." "${CMAKE_CURRENT_BINARY_DIR}"
 )
 
-target_compile_definitions(${COMPONENT_LIB} PRIVATE VERSION_STRING="${VERSION_STRING}")
+# Force CMake to reconfigure when git index changes
+# This ensures version string stays up to date
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/../.git/index"
+)

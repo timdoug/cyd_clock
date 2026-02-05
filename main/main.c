@@ -40,8 +40,8 @@ static bool ntp_started = false;
 
 static void show_splash(void) {
     display_fill(COLOR_BLACK);
-    display_string(110, 100, "CYD Clock", COLOR_CYAN, COLOR_BLACK);
-    display_string(100, 130, "Initializing...", COLOR_GRAY, COLOR_BLACK);
+    display_string((DISPLAY_WIDTH - 9 * 8) / 2, 100, "CYD Clock", COLOR_CYAN, COLOR_BLACK);
+    display_string((DISPLAY_WIDTH - 14 * 8) / 2, 130, "Initializing...", COLOR_GRAY, COLOR_BLACK);
     vTaskDelay(pdMS_TO_TICKS(500));
 }
 
@@ -49,7 +49,7 @@ static void try_connect_stored_credentials(void) {
     app_state = APP_STATE_CONNECTING;
 
     display_fill(COLOR_BLACK);
-    display_string(100, 100, "Connecting to", COLOR_WHITE, COLOR_BLACK);
+    display_string((DISPLAY_WIDTH - 13 * 8) / 2, 100, "Connecting to", COLOR_WHITE, COLOR_BLACK);
     display_string((DISPLAY_WIDTH - strlen(stored_ssid) * 8) / 2, 130, stored_ssid, COLOR_CYAN, COLOR_BLACK);
 
     wifi_init();

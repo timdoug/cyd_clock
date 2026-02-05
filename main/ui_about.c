@@ -2,13 +2,10 @@
 #include "display.h"
 #include "touch.h"
 #include "esp_log.h"
+#include "version.h"
 #include <string.h>
 
 static const char *TAG = "ui_about";
-
-#ifndef VERSION_STRING
-#define VERSION_STRING "unknown"
-#endif
 
 #define HEADER_HEIGHT 30
 #define URL "github.com/timdoug/cyd_clock"

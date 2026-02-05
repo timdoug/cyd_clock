@@ -61,19 +61,19 @@ static void draw_menu(void) {
     int fill_w = (brightness * (bar_w - 4)) / 255;
     display_fill_rect(bar_x + 2, bar_y + 2, fill_w, bar_h - 4, COLOR_SELECTED);
 
-    // - and + buttons
-    display_fill_rect(230, y + 3, 22, 22, COLOR_GRAY);
-    display_string(236, y + 6, "-", COLOR_WHITE, COLOR_GRAY);
-    display_fill_rect(258, y + 3, 22, 22, COLOR_GRAY);
-    display_string(264, y + 6, "+", COLOR_WHITE, COLOR_GRAY);
+    // - and + buttons (aligned to right edge, ending at x=300)
+    display_fill_rect(250, y + 2, 22, 22, COLOR_GRAY);
+    display_string(256, y + 5, "-", COLOR_WHITE, COLOR_GRAY);
+    display_fill_rect(278, y + 2, 22, 22, COLOR_GRAY);
+    display_string(284, y + 5, "+", COLOR_WHITE, COLOR_GRAY);
     y += ITEM_HEIGHT;
 
-    // Rotation toggle
+    // Rotation toggle (aligned to right edge, ending at x=300, vertically centered)
     display_fill_rect(10, y, DISPLAY_WIDTH - 20, ITEM_HEIGHT - 3, COLOR_ITEM_BG);
     display_string(20, y + 6, "Rotate 180", COLOR_ITEM_FG, COLOR_ITEM_BG);
     uint16_t toggle_bg = rotation ? COLOR_GREEN : COLOR_GRAY;
-    display_fill_rect(240, y + 5, 50, 18, toggle_bg);
-    display_string(252, y + 6, rotation ? "On" : "Off", rotation ? COLOR_BLACK : COLOR_WHITE, toggle_bg);
+    display_fill_rect(250, y + 4, 50, 18, toggle_bg);
+    display_string(262, y + 5, rotation ? "On" : "Off", rotation ? COLOR_BLACK : COLOR_WHITE, toggle_bg);
     y += ITEM_HEIGHT;
 
     // About button
@@ -135,7 +135,7 @@ settings_result_t ui_settings_update(void) {
         // Brightness controls
         if (touch.y >= y && touch.y < y + ITEM_HEIGHT) {
             // Minus button (minimum 32 so screen stays visible)
-            if (touch.x >= 230 && touch.x < 252) {
+            if (touch.x >= 250 && touch.x < 272) {
                 if (brightness > 32) {
                     brightness -= 16;
                     display_set_backlight(brightness);
@@ -144,9 +144,13 @@ settings_result_t ui_settings_update(void) {
                 }
             }
             // Plus button
-            else if (touch.x >= 258 && touch.x < 280) {
-                if (brightness <= 239) {
-                    brightness += 16;
+            else if (touch.x >= 278 && touch.x < 300) {
+                if (brightness < 255) {
+                    if (brightness <= 239) {
+                        brightness += 16;
+                    } else {
+                        brightness = 255;
+                    }
                     display_set_backlight(brightness);
                     nvs_config_set_brightness(brightness);
                     draw_menu();
@@ -155,8 +159,8 @@ settings_result_t ui_settings_update(void) {
         }
         y += ITEM_HEIGHT;
 
-        // Rotation toggle
-        if (touch.y >= y && touch.y < y + ITEM_HEIGHT) {
+        // Rotation toggle (only on the button, x=250 to 300)
+        if (touch.y >= y && touch.y < y + ITEM_HEIGHT && touch.x >= 250 && touch.x < 300) {
             rotation = !rotation;
             display_set_rotation(rotation);
             nvs_config_set_rotation(rotation);
