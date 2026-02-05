@@ -1,7 +1,9 @@
 #include "ui_clock.h"
+#include "config.h"
 #include "display.h"
 #include "touch.h"
 #include "wifi.h"
+#include "ui_common.h"
 #include "esp_log.h"
 #include <time.h>
 #include <string.h>
@@ -15,6 +17,10 @@ static const char *TAG = "ui_clock";
 #define STATS_Y     168
 #define STATS_LINE2 188
 #define STATS_LINE3 208
+
+// 7-segment layout for time display (size 2)
+#define TIME_DIGIT_WIDTH    38
+#define TIME_DIGIT_SPACING  6
 
 // Colors
 #define COLOR_TIME_FG   COLOR_RED
@@ -41,90 +47,42 @@ static const char *month_names[] = {
     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 };
 
-// Draw centered string with full-width background (no pre-clear needed)
-static void draw_centered_string(int16_t y, const char *str, uint16_t fg, uint16_t bg) {
-    int len = strlen(str);
-    int text_width = len * 8;
-    int x = (DISPLAY_WIDTH - text_width) / 2;
-
-    // Fill left padding
-    if (x > 0) {
-        display_fill_rect(0, y, x, 16, bg);
-    }
-    // Draw text
-    display_string(x, y, str, fg, bg);
-    // Fill right padding
-    int right_x = x + text_width;
-    if (right_x < DISPLAY_WIDTH) {
-        display_fill_rect(right_x, y, DISPLAY_WIDTH - right_x, 16, bg);
-    }
-}
-
-// Draw centered string at 2x scale with full-width background
-static void draw_centered_string_2x(int16_t y, const char *str, uint16_t fg, uint16_t bg) {
-    int len = strlen(str);
-    int text_width = len * 16;  // 2x scale = 16px per char
-    int x = (DISPLAY_WIDTH - text_width) / 2;
-
-    // Fill left padding
-    if (x > 0) {
-        display_fill_rect(0, y, x, 32, bg);
-    }
-    // Draw text
-    display_string_2x(x, y, str, fg, bg);
-    // Fill right padding
-    int right_x = x + text_width;
-    if (right_x < DISPLAY_WIDTH) {
-        display_fill_rect(right_x, y, DISPLAY_WIDTH - right_x, 32, bg);
-    }
-}
-
-
-void ui_clock_init(void) {
-    ESP_LOGI(TAG, "Initializing clock UI");
+static void reset_display_state(void) {
     last_hour = -1;
     last_min = -1;
     last_sec = -1;
     last_day = -1;
     last_synced_state = false;
     last_stats_sec = -1;
+}
+
+void ui_clock_init(void) {
+    ESP_LOGI(TAG, "Initializing clock UI");
+    reset_display_state();
 }
 
 void ui_clock_redraw(void) {
     display_fill(COLOR_BLACK);
-    last_hour = -1;
-    last_min = -1;
-    last_sec = -1;
-    last_day = -1;
-    last_synced_state = false;
-    last_stats_sec = -1;
+    reset_display_state();
     ui_clock_update();
-}
-
-void ui_clock_set_synced(bool synced) {
-    // Now handled via wifi_get_ntp_stats() - kept for API compatibility
-    (void)synced;
 }
 
 static void draw_time_digit(int position, int digit) {
     // Calculate x position based on digit position
     // Format: HH:MM:SS
     // Positions: 0,1 = hours, 2,3 = minutes, 4,5 = seconds
-    int x;
-    int digit_width = 38;  // size 2 digit width
-    int digit_spacing = 6; // space between digits
-    int colon_width = 14;
-    int total_width = 6 * digit_width + 5 * digit_spacing + 2 * colon_width;
+    int total_width = 6 * TIME_DIGIT_WIDTH + 5 * TIME_DIGIT_SPACING + 2 * COLON_7SEG_WIDTH;
     int start_x = (DISPLAY_WIDTH - total_width) / 2;
-    int step = digit_width + digit_spacing;
+    int step = TIME_DIGIT_WIDTH + TIME_DIGIT_SPACING;
+    int x;
 
     switch (position) {
         case 0: x = start_x; break;
         case 1: x = start_x + step; break;
-        case 2: x = start_x + 2 * step + colon_width; break;
-        case 3: x = start_x + 3 * step + colon_width; break;
-        case 4: x = start_x + 4 * step + 2 * colon_width; break;
-        case 5: x = start_x + 5 * step + 2 * colon_width; break;
+        case 2: x = start_x + 2 * step + COLON_7SEG_WIDTH; break;
+        case 3: x = start_x + 3 * step + COLON_7SEG_WIDTH; break;
+        case 4: x = start_x + 4 * step + 2 * COLON_7SEG_WIDTH; break;
+        case 5: x = start_x + 5 * step + 2 * COLON_7SEG_WIDTH; break;
         default: return;
     }
 
@@ -132,18 +90,15 @@ static void draw_time_digit(int position, int digit) {
 }
 
 static void draw_colon(int position, bool visible) {
-    int digit_width = 38;
-    int digit_spacing = 6;
-    int colon_width = 14;
-    int total_width = 6 * digit_width + 5 * digit_spacing + 2 * colon_width;
+    int total_width = 6 * TIME_DIGIT_WIDTH + 5 * TIME_DIGIT_SPACING + 2 * COLON_7SEG_WIDTH;
     int start_x = (DISPLAY_WIDTH - total_width) / 2;
-    int step = digit_width + digit_spacing;
+    int step = TIME_DIGIT_WIDTH + TIME_DIGIT_SPACING;
     int x;
 
     if (position == 0) {
-        x = start_x + 2 * step - digit_spacing / 2;
+        x = start_x + 2 * step - TIME_DIGIT_SPACING / 2;
     } else {
-        x = start_x + 4 * step + colon_width - digit_spacing / 2;
+        x = start_x + 4 * step + COLON_7SEG_WIDTH - TIME_DIGIT_SPACING / 2;
     }
 
     if (visible) {
@@ -206,7 +161,7 @@ void ui_clock_update(void) {
                  timeinfo.tm_mday,
                  timeinfo.tm_year + 1900);
 
-        draw_centered_string_2x(DATE_Y, date_str, COLOR_DATE_FG, COLOR_BLACK);
+        ui_draw_centered_string(DATE_Y, date_str, COLOR_DATE_FG, COLOR_BLACK, true);
         last_day = timeinfo.tm_yday;
     }
 
@@ -219,10 +174,10 @@ void ui_clock_update(void) {
         char status_str[48];
         if (stats.synced) {
             snprintf(status_str, sizeof(status_str), "NTP: %s", stats.server);
-            draw_centered_string(STATS_Y, status_str, COLOR_SYNC_OK, COLOR_BLACK);
+            ui_draw_centered_string(STATS_Y, status_str, COLOR_SYNC_OK, COLOR_BLACK, false);
         } else {
             snprintf(status_str, sizeof(status_str), "Syncing: %s", wifi_get_custom_ntp_server());
-            draw_centered_string(STATS_Y, status_str, COLOR_SYNC_WAIT, COLOR_BLACK);
+            ui_draw_centered_string(STATS_Y, status_str, COLOR_SYNC_WAIT, COLOR_BLACK, false);
         }
         last_synced_state = stats.synced;
     }
@@ -248,7 +203,7 @@ void ui_clock_update(void) {
                              (long)(time_since / 3600), (long)((time_since % 3600) / 60),
                              (unsigned long)stats.sync_count);
                 }
-                draw_centered_string(STATS_LINE2, line2, COLOR_STATS, COLOR_BLACK);
+                ui_draw_centered_string(STATS_LINE2, line2, COLOR_STATS, COLOR_BLACK, false);
 
                 // Line 3: Next sync countdown
                 time_t next_sync = stats.last_sync_time + stats.sync_interval;
@@ -262,9 +217,9 @@ void ui_clock_update(void) {
                         snprintf(line3, sizeof(line3), "Next sync: %ldm %lds",
                                  (long)(until_next / 60), (long)(until_next % 60));
                     }
-                    draw_centered_string(STATS_LINE3, line3, COLOR_STATS, COLOR_BLACK);
+                    ui_draw_centered_string(STATS_LINE3, line3, COLOR_STATS, COLOR_BLACK, false);
                 } else {
-                    draw_centered_string(STATS_LINE3, "Sync pending...", COLOR_SYNC_WAIT, COLOR_BLACK);
+                    ui_draw_centered_string(STATS_LINE3, "Sync pending...", COLOR_SYNC_WAIT, COLOR_BLACK, false);
                 }
             }
         } else {
@@ -272,8 +227,8 @@ void ui_clock_update(void) {
             char line2[48];
             uint32_t elapsed_sec = stats.sync_elapsed_ms / 1000;
             snprintf(line2, sizeof(line2), "Waiting: %lus", (unsigned long)elapsed_sec);
-            draw_centered_string(STATS_LINE2, line2, COLOR_STATS, COLOR_BLACK);
-            draw_centered_string(STATS_LINE3, "", COLOR_BLACK, COLOR_BLACK);
+            ui_draw_centered_string(STATS_LINE2, line2, COLOR_STATS, COLOR_BLACK, false);
+            ui_draw_centered_string(STATS_LINE3, "", COLOR_BLACK, COLOR_BLACK, false);
         }
     }
 }

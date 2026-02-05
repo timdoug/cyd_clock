@@ -18,9 +18,6 @@ void ui_clock_update(void);
 // Force full redraw of clock
 void ui_clock_redraw(void);
 
-// Set sync status indicator
-void ui_clock_set_synced(bool synced);
-
 // Check for touch and return which zone was touched
 clock_touch_zone_t ui_clock_check_touch(void);
 

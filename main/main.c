@@ -6,10 +6,12 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 
+#include "config.h"
 #include "display.h"
 #include "touch.h"
 #include "wifi.h"
 #include "nvs_config.h"
+#include "ui_common.h"
 #include "ui_clock.h"
 #include "ui_wifi_setup.h"
 #include "ui_timezone.h"
@@ -40,8 +42,8 @@ static bool ntp_started = false;
 
 static void show_splash(void) {
     display_fill(COLOR_BLACK);
-    display_string((DISPLAY_WIDTH - 9 * 8) / 2, 100, "CYD Clock", COLOR_CYAN, COLOR_BLACK);
-    display_string((DISPLAY_WIDTH - 14 * 8) / 2, 130, "Initializing...", COLOR_GRAY, COLOR_BLACK);
+    display_string((DISPLAY_WIDTH - 9 * CHAR_WIDTH) / 2, 100, "CYD Clock", COLOR_CYAN, COLOR_BLACK);
+    display_string((DISPLAY_WIDTH - 14 * CHAR_WIDTH) / 2, 130, "Initializing...", COLOR_GRAY, COLOR_BLACK);
     vTaskDelay(pdMS_TO_TICKS(500));
 }
 
@@ -49,8 +51,8 @@ static void try_connect_stored_credentials(void) {
     app_state = APP_STATE_CONNECTING;
 
     display_fill(COLOR_BLACK);
-    display_string((DISPLAY_WIDTH - 13 * 8) / 2, 100, "Connecting to", COLOR_WHITE, COLOR_BLACK);
-    display_string((DISPLAY_WIDTH - strlen(stored_ssid) * 8) / 2, 130, stored_ssid, COLOR_CYAN, COLOR_BLACK);
+    display_string((DISPLAY_WIDTH - 13 * CHAR_WIDTH) / 2, 100, "Connecting to", COLOR_WHITE, COLOR_BLACK);
+    display_string((DISPLAY_WIDTH - strlen(stored_ssid) * CHAR_WIDTH) / 2, 130, stored_ssid, COLOR_CYAN, COLOR_BLACK);
 
     wifi_init();
     if (wifi_connect(stored_ssid, stored_password)) {
@@ -80,7 +82,7 @@ void app_main(void) {
 
     // Load and apply saved brightness (minimum 32)
     uint8_t brightness;
-    if (nvs_config_get_brightness(&brightness) && brightness >= 32) {
+    if (nvs_config_get_brightness(&brightness) && brightness >= BRIGHTNESS_MIN) {
         display_set_backlight(brightness);
     }
 
@@ -94,7 +96,8 @@ void app_main(void) {
 
     // Load timezone (default to UTC)
     if (!nvs_config_get_timezone(stored_tz)) {
-        strcpy(stored_tz, "UTC0");
+        strncpy(stored_tz, "UTC0", sizeof(stored_tz) - 1);
+        stored_tz[sizeof(stored_tz) - 1] = '\0';
     }
     wifi_set_timezone(stored_tz);
 
@@ -148,9 +151,7 @@ void app_main(void) {
                         app_state = APP_STATE_SETTINGS;
                         wifi_setup_from_settings = false;
                         ui_settings_init();
-                        while (touch_is_pressed()) {
-                            vTaskDelay(pdMS_TO_TICKS(50));
-                        }
+                        ui_wait_for_touch_release();
                     }
                     // If not from settings, stay in WiFi setup (no stored credentials)
                 }
@@ -170,9 +171,7 @@ void app_main(void) {
                     app_state = APP_STATE_SETTINGS;
                     ui_settings_init();
                     last_sec = -1;  // Reset on return
-                    while (touch_is_pressed()) {
-                        vTaskDelay(pdMS_TO_TICKS(50));
-                    }
+                    ui_wait_for_touch_release();
                     continue;
                 }
 
@@ -184,19 +183,18 @@ void app_main(void) {
 
                 // Update display when second changes
                 if (timeinfo.tm_sec != last_sec) {
-                    ui_clock_set_synced(wifi_time_is_synced());
                     ui_clock_update();
                     last_sec = timeinfo.tm_sec;
                 }
 
                 // Poll faster near second boundary for responsiveness
                 int ms_in_sec = tv.tv_usec / 1000;
-                if (ms_in_sec > 980) {
-                    vTaskDelay(pdMS_TO_TICKS(2));
+                if (ms_in_sec > POLL_THRESHOLD_MS) {
+                    vTaskDelay(pdMS_TO_TICKS(POLL_FAST_MS));
                 } else if (ms_in_sec > 900) {
-                    vTaskDelay(pdMS_TO_TICKS(10));
+                    vTaskDelay(pdMS_TO_TICKS(POLL_MID_MS));
                 } else {
-                    vTaskDelay(pdMS_TO_TICKS(20));
+                    vTaskDelay(pdMS_TO_TICKS(POLL_NORMAL_MS));
                 }
                 continue;
             }
@@ -206,35 +204,25 @@ void app_main(void) {
                 if (result == SETTINGS_RESULT_TIMEZONE) {
                     app_state = APP_STATE_TIMEZONE;
                     ui_timezone_init(stored_tz);
-                    while (touch_is_pressed()) {
-                        vTaskDelay(pdMS_TO_TICKS(50));
-                    }
+                    ui_wait_for_touch_release();
                 } else if (result == SETTINGS_RESULT_WIFI) {
                     app_state = APP_STATE_WIFI_SETUP;
                     wifi_setup_from_settings = true;
                     ui_wifi_setup_init();
-                    while (touch_is_pressed()) {
-                        vTaskDelay(pdMS_TO_TICKS(50));
-                    }
+                    ui_wait_for_touch_release();
                 } else if (result == SETTINGS_RESULT_NTP) {
                     app_state = APP_STATE_NTP;
                     ui_ntp_init();
-                    while (touch_is_pressed()) {
-                        vTaskDelay(pdMS_TO_TICKS(50));
-                    }
+                    ui_wait_for_touch_release();
                 } else if (result == SETTINGS_RESULT_ABOUT) {
                     app_state = APP_STATE_ABOUT;
                     ui_about_init();
-                    while (touch_is_pressed()) {
-                        vTaskDelay(pdMS_TO_TICKS(50));
-                    }
+                    ui_wait_for_touch_release();
                 } else if (result == SETTINGS_RESULT_DONE) {
                     app_state = APP_STATE_CLOCK;
                     ui_clock_init();
                     ui_clock_redraw();
-                    while (touch_is_pressed()) {
-                        vTaskDelay(pdMS_TO_TICKS(50));
-                    }
+                    ui_wait_for_touch_release();
                 }
                 break;
             }
@@ -266,9 +254,7 @@ void app_main(void) {
                 if (result == ABOUT_RESULT_BACK) {
                     app_state = APP_STATE_SETTINGS;
                     ui_settings_init();
-                    while (touch_is_pressed()) {
-                        vTaskDelay(pdMS_TO_TICKS(50));
-                    }
+                    ui_wait_for_touch_release();
                 }
                 break;
             }
@@ -278,9 +264,7 @@ void app_main(void) {
                 if (result == NTP_RESULT_BACK) {
                     app_state = APP_STATE_SETTINGS;
                     ui_settings_init();
-                    while (touch_is_pressed()) {
-                        vTaskDelay(pdMS_TO_TICKS(50));
-                    }
+                    ui_wait_for_touch_release();
                 } else if (result == NTP_RESULT_SYNCED) {
                     app_state = APP_STATE_CLOCK;
                     ui_clock_init();
@@ -291,6 +275,6 @@ void app_main(void) {
         }
 
         // Small delay to prevent tight loop
-        vTaskDelay(pdMS_TO_TICKS(50));
+        vTaskDelay(pdMS_TO_TICKS(TOUCH_RELEASE_POLL_MS));
     }
 }

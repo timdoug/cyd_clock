@@ -1,4 +1,5 @@
 #include "wifi.h"
+#include "config.h"
 #include "esp_wifi.h"
 #include "esp_event.h"
 #include "esp_log.h"
@@ -18,18 +19,24 @@ static EventGroupHandle_t wifi_event_group;
 #define WIFI_FAIL_BIT      BIT1
 
 static bool wifi_initialized = false;
-static bool time_synced = false;
 static int retry_count = 0;
-#define MAX_RETRY 5
 
-// NTP server (custom only)
-static char custom_ntp_server[64] = DEFAULT_NTP_SERVER;
-
-// NTP statistics
-static time_t last_sync_time = 0;
-static uint32_t sync_start_ticks = 0;  // Tick count when we started trying to sync
-static uint32_t sync_count = 0;
-static uint32_t ntp_interval = 21600;  // Default 6 hours
+// NTP state grouped together
+static struct {
+    bool synced;
+    time_t last_sync_time;
+    uint32_t sync_start_ticks;
+    uint32_t sync_count;
+    uint32_t interval;
+    char custom_server[64];
+} ntp_state = {
+    .synced = false,
+    .last_sync_time = 0,
+    .sync_start_ticks = 0,
+    .sync_count = 0,
+    .interval = NTP_DEFAULT_INTERVAL_SEC,
+    .custom_server = DEFAULT_NTP_SERVER,
+};
 
 static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                                int32_t event_id, void *event_data) {
@@ -40,10 +47,10 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                 break;
             case WIFI_EVENT_STA_DISCONNECTED:
                 ESP_LOGI(TAG, "WiFi disconnected");
-                if (retry_count < MAX_RETRY) {
+                if (retry_count < WIFI_MAX_RETRY) {
                     esp_wifi_connect();
                     retry_count++;
-                    ESP_LOGI(TAG, "Retrying connection (%d/%d)", retry_count, MAX_RETRY);
+                    ESP_LOGI(TAG, "Retrying connection (%d/%d)", retry_count, WIFI_MAX_RETRY);
                 } else {
                     xEventGroupSetBits(wifi_event_group, WIFI_FAIL_BIT);
                 }
@@ -61,10 +68,10 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
 }
 
 static void time_sync_notification_cb(struct timeval *tv) {
-    time_synced = true;
-    last_sync_time = tv->tv_sec;
-    sync_count++;
-    ESP_LOGI(TAG, "NTP time synchronized (sync #%lu)", (unsigned long)sync_count);
+    ntp_state.synced = true;
+    ntp_state.last_sync_time = tv->tv_sec;
+    ntp_state.sync_count++;
+    ESP_LOGI(TAG, "NTP time synchronized (sync #%lu)", (unsigned long)ntp_state.sync_count);
 }
 
 void wifi_init(void) {
@@ -183,7 +190,7 @@ bool wifi_connect(const char *ssid, const char *password) {
     EventBits_t bits = xEventGroupWaitBits(wifi_event_group,
                                            WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
                                            pdFALSE, pdFALSE,
-                                           pdMS_TO_TICKS(15000));
+                                           pdMS_TO_TICKS(WIFI_CONNECT_TIMEOUT_MS));
 
     if (bits & WIFI_CONNECTED_BIT) {
         ESP_LOGI(TAG, "Connected to %s", ssid);
@@ -208,19 +215,19 @@ void wifi_start_ntp(void) {
     const char *server = wifi_get_custom_ntp_server();
 
     ESP_LOGI(TAG, "Starting NTP sync (server: %s, interval: %lu sec)",
-             server, (unsigned long)ntp_interval);
+             server, (unsigned long)ntp_state.interval);
 
-    sync_start_ticks = xTaskGetTickCount();
+    ntp_state.sync_start_ticks = xTaskGetTickCount();
 
     esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
     esp_sntp_setservername(0, server);
-    esp_sntp_set_sync_interval(ntp_interval * 1000);  // Convert to ms
+    esp_sntp_set_sync_interval(ntp_state.interval * 1000);  // Convert to ms
     sntp_set_time_sync_notification_cb(time_sync_notification_cb);
     esp_sntp_init();
 }
 
 bool wifi_time_is_synced(void) {
-    return time_synced;
+    return ntp_state.synced;
 }
 
 void wifi_set_timezone(const char *tz) {
@@ -230,14 +237,14 @@ void wifi_set_timezone(const char *tz) {
 }
 
 void wifi_get_ntp_stats(ntp_stats_t *stats) {
-    stats->synced = time_synced;
-    stats->last_sync_time = last_sync_time;
-    stats->sync_count = sync_count;
-    stats->sync_interval = ntp_interval;
+    stats->synced = ntp_state.synced;
+    stats->last_sync_time = ntp_state.last_sync_time;
+    stats->sync_count = ntp_state.sync_count;
+    stats->sync_interval = ntp_state.interval;
 
     // Calculate elapsed time since sync started
-    if (!time_synced && sync_start_ticks > 0) {
-        stats->sync_elapsed_ms = pdTICKS_TO_MS(xTaskGetTickCount() - sync_start_ticks);
+    if (!ntp_state.synced && ntp_state.sync_start_ticks > 0) {
+        stats->sync_elapsed_ms = pdTICKS_TO_MS(xTaskGetTickCount() - ntp_state.sync_start_ticks);
     } else {
         stats->sync_elapsed_ms = 0;
     }
@@ -250,8 +257,8 @@ void wifi_get_ntp_stats(ntp_stats_t *stats) {
 }
 
 void wifi_set_ntp_interval(uint32_t seconds) {
-    if (seconds < 15) seconds = 15;  // SNTP minimum
-    ntp_interval = seconds;
+    if (seconds < NTP_MIN_INTERVAL_SEC) seconds = NTP_MIN_INTERVAL_SEC;
+    ntp_state.interval = seconds;
 
     // Update the running SNTP if initialized
     if (esp_sntp_enabled()) {
@@ -264,7 +271,7 @@ void wifi_set_ntp_interval(uint32_t seconds) {
 void wifi_force_ntp_sync(void) {
     // Full restart to pick up any new server/interval settings
     if (esp_sntp_enabled()) {
-        time_synced = false;  // Reset so UI shows "Syncing..." state
+        ntp_state.synced = false;  // Reset so UI shows "Syncing..." state
         esp_sntp_stop();
         wifi_start_ntp();
     }
@@ -279,14 +286,14 @@ void wifi_restart_ntp(void) {
 }
 
 const char *wifi_get_custom_ntp_server(void) {
-    return custom_ntp_server[0] ? custom_ntp_server : DEFAULT_NTP_SERVER;
+    return ntp_state.custom_server[0] ? ntp_state.custom_server : DEFAULT_NTP_SERVER;
 }
 
 void wifi_set_custom_ntp_server(const char *server) {
-    strncpy(custom_ntp_server, server, sizeof(custom_ntp_server) - 1);
-    custom_ntp_server[sizeof(custom_ntp_server) - 1] = '\0';
+    strncpy(ntp_state.custom_server, server, sizeof(ntp_state.custom_server) - 1);
+    ntp_state.custom_server[sizeof(ntp_state.custom_server) - 1] = '\0';
 }
 
 uint32_t wifi_get_ntp_interval(void) {
-    return ntp_interval;
+    return ntp_state.interval;
 }

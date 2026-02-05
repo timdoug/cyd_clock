@@ -1,25 +1,20 @@
 #include "ui_about.h"
+#include "config.h"
 #include "display.h"
 #include "touch.h"
+#include "ui_common.h"
 #include "esp_log.h"
 #include "version.h"
 #include <string.h>
 
 static const char *TAG = "ui_about";
 
-#define HEADER_HEIGHT 30
 #define URL "github.com/timdoug/cyd_clock"
 
 static bool touched_last = false;
 
 static void draw_screen(void) {
-    // Header
-    display_fill_rect(0, 0, DISPLAY_WIDTH, HEADER_HEIGHT, COLOR_BLUE);
-    display_string((DISPLAY_WIDTH - 5 * 8) / 2, 8, "About", COLOR_WHITE, COLOR_BLUE);
-
-    // Back button
-    display_fill_rect(5, 5, 50, 20, COLOR_DARKGRAY);
-    display_string(15, 8, "Back", COLOR_WHITE, COLOR_DARKGRAY);
+    ui_draw_header("About", true);
 
     // Content
     int y = 50;
@@ -52,7 +47,7 @@ about_result_t ui_about_update(void) {
     // Only respond on touch down
     if (touched && !touched_last) {
         // Back button
-        if (touch.y < HEADER_HEIGHT && touch.x < 60) {
+        if (touch.y < UI_HEADER_HEIGHT && touch.x < 60) {
             touched_last = touched;
             return ABOUT_RESULT_BACK;
         }

@@ -41,6 +41,7 @@ idf_component_register(
         "touch.c"
         "wifi.c"
         "nvs_config.c"
+        "ui_common.c"
         "ui_clock.c"
         "ui_wifi_setup.c"
         "ui_timezone.c"
