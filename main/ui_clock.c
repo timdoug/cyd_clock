@@ -3,6 +3,7 @@
 #include "display.h"
 #include "touch.h"
 #include "wifi.h"
+#include "nvs_config.h"
 #include "ui_common.h"
 #include "esp_log.h"
 #include <time.h>
@@ -37,6 +38,7 @@ static int last_day = -1;
 static bool colon_visible = true;
 static bool last_synced_state = false;
 static int last_stats_sec = -1;
+static uint8_t led_brightness = 128;
 
 static const char *day_names[] = {
     "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
@@ -59,6 +61,13 @@ static void reset_display_state(void) {
 void ui_clock_init(void) {
     ESP_LOGI(TAG, "Initializing clock UI");
     reset_display_state();
+
+    // Load LED brightness setting (default to 128)
+    if (!nvs_config_get_led_brightness(&led_brightness)) {
+        led_brightness = 128;
+    }
+    // Turn off LED initially
+    led_set_brightness(0);
 }
 
 void ui_clock_redraw(void) {
@@ -144,7 +153,7 @@ void ui_clock_update(void) {
     if (new_colon_visible != colon_visible || last_sec < 0) {
         draw_colon(0, new_colon_visible);
         draw_colon(1, new_colon_visible);
-        led_set(new_colon_visible);
+        led_set_brightness(new_colon_visible ? led_brightness : 0);
         colon_visible = new_colon_visible;
     }
 

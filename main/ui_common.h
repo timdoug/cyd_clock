@@ -6,9 +6,9 @@
 
 // Common UI layout constants
 #define UI_HEADER_HEIGHT    30
-#define UI_ITEM_HEIGHT      28
+#define UI_ITEM_HEIGHT      26
 #define UI_ITEM_MARGIN      10
-#define UI_TEXT_Y_OFFSET    6
+#define UI_TEXT_Y_OFFSET    5
 #define UI_HEADER_TEXT_Y    8
 
 // Common UI colors

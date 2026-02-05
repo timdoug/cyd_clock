@@ -62,7 +62,7 @@ void display_set_backlight(uint8_t brightness);
 
 // LED control (RGB LED on back of CYD)
 void led_init(void);
-void led_set(bool on);
+void led_set_brightness(uint8_t brightness);
 
 // Display rotation (180 degrees)
 void display_set_rotation(bool rotated);

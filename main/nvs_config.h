@@ -35,4 +35,8 @@ void nvs_config_set_custom_ntp_server(const char *server);
 bool nvs_config_get_rotation(bool *rotated);
 void nvs_config_set_rotation(bool rotated);
 
+// LED brightness (0 = off, 255 = max)
+bool nvs_config_get_led_brightness(uint8_t *brightness);
+void nvs_config_set_led_brightness(uint8_t brightness);
+
 #endif // NVS_CONFIG_H

@@ -193,3 +193,23 @@ void nvs_config_set_rotation(bool rotated) {
     ESP_ERROR_CHECK(nvs_set_u8(handle, "rotation", rotated ? 1 : 0));
     nvs_commit_and_close(handle);
 }
+
+bool nvs_config_get_led_brightness(uint8_t *brightness) {
+    nvs_handle_t handle;
+    if (!nvs_open_read(&handle)) {
+        return false;
+    }
+
+    esp_err_t err = nvs_get_u8(handle, "led_bright", brightness);
+    nvs_close(handle);
+
+    return (err == ESP_OK);
+}
+
+void nvs_config_set_led_brightness(uint8_t brightness) {
+    nvs_handle_t handle;
+    if (!nvs_open_write(&handle)) return;
+
+    ESP_ERROR_CHECK(nvs_set_u8(handle, "led_bright", brightness));
+    nvs_commit_and_close(handle);
+}
