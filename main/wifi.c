@@ -297,3 +297,15 @@ void wifi_set_custom_ntp_server(const char *server) {
 uint32_t wifi_get_ntp_interval(void) {
     return ntp_state.interval;
 }
+
+void wifi_get_ip_str(char *buf, size_t len) {
+    esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+    if (netif && wifi_is_connected()) {
+        esp_netif_ip_info_t ip_info;
+        if (esp_netif_get_ip_info(netif, &ip_info) == ESP_OK) {
+            snprintf(buf, len, IPSTR, IP2STR(&ip_info.ip));
+            return;
+        }
+    }
+    snprintf(buf, len, "0.0.0.0");
+}

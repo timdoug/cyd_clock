@@ -68,4 +68,7 @@ void wifi_restart_ntp(void);
 // Set timezone (POSIX TZ format, e.g., "PST8PDT,M3.2.0,M11.1.0")
 void wifi_set_timezone(const char *tz);
 
+// Get current IP address as string (returns "0.0.0.0" if not connected)
+void wifi_get_ip_str(char *buf, size_t len);
+
 #endif // WIFI_H
