@@ -29,6 +29,7 @@ clean:
 
 fullclean:
 	idf.py fullclean
+	rm -rf build sdkconfig
 
 menuconfig:
 	idf.py menuconfig
