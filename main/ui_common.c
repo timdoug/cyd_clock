@@ -55,3 +55,28 @@ bool ui_should_debounce(uint32_t last_time_ticks) {
     uint32_t now = xTaskGetTickCount();
     return (now - last_time_ticks) < pdMS_TO_TICKS(TOUCH_DEBOUNCE_MS);
 }
+
+void ui_draw_menu_item(int y, const char *label) {
+    display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, UI_COLOR_ITEM_BG);
+    display_string(10, y + UI_TEXT_Y_OFFSET, label, UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
+    display_string(DISPLAY_WIDTH - 18, y + UI_TEXT_Y_OFFSET, ">", UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
+}
+
+void ui_draw_slider(int y, const char *label, uint8_t value, uint8_t max_value, uint16_t fill_color) {
+    display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, UI_COLOR_ITEM_BG);
+    display_string(10, y + UI_TEXT_Y_OFFSET, label, UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
+
+    int bar_y = y + UI_TEXT_Y_OFFSET;
+    display_fill_rect(UI_SLIDER_BAR_X, bar_y, UI_SLIDER_BAR_W, UI_SLIDER_BAR_H, COLOR_BLACK);
+    display_rect(UI_SLIDER_BAR_X, bar_y, UI_SLIDER_BAR_W, UI_SLIDER_BAR_H, COLOR_GRAY);
+    int fill_w = (value * (UI_SLIDER_BAR_W - 4)) / max_value;
+    display_fill_rect(UI_SLIDER_BAR_X + 2, bar_y + 2, fill_w, UI_SLIDER_BAR_H - 4, fill_color);
+
+    // Minus button
+    display_fill_rect(UI_SLIDER_BTN_X1, y + 3, UI_SLIDER_BTN_W, UI_SLIDER_BTN_H, COLOR_GRAY);
+    display_string(UI_SLIDER_BTN_X1 + 6, y + 4, "-", COLOR_WHITE, COLOR_GRAY);
+
+    // Plus button
+    display_fill_rect(UI_SLIDER_BTN_X2, y + 3, UI_SLIDER_BTN_W, UI_SLIDER_BTN_H, COLOR_GRAY);
+    display_string(UI_SLIDER_BTN_X2 + 6, y + 4, "+", COLOR_WHITE, COLOR_GRAY);
+}

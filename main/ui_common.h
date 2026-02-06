@@ -29,9 +29,24 @@
 #define VKEY_ENTER      '\x0D'
 #define VKEY_ESCAPE     '\x1B'
 
+// Slider layout constants (for hit-testing in callers)
+#define UI_SLIDER_BAR_X     100
+#define UI_SLIDER_BAR_W     150
+#define UI_SLIDER_BAR_H     14
+#define UI_SLIDER_BTN_X1    260   // Minus button x
+#define UI_SLIDER_BTN_X2    288   // Plus button x
+#define UI_SLIDER_BTN_W     22
+#define UI_SLIDER_BTN_H     18
+
 // Draw a standard header bar with centered title
 // If show_back is true, shows a "Back" button on the left
 void ui_draw_header(const char *title, bool show_back);
+
+// Draw a menu item with label and ">" arrow
+void ui_draw_menu_item(int y, const char *label);
+
+// Draw a labeled slider with +/- buttons
+void ui_draw_slider(int y, const char *label, uint8_t value, uint8_t max_value, uint16_t fill_color);
 
 // Draw a centered string with full-width background (no pre-clear needed)
 // height: 16 for 1x scale, 32 for 2x scale

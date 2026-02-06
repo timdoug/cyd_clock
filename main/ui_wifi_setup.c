@@ -1,5 +1,6 @@
 #include "ui_wifi_setup.h"
 #include "ui_common.h"
+#include "ui_keyboard.h"
 #include "display.h"
 #include "touch.h"
 #include "wifi.h"
@@ -22,9 +23,6 @@ typedef enum {
 
 // Layout constants
 #define KEYBOARD_Y      120
-#define KEY_WIDTH       28
-#define KEY_HEIGHT      22
-#define KEY_SPACING     2
 
 // Colors
 #define COLOR_KEYBOARD  COLOR_DARKGRAY
@@ -146,53 +144,40 @@ static void draw_keyboard(void) {
     else if (keyboard_mode == 1 || shift_active) layout = keyboard_upper;
     else layout = keyboard_lower;
 
-    // Clear keyboard area first
+    // Clear keyboard area
     display_fill_rect(0, KEYBOARD_Y, DISPLAY_WIDTH, DISPLAY_HEIGHT - KEYBOARD_Y, COLOR_BLACK);
 
-    int y = KEYBOARD_Y;
-
-    for (int row = 0; row < 4; row++) {
-        const char *keys = layout[row];
-        int row_len = strlen(keys);
-        int x = (DISPLAY_WIDTH - row_len * (KEY_WIDTH + KEY_SPACING)) / 2;
-
-        for (int col = 0; col < row_len; col++) {
-            display_fill_rect(x, y, KEY_WIDTH, KEY_HEIGHT, COLOR_KEYBOARD);
-            display_rect(x, y, KEY_WIDTH, KEY_HEIGHT, COLOR_GRAY);
-            display_char(x + 10, y + 3, keys[col], COLOR_KEY_FG, COLOR_KEYBOARD);
-            x += KEY_WIDTH + KEY_SPACING;
-        }
-        y += KEY_HEIGHT + KEY_SPACING;
-    }
+    // Character keys
+    ui_keyboard_draw_keys(layout, 4, KEYBOARD_Y, COLOR_KEYBOARD, COLOR_KEY_FG, COLOR_GRAY);
 
     // Special keys row
-    y = KEYBOARD_Y + 4 * (KEY_HEIGHT + KEY_SPACING);
+    int y = ui_keyboard_bottom_y(4, KEYBOARD_Y);
     int x = 5;
 
     // Shift key
-    display_fill_rect(x, y, 40, KEY_HEIGHT, shift_active ? UI_COLOR_SELECTED : COLOR_KEYBOARD);
+    display_fill_rect(x, y, 40, KB_KEY_HEIGHT, shift_active ? UI_COLOR_SELECTED : COLOR_KEYBOARD);
     display_string(x + 8, y + 3, "Shf", shift_active ? COLOR_BLACK : COLOR_KEY_FG,
                    shift_active ? UI_COLOR_SELECTED : COLOR_KEYBOARD);
     x += 45;
 
     // Mode key
-    display_fill_rect(x, y, 40, KEY_HEIGHT, COLOR_KEYBOARD);
+    display_fill_rect(x, y, 40, KB_KEY_HEIGHT, COLOR_KEYBOARD);
     const char *mode_label = (keyboard_mode == 0) ? "?#@" : "abc";
     display_string(x + 8, y + 3, mode_label, COLOR_KEY_FG, COLOR_KEYBOARD);
     x += 45;
 
     // Space bar
-    display_fill_rect(x, y, 100, KEY_HEIGHT, COLOR_KEYBOARD);
+    display_fill_rect(x, y, 100, KB_KEY_HEIGHT, COLOR_KEYBOARD);
     display_string(x + 30, y + 3, "Space", COLOR_KEY_FG, COLOR_KEYBOARD);
     x += 105;
 
     // Backspace
-    display_fill_rect(x, y, 40, KEY_HEIGHT, COLOR_KEYBOARD);
+    display_fill_rect(x, y, 40, KB_KEY_HEIGHT, COLOR_KEYBOARD);
     display_string(x + 8, y + 3, "Del", COLOR_KEY_FG, COLOR_KEYBOARD);
     x += 45;
 
     // Connect button
-    display_fill_rect(x, y, 60, KEY_HEIGHT, COLOR_GREEN);
+    display_fill_rect(x, y, 60, KB_KEY_HEIGHT, COLOR_GREEN);
     display_string(x + 18, y + 3, "Go", COLOR_BLACK, COLOR_GREEN);
 }
 
@@ -202,35 +187,21 @@ static char get_key_at(int tx, int ty) {
     else if (keyboard_mode == 1 || shift_active) layout = keyboard_upper;
     else layout = keyboard_lower;
 
-    if (ty < KEYBOARD_Y) return 0;
-
-    int row = (ty - KEYBOARD_Y) / (KEY_HEIGHT + KEY_SPACING);
+    // Check character keys
+    char key = ui_keyboard_get_key(layout, 4, KEYBOARD_Y, tx, ty);
+    if (key) return key;
 
     // Special keys row
-    if (row >= 4) {
-        int y = KEYBOARD_Y + 4 * (KEY_HEIGHT + KEY_SPACING);
-        if (ty >= y && ty < y + KEY_HEIGHT) {
-            if (tx < 45) return VKEY_SHIFT;
-            if (tx < 90) return VKEY_MODE;
-            if (tx < 195) return ' ';    // Space
-            if (tx < 240) return VKEY_BACKSPACE;
-            return VKEY_ENTER;
-        }
-        return 0;
+    int y = ui_keyboard_bottom_y(4, KEYBOARD_Y);
+    if (ty >= y && ty < y + KB_KEY_HEIGHT) {
+        if (tx < 45) return VKEY_SHIFT;
+        if (tx < 90) return VKEY_MODE;
+        if (tx < 195) return ' ';    // Space
+        if (tx < 240) return VKEY_BACKSPACE;
+        return VKEY_ENTER;
     }
 
-    if (row >= 4) return 0;
-
-    const char *keys = layout[row];
-    int row_len = strlen(keys);
-    int row_start = (DISPLAY_WIDTH - row_len * (KEY_WIDTH + KEY_SPACING)) / 2;
-
-    if (tx < row_start) return 0;
-
-    int col = (tx - row_start) / (KEY_WIDTH + KEY_SPACING);
-    if (col >= row_len) return 0;
-
-    return keys[col];
+    return 0;
 }
 
 void ui_wifi_setup_init(bool show_back) {

@@ -1,5 +1,6 @@
 #include "ui_ntp.h"
 #include "ui_common.h"
+#include "ui_keyboard.h"
 #include "display.h"
 #include "touch.h"
 #include "wifi.h"
@@ -25,9 +26,7 @@ static const char *keyboard_rows[] = {
     "asdfghjkl.",
     "zxcvbnm-_",
 };
-#define KEY_WIDTH  29
-#define KEY_HEIGHT 22
-#define KEY_START_Y 120
+#define KEYBOARD_Y 120
 
 // UI state
 typedef enum {
@@ -48,26 +47,15 @@ static int find_interval_idx(uint32_t interval) {
 }
 
 static void draw_keyboard(void) {
-    display_fill_rect(0, KEY_START_Y, DISPLAY_WIDTH, DISPLAY_HEIGHT - KEY_START_Y, COLOR_BLACK);
+    // Clear keyboard area
+    display_fill_rect(0, KEYBOARD_Y, DISPLAY_WIDTH, DISPLAY_HEIGHT - KEYBOARD_Y, COLOR_BLACK);
 
-    for (int row = 0; row < 4; row++) {
-        const char *keys = keyboard_rows[row];
-        int num_keys = strlen(keys);
-        int start_x = (DISPLAY_WIDTH - num_keys * KEY_WIDTH) / 2;
-
-        for (int i = 0; i < num_keys; i++) {
-            int x = start_x + i * KEY_WIDTH;
-            int y = KEY_START_Y + row * KEY_HEIGHT;
-
-            display_fill_rect(x + 1, y + 1, KEY_WIDTH - 2, KEY_HEIGHT - 2, COLOR_DARKGRAY);
-            char str[2] = {keys[i], '\0'};
-            display_string(x + 10, y + 3, str, COLOR_WHITE, COLOR_DARKGRAY);
-        }
-    }
+    // Character keys
+    ui_keyboard_draw_keys(keyboard_rows, 4, KEYBOARD_Y, COLOR_DARKGRAY, COLOR_WHITE, COLOR_GRAY);
 
     // Bottom row: Cancel (left), Del (center), Done (right)
-    int y = KEY_START_Y + 4 * KEY_HEIGHT;
-    int btn_h = KEY_HEIGHT - 2;
+    int y = ui_keyboard_bottom_y(4, KEYBOARD_Y);
+    int btn_h = KB_KEY_HEIGHT - 2;
 
     display_fill_rect(10, y, 80, btn_h, COLOR_RED);
     display_string(26, y + 3, "Cancel", COLOR_WHITE, COLOR_RED);
@@ -101,25 +89,16 @@ static void draw_server_input(void) {
 }
 
 static char get_key_at(int16_t x, int16_t y) {
-    if (y < KEY_START_Y) return 0;
-
-    int row = (y - KEY_START_Y) / KEY_HEIGHT;
+    // Check character keys
+    char key = ui_keyboard_get_key(keyboard_rows, 4, KEYBOARD_Y, x, y);
+    if (key) return key;
 
     // Bottom row: Cancel (left), Del (center), Done (right)
-    if (row >= 4) {
+    int btn_y = ui_keyboard_bottom_y(4, KEYBOARD_Y);
+    if (y >= btn_y && y < btn_y + KB_KEY_HEIGHT) {
         if (x >= 10 && x < 90) return VKEY_ESCAPE;
         if (x >= 120 && x < 200) return VKEY_BACKSPACE;
         if (x >= 230 && x < 310) return VKEY_ENTER;
-        return 0;
-    }
-
-    const char *keys = keyboard_rows[row];
-    int num_keys = strlen(keys);
-    int start_x = (DISPLAY_WIDTH - num_keys * KEY_WIDTH) / 2;
-
-    int col = (x - start_x) / KEY_WIDTH;
-    if (col >= 0 && col < num_keys) {
-        return keys[col];
     }
 
     return 0;

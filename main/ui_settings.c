@@ -26,61 +26,19 @@ static void draw_header(void) {
 static void draw_menu(void) {
     int y = ITEM_START_Y;
 
-    // Timezone button
-    display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, UI_COLOR_ITEM_BG);
-    display_string(10, y + UI_TEXT_Y_OFFSET, "Time zone", UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
-    display_string(DISPLAY_WIDTH - 18, y + UI_TEXT_Y_OFFSET, ">", UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
+    ui_draw_menu_item(y, "Time zone");
     y += UI_ITEM_HEIGHT;
 
-    // WiFi button
-    display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, UI_COLOR_ITEM_BG);
-    display_string(10, y + UI_TEXT_Y_OFFSET, "WiFi", UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
-    display_string(DISPLAY_WIDTH - 18, y + UI_TEXT_Y_OFFSET, ">", UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
+    ui_draw_menu_item(y, "WiFi");
     y += UI_ITEM_HEIGHT;
 
-    // NTP button
-    display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, UI_COLOR_ITEM_BG);
-    display_string(10, y + UI_TEXT_Y_OFFSET, "NTP", UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
-    display_string(DISPLAY_WIDTH - 18, y + UI_TEXT_Y_OFFSET, ">", UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
+    ui_draw_menu_item(y, "NTP");
     y += UI_ITEM_HEIGHT;
 
-    // Brightness control
-    display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, UI_COLOR_ITEM_BG);
-    display_string(10, y + UI_TEXT_Y_OFFSET, "Brightness", UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
-
-    // Brightness bar
-    int bar_x = 100;
-    int bar_w = 150;
-    int bar_h = 14;
-    int bar_y = y + UI_TEXT_Y_OFFSET;
-    display_fill_rect(bar_x, bar_y, bar_w, bar_h, COLOR_BLACK);
-    display_rect(bar_x, bar_y, bar_w, bar_h, COLOR_GRAY);
-    int fill_w = (brightness * (bar_w - 4)) / BRIGHTNESS_MAX;
-    display_fill_rect(bar_x + 2, bar_y + 2, fill_w, bar_h - 4, UI_COLOR_SELECTED);
-
-    // - and + buttons (aligned to right edge)
-    display_fill_rect(260, y + 3, 22, 18, COLOR_GRAY);
-    display_string(266, y + 4, "-", COLOR_WHITE, COLOR_GRAY);
-    display_fill_rect(288, y + 3, 22, 18, COLOR_GRAY);
-    display_string(294, y + 4, "+", COLOR_WHITE, COLOR_GRAY);
+    ui_draw_slider(y, "Brightness", brightness, BRIGHTNESS_MAX, UI_COLOR_SELECTED);
     y += UI_ITEM_HEIGHT;
 
-    // LED brightness control
-    display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, UI_COLOR_ITEM_BG);
-    display_string(10, y + UI_TEXT_Y_OFFSET, "LED Blink", UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
-
-    // LED bar (same layout as brightness)
-    bar_y = y + UI_TEXT_Y_OFFSET;
-    display_fill_rect(bar_x, bar_y, bar_w, bar_h, COLOR_BLACK);
-    display_rect(bar_x, bar_y, bar_w, bar_h, COLOR_GRAY);
-    int led_fill_w = (led_brightness * (bar_w - 4)) / BRIGHTNESS_MAX;
-    display_fill_rect(bar_x + 2, bar_y + 2, led_fill_w, bar_h - 4, COLOR_RED);
-
-    // - and + buttons
-    display_fill_rect(260, y + 3, 22, 18, COLOR_GRAY);
-    display_string(266, y + 4, "-", COLOR_WHITE, COLOR_GRAY);
-    display_fill_rect(288, y + 3, 22, 18, COLOR_GRAY);
-    display_string(294, y + 4, "+", COLOR_WHITE, COLOR_GRAY);
+    ui_draw_slider(y, "LED Blink", led_brightness, BRIGHTNESS_MAX, COLOR_RED);
     y += UI_ITEM_HEIGHT;
 
     // Rotation toggle
@@ -91,10 +49,7 @@ static void draw_menu(void) {
     display_string(272, y + 4, rotation ? "On" : "Off", rotation ? COLOR_BLACK : COLOR_WHITE, rot_bg);
     y += UI_ITEM_HEIGHT;
 
-    // About button
-    display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, UI_COLOR_ITEM_BG);
-    display_string(10, y + UI_TEXT_Y_OFFSET, "About", UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
-    display_string(DISPLAY_WIDTH - 18, y + UI_TEXT_Y_OFFSET, ">", UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
+    ui_draw_menu_item(y, "About");
     y += UI_ITEM_HEIGHT;
 
     // Done button (1/3 width, centered)
@@ -163,15 +118,15 @@ settings_result_t ui_settings_update(void) {
         // Brightness controls
         if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT) {
             // Tap on bar to set value directly
-            if (touch.x >= 100 && touch.x < 250) {
-                brightness = ((touch.x - 100) * BRIGHTNESS_MAX) / 150;
+            if (touch.x >= UI_SLIDER_BAR_X && touch.x < UI_SLIDER_BAR_X + UI_SLIDER_BAR_W) {
+                brightness = ((touch.x - UI_SLIDER_BAR_X) * BRIGHTNESS_MAX) / UI_SLIDER_BAR_W;
                 if (brightness < BRIGHTNESS_MIN) brightness = BRIGHTNESS_MIN;
                 display_set_backlight(brightness);
                 nvs_config_set_brightness(brightness);
                 draw_menu();
             }
             // Minus button
-            else if (touch.x >= 260 && touch.x < 282) {
+            else if (touch.x >= UI_SLIDER_BTN_X1 && touch.x < UI_SLIDER_BTN_X1 + UI_SLIDER_BTN_W) {
                 if (brightness > BRIGHTNESS_MIN) {
                     brightness -= BRIGHTNESS_STEP;
                     display_set_backlight(brightness);
@@ -180,7 +135,7 @@ settings_result_t ui_settings_update(void) {
                 }
             }
             // Plus button
-            else if (touch.x >= 288 && touch.x < 310) {
+            else if (touch.x >= UI_SLIDER_BTN_X2 && touch.x < UI_SLIDER_BTN_X2 + UI_SLIDER_BTN_W) {
                 if (brightness < BRIGHTNESS_MAX) {
                     if (brightness <= BRIGHTNESS_MAX - BRIGHTNESS_STEP) {
                         brightness += BRIGHTNESS_STEP;
@@ -198,14 +153,14 @@ settings_result_t ui_settings_update(void) {
         // LED brightness controls
         if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT) {
             // Tap on bar to set value directly (can go to 0)
-            if (touch.x >= 100 && touch.x < 250) {
-                led_brightness = ((touch.x - 100) * BRIGHTNESS_MAX) / 150;
+            if (touch.x >= UI_SLIDER_BAR_X && touch.x < UI_SLIDER_BAR_X + UI_SLIDER_BAR_W) {
+                led_brightness = ((touch.x - UI_SLIDER_BAR_X) * BRIGHTNESS_MAX) / UI_SLIDER_BAR_W;
                 led_set_brightness(led_brightness);
                 nvs_config_set_led_brightness(led_brightness);
                 draw_menu();
             }
             // Minus button (can go to 0)
-            else if (touch.x >= 260 && touch.x < 282) {
+            else if (touch.x >= UI_SLIDER_BTN_X1 && touch.x < UI_SLIDER_BTN_X1 + UI_SLIDER_BTN_W) {
                 if (led_brightness >= BRIGHTNESS_STEP) {
                     led_brightness -= BRIGHTNESS_STEP;
                 } else {
@@ -216,7 +171,7 @@ settings_result_t ui_settings_update(void) {
                 draw_menu();
             }
             // Plus button
-            else if (touch.x >= 288 && touch.x < 310) {
+            else if (touch.x >= UI_SLIDER_BTN_X2 && touch.x < UI_SLIDER_BTN_X2 + UI_SLIDER_BTN_W) {
                 if (led_brightness <= BRIGHTNESS_MAX - BRIGHTNESS_STEP) {
                     led_brightness += BRIGHTNESS_STEP;
                 } else {
