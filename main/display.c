@@ -613,13 +613,6 @@ void display_colon_7seg(int16_t x, int16_t y, uint8_t size, uint16_t color, uint
     display_fill_rect(x + 2, y + seg_len + seg_len / 2 + seg_thick, dot_size, dot_size, color);
 }
 
-// Gamma correction for perceptually linear brightness (gamma ~2.2)
-static uint8_t gamma_correct(uint8_t linear) {
-    // Use x^2.2 / 255^1.2 approximated as (x^2 * x) / (255 * 255) scaled
-    // Simplified: quadratic curve (x * x) / 255 works well in practice
-    return (uint16_t)linear * linear / 255;
-}
-
 void display_set_backlight(uint8_t brightness) {
     uint8_t corrected = gamma_correct(brightness);
     ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, corrected);

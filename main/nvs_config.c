@@ -76,7 +76,7 @@ void nvs_config_set_wifi(const char *ssid, const char *password) {
 
 void nvs_config_clear_wifi(void) {
     nvs_handle_t handle;
-    if (nvs_open(NVS_NAMESPACE, NVS_READWRITE, &handle) != ESP_OK) return;
+    if (!nvs_open_write(&handle)) return;
 
     nvs_erase_key(handle, "ssid");
     nvs_erase_key(handle, "password");

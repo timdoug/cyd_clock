@@ -11,11 +11,23 @@
 #define UI_TEXT_Y_OFFSET    5
 #define UI_HEADER_TEXT_Y    8
 
+// Common list layout
+#define UI_LIST_ITEM_H      28
+#define UI_LIST_START_Y     35
+#define UI_LIST_VISIBLE     6
+
 // Common UI colors
 #define UI_COLOR_HEADER     0x001F  // COLOR_BLUE
 #define UI_COLOR_ITEM_BG    0x4208  // COLOR_DARKGRAY
 #define UI_COLOR_ITEM_FG    0xFFFF  // COLOR_WHITE
 #define UI_COLOR_SELECTED   0x07FF  // COLOR_CYAN
+
+// Virtual key codes for on-screen keyboards
+#define VKEY_SHIFT      '\x01'
+#define VKEY_MODE       '\x02'
+#define VKEY_BACKSPACE  '\x08'
+#define VKEY_ENTER      '\x0D'
+#define VKEY_ESCAPE     '\x1B'
 
 // Draw a standard header bar with centered title
 // If show_back is true, shows a "Back" button on the left

@@ -1,6 +1,8 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include <stdint.h>
+
 // Hardware configuration
 #define SPI_CLOCK_HZ        (40 * 1000 * 1000)  // 40 MHz display SPI
 #define PWM_FREQUENCY_HZ    5000                 // Backlight PWM frequency
@@ -46,5 +48,10 @@
 // WiFi
 #define WIFI_MAX_RETRY      5
 #define WIFI_CONNECT_TIMEOUT_MS 15000
+
+// Gamma correction for perceptually linear brightness (quadratic approximation of gamma 2.2)
+static inline uint8_t gamma_correct(uint8_t linear) {
+    return (uint16_t)linear * linear / 255;
+}
 
 #endif // CONFIG_H

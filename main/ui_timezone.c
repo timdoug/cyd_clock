@@ -84,9 +84,6 @@ static const timezone_entry_t timezones[] = {
 #define NUM_TIMEZONES (sizeof(timezones) / sizeof(timezones[0]))
 
 // Layout
-#define LIST_ITEM_H   28
-#define LIST_START_Y  35
-#define LIST_VISIBLE  6
 #define SCROLL_ZONE_H 30
 
 // State
@@ -99,25 +96,25 @@ static bool show_back_button = false;
 
 
 static void draw_list(void) {
-    display_fill_rect(0, LIST_START_Y, DISPLAY_WIDTH, DISPLAY_HEIGHT - LIST_START_Y, COLOR_BLACK);
+    display_fill_rect(0, UI_LIST_START_Y, DISPLAY_WIDTH, DISPLAY_HEIGHT - UI_LIST_START_Y, COLOR_BLACK);
 
-    for (int i = 0; i < LIST_VISIBLE && (i + scroll_offset) < NUM_TIMEZONES; i++) {
+    for (int i = 0; i < UI_LIST_VISIBLE && (i + scroll_offset) < NUM_TIMEZONES; i++) {
         int idx = i + scroll_offset;
-        int y = LIST_START_Y + i * LIST_ITEM_H;
+        int y = UI_LIST_START_Y + i * UI_LIST_ITEM_H;
 
         uint16_t bg = (idx == selected_tz) ? COLOR_CYAN : COLOR_BLACK;
         uint16_t fg = (idx == selected_tz) ? COLOR_BLACK : COLOR_WHITE;
 
-        display_fill_rect(0, y, DISPLAY_WIDTH, LIST_ITEM_H - 2, bg);
+        display_fill_rect(0, y, DISPLAY_WIDTH, UI_LIST_ITEM_H - 2, bg);
         display_string(10, y + 6, timezones[idx].name, fg, bg);
     }
 
     // Scroll indicators
     if (scroll_offset > 0) {
-        display_string(DISPLAY_WIDTH / 2 - 4, LIST_START_Y - 8, "^", COLOR_GRAY, COLOR_BLACK);
+        display_string(DISPLAY_WIDTH / 2 - 4, UI_LIST_START_Y - 8, "^", COLOR_GRAY, COLOR_BLACK);
     }
-    if (scroll_offset + LIST_VISIBLE < NUM_TIMEZONES) {
-        display_string(DISPLAY_WIDTH / 2 - 4, LIST_START_Y + LIST_VISIBLE * LIST_ITEM_H, "v", COLOR_GRAY, COLOR_BLACK);
+    if (scroll_offset + UI_LIST_VISIBLE < NUM_TIMEZONES) {
+        display_string(DISPLAY_WIDTH / 2 - 4, UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H, "v", COLOR_GRAY, COLOR_BLACK);
     }
 }
 
@@ -138,10 +135,10 @@ void ui_timezone_init(const char *current_tz, bool show_back) {
     }
 
     // Scroll so selected item is visible (center it if possible)
-    scroll_offset = selected_tz - LIST_VISIBLE / 2;
+    scroll_offset = selected_tz - UI_LIST_VISIBLE / 2;
     if (scroll_offset < 0) scroll_offset = 0;
-    if (scroll_offset > NUM_TIMEZONES - LIST_VISIBLE) {
-        scroll_offset = NUM_TIMEZONES - LIST_VISIBLE;
+    if (scroll_offset > NUM_TIMEZONES - UI_LIST_VISIBLE) {
+        scroll_offset = NUM_TIMEZONES - UI_LIST_VISIBLE;
     }
 
     display_fill(COLOR_BLACK);
@@ -175,8 +172,8 @@ tz_select_result_t ui_timezone_update(void) {
     }
 
     // List item touch - single tap to select
-    if (touch.y >= LIST_START_Y && touch.y < LIST_START_Y + LIST_VISIBLE * LIST_ITEM_H) {
-        int item = (touch.y - LIST_START_Y) / LIST_ITEM_H + scroll_offset;
+    if (touch.y >= UI_LIST_START_Y && touch.y < UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H) {
+        int item = (touch.y - UI_LIST_START_Y) / UI_LIST_ITEM_H + scroll_offset;
         if (item < NUM_TIMEZONES) {
             selected_tz = item;
             selection_made = true;
@@ -185,14 +182,14 @@ tz_select_result_t ui_timezone_update(void) {
     }
 
     // Scroll up
-    if (touch.y < LIST_START_Y && scroll_offset > 0) {
+    if (touch.y < UI_LIST_START_Y && scroll_offset > 0) {
         scroll_offset--;
         draw_list();
     }
 
     // Scroll down (bottom area of screen)
-    if (touch.y >= LIST_START_Y + LIST_VISIBLE * LIST_ITEM_H) {
-        if (scroll_offset + LIST_VISIBLE < NUM_TIMEZONES) {
+    if (touch.y >= UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H) {
+        if (scroll_offset + UI_LIST_VISIBLE < NUM_TIMEZONES) {
             scroll_offset++;
             draw_list();
         }

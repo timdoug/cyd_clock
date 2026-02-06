@@ -21,9 +21,6 @@ typedef enum {
 } setup_state_t;
 
 // Layout constants
-#define LIST_ITEM_H     28
-#define LIST_START_Y    35
-#define LIST_VISIBLE    6
 #define KEYBOARD_Y      120
 #define KEY_WIDTH       28
 #define KEY_HEIGHT      22
@@ -73,16 +70,16 @@ static bool show_back_button = false;
 
 
 static void draw_network_list(void) {
-    display_fill_rect(0, LIST_START_Y, DISPLAY_WIDTH, DISPLAY_HEIGHT - LIST_START_Y, COLOR_BLACK);
+    display_fill_rect(0, UI_LIST_START_Y, DISPLAY_WIDTH, DISPLAY_HEIGHT - UI_LIST_START_Y, COLOR_BLACK);
 
-    for (int i = 0; i < LIST_VISIBLE && (i + list_scroll) < network_count; i++) {
+    for (int i = 0; i < UI_LIST_VISIBLE && (i + list_scroll) < network_count; i++) {
         int idx = i + list_scroll;
-        int y = LIST_START_Y + i * LIST_ITEM_H;
+        int y = UI_LIST_START_Y + i * UI_LIST_ITEM_H;
 
         uint16_t bg = (idx == selected_network) ? UI_COLOR_SELECTED : COLOR_BLACK;
         uint16_t fg = (idx == selected_network) ? COLOR_BLACK : COLOR_WHITE;
 
-        display_fill_rect(0, y, DISPLAY_WIDTH, LIST_ITEM_H - 2, bg);
+        display_fill_rect(0, y, DISPLAY_WIDTH, UI_LIST_ITEM_H - 2, bg);
 
         // Network name
         display_string(5, y + 6, networks[idx].ssid, fg, bg);
@@ -96,7 +93,7 @@ static void draw_network_list(void) {
 
         for (int b = 0; b < bars; b++) {
             int bh = 4 + b * 3;
-            display_fill_rect(DISPLAY_WIDTH - 30 + b * 6, y + LIST_ITEM_H - 4 - bh, 4, bh, fg);
+            display_fill_rect(DISPLAY_WIDTH - 30 + b * 6, y + UI_LIST_ITEM_H - 4 - bh, 4, bh, fg);
         }
 
         // Lock icon for secured networks
@@ -107,25 +104,25 @@ static void draw_network_list(void) {
 
     // Scroll indicators
     if (list_scroll > 0) {
-        display_string(DISPLAY_WIDTH / 2 - 4, LIST_START_Y - 8, "^", COLOR_GRAY, COLOR_BLACK);
+        display_string(DISPLAY_WIDTH / 2 - 4, UI_LIST_START_Y - 8, "^", COLOR_GRAY, COLOR_BLACK);
     }
-    if (list_scroll + LIST_VISIBLE < network_count) {
-        display_string(DISPLAY_WIDTH / 2 - 4, LIST_START_Y + LIST_VISIBLE * LIST_ITEM_H, "v", COLOR_GRAY, COLOR_BLACK);
+    if (list_scroll + UI_LIST_VISIBLE < network_count) {
+        display_string(DISPLAY_WIDTH / 2 - 4, UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H, "v", COLOR_GRAY, COLOR_BLACK);
     }
 }
 
 
 static void draw_password_input(void) {
     // Clear password area
-    display_fill_rect(0, LIST_START_Y, DISPLAY_WIDTH, KEYBOARD_Y - LIST_START_Y, COLOR_BLACK);
+    display_fill_rect(0, UI_LIST_START_Y, DISPLAY_WIDTH, KEYBOARD_Y - UI_LIST_START_Y, COLOR_BLACK);
 
     // Show selected network
-    display_string(5, LIST_START_Y + 5, "Network:", COLOR_GRAY, COLOR_BLACK);
-    display_string(80, LIST_START_Y + 5, networks[selected_network].ssid, COLOR_WHITE, COLOR_BLACK);
+    display_string(5, UI_LIST_START_Y + 5, "Network:", COLOR_GRAY, COLOR_BLACK);
+    display_string(80, UI_LIST_START_Y + 5, networks[selected_network].ssid, COLOR_WHITE, COLOR_BLACK);
 
     // Password input field
-    display_fill_rect(5, LIST_START_Y + 30, DISPLAY_WIDTH - 10, 24, COLOR_DARKGRAY);
-    display_rect(5, LIST_START_Y + 30, DISPLAY_WIDTH - 10, 24, COLOR_WHITE);
+    display_fill_rect(5, UI_LIST_START_Y + 30, DISPLAY_WIDTH - 10, 24, COLOR_DARKGRAY);
+    display_rect(5, UI_LIST_START_Y + 30, DISPLAY_WIDTH - 10, 24, COLOR_WHITE);
 
     // Show password as dots with last char visible
     char display_pwd[65];
@@ -137,10 +134,10 @@ static void draw_password_input(void) {
         }
     }
     display_pwd[password_len] = '\0';
-    display_string(10, LIST_START_Y + 35, display_pwd, COLOR_INPUT, COLOR_DARKGRAY);
+    display_string(10, UI_LIST_START_Y + 35, display_pwd, COLOR_INPUT, COLOR_DARKGRAY);
 
     // Cursor
-    display_char(10 + password_len * 8, LIST_START_Y + 35, '_', COLOR_INPUT, COLOR_DARKGRAY);
+    display_char(10 + password_len * 8, UI_LIST_START_Y + 35, '_', COLOR_INPUT, COLOR_DARKGRAY);
 }
 
 static void draw_keyboard(void) {
@@ -213,11 +210,11 @@ static char get_key_at(int tx, int ty) {
     if (row >= 4) {
         int y = KEYBOARD_Y + 4 * (KEY_HEIGHT + KEY_SPACING);
         if (ty >= y && ty < y + KEY_HEIGHT) {
-            if (tx < 45) return '\x01';  // Shift
-            if (tx < 90) return '\x02';  // Mode
+            if (tx < 45) return VKEY_SHIFT;
+            if (tx < 90) return VKEY_MODE;
             if (tx < 195) return ' ';    // Space
-            if (tx < 240) return '\x08'; // Backspace
-            return '\x0D';               // Connect (Enter)
+            if (tx < 240) return VKEY_BACKSPACE;
+            return VKEY_ENTER;
         }
         return 0;
     }
@@ -297,8 +294,8 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
                 }
 
                 // Check for list item touch - single tap to select
-                if (touch.y >= LIST_START_Y && touch.y < LIST_START_Y + LIST_VISIBLE * LIST_ITEM_H) {
-                    int item = (touch.y - LIST_START_Y) / LIST_ITEM_H + list_scroll;
+                if (touch.y >= UI_LIST_START_Y && touch.y < UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H) {
+                    int item = (touch.y - UI_LIST_START_Y) / UI_LIST_ITEM_H + list_scroll;
                     if (item < network_count) {
                         selected_network = item;
                         state = STATE_PASSWORD_ENTRY;
@@ -312,13 +309,13 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
                 }
 
                 // Scroll up
-                if (touch.y < LIST_START_Y && list_scroll > 0) {
+                if (touch.y < UI_LIST_START_Y && list_scroll > 0) {
                     list_scroll--;
                     draw_network_list();
                 }
 
                 // Scroll down
-                if (touch.y > LIST_START_Y + LIST_VISIBLE * LIST_ITEM_H && list_scroll + LIST_VISIBLE < network_count) {
+                if (touch.y > UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H && list_scroll + UI_LIST_VISIBLE < network_count) {
                     list_scroll++;
                     draw_network_list();
                 }
@@ -339,20 +336,20 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
 
                 char key = get_key_at(touch.x, touch.y);
 
-                if (key == '\x01') {  // Shift
+                if (key == VKEY_SHIFT) {  // Shift
                     shift_active = !shift_active;
                     draw_keyboard();
-                } else if (key == '\x02') {  // Mode - toggle between letters and symbols
+                } else if (key == VKEY_MODE) {  // Mode - toggle between letters and symbols
                     keyboard_mode = (keyboard_mode == 0) ? 2 : 0;
                     shift_active = false;
                     draw_keyboard();
-                } else if (key == '\x08') {  // Backspace
+                } else if (key == VKEY_BACKSPACE) {  // Backspace
                     if (password_len > 0) {
                         password_len--;
                         password[password_len] = '\0';
                         draw_password_input();
                     }
-                } else if (key == '\x0D') {  // Connect
+                } else if (key == VKEY_ENTER) {  // Connect
                     state = STATE_CONNECTING;
                     display_fill(COLOR_BLACK);
                     ui_draw_header("Connecting", false);
@@ -407,5 +404,7 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
 
 void ui_wifi_setup_get_credentials(char *ssid, char *pwd) {
     strncpy(ssid, connected_ssid, 32);
+    ssid[32] = '\0';
     strncpy(pwd, connected_password, 63);
+    pwd[63] = '\0';
 }

@@ -107,9 +107,9 @@ static char get_key_at(int16_t x, int16_t y) {
 
     // Bottom row: Cancel (left), Del (center), Done (right)
     if (row >= 4) {
-        if (x >= 10 && x < 90) return '\x1B';      // Cancel
-        if (x >= 120 && x < 200) return '\x08';    // Del
-        if (x >= 230 && x < 310) return '\x0D';    // Done
+        if (x >= 10 && x < 90) return VKEY_ESCAPE;
+        if (x >= 120 && x < 200) return VKEY_BACKSPACE;
+        if (x >= 230 && x < 310) return VKEY_ENTER;
         return 0;
     }
 
@@ -231,14 +231,14 @@ ntp_result_t ui_ntp_update(void) {
         } else if (ui_state == NTP_STATE_KEYBOARD) {
             char key = get_key_at(touch.x, touch.y);
 
-            if (key == '\x1B') {  // Cancel
+            if (key == VKEY_ESCAPE) {  // Cancel
                 // Restore from saved
                 strncpy(custom_server, wifi_get_custom_ntp_server(), sizeof(custom_server) - 1);
                 custom_server[sizeof(custom_server) - 1] = '\0';
                 custom_server_len = strlen(custom_server);
                 ui_state = NTP_STATE_MAIN;
                 draw_main_screen();
-            } else if (key == '\x0D') {  // Done
+            } else if (key == VKEY_ENTER) {  // Done
                 if (custom_server_len > 0) {
                     wifi_set_custom_ntp_server(custom_server);
                     nvs_config_set_custom_ntp_server(custom_server);
@@ -246,7 +246,7 @@ ntp_result_t ui_ntp_update(void) {
                 }
                 ui_state = NTP_STATE_MAIN;
                 draw_main_screen();
-            } else if (key == '\x08') {  // Delete
+            } else if (key == VKEY_BACKSPACE) {  // Delete
                 if (custom_server_len > 0) {
                     custom_server_len--;
                     custom_server[custom_server_len] = '\0';
