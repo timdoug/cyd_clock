@@ -35,7 +35,7 @@ typedef enum {
 } ntp_ui_state_t;
 
 static ntp_ui_state_t ui_state = NTP_STATE_MAIN;
-static bool touched_last = false;
+static uint32_t last_touch_time = 0;
 static char custom_server[64] = {0};
 static int custom_server_len = 0;
 
@@ -160,7 +160,7 @@ static void draw_keyboard_screen(void) {
 
 void ui_ntp_init(void) {
     ESP_LOGI(TAG, "Initializing NTP settings UI");
-    touched_last = false;
+    last_touch_time = 0;
     ui_state = NTP_STATE_MAIN;
 
     // Load current custom server
@@ -175,11 +175,18 @@ ntp_result_t ui_ntp_update(void) {
     touch_point_t touch;
     bool touched = touch_read(&touch);
 
-    if (touched && !touched_last) {
+    // Debounce
+    if (touched && ui_should_debounce(last_touch_time)) {
+        touched = false;
+    }
+    if (touched) {
+        last_touch_time = xTaskGetTickCount();
+    }
+
+    if (touched) {
         if (ui_state == NTP_STATE_MAIN) {
             // Back button
             if (touch.y < UI_HEADER_HEIGHT && touch.x < 60) {
-                touched_last = touched;
                 return NTP_RESULT_BACK;
             }
 
@@ -239,6 +246,5 @@ ntp_result_t ui_ntp_update(void) {
         }
     }
 
-    touched_last = touched;
     return NTP_RESULT_NONE;
 }

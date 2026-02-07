@@ -6,6 +6,8 @@
 #include "nvs_config.h"
 #include "ui_common.h"
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -17,10 +19,32 @@ static const char *TAG = "ui_settings";
 static uint8_t brightness = BRIGHTNESS_DEFAULT;
 static uint8_t led_brightness = BRIGHTNESS_DEFAULT;
 static bool rotation = false;
-static bool touched_last = false;
+static uint32_t last_touch_time = 0;
 
-static void draw_header(void) {
-    ui_draw_header("Settings", false);
+// Handle touch on a slider row. Returns true if value changed.
+static bool handle_slider_touch(int touch_x, uint8_t *value, uint8_t min_val) {
+    if (touch_x >= UI_SLIDER_BAR_X && touch_x < UI_SLIDER_BAR_X + UI_SLIDER_BAR_W) {
+        *value = ((touch_x - UI_SLIDER_BAR_X) * BRIGHTNESS_MAX) / UI_SLIDER_BAR_W;
+        if (*value < min_val) *value = min_val;
+        return true;
+    }
+    if (touch_x >= UI_SLIDER_BTN_X1 && touch_x < UI_SLIDER_BTN_X1 + UI_SLIDER_BTN_W) {
+        if (*value >= min_val + BRIGHTNESS_STEP) {
+            *value -= BRIGHTNESS_STEP;
+        } else {
+            *value = min_val;
+        }
+        return true;
+    }
+    if (touch_x >= UI_SLIDER_BTN_X2 && touch_x < UI_SLIDER_BTN_X2 + UI_SLIDER_BTN_W) {
+        if (*value <= BRIGHTNESS_MAX - BRIGHTNESS_STEP) {
+            *value += BRIGHTNESS_STEP;
+        } else {
+            *value = BRIGHTNESS_MAX;
+        }
+        return true;
+    }
+    return false;
 }
 
 static void draw_menu(void) {
@@ -79,7 +103,7 @@ void ui_settings_init(void) {
     led_set_brightness(0);
 
     display_fill(COLOR_BLACK);
-    draw_header();
+    ui_draw_header("Settings", false);
     draw_menu();
 }
 
@@ -87,132 +111,86 @@ settings_result_t ui_settings_update(void) {
     touch_point_t touch;
     bool touched = touch_read(&touch);
 
-    // Only respond on touch down
-    if (touched && !touched_last) {
-        int y = ITEM_START_Y;
-
-        // Timezone
-        if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT) {
-            touched_last = touched;
-            led_set_brightness(0);
-            return SETTINGS_RESULT_TIMEZONE;
-        }
-        y += UI_ITEM_HEIGHT;
-
-        // WiFi
-        if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT) {
-            touched_last = touched;
-            led_set_brightness(0);
-            return SETTINGS_RESULT_WIFI;
-        }
-        y += UI_ITEM_HEIGHT;
-
-        // NTP
-        if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT) {
-            touched_last = touched;
-            led_set_brightness(0);
-            return SETTINGS_RESULT_NTP;
-        }
-        y += UI_ITEM_HEIGHT;
-
-        // Brightness controls
-        if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT) {
-            // Tap on bar to set value directly
-            if (touch.x >= UI_SLIDER_BAR_X && touch.x < UI_SLIDER_BAR_X + UI_SLIDER_BAR_W) {
-                brightness = ((touch.x - UI_SLIDER_BAR_X) * BRIGHTNESS_MAX) / UI_SLIDER_BAR_W;
-                if (brightness < BRIGHTNESS_MIN) brightness = BRIGHTNESS_MIN;
-                display_set_backlight(brightness);
-                nvs_config_set_brightness(brightness);
-                draw_menu();
-            }
-            // Minus button
-            else if (touch.x >= UI_SLIDER_BTN_X1 && touch.x < UI_SLIDER_BTN_X1 + UI_SLIDER_BTN_W) {
-                if (brightness > BRIGHTNESS_MIN) {
-                    brightness -= BRIGHTNESS_STEP;
-                    display_set_backlight(brightness);
-                    nvs_config_set_brightness(brightness);
-                    draw_menu();
-                }
-            }
-            // Plus button
-            else if (touch.x >= UI_SLIDER_BTN_X2 && touch.x < UI_SLIDER_BTN_X2 + UI_SLIDER_BTN_W) {
-                if (brightness < BRIGHTNESS_MAX) {
-                    if (brightness <= BRIGHTNESS_MAX - BRIGHTNESS_STEP) {
-                        brightness += BRIGHTNESS_STEP;
-                    } else {
-                        brightness = BRIGHTNESS_MAX;
-                    }
-                    display_set_backlight(brightness);
-                    nvs_config_set_brightness(brightness);
-                    draw_menu();
-                }
-            }
-        }
-        y += UI_ITEM_HEIGHT;
-
-        // LED brightness controls
-        if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT) {
-            // Tap on bar to set value directly (can go to 0)
-            if (touch.x >= UI_SLIDER_BAR_X && touch.x < UI_SLIDER_BAR_X + UI_SLIDER_BAR_W) {
-                led_brightness = ((touch.x - UI_SLIDER_BAR_X) * BRIGHTNESS_MAX) / UI_SLIDER_BAR_W;
-                led_set_brightness(led_brightness);
-                nvs_config_set_led_brightness(led_brightness);
-                draw_menu();
-            }
-            // Minus button (can go to 0)
-            else if (touch.x >= UI_SLIDER_BTN_X1 && touch.x < UI_SLIDER_BTN_X1 + UI_SLIDER_BTN_W) {
-                if (led_brightness >= BRIGHTNESS_STEP) {
-                    led_brightness -= BRIGHTNESS_STEP;
-                } else {
-                    led_brightness = 0;
-                }
-                led_set_brightness(led_brightness);
-                nvs_config_set_led_brightness(led_brightness);
-                draw_menu();
-            }
-            // Plus button
-            else if (touch.x >= UI_SLIDER_BTN_X2 && touch.x < UI_SLIDER_BTN_X2 + UI_SLIDER_BTN_W) {
-                if (led_brightness <= BRIGHTNESS_MAX - BRIGHTNESS_STEP) {
-                    led_brightness += BRIGHTNESS_STEP;
-                } else {
-                    led_brightness = BRIGHTNESS_MAX;
-                }
-                led_set_brightness(led_brightness);
-                nvs_config_set_led_brightness(led_brightness);
-                draw_menu();
-            }
-        }
-        y += UI_ITEM_HEIGHT;
-
-        // Rotation toggle (only on the button, x=260 to 310)
-        if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT && touch.x >= 260 && touch.x < 310) {
-            rotation = !rotation;
-            display_set_rotation(rotation);
-            nvs_config_set_rotation(rotation);
-            // Redraw everything after rotation change
-            display_fill(COLOR_BLACK);
-            draw_header();
-            draw_menu();
-        }
-        y += UI_ITEM_HEIGHT;
-
-        // About
-        if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT) {
-            touched_last = touched;
-            led_set_brightness(0);
-            return SETTINGS_RESULT_ABOUT;
-        }
-        y += UI_ITEM_HEIGHT;
-
-        // Done button (1/3 width, centered)
-        if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT &&
-            touch.x >= 106 && touch.x < 214) {
-            touched_last = touched;
-            led_set_brightness(0);
-            return SETTINGS_RESULT_DONE;
-        }
+    // Debounce
+    if (touched && ui_should_debounce(last_touch_time)) {
+        touched = false;
+    }
+    if (touched) {
+        last_touch_time = xTaskGetTickCount();
     }
 
-    touched_last = touched;
+    if (!touched) {
+        return SETTINGS_RESULT_NONE;
+    }
+
+    int y = ITEM_START_Y;
+
+    // Timezone
+    if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT) {
+        led_set_brightness(0);
+        return SETTINGS_RESULT_TIMEZONE;
+    }
+    y += UI_ITEM_HEIGHT;
+
+    // WiFi
+    if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT) {
+        led_set_brightness(0);
+        return SETTINGS_RESULT_WIFI;
+    }
+    y += UI_ITEM_HEIGHT;
+
+    // NTP
+    if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT) {
+        led_set_brightness(0);
+        return SETTINGS_RESULT_NTP;
+    }
+    y += UI_ITEM_HEIGHT;
+
+    // Brightness controls
+    if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT) {
+        if (handle_slider_touch(touch.x, &brightness, BRIGHTNESS_MIN)) {
+            display_set_backlight(brightness);
+            nvs_config_set_brightness(brightness);
+            draw_menu();
+        }
+    }
+    y += UI_ITEM_HEIGHT;
+
+    // LED brightness controls
+    if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT) {
+        if (handle_slider_touch(touch.x, &led_brightness, 0)) {
+            led_set_brightness(led_brightness);
+            nvs_config_set_led_brightness(led_brightness);
+            draw_menu();
+        }
+    }
+    y += UI_ITEM_HEIGHT;
+
+    // Rotation toggle (only on the button, x=260 to 310)
+    if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT && touch.x >= 260 && touch.x < 310) {
+        rotation = !rotation;
+        display_set_rotation(rotation);
+        nvs_config_set_rotation(rotation);
+        // Redraw everything after rotation change
+        display_fill(COLOR_BLACK);
+        ui_draw_header("Settings", false);
+        draw_menu();
+    }
+    y += UI_ITEM_HEIGHT;
+
+    // About
+    if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT) {
+        led_set_brightness(0);
+        return SETTINGS_RESULT_ABOUT;
+    }
+    y += UI_ITEM_HEIGHT;
+
+    // Done button (1/3 width, centered)
+    if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT &&
+        touch.x >= 106 && touch.x < 214) {
+        led_set_brightness(0);
+        return SETTINGS_RESULT_DONE;
+    }
+
     return SETTINGS_RESULT_NONE;
 }

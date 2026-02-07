@@ -4,6 +4,7 @@
 #include "display.h"
 #include "touch.h"
 #include "wifi.h"
+#include "nvs_config.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -57,12 +58,12 @@ static wifi_network_t networks[MAX_SCAN_RESULTS];
 static int network_count = 0;
 static int selected_network = -1;
 static int list_scroll = 0;
-static char password[64] = {0};
+static char password[MAX_PASSWORD_LEN] = {0};
 static int password_len = 0;
 static int keyboard_mode = 0;  // 0=lower, 1=upper, 2=symbols
 static bool shift_active = false;
-static char connected_ssid[33] = {0};
-static char connected_password[64] = {0};
+static char connected_ssid[MAX_SSID_LEN + 1] = {0};
+static char connected_password[MAX_PASSWORD_LEN] = {0};
 static uint32_t last_touch_time = 0;
 static bool show_back_button = false;
 
@@ -327,7 +328,7 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
                     display_string((DISPLAY_WIDTH - 13 * 8) / 2, 100, "Connecting to", COLOR_WHITE, COLOR_BLACK);
                     display_string((DISPLAY_WIDTH - strlen(networks[selected_network].ssid) * 8) / 2,
                                    130, networks[selected_network].ssid, COLOR_CYAN, COLOR_BLACK);
-                } else if (key >= ' ' && key <= '~' && password_len < 63) {
+                } else if (key >= ' ' && key <= '~' && password_len < MAX_PASSWORD_LEN - 1) {
                     password[password_len++] = key;
                     password[password_len] = '\0';
                     if (shift_active) {
@@ -374,8 +375,8 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
 }
 
 void ui_wifi_setup_get_credentials(char *ssid, char *pwd) {
-    strncpy(ssid, connected_ssid, 32);
-    ssid[32] = '\0';
-    strncpy(pwd, connected_password, 63);
-    pwd[63] = '\0';
+    strncpy(ssid, connected_ssid, MAX_SSID_LEN);
+    ssid[MAX_SSID_LEN] = '\0';
+    strncpy(pwd, connected_password, MAX_PASSWORD_LEN - 1);
+    pwd[MAX_PASSWORD_LEN - 1] = '\0';
 }

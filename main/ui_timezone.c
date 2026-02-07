@@ -83,9 +83,6 @@ static const timezone_entry_t timezones[] = {
 
 #define NUM_TIMEZONES (sizeof(timezones) / sizeof(timezones[0]))
 
-// Layout
-#define SCROLL_ZONE_H 30
-
 // State
 static int selected_tz = 0;
 static int scroll_offset = 0;
