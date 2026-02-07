@@ -2,11 +2,11 @@
 #include "config.h"
 #include "display.h"
 #include "led.h"
-#include "touch.h"
 #include "wifi.h"
 #include "nvs_config.h"
 #include "ui_common.h"
 #include "esp_log.h"
+#include "driver/gpio.h"
 #include <time.h>
 #include <string.h>
 #include <stdio.h>
@@ -272,11 +272,9 @@ void ui_clock_update(void) {
 }
 
 clock_touch_zone_t ui_clock_check_touch(void) {
-    touch_point_t point;
-    if (!touch_read(&point)) {
-        return CLOCK_TOUCH_NONE;
+    // BOOT button (active low) opens settings
+    if (gpio_get_level(BOOT_BUTTON_GPIO) == 0) {
+        return CLOCK_TOUCH_SETTINGS;
     }
-
-    // Any touch opens settings
-    return CLOCK_TOUCH_SETTINGS;
+    return CLOCK_TOUCH_NONE;
 }

@@ -6,6 +6,7 @@
 // Hardware configuration
 #define SPI_CLOCK_HZ        (40 * 1000 * 1000)  // 40 MHz display SPI
 #define PWM_FREQUENCY_HZ    5000                 // Backlight PWM frequency
+#define BOOT_BUTTON_GPIO    0                    // BOOT button (active low)
 
 // Touch calibration (hardware-specific, adjust for your display)
 #define TOUCH_MIN_X         340

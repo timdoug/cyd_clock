@@ -13,6 +13,7 @@
 #include "wifi.h"
 #include "nvs_config.h"
 #include "ui_common.h"
+#include "driver/gpio.h"
 #include "ui_clock.h"
 #include "ui_wifi_setup.h"
 #include "ui_timezone.h"
@@ -82,6 +83,16 @@ void app_main(void) {
     display_init();
     touch_init();
     led_init();
+
+    // Configure BOOT button as input with pull-up
+    gpio_config_t boot_btn_cfg = {
+        .pin_bit_mask = (1ULL << BOOT_BUTTON_GPIO),
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+    gpio_config(&boot_btn_cfg);
 
     // Load and apply saved brightness (minimum 32)
     uint8_t brightness;
@@ -181,7 +192,10 @@ void app_main(void) {
                     app_state = APP_STATE_SETTINGS;
                     ui_settings_init();
                     last_sec = -1;  // Reset on return
-                    ui_wait_for_touch_release();
+                    // Wait for BOOT button release
+                    while (gpio_get_level(BOOT_BUTTON_GPIO) == 0) {
+                        vTaskDelay(pdMS_TO_TICKS(TOUCH_RELEASE_POLL_MS));
+                    }
                     continue;
                 }
 
