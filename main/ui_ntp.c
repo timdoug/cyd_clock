@@ -15,8 +15,8 @@ static const char *TAG = "ui_ntp";
 
 
 // Interval options in seconds
-static const uint32_t intervals[] = {600, 3600, 21600, 86400};
-static const char *interval_names[] = {"10 min", "1 hour", "6 hour", "24 hour"};
+static const uint32_t intervals[] = {3600, 21600, 86400, 172800};
+static const char *interval_names[] = {"1 hour", "6 hour", "24 hour", "48 hour"};
 #define NUM_INTERVALS (sizeof(intervals) / sizeof(intervals[0]))
 
 // Keyboard layout

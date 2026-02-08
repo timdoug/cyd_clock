@@ -44,7 +44,7 @@
 
 // NTP defaults
 #define NTP_MIN_INTERVAL_SEC    15
-#define NTP_DEFAULT_INTERVAL_SEC 21600  // 6 hours
+#define NTP_DEFAULT_INTERVAL_SEC 86400  // 24 hours
 
 // WiFi
 #define WIFI_MAX_RETRY      5
