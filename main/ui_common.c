@@ -14,8 +14,8 @@ void ui_draw_header(const char *title, bool show_back) {
     display_string(x, UI_HEADER_TEXT_Y, title, COLOR_WHITE, UI_COLOR_HEADER);
 
     if (show_back) {
-        display_fill_rect(5, 5, 50, 20, UI_COLOR_ITEM_BG);
-        display_string(15, UI_HEADER_TEXT_Y, "Back", COLOR_WHITE, UI_COLOR_ITEM_BG);
+        display_fill_rect(UI_BACK_BTN_X, 5, UI_BACK_BTN_W, 20, UI_COLOR_ITEM_BG);
+        display_string(UI_BACK_BTN_X + 10, UI_HEADER_TEXT_Y, "Back", COLOR_WHITE, UI_COLOR_ITEM_BG);
     }
 }
 
@@ -77,6 +77,17 @@ void ui_wait_for_touch_release(void) {
 bool ui_should_debounce(uint32_t last_time_ticks) {
     uint32_t now = xTaskGetTickCount();
     return (now - last_time_ticks) < pdMS_TO_TICKS(TOUCH_DEBOUNCE_MS);
+}
+
+bool ui_read_touch(touch_point_t *touch, uint32_t *last_time_ticks) {
+    bool touched = touch_read(touch);
+    if (touched && ui_should_debounce(*last_time_ticks)) {
+        return false;
+    }
+    if (touched) {
+        *last_time_ticks = xTaskGetTickCount();
+    }
+    return touched;
 }
 
 void ui_draw_menu_item(int y, const char *label) {

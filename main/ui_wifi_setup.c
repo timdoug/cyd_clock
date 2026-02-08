@@ -1,6 +1,7 @@
 #include "ui_wifi_setup.h"
 #include "ui_common.h"
 #include "ui_keyboard.h"
+#include "config.h"
 #include "display.h"
 #include "touch.h"
 #include "wifi.h"
@@ -125,7 +126,7 @@ static void draw_password_input(void) {
     display_string(10, UI_LIST_START_Y + 35, display_pwd, COLOR_INPUT, COLOR_DARKGRAY);
 
     // Cursor
-    display_char(10 + password_len * 8, UI_LIST_START_Y + 35, '_', COLOR_INPUT, COLOR_DARKGRAY);
+    display_char(10 + password_len * CHAR_WIDTH, UI_LIST_START_Y + 35, '_', COLOR_INPUT, COLOR_DARKGRAY);
 }
 
 static void draw_keyboard(void) {
@@ -209,21 +210,13 @@ void ui_wifi_setup_init(bool show_back) {
 
 wifi_setup_result_t ui_wifi_setup_update(void) {
     touch_point_t touch;
-    bool touched = touch_read(&touch);
-
-    // Debounce touch
-    if (touched && ui_should_debounce(last_touch_time)) {
-        touched = false;
-    }
-    if (touched) {
-        last_touch_time = xTaskGetTickCount();
-    }
+    bool touched = ui_read_touch(&touch, &last_touch_time);
 
     switch (state) {
         case STATE_SCANNING:
             display_fill(COLOR_BLACK);
             ui_draw_header("WiFi Setup", show_back_button);
-            display_string((DISPLAY_WIDTH - 11 * 8) / 2, 120, "Scanning...", COLOR_WHITE, COLOR_BLACK);
+            ui_draw_centered_string(120, "Scanning...", COLOR_WHITE, COLOR_BLACK, false);
 
             wifi_init();
             network_count = wifi_scan(networks, MAX_SCAN_RESULTS);
@@ -234,12 +227,12 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
                 draw_network_list();
             } else {
                 display_fill_rect(0, 100, DISPLAY_WIDTH, 40, COLOR_BLACK);
-                display_string((DISPLAY_WIDTH - 17 * 8) / 2, 120, "No networks found", COLOR_RED, COLOR_BLACK);
-                display_string((DISPLAY_WIDTH - 12 * 8) / 2, 150, "Tap to retry", COLOR_GRAY, COLOR_BLACK);
+                ui_draw_centered_string(120, "No networks found", COLOR_RED, COLOR_BLACK, false);
+                ui_draw_centered_string(150, "Tap to retry", COLOR_GRAY, COLOR_BLACK, false);
 
                 if (touched) {
                     // Back button
-                    if (show_back_button && touch.y < UI_HEADER_HEIGHT && touch.x < 60) {
+                    if (show_back_button && touch.y < UI_HEADER_HEIGHT && touch.x < UI_BACK_BTN_X + UI_BACK_BTN_W) {
                         return WIFI_SETUP_CANCELLED;
                     }
                     state = STATE_SCANNING;
@@ -250,7 +243,7 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
         case STATE_NETWORK_LIST:
             if (touched) {
                 // Back button
-                if (show_back_button && touch.y < UI_HEADER_HEIGHT && touch.x < 60) {
+                if (show_back_button && touch.y < UI_HEADER_HEIGHT && touch.x < UI_BACK_BTN_X + UI_BACK_BTN_W) {
                     return WIFI_SETUP_CANCELLED;
                 }
 
@@ -286,7 +279,7 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
         case STATE_PASSWORD_ENTRY:
             if (touched) {
                 // Header Back button - return to network list
-                if (touch.y < UI_HEADER_HEIGHT && touch.x < 60) {
+                if (touch.y < UI_HEADER_HEIGHT && touch.x < UI_BACK_BTN_X + UI_BACK_BTN_W) {
                     state = STATE_NETWORK_LIST;
                     selected_network = -1;
                     display_fill(COLOR_BLACK);
@@ -314,9 +307,8 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
                     state = STATE_CONNECTING;
                     display_fill(COLOR_BLACK);
                     ui_draw_header("Connecting", false);
-                    display_string((DISPLAY_WIDTH - 13 * 8) / 2, 100, "Connecting to", COLOR_WHITE, COLOR_BLACK);
-                    display_string((DISPLAY_WIDTH - strlen(networks[selected_network].ssid) * 8) / 2,
-                                   130, networks[selected_network].ssid, COLOR_CYAN, COLOR_BLACK);
+                    ui_draw_centered_string(100, "Connecting to", COLOR_WHITE, COLOR_BLACK, false);
+                    ui_draw_centered_string(130, networks[selected_network].ssid, COLOR_CYAN, COLOR_BLACK, false);
                 } else if (key >= ' ' && key <= '~' && password_len < MAX_PASSWORD_LEN - 1) {
                     password[password_len++] = key;
                     password[password_len] = '\0';
@@ -341,8 +333,8 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
             } else {
                 state = STATE_FAILED;
                 display_fill_rect(0, 160, DISPLAY_WIDTH, 50, COLOR_BLACK);
-                display_string((DISPLAY_WIDTH - 17 * 8) / 2, 160, "Connection failed", COLOR_RED, COLOR_BLACK);
-                display_string((DISPLAY_WIDTH - 12 * 8) / 2, 190, "Tap to retry", COLOR_GRAY, COLOR_BLACK);
+                ui_draw_centered_string(160, "Connection failed", COLOR_RED, COLOR_BLACK, false);
+                ui_draw_centered_string(190, "Tap to retry", COLOR_GRAY, COLOR_BLACK, false);
             }
             break;
 

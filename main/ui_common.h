@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "touch.h"
 
 // Common UI layout constants
 #define UI_HEADER_HEIGHT    30
@@ -10,6 +11,10 @@
 #define UI_ITEM_MARGIN      10
 #define UI_TEXT_Y_OFFSET    5
 #define UI_HEADER_TEXT_Y    8
+
+// Back button layout
+#define UI_BACK_BTN_X       5
+#define UI_BACK_BTN_W       50
 
 // Common list layout
 #define UI_LIST_ITEM_H      28
@@ -60,5 +65,8 @@ void ui_wait_for_touch_release(void);
 
 // Check if touch should be debounced (returns true if too soon since last_time)
 bool ui_should_debounce(uint32_t last_time_ticks);
+
+// Read touch with debouncing. Updates last_time_ticks and returns debounced touch state.
+bool ui_read_touch(touch_point_t *touch, uint32_t *last_time_ticks);
 
 #endif // UI_COMMON_H

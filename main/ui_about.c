@@ -66,7 +66,7 @@ about_result_t ui_about_update(void) {
     // Only respond on touch down
     if (touched && !touched_last) {
         // Back button
-        if (touch.y < UI_HEADER_HEIGHT && touch.x < 60) {
+        if (touch.y < UI_HEADER_HEIGHT && touch.x < UI_BACK_BTN_X + UI_BACK_BTN_W) {
             touched_last = touched;
             return ABOUT_RESULT_BACK;
         }

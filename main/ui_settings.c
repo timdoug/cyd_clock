@@ -72,7 +72,9 @@ static void draw_menu(void) {
     display_string(10, y + UI_TEXT_Y_OFFSET, "Rotate 180\x7F", UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
     uint16_t rot_bg = rotation ? COLOR_GREEN : COLOR_GRAY;
     display_fill_rect(ROTATION_TOGGLE_X, y + 3, ROTATION_TOGGLE_W, 18, rot_bg);
-    display_string(272, y + 4, rotation ? "On" : "Off", rotation ? COLOR_BLACK : COLOR_WHITE, rot_bg);
+    const char *rot_label = rotation ? "On" : "Off";
+    int rot_text_x = ROTATION_TOGGLE_X + (ROTATION_TOGGLE_W - strlen(rot_label) * CHAR_WIDTH) / 2;
+    display_string(rot_text_x, y + 4, rot_label, rotation ? COLOR_BLACK : COLOR_WHITE, rot_bg);
     y += UI_ITEM_HEIGHT;
 
     ui_draw_menu_item(y, "About");
@@ -111,15 +113,7 @@ void ui_settings_init(void) {
 
 settings_result_t ui_settings_update(void) {
     touch_point_t touch;
-    bool touched = touch_read(&touch);
-
-    // Debounce
-    if (touched && ui_should_debounce(last_touch_time)) {
-        touched = false;
-    }
-    if (touched) {
-        last_touch_time = xTaskGetTickCount();
-    }
+    bool touched = ui_read_touch(&touch, &last_touch_time);
 
     if (!touched) {
         return SETTINGS_RESULT_NONE;

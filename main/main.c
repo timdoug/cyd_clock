@@ -45,9 +45,9 @@ static bool ntp_started = false;
 
 static void show_splash(void) {
     display_fill(COLOR_BLACK);
-    display_string((DISPLAY_WIDTH - 15 * CHAR_WIDTH) / 2, 85, "Domaine Nyquist", COLOR_GRAY, COLOR_BLACK);
-    display_string((DISPLAY_WIDTH - 13 * CHAR_WIDTH) / 2, 110, "The CYD Clock", COLOR_CYAN, COLOR_BLACK);
-    display_string((DISPLAY_WIDTH - 14 * CHAR_WIDTH) / 2, 140, "Initializing...", COLOR_GRAY, COLOR_BLACK);
+    ui_draw_centered_string(85, "Domaine Nyquist", COLOR_GRAY, COLOR_BLACK, false);
+    ui_draw_centered_string(110, "The CYD Clock", COLOR_CYAN, COLOR_BLACK, false);
+    ui_draw_centered_string(140, "Initializing...", COLOR_GRAY, COLOR_BLACK, false);
     vTaskDelay(pdMS_TO_TICKS(1500));
 }
 
@@ -55,8 +55,8 @@ static void try_connect_stored_credentials(void) {
     app_state = APP_STATE_CONNECTING;
 
     display_fill(COLOR_BLACK);
-    display_string((DISPLAY_WIDTH - 13 * CHAR_WIDTH) / 2, 100, "Connecting to", COLOR_WHITE, COLOR_BLACK);
-    display_string((DISPLAY_WIDTH - strlen(stored_ssid) * CHAR_WIDTH) / 2, 130, stored_ssid, COLOR_CYAN, COLOR_BLACK);
+    ui_draw_centered_string(100, "Connecting to", COLOR_WHITE, COLOR_BLACK, false);
+    ui_draw_centered_string(130, stored_ssid, COLOR_CYAN, COLOR_BLACK, false);
 
     wifi_init();
     if (wifi_connect(stored_ssid, stored_password)) {

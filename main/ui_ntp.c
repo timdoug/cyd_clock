@@ -1,6 +1,7 @@
 #include "ui_ntp.h"
 #include "ui_common.h"
 #include "ui_keyboard.h"
+#include "config.h"
 #include "display.h"
 #include "touch.h"
 #include "wifi.h"
@@ -81,7 +82,7 @@ static void draw_server_input(void) {
     }
 
     // Show cursor
-    int cursor_x = 15 + (custom_server_len > 35 ? 35 : custom_server_len) * 8;
+    int cursor_x = 15 + (custom_server_len > 35 ? 35 : custom_server_len) * CHAR_WIDTH;
     if (cursor_x < DISPLAY_WIDTH - 20) {
         display_string(cursor_x, 59, "_", COLOR_CYAN, COLOR_DARKGRAY);
     }
@@ -138,7 +139,7 @@ static void draw_main_screen(void) {
         int btn_x = 10 + i * (btn_w + 4);
 
         display_fill_rect(btn_x, y, btn_w, 24, bg);
-        int text_x = btn_x + (btn_w - strlen(interval_names[i]) * 8) / 2;
+        int text_x = btn_x + (btn_w - strlen(interval_names[i]) * CHAR_WIDTH) / 2;
         display_string(text_x, y + 5, interval_names[i], fg, bg);
     }
     y += 36;
@@ -172,20 +173,12 @@ void ui_ntp_init(void) {
 
 ntp_result_t ui_ntp_update(void) {
     touch_point_t touch;
-    bool touched = touch_read(&touch);
-
-    // Debounce
-    if (touched && ui_should_debounce(last_touch_time)) {
-        touched = false;
-    }
-    if (touched) {
-        last_touch_time = xTaskGetTickCount();
-    }
+    bool touched = ui_read_touch(&touch, &last_touch_time);
 
     if (touched) {
         if (ui_state == NTP_STATE_MAIN) {
             // Back button
-            if (touch.y < UI_HEADER_HEIGHT && touch.x < 60) {
+            if (touch.y < UI_HEADER_HEIGHT && touch.x < UI_BACK_BTN_X + UI_BACK_BTN_W) {
                 return NTP_RESULT_BACK;
             }
 
@@ -237,7 +230,7 @@ ntp_result_t ui_ntp_update(void) {
                     custom_server[custom_server_len] = '\0';
                     draw_server_input();
                 }
-            } else if (key >= ' ' && key <= '~' && custom_server_len < 63) {
+            } else if (key >= ' ' && key <= '~' && custom_server_len < (int)(sizeof(custom_server) - 1)) {
                 custom_server[custom_server_len++] = key;
                 custom_server[custom_server_len] = '\0';
                 draw_server_input();

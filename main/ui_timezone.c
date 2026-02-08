@@ -134,22 +134,14 @@ tz_select_result_t ui_timezone_update(void) {
     }
 
     touch_point_t touch;
-    bool touched = touch_read(&touch);
-
-    // Debounce
-    if (touched && ui_should_debounce(last_touch_time)) {
-        touched = false;
-    }
-    if (touched) {
-        last_touch_time = xTaskGetTickCount();
-    }
+    bool touched = ui_read_touch(&touch, &last_touch_time);
 
     if (!touched) {
         return TZ_SELECT_CONTINUE;
     }
 
     // Back button
-    if (show_back_button && touch.y < UI_HEADER_HEIGHT && touch.x < 60) {
+    if (show_back_button && touch.y < UI_HEADER_HEIGHT && touch.x < UI_BACK_BTN_X + UI_BACK_BTN_W) {
         return TZ_SELECT_CANCELLED;
     }
 
