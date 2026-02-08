@@ -39,7 +39,7 @@ static int last_day = -1;
 static bool colon_visible = true;
 static bool last_synced_state = false;
 static int last_stats_sec = -1;
-static uint8_t led_brightness = 128;
+static uint8_t led_brightness = BRIGHTNESS_DEFAULT;
 static bool last_time_valid = false;
 
 static const char *day_names[] = {
@@ -65,9 +65,8 @@ void ui_clock_init(void) {
     ESP_LOGI(TAG, "Initializing clock UI");
     reset_display_state();
 
-    // Load LED brightness setting (default to 128)
     if (!nvs_config_get_led_brightness(&led_brightness)) {
-        led_brightness = 128;
+        led_brightness = BRIGHTNESS_DEFAULT;
     }
     // Turn off LED initially
     led_set_brightness(0);

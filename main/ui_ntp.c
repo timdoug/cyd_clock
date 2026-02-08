@@ -26,7 +26,6 @@ static const char *keyboard_rows[] = {
     "asdfghjkl.",
     "zxcvbnm-_",
 };
-#define KEYBOARD_Y 120
 
 // UI state
 typedef enum {

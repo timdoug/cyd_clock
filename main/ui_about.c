@@ -21,11 +21,11 @@ static void draw_screen(void) {
     // Content
     int y = 50;
 
-    display_string((DISPLAY_WIDTH - 15 * CHAR_WIDTH) / 2, y, "Domaine Nyquist", COLOR_GRAY, COLOR_BLACK);
+    ui_draw_centered_string(y, "Domaine Nyquist", COLOR_GRAY, COLOR_BLACK, false);
     y += 20;
-    display_string((DISPLAY_WIDTH - 13 * CHAR_WIDTH) / 2, y, "The CYD Clock", COLOR_CYAN, COLOR_BLACK);
+    ui_draw_centered_string(y, "The CYD Clock", COLOR_CYAN, COLOR_BLACK, false);
     y += 20;
-    display_string((DISPLAY_WIDTH - strlen(URL) * CHAR_WIDTH) / 2, y, URL, COLOR_GRAY, COLOR_BLACK);
+    ui_draw_centered_string(y, URL, COLOR_GRAY, COLOR_BLACK, false);
     y += 35;
 
     display_string(20, y, "Version:", COLOR_GRAY, COLOR_BLACK);

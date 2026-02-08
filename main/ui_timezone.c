@@ -93,26 +93,11 @@ static bool show_back_button = false;
 
 
 static void draw_list(void) {
-    display_fill_rect(0, UI_LIST_START_Y, DISPLAY_WIDTH, DISPLAY_HEIGHT - UI_LIST_START_Y, COLOR_BLACK);
-
-    for (int i = 0; i < UI_LIST_VISIBLE && (i + scroll_offset) < NUM_TIMEZONES; i++) {
-        int idx = i + scroll_offset;
-        int y = UI_LIST_START_Y + i * UI_LIST_ITEM_H;
-
-        uint16_t bg = (idx == selected_tz) ? COLOR_CYAN : COLOR_BLACK;
-        uint16_t fg = (idx == selected_tz) ? COLOR_BLACK : COLOR_WHITE;
-
-        display_fill_rect(0, y, DISPLAY_WIDTH, UI_LIST_ITEM_H - 2, bg);
-        display_string(10, y + 6, timezones[idx].name, fg, bg);
+    const char *labels[NUM_TIMEZONES];
+    for (int i = 0; i < NUM_TIMEZONES; i++) {
+        labels[i] = timezones[i].name;
     }
-
-    // Scroll indicators
-    if (scroll_offset > 0) {
-        display_string(DISPLAY_WIDTH / 2 - 4, UI_LIST_START_Y - 8, "^", COLOR_GRAY, COLOR_BLACK);
-    }
-    if (scroll_offset + UI_LIST_VISIBLE < NUM_TIMEZONES) {
-        display_string(DISPLAY_WIDTH / 2 - 4, UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H, "v", COLOR_GRAY, COLOR_BLACK);
-    }
+    ui_draw_list(labels, NUM_TIMEZONES, scroll_offset, selected_tz);
 }
 
 void ui_timezone_init(const char *current_tz, bool show_back) {

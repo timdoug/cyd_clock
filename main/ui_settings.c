@@ -13,7 +13,9 @@
 
 static const char *TAG = "ui_settings";
 
-#define ITEM_START_Y    32
+#define ITEM_START_Y        32
+#define ROTATION_TOGGLE_X   260
+#define ROTATION_TOGGLE_W   50
 
 
 static uint8_t brightness = BRIGHTNESS_DEFAULT;
@@ -69,7 +71,7 @@ static void draw_menu(void) {
     display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, UI_COLOR_ITEM_BG);
     display_string(10, y + UI_TEXT_Y_OFFSET, "Rotate 180\x7F", UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
     uint16_t rot_bg = rotation ? COLOR_GREEN : COLOR_GRAY;
-    display_fill_rect(260, y + 3, 50, 18, rot_bg);
+    display_fill_rect(ROTATION_TOGGLE_X, y + 3, ROTATION_TOGGLE_W, 18, rot_bg);
     display_string(272, y + 4, rotation ? "On" : "Off", rotation ? COLOR_BLACK : COLOR_WHITE, rot_bg);
     y += UI_ITEM_HEIGHT;
 
@@ -166,8 +168,9 @@ settings_result_t ui_settings_update(void) {
     }
     y += UI_ITEM_HEIGHT;
 
-    // Rotation toggle (only on the button, x=260 to 310)
-    if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT && touch.x >= 260 && touch.x < 310) {
+    // Rotation toggle
+    if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT &&
+        touch.x >= ROTATION_TOGGLE_X && touch.x < ROTATION_TOGGLE_X + ROTATION_TOGGLE_W) {
         rotation = !rotation;
         display_set_rotation(rotation);
         nvs_config_set_rotation(rotation);
@@ -186,8 +189,10 @@ settings_result_t ui_settings_update(void) {
     y += UI_ITEM_HEIGHT;
 
     // Done button (1/3 width, centered)
+    int btn_w = DISPLAY_WIDTH / 3;
+    int btn_x = (DISPLAY_WIDTH - btn_w) / 2;
     if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT &&
-        touch.x >= 106 && touch.x < 214) {
+        touch.x >= btn_x && touch.x < btn_x + btn_w) {
         led_set_brightness(0);
         return SETTINGS_RESULT_DONE;
     }

@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 
+// Keyboard layout
+#define KEYBOARD_Y      120
+
 // Keyboard key dimensions
 #define KB_KEY_WIDTH    28
 #define KB_KEY_HEIGHT   22

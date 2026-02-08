@@ -52,6 +52,9 @@ void ui_draw_slider(int y, const char *label, uint8_t value, uint8_t max_value, 
 // height: 16 for 1x scale, 32 for 2x scale
 void ui_draw_centered_string(int16_t y, const char *str, uint16_t fg, uint16_t bg, bool scale_2x);
 
+// Draw a scrollable list with selection highlight and scroll indicators
+void ui_draw_list(const char **labels, int count, int scroll_offset, int selected);
+
 // Wait for touch release (blocks until finger lifted)
 void ui_wait_for_touch_release(void);
 

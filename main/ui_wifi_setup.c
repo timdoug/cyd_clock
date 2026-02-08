@@ -22,9 +22,6 @@ typedef enum {
     STATE_FAILED,
 } setup_state_t;
 
-// Layout constants
-#define KEYBOARD_Y      120
-
 // Colors
 #define COLOR_KEYBOARD  COLOR_DARKGRAY
 #define COLOR_KEY_FG    COLOR_WHITE
@@ -69,19 +66,19 @@ static bool show_back_button = false;
 
 
 static void draw_network_list(void) {
-    display_fill_rect(0, UI_LIST_START_Y, DISPLAY_WIDTH, DISPLAY_HEIGHT - UI_LIST_START_Y, COLOR_BLACK);
+    const char *labels[MAX_SCAN_RESULTS];
+    for (int i = 0; i < network_count; i++) {
+        labels[i] = networks[i].ssid;
+    }
+    ui_draw_list(labels, network_count, list_scroll, selected_network);
 
+    // Wifi-specific decorations: signal bars and lock icon
     for (int i = 0; i < UI_LIST_VISIBLE && (i + list_scroll) < network_count; i++) {
         int idx = i + list_scroll;
         int y = UI_LIST_START_Y + i * UI_LIST_ITEM_H;
 
         uint16_t bg = (idx == selected_network) ? UI_COLOR_SELECTED : COLOR_BLACK;
         uint16_t fg = (idx == selected_network) ? COLOR_BLACK : COLOR_WHITE;
-
-        display_fill_rect(0, y, DISPLAY_WIDTH, UI_LIST_ITEM_H - 2, bg);
-
-        // Network name
-        display_string(5, y + 6, networks[idx].ssid, fg, bg);
 
         // Signal strength indicator
         int bars = 0;
@@ -99,14 +96,6 @@ static void draw_network_list(void) {
         if (networks[idx].authmode) {
             display_char(DISPLAY_WIDTH - 50, y + 6, '*', fg, bg);
         }
-    }
-
-    // Scroll indicators
-    if (list_scroll > 0) {
-        display_string(DISPLAY_WIDTH / 2 - 4, UI_LIST_START_Y - 8, "^", COLOR_GRAY, COLOR_BLACK);
-    }
-    if (list_scroll + UI_LIST_VISIBLE < network_count) {
-        display_string(DISPLAY_WIDTH / 2 - 4, UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H, "v", COLOR_GRAY, COLOR_BLACK);
     }
 }
 

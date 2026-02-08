@@ -45,6 +45,29 @@ void ui_draw_centered_string(int16_t y, const char *str, uint16_t fg, uint16_t b
     }
 }
 
+void ui_draw_list(const char **labels, int count, int scroll_offset, int selected) {
+    display_fill_rect(0, UI_LIST_START_Y, DISPLAY_WIDTH, DISPLAY_HEIGHT - UI_LIST_START_Y, COLOR_BLACK);
+
+    for (int i = 0; i < UI_LIST_VISIBLE && (i + scroll_offset) < count; i++) {
+        int idx = i + scroll_offset;
+        int y = UI_LIST_START_Y + i * UI_LIST_ITEM_H;
+
+        uint16_t bg = (idx == selected) ? UI_COLOR_SELECTED : COLOR_BLACK;
+        uint16_t fg = (idx == selected) ? COLOR_BLACK : COLOR_WHITE;
+
+        display_fill_rect(0, y, DISPLAY_WIDTH, UI_LIST_ITEM_H - 2, bg);
+        display_string(10, y + 6, labels[idx], fg, bg);
+    }
+
+    // Scroll indicators
+    if (scroll_offset > 0) {
+        display_string(DISPLAY_WIDTH / 2 - 4, UI_LIST_START_Y - 8, "^", COLOR_GRAY, COLOR_BLACK);
+    }
+    if (scroll_offset + UI_LIST_VISIBLE < count) {
+        display_string(DISPLAY_WIDTH / 2 - 4, UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H, "v", COLOR_GRAY, COLOR_BLACK);
+    }
+}
+
 void ui_wait_for_touch_release(void) {
     while (touch_is_pressed()) {
         vTaskDelay(pdMS_TO_TICKS(TOUCH_RELEASE_POLL_MS));
