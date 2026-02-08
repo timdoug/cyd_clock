@@ -324,7 +324,9 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
         case STATE_CONNECTING:
             if (wifi_connect(networks[selected_network].ssid, password)) {
                 strncpy(connected_ssid, networks[selected_network].ssid, sizeof(connected_ssid) - 1);
+                connected_ssid[sizeof(connected_ssid) - 1] = '\0';
                 strncpy(connected_password, password, sizeof(connected_password) - 1);
+                connected_password[sizeof(connected_password) - 1] = '\0';
                 state = STATE_CONNECTED;
                 display_fill_rect(0, 160, DISPLAY_WIDTH, 30, COLOR_BLACK);
                 display_string(120, 160, "Connected!", COLOR_GREEN, COLOR_BLACK);

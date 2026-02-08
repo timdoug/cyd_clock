@@ -74,15 +74,6 @@ void nvs_config_set_wifi(const char *ssid, const char *password) {
     ESP_LOGI(TAG, "Saved WiFi credentials for SSID: %s", ssid);
 }
 
-void nvs_config_clear_wifi(void) {
-    nvs_handle_t handle;
-    if (!nvs_open_write(&handle)) return;
-
-    nvs_erase_key(handle, "ssid");
-    nvs_erase_key(handle, "password");
-    nvs_commit_and_close(handle);
-    ESP_LOGI(TAG, "Cleared WiFi credentials");
-}
 
 bool nvs_config_get_timezone(char *tz) {
     nvs_handle_t handle;

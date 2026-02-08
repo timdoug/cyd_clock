@@ -8,6 +8,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
@@ -206,10 +207,6 @@ bool wifi_is_connected(void) {
     return (xEventGroupGetBits(wifi_event_group) & WIFI_CONNECTED_BIT) != 0;
 }
 
-void wifi_disconnect(void) {
-    esp_wifi_disconnect();
-    xEventGroupClearBits(wifi_event_group, WIFI_CONNECTED_BIT);
-}
 
 void wifi_start_ntp(void) {
     const char *server = wifi_get_custom_ntp_server();
@@ -226,9 +223,6 @@ void wifi_start_ntp(void) {
     esp_sntp_init();
 }
 
-bool wifi_time_is_synced(void) {
-    return ntp_state.synced;
-}
 
 void wifi_set_timezone(const char *tz) {
     ESP_LOGI(TAG, "Setting timezone: %s", tz);
@@ -277,13 +271,6 @@ void wifi_force_ntp_sync(void) {
     }
 }
 
-void wifi_restart_ntp(void) {
-    // Restart NTP with current server if running
-    if (esp_sntp_enabled()) {
-        esp_sntp_stop();
-        wifi_start_ntp();
-    }
-}
 
 const char *wifi_get_custom_ntp_server(void) {
     return ntp_state.custom_server[0] ? ntp_state.custom_server : DEFAULT_NTP_SERVER;

@@ -39,14 +39,10 @@ bool wifi_connect(const char *ssid, const char *password);
 // Check if connected to WiFi
 bool wifi_is_connected(void);
 
-// Disconnect from WiFi
-void wifi_disconnect(void);
 
 // Start NTP time sync
 void wifi_start_ntp(void);
 
-// Check if time is synchronized
-bool wifi_time_is_synced(void);
 
 // Get NTP statistics
 void wifi_get_ntp_stats(ntp_stats_t *stats);
@@ -63,7 +59,6 @@ void wifi_force_ntp_sync(void);
 // NTP server management
 const char *wifi_get_custom_ntp_server(void);
 void wifi_set_custom_ntp_server(const char *server);
-void wifi_restart_ntp(void);
 
 // Set timezone (POSIX TZ format, e.g., "PST8PDT,M3.2.0,M11.1.0")
 void wifi_set_timezone(const char *tz);

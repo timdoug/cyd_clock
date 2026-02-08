@@ -13,7 +13,7 @@ static const char *TAG = "ui_about";
 
 #define URL "github.com/timdoug/cyd_clock"
 
-static bool touched_last = false;
+static uint32_t last_touch_time = 0;
 
 static void draw_screen(void) {
     ui_draw_header("About", true);
@@ -53,7 +53,7 @@ static void draw_screen(void) {
 
 void ui_about_init(void) {
     ESP_LOGI(TAG, "Initializing about screen");
-    touched_last = false;
+    last_touch_time = 0;
 
     display_fill(COLOR_BLACK);
     draw_screen();
@@ -61,17 +61,14 @@ void ui_about_init(void) {
 
 about_result_t ui_about_update(void) {
     touch_point_t touch;
-    bool touched = touch_read(&touch);
+    bool touched = ui_read_touch(&touch, &last_touch_time);
 
-    // Only respond on touch down
-    if (touched && !touched_last) {
+    if (touched) {
         // Back button
         if (touch.y < UI_HEADER_HEIGHT && touch.x < UI_BACK_BTN_X + UI_BACK_BTN_W) {
-            touched_last = touched;
             return ABOUT_RESULT_BACK;
         }
     }
 
-    touched_last = touched;
     return ABOUT_RESULT_NONE;
 }

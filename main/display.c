@@ -411,13 +411,6 @@ void display_fill_rect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t colo
     }
 }
 
-void display_pixel(int16_t x, int16_t y, uint16_t color) {
-    if (x < 0 || x >= DISPLAY_WIDTH || y < 0 || y >= DISPLAY_HEIGHT) return;
-    set_addr_window(x, y, 1, 1);
-    dc_data();
-    uint8_t data[] = {(uint8_t)(color >> 8), (uint8_t)color};
-    spi_write_bytes(data, 2);
-}
 
 void display_hline(int16_t x, int16_t y, int16_t w, uint16_t color) {
     display_fill_rect(x, y, w, 1, color);

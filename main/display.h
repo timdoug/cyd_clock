@@ -29,8 +29,6 @@ void display_fill(uint16_t color);
 // Fill rectangle
 void display_fill_rect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color);
 
-// Draw single pixel
-void display_pixel(int16_t x, int16_t y, uint16_t color);
 
 // Draw horizontal line
 void display_hline(int16_t x, int16_t y, int16_t w, uint16_t color);

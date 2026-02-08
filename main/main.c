@@ -215,8 +215,6 @@ void app_main(void) {
                 int ms_in_sec = tv.tv_usec / 1000;
                 if (ms_in_sec > POLL_THRESHOLD_MS) {
                     vTaskDelay(pdMS_TO_TICKS(POLL_FAST_MS));
-                } else if (ms_in_sec > 900) {
-                    vTaskDelay(pdMS_TO_TICKS(POLL_MID_MS));
                 } else {
                     vTaskDelay(pdMS_TO_TICKS(POLL_NORMAL_MS));
                 }

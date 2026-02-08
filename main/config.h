@@ -37,10 +37,9 @@
 #define TOUCH_RELEASE_POLL_MS 50
 
 // Clock polling intervals (ms)
-#define POLL_FAST_MS        2    // Near second boundary (>980ms)
-#define POLL_MID_MS         10   // Approaching boundary (>900ms)
+#define POLL_FAST_MS        2    // Near second boundary (>900ms)
 #define POLL_NORMAL_MS      20   // Normal polling
-#define POLL_THRESHOLD_MS   980  // When to switch to fast polling
+#define POLL_THRESHOLD_MS   900  // When to switch to fast polling
 
 // NTP defaults
 #define NTP_MIN_INTERVAL_SEC    15

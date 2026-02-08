@@ -14,7 +14,6 @@ void nvs_config_init(void);
 // WiFi credentials
 bool nvs_config_get_wifi(char *ssid, char *password);
 void nvs_config_set_wifi(const char *ssid, const char *password);
-void nvs_config_clear_wifi(void);
 
 // Timezone
 bool nvs_config_get_timezone(char *tz);

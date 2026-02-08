@@ -43,7 +43,7 @@ static int find_interval_idx(uint32_t interval) {
     for (int i = 0; i < NUM_INTERVALS; i++) {
         if (intervals[i] == interval) return i;
     }
-    return 2;  // Default to 6 hour
+    return 2;  // Default to 24 hour
 }
 
 static void draw_keyboard(void) {
