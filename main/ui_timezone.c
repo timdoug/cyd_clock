@@ -1,11 +1,11 @@
 #include "ui_timezone.h"
-#include "ui_common.h"
-#include "display.h"
-#include "touch.h"
+#include <string.h>
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include <string.h>
+#include "display.h"
+#include "touch.h"
+#include "ui_common.h"
 
 static const char *TAG = "ui_timezone";
 
@@ -85,7 +85,7 @@ static const timezone_entry_t timezones[] = {
 
 // State
 static int selected_tz = 0;
-static int scroll_offset = 0;
+static int list_scroll = 0;
 static bool selection_made = false;
 static uint32_t last_touch_time = 0;
 static bool show_back_button = false;
@@ -97,7 +97,7 @@ static void draw_list(void) {
     for (int i = 0; i < NUM_TIMEZONES; i++) {
         labels[i] = timezones[i].name;
     }
-    ui_draw_list(labels, NUM_TIMEZONES, scroll_offset, selected_tz);
+    ui_draw_list(labels, NUM_TIMEZONES, list_scroll, selected_tz);
 }
 
 void ui_timezone_init(const char *current_tz, bool show_back) {
@@ -117,10 +117,10 @@ void ui_timezone_init(const char *current_tz, bool show_back) {
     }
 
     // Scroll so selected item is visible (center it if possible)
-    scroll_offset = selected_tz - UI_LIST_VISIBLE / 2;
-    if (scroll_offset < 0) scroll_offset = 0;
-    if (scroll_offset > NUM_TIMEZONES - UI_LIST_VISIBLE) {
-        scroll_offset = NUM_TIMEZONES - UI_LIST_VISIBLE;
+    list_scroll = selected_tz - UI_LIST_VISIBLE / 2;
+    if (list_scroll < 0) list_scroll = 0;
+    if (list_scroll > NUM_TIMEZONES - UI_LIST_VISIBLE) {
+        list_scroll = NUM_TIMEZONES - UI_LIST_VISIBLE;
     }
 
     display_fill(COLOR_BLACK);
@@ -147,7 +147,7 @@ tz_select_result_t ui_timezone_update(void) {
 
     // List item touch - single tap to select
     if (touch.y >= UI_LIST_START_Y && touch.y < UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H) {
-        int item = (touch.y - UI_LIST_START_Y) / UI_LIST_ITEM_H + scroll_offset;
+        int item = (touch.y - UI_LIST_START_Y) / UI_LIST_ITEM_H + list_scroll;
         if (item < NUM_TIMEZONES) {
             selected_tz = item;
             selection_made = true;
@@ -156,15 +156,15 @@ tz_select_result_t ui_timezone_update(void) {
     }
 
     // Scroll up
-    if (touch.y < UI_LIST_START_Y && scroll_offset > 0) {
-        scroll_offset--;
+    if (touch.y < UI_LIST_START_Y && list_scroll > 0) {
+        list_scroll--;
         draw_list();
     }
 
     // Scroll down (bottom area of screen)
     if (touch.y >= UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H) {
-        if (scroll_offset + UI_LIST_VISIBLE < NUM_TIMEZONES) {
-            scroll_offset++;
+        if (list_scroll + UI_LIST_VISIBLE < NUM_TIMEZONES) {
+            list_scroll++;
             draw_list();
         }
     }

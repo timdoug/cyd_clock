@@ -1,6 +1,6 @@
 #include "ui_keyboard.h"
-#include "display.h"
 #include <string.h>
+#include "display.h"
 
 void ui_keyboard_draw_keys(const char **layout, int num_rows, int start_y,
                            uint16_t key_bg, uint16_t key_fg, uint16_t border_color) {

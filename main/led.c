@@ -1,12 +1,7 @@
 #include "led.h"
-#include "config.h"
 #include "driver/gpio.h"
 #include "driver/ledc.h"
-
-// CYD RGB LED pins (active low)
-#define LED_PIN_R  4
-#define LED_PIN_G  16
-#define LED_PIN_B  17
+#include "config.h"
 
 void led_init(void) {
     // Turn off green and blue LEDs (active low, so high = off)

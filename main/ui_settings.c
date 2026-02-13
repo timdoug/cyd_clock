@@ -1,15 +1,15 @@
 #include "ui_settings.h"
-#include "config.h"
-#include "display.h"
-#include "led.h"
-#include "touch.h"
-#include "nvs_config.h"
-#include "ui_common.h"
+#include <string.h>
+#include <stdio.h>
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include <string.h>
-#include <stdio.h>
+#include "config.h"
+#include "display.h"
+#include "led.h"
+#include "nvs_config.h"
+#include "touch.h"
+#include "ui_common.h"
 
 static const char *TAG = "ui_settings";
 

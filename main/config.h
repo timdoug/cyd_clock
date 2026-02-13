@@ -1,10 +1,31 @@
-#ifndef CONFIG_H
-#define CONFIG_H
+#ifndef CYD_CONFIG_H
+#define CYD_CONFIG_H
 
 #include <stdint.h>
 
+// Display SPI pins (ILI9341 on ESP32-CYD)
+#define PIN_DC    2
+#define PIN_CS    15
+#define PIN_RST   4
+#define PIN_MOSI  13
+#define PIN_CLK   14
+#define PIN_BL    21
+
+// Touch SPI pins (XPT2046 on ESP32-CYD)
+#define PIN_T_CLK   25
+#define PIN_T_MOSI  32
+#define PIN_T_MISO  39
+#define PIN_T_CS    33
+#define PIN_T_IRQ   36
+
+// RGB LED pins (active low)
+#define LED_PIN_R  4
+#define LED_PIN_G  16
+#define LED_PIN_B  17
+
 // Hardware configuration
 #define SPI_CLOCK_HZ        (40 * 1000 * 1000)  // 40 MHz display SPI
+#define TOUCH_SPI_CLOCK_HZ  (1 * 1000 * 1000)   // 1 MHz touch SPI
 #define PWM_FREQUENCY_HZ    5000                 // Backlight PWM frequency
 #define BOOT_BUTTON_GPIO    0                    // BOOT button (active low)
 
@@ -54,4 +75,4 @@ static inline uint8_t gamma_correct(uint8_t linear) {
     return (uint16_t)linear * linear / 255;
 }
 
-#endif // CONFIG_H
+#endif // CYD_CONFIG_H

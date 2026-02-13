@@ -1,20 +1,13 @@
 #include "touch.h"
-#include "config.h"
-#include "display.h"
 #include "driver/spi_master.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "config.h"
+#include "display.h"
 
 static const char *TAG = "touch";
-
-// Pin definitions for XPT2046 on ESP32-CYD
-#define PIN_T_CLK   25
-#define PIN_T_MOSI  32
-#define PIN_T_MISO  39
-#define PIN_T_CS    33
-#define PIN_T_IRQ   36
 
 // XPT2046 commands
 #define XPT2046_CMD_X  0xD0  // X position
@@ -49,7 +42,7 @@ void touch_init(void) {
 
     // Add touch device
     spi_device_interface_config_t devcfg = {
-        .clock_speed_hz = 1 * 1000 * 1000,  // 1 MHz
+        .clock_speed_hz = TOUCH_SPI_CLOCK_HZ,
         .mode = 0,
         .spics_io_num = PIN_T_CS,
         .queue_size = 1,

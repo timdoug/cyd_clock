@@ -1,16 +1,16 @@
 #include "ui_ntp.h"
-#include "ui_common.h"
-#include "ui_keyboard.h"
-#include "config.h"
-#include "display.h"
-#include "touch.h"
-#include "wifi.h"
-#include "nvs_config.h"
+#include <string.h>
+#include <stdio.h>
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include <string.h>
-#include <stdio.h>
+#include "config.h"
+#include "display.h"
+#include "nvs_config.h"
+#include "touch.h"
+#include "ui_common.h"
+#include "ui_keyboard.h"
+#include "wifi.h"
 
 static const char *TAG = "ui_ntp";
 
@@ -119,7 +119,7 @@ static void draw_main_screen(void) {
     display_fill_rect(10, y, DISPLAY_WIDTH - 20, 28, COLOR_DARKGRAY);
     char display_server[38];
     strncpy(display_server, wifi_get_custom_ntp_server(), sizeof(display_server) - 1);
-    display_server[37] = '\0';
+    display_server[sizeof(display_server) - 1] = '\0';
     display_string(15, y + 7, display_server, COLOR_WHITE, COLOR_DARKGRAY);
     display_string(DISPLAY_WIDTH - 30, y + 7, ">", COLOR_WHITE, COLOR_DARKGRAY);
     y += 40;

@@ -1,13 +1,13 @@
 #include "ui_about.h"
+#include <string.h>
+#include <stdio.h>
+#include "esp_log.h"
 #include "config.h"
 #include "display.h"
 #include "touch.h"
-#include "wifi.h"
 #include "ui_common.h"
-#include "esp_log.h"
 #include "version.h"
-#include <string.h>
-#include <stdio.h>
+#include "wifi.h"
 
 static const char *TAG = "ui_about";
 

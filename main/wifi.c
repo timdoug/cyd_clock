@@ -1,16 +1,16 @@
 #include "wifi.h"
-#include "config.h"
-#include "esp_wifi.h"
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "esp_sntp.h"
+#include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "freertos/event_groups.h"
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
+#include "freertos/task.h"
+#include "config.h"
 
 static const char *TAG = "wifi";
 

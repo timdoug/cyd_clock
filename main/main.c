@@ -2,24 +2,23 @@
 #include <string.h>
 #include <time.h>
 #include <sys/time.h>
+#include "driver/gpio.h"
+#include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "esp_log.h"
-
 #include "config.h"
 #include "display.h"
 #include "led.h"
-#include "touch.h"
-#include "wifi.h"
 #include "nvs_config.h"
-#include "ui_common.h"
-#include "driver/gpio.h"
-#include "ui_clock.h"
-#include "ui_wifi_setup.h"
-#include "ui_timezone.h"
-#include "ui_settings.h"
+#include "touch.h"
 #include "ui_about.h"
+#include "ui_clock.h"
+#include "ui_common.h"
 #include "ui_ntp.h"
+#include "ui_settings.h"
+#include "ui_timezone.h"
+#include "ui_wifi_setup.h"
+#include "wifi.h"
 
 static const char *TAG = "main";
 

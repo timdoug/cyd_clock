@@ -1,10 +1,10 @@
 #include "ui_common.h"
-#include "display.h"
-#include "touch.h"
-#include "config.h"
+#include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include <string.h>
+#include "config.h"
+#include "display.h"
+#include "touch.h"
 
 void ui_draw_header(const char *title, bool show_back) {
     display_fill_rect(0, 0, DISPLAY_WIDTH, UI_HEADER_HEIGHT, UI_COLOR_HEADER);

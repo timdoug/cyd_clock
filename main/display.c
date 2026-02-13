@@ -1,22 +1,14 @@
 #include "display.h"
-#include "config.h"
+#include <string.h>
 #include "driver/spi_master.h"
 #include "driver/gpio.h"
 #include "driver/ledc.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include <string.h>
+#include "config.h"
 
 static const char *TAG = "display";
-
-// Pin definitions for ESP32-CYD
-#define PIN_DC    2
-#define PIN_CS    15
-#define PIN_RST   4
-#define PIN_MOSI  13
-#define PIN_CLK   14
-#define PIN_BL    21
 
 // ILI9341 commands
 #define ILI9341_NOP        0x00
@@ -397,15 +389,16 @@ void display_fill_rect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t colo
     uint8_t lo = color & 0xFF;
 
     // Use a buffer for faster filling
-    static uint8_t buf[512];
-    for (int i = 0; i < 256; i++) {
+    #define FILL_BUF_PIXELS 256
+    static uint8_t buf[FILL_BUF_PIXELS * 2];
+    for (int i = 0; i < FILL_BUF_PIXELS; i++) {
         buf[i * 2] = hi;
         buf[i * 2 + 1] = lo;
     }
 
     int32_t total = (int32_t)w * h;
     while (total > 0) {
-        int chunk = (total > 256) ? 256 : total;
+        int chunk = (total > FILL_BUF_PIXELS) ? FILL_BUF_PIXELS : total;
         spi_write_bytes(buf, chunk * 2);
         total -= chunk;
     }

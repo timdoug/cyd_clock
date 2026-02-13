@@ -1,15 +1,15 @@
 #include "ui_clock.h"
+#include <string.h>
+#include <stdio.h>
+#include <time.h>
+#include "driver/gpio.h"
+#include "esp_log.h"
 #include "config.h"
 #include "display.h"
 #include "led.h"
-#include "wifi.h"
 #include "nvs_config.h"
 #include "ui_common.h"
-#include "esp_log.h"
-#include "driver/gpio.h"
-#include <time.h>
-#include <string.h>
-#include <stdio.h>
+#include "wifi.h"
 
 static const char *TAG = "ui_clock";
 
@@ -23,6 +23,9 @@ static const char *TAG = "ui_clock";
 // 7-segment layout for time display (size 2)
 #define TIME_DIGIT_WIDTH    38
 #define TIME_DIGIT_SPACING  6
+#define TIME_DIGIT_STEP     (TIME_DIGIT_WIDTH + TIME_DIGIT_SPACING)
+#define TIME_TOTAL_WIDTH    (6 * TIME_DIGIT_WIDTH + 5 * TIME_DIGIT_SPACING + 2 * COLON_7SEG_WIDTH)
+#define TIME_START_X        ((DISPLAY_WIDTH - TIME_TOTAL_WIDTH) / 2)
 
 // Colors
 #define COLOR_TIME_FG   COLOR_RED
@@ -82,18 +85,15 @@ static void draw_time_digit(int position, int digit) {
     // Calculate x position based on digit position
     // Format: HH:MM:SS
     // Positions: 0,1 = hours, 2,3 = minutes, 4,5 = seconds
-    int total_width = 6 * TIME_DIGIT_WIDTH + 5 * TIME_DIGIT_SPACING + 2 * COLON_7SEG_WIDTH;
-    int start_x = (DISPLAY_WIDTH - total_width) / 2;
-    int step = TIME_DIGIT_WIDTH + TIME_DIGIT_SPACING;
     int x;
 
     switch (position) {
-        case 0: x = start_x; break;
-        case 1: x = start_x + step; break;
-        case 2: x = start_x + 2 * step + COLON_7SEG_WIDTH; break;
-        case 3: x = start_x + 3 * step + COLON_7SEG_WIDTH; break;
-        case 4: x = start_x + 4 * step + 2 * COLON_7SEG_WIDTH; break;
-        case 5: x = start_x + 5 * step + 2 * COLON_7SEG_WIDTH; break;
+        case 0: x = TIME_START_X; break;
+        case 1: x = TIME_START_X + TIME_DIGIT_STEP; break;
+        case 2: x = TIME_START_X + 2 * TIME_DIGIT_STEP + COLON_7SEG_WIDTH; break;
+        case 3: x = TIME_START_X + 3 * TIME_DIGIT_STEP + COLON_7SEG_WIDTH; break;
+        case 4: x = TIME_START_X + 4 * TIME_DIGIT_STEP + 2 * COLON_7SEG_WIDTH; break;
+        case 5: x = TIME_START_X + 5 * TIME_DIGIT_STEP + 2 * COLON_7SEG_WIDTH; break;
         default: return;
     }
 
@@ -101,21 +101,86 @@ static void draw_time_digit(int position, int digit) {
 }
 
 static void draw_colon(int position, bool visible) {
-    int total_width = 6 * TIME_DIGIT_WIDTH + 5 * TIME_DIGIT_SPACING + 2 * COLON_7SEG_WIDTH;
-    int start_x = (DISPLAY_WIDTH - total_width) / 2;
-    int step = TIME_DIGIT_WIDTH + TIME_DIGIT_SPACING;
     int x;
 
     if (position == 0) {
-        x = start_x + 2 * step - TIME_DIGIT_SPACING / 2;
+        x = TIME_START_X + 2 * TIME_DIGIT_STEP - TIME_DIGIT_SPACING / 2;
     } else {
-        x = start_x + 4 * step + COLON_7SEG_WIDTH - TIME_DIGIT_SPACING / 2;
+        x = TIME_START_X + 4 * TIME_DIGIT_STEP + COLON_7SEG_WIDTH - TIME_DIGIT_SPACING / 2;
     }
 
     if (visible) {
         display_colon_7seg(x, TIME_Y, 2, COLOR_TIME_FG, COLOR_TIME_BG);
     } else {
         display_colon_7seg(x, TIME_Y, 2, COLOR_TIME_BG, COLOR_TIME_BG);
+    }
+}
+
+static void draw_ntp_stats(time_t now, int sec) {
+    ntp_stats_t stats;
+    wifi_get_ntp_stats(&stats);
+
+    // Line 1: Sync status with server
+    if (stats.synced != last_synced_state || last_stats_sec < 0) {
+        char status_str[48];
+        if (stats.synced) {
+            snprintf(status_str, sizeof(status_str), "NTP: %s", stats.server);
+            ui_draw_centered_string(STATS_Y, status_str, COLOR_SYNC_OK, COLOR_BLACK, false);
+        } else {
+            snprintf(status_str, sizeof(status_str), "Syncing: %s", wifi_get_custom_ntp_server());
+            ui_draw_centered_string(STATS_Y, status_str, COLOR_SYNC_WAIT, COLOR_BLACK, false);
+        }
+        last_synced_state = stats.synced;
+    }
+
+    // Line 2 & 3: Update stats display every second
+    if (sec != last_stats_sec) {
+        last_stats_sec = sec;
+
+        if (stats.synced) {
+            // Line 2: Last sync and sync count
+            if (stats.last_sync_time > 0) {
+                time_t time_since = now - stats.last_sync_time;
+                char line2[48];
+
+                if (time_since < 60) {
+                    snprintf(line2, sizeof(line2), "Last: %lds ago  Syncs: %lu",
+                             (long)time_since, (unsigned long)stats.sync_count);
+                } else if (time_since < 3600) {
+                    snprintf(line2, sizeof(line2), "Last: %ldm ago  Syncs: %lu",
+                             (long)(time_since / 60), (unsigned long)stats.sync_count);
+                } else {
+                    snprintf(line2, sizeof(line2), "Last: %ldh %ldm ago  Syncs: %lu",
+                             (long)(time_since / 3600), (long)((time_since % 3600) / 60),
+                             (unsigned long)stats.sync_count);
+                }
+                ui_draw_centered_string(STATS_LINE2, line2, COLOR_STATS, COLOR_BLACK, false);
+
+                // Line 3: Next sync countdown
+                time_t next_sync = stats.last_sync_time + stats.sync_interval;
+                time_t until_next = next_sync - now;
+
+                if (until_next > 0) {
+                    char line3[48];
+                    if (until_next < 60) {
+                        snprintf(line3, sizeof(line3), "Next sync: %lds", (long)until_next);
+                    } else {
+                        snprintf(line3, sizeof(line3), "Next sync: %ldm %lds",
+                                 (long)(until_next / 60), (long)(until_next % 60));
+                    }
+                    ui_draw_centered_string(STATS_LINE3, line3, COLOR_STATS, COLOR_BLACK, false);
+                } else {
+                    ui_draw_centered_string(STATS_LINE3, "Sync pending...", COLOR_SYNC_WAIT, COLOR_BLACK, false);
+                }
+            }
+        } else {
+            // Not synced - show elapsed time on line 2
+            char line2[48];
+            uint32_t elapsed_sec = stats.sync_elapsed_ms / 1000;
+            snprintf(line2, sizeof(line2), "Waiting: %lus", (unsigned long)elapsed_sec);
+            ui_draw_centered_string(STATS_LINE2, line2, COLOR_STATS, COLOR_BLACK, false);
+            ui_draw_centered_string(STATS_LINE3, "", COLOR_BLACK, COLOR_BLACK, false);
+        }
     }
 }
 
@@ -202,72 +267,7 @@ void ui_clock_update(void) {
         }
     }
 
-    // Update NTP stats every second
-    ntp_stats_t stats;
-    wifi_get_ntp_stats(&stats);
-
-    // Line 1: Sync status with server
-    if (stats.synced != last_synced_state || last_stats_sec < 0) {
-        char status_str[48];
-        if (stats.synced) {
-            snprintf(status_str, sizeof(status_str), "NTP: %s", stats.server);
-            ui_draw_centered_string(STATS_Y, status_str, COLOR_SYNC_OK, COLOR_BLACK, false);
-        } else {
-            snprintf(status_str, sizeof(status_str), "Syncing: %s", wifi_get_custom_ntp_server());
-            ui_draw_centered_string(STATS_Y, status_str, COLOR_SYNC_WAIT, COLOR_BLACK, false);
-        }
-        last_synced_state = stats.synced;
-    }
-
-    // Line 2 & 3: Update stats display every second
-    if (sec != last_stats_sec) {
-        last_stats_sec = sec;
-
-        if (stats.synced) {
-            // Line 2: Last sync and sync count
-            if (stats.last_sync_time > 0) {
-                time_t time_since = now - stats.last_sync_time;
-                char line2[48];
-
-                if (time_since < 60) {
-                    snprintf(line2, sizeof(line2), "Last: %lds ago  Syncs: %lu",
-                             (long)time_since, (unsigned long)stats.sync_count);
-                } else if (time_since < 3600) {
-                    snprintf(line2, sizeof(line2), "Last: %ldm ago  Syncs: %lu",
-                             (long)(time_since / 60), (unsigned long)stats.sync_count);
-                } else {
-                    snprintf(line2, sizeof(line2), "Last: %ldh %ldm ago  Syncs: %lu",
-                             (long)(time_since / 3600), (long)((time_since % 3600) / 60),
-                             (unsigned long)stats.sync_count);
-                }
-                ui_draw_centered_string(STATS_LINE2, line2, COLOR_STATS, COLOR_BLACK, false);
-
-                // Line 3: Next sync countdown
-                time_t next_sync = stats.last_sync_time + stats.sync_interval;
-                time_t until_next = next_sync - now;
-
-                if (until_next > 0) {
-                    char line3[48];
-                    if (until_next < 60) {
-                        snprintf(line3, sizeof(line3), "Next sync: %lds", (long)until_next);
-                    } else {
-                        snprintf(line3, sizeof(line3), "Next sync: %ldm %lds",
-                                 (long)(until_next / 60), (long)(until_next % 60));
-                    }
-                    ui_draw_centered_string(STATS_LINE3, line3, COLOR_STATS, COLOR_BLACK, false);
-                } else {
-                    ui_draw_centered_string(STATS_LINE3, "Sync pending...", COLOR_SYNC_WAIT, COLOR_BLACK, false);
-                }
-            }
-        } else {
-            // Not synced - show elapsed time on line 2
-            char line2[48];
-            uint32_t elapsed_sec = stats.sync_elapsed_ms / 1000;
-            snprintf(line2, sizeof(line2), "Waiting: %lus", (unsigned long)elapsed_sec);
-            ui_draw_centered_string(STATS_LINE2, line2, COLOR_STATS, COLOR_BLACK, false);
-            ui_draw_centered_string(STATS_LINE3, "", COLOR_BLACK, COLOR_BLACK, false);
-        }
-    }
+    draw_ntp_stats(now, sec);
 }
 
 clock_touch_zone_t ui_clock_check_touch(void) {

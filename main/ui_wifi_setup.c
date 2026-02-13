@@ -1,15 +1,15 @@
 #include "ui_wifi_setup.h"
-#include "ui_common.h"
-#include "ui_keyboard.h"
-#include "config.h"
-#include "display.h"
-#include "touch.h"
-#include "wifi.h"
-#include "nvs_config.h"
+#include <string.h>
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include <string.h>
+#include "config.h"
+#include "display.h"
+#include "nvs_config.h"
+#include "touch.h"
+#include "ui_common.h"
+#include "ui_keyboard.h"
+#include "wifi.h"
 
 static const char *TAG = "ui_wifi_setup";
 
@@ -22,11 +22,6 @@ typedef enum {
     STATE_CONNECTED,
     STATE_FAILED,
 } setup_state_t;
-
-// Colors
-#define COLOR_KEYBOARD  COLOR_DARKGRAY
-#define COLOR_KEY_FG    COLOR_WHITE
-#define COLOR_INPUT     COLOR_GREEN
 
 // Keyboard layouts
 static const char *keyboard_lower[] = {
@@ -123,10 +118,10 @@ static void draw_password_input(void) {
         }
     }
     display_pwd[password_len] = '\0';
-    display_string(10, UI_LIST_START_Y + 35, display_pwd, COLOR_INPUT, COLOR_DARKGRAY);
+    display_string(10, UI_LIST_START_Y + 35, display_pwd, COLOR_GREEN, COLOR_DARKGRAY);
 
     // Cursor
-    display_char(10 + password_len * CHAR_WIDTH, UI_LIST_START_Y + 35, '_', COLOR_INPUT, COLOR_DARKGRAY);
+    display_char(10 + password_len * CHAR_WIDTH, UI_LIST_START_Y + 35, '_', COLOR_GREEN, COLOR_DARKGRAY);
 }
 
 static void draw_keyboard(void) {
@@ -139,32 +134,32 @@ static void draw_keyboard(void) {
     display_fill_rect(0, KEYBOARD_Y, DISPLAY_WIDTH, DISPLAY_HEIGHT - KEYBOARD_Y, COLOR_BLACK);
 
     // Character keys
-    ui_keyboard_draw_keys(layout, 4, KEYBOARD_Y, COLOR_KEYBOARD, COLOR_KEY_FG, COLOR_GRAY);
+    ui_keyboard_draw_keys(layout, 4, KEYBOARD_Y, COLOR_DARKGRAY, COLOR_WHITE, COLOR_GRAY);
 
     // Special keys row
     int y = ui_keyboard_bottom_y(4, KEYBOARD_Y);
     int x = 5;
 
     // Shift key
-    display_fill_rect(x, y, 40, KB_KEY_HEIGHT, shift_active ? UI_COLOR_SELECTED : COLOR_KEYBOARD);
-    display_string(x + 8, y + 3, "Shf", shift_active ? COLOR_BLACK : COLOR_KEY_FG,
-                   shift_active ? UI_COLOR_SELECTED : COLOR_KEYBOARD);
+    display_fill_rect(x, y, 40, KB_KEY_HEIGHT, shift_active ? UI_COLOR_SELECTED : COLOR_DARKGRAY);
+    display_string(x + 8, y + 3, "Shf", shift_active ? COLOR_BLACK : COLOR_WHITE,
+                   shift_active ? UI_COLOR_SELECTED : COLOR_DARKGRAY);
     x += 45;
 
     // Mode key
-    display_fill_rect(x, y, 40, KB_KEY_HEIGHT, COLOR_KEYBOARD);
+    display_fill_rect(x, y, 40, KB_KEY_HEIGHT, COLOR_DARKGRAY);
     const char *mode_label = (keyboard_mode == 0) ? "?#@" : "abc";
-    display_string(x + 8, y + 3, mode_label, COLOR_KEY_FG, COLOR_KEYBOARD);
+    display_string(x + 8, y + 3, mode_label, COLOR_WHITE, COLOR_DARKGRAY);
     x += 45;
 
     // Space bar
-    display_fill_rect(x, y, 100, KB_KEY_HEIGHT, COLOR_KEYBOARD);
-    display_string(x + 30, y + 3, "Space", COLOR_KEY_FG, COLOR_KEYBOARD);
+    display_fill_rect(x, y, 100, KB_KEY_HEIGHT, COLOR_DARKGRAY);
+    display_string(x + 30, y + 3, "Space", COLOR_WHITE, COLOR_DARKGRAY);
     x += 105;
 
     // Backspace
-    display_fill_rect(x, y, 40, KB_KEY_HEIGHT, COLOR_KEYBOARD);
-    display_string(x + 8, y + 3, "Del", COLOR_KEY_FG, COLOR_KEYBOARD);
+    display_fill_rect(x, y, 40, KB_KEY_HEIGHT, COLOR_DARKGRAY);
+    display_string(x + 8, y + 3, "Del", COLOR_WHITE, COLOR_DARKGRAY);
     x += 45;
 
     // Connect button
