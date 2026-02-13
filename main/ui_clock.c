@@ -143,10 +143,7 @@ static void draw_ntp_stats(time_t now, int sec) {
                 time_t time_since = now - stats.last_sync_time;
                 char line2[48];
 
-                if (time_since < 60) {
-                    snprintf(line2, sizeof(line2), "Last: %lds ago  Syncs: %lu",
-                             (long)time_since, (unsigned long)stats.sync_count);
-                } else if (time_since < 3600) {
+                if (time_since < 3600) {
                     snprintf(line2, sizeof(line2), "Last: %ldm ago  Syncs: %lu",
                              (long)(time_since / 60), (unsigned long)stats.sync_count);
                 } else {
@@ -162,11 +159,12 @@ static void draw_ntp_stats(time_t now, int sec) {
 
                 if (until_next > 0) {
                     char line3[48];
-                    if (until_next < 60) {
-                        snprintf(line3, sizeof(line3), "Next sync: %lds", (long)until_next);
+                    if (until_next < 3600) {
+                        snprintf(line3, sizeof(line3), "Next sync: %ldm",
+                                 (long)((until_next + 59) / 60));
                     } else {
-                        snprintf(line3, sizeof(line3), "Next sync: %ldm %lds",
-                                 (long)(until_next / 60), (long)(until_next % 60));
+                        snprintf(line3, sizeof(line3), "Next sync: %ldh %ldm",
+                                 (long)(until_next / 3600), (long)((until_next % 3600) / 60));
                     }
                     ui_draw_centered_string(STATS_LINE3, line3, COLOR_STATS, COLOR_BLACK, false);
                 } else {
