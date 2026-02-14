@@ -138,38 +138,42 @@ static void draw_ntp_stats(time_t now, int sec) {
         last_stats_sec = sec;
 
         if (stats.synced) {
-            // Line 2: Last sync and sync count
             if (stats.last_sync_time > 0) {
+                // Line 2: Last sync ago / next sync countdown
                 time_t time_since = now - stats.last_sync_time;
-                char line2[48];
-
-                if (time_since < 3600) {
-                    snprintf(line2, sizeof(line2), "Last: %ldm ago  Syncs: %lu",
-                             (long)(time_since / 60), (unsigned long)stats.sync_count);
-                } else {
-                    snprintf(line2, sizeof(line2), "Last: %ldh %ldm ago  Syncs: %lu",
-                             (long)(time_since / 3600), (long)((time_since % 3600) / 60),
-                             (unsigned long)stats.sync_count);
-                }
-                ui_draw_centered_string(STATS_LINE2, line2, COLOR_STATS, COLOR_BLACK, false);
-
-                // Line 3: Next sync countdown
                 time_t next_sync = stats.last_sync_time + stats.sync_interval;
                 time_t until_next = next_sync - now;
+                char line2[64];
 
-                if (until_next > 0) {
-                    char line3[48];
-                    if (until_next < 3600) {
-                        snprintf(line3, sizeof(line3), "Next sync: %ldm",
-                                 (long)((until_next + 59) / 60));
-                    } else {
-                        snprintf(line3, sizeof(line3), "Next sync: %ldh %ldm",
-                                 (long)(until_next / 3600), (long)((until_next % 3600) / 60));
-                    }
-                    ui_draw_centered_string(STATS_LINE3, line3, COLOR_STATS, COLOR_BLACK, false);
+                char last_buf[16];
+                if (time_since < 3600) {
+                    snprintf(last_buf, sizeof(last_buf), "%ldm", (long)(time_since / 60));
                 } else {
-                    ui_draw_centered_string(STATS_LINE3, "Sync pending...", COLOR_SYNC_WAIT, COLOR_BLACK, false);
+                    snprintf(last_buf, sizeof(last_buf), "%ldh %ldm",
+                             (long)(time_since / 3600), (long)((time_since % 3600) / 60));
                 }
+
+                char next_buf[16];
+                if (until_next <= 0) {
+                    snprintf(next_buf, sizeof(next_buf), "pending");
+                } else if (until_next < 3600) {
+                    snprintf(next_buf, sizeof(next_buf), "%ldm", (long)((until_next + 59) / 60));
+                } else {
+                    snprintf(next_buf, sizeof(next_buf), "%ldh %ldm",
+                             (long)(until_next / 3600), (long)((until_next % 3600) / 60));
+                }
+
+                snprintf(line2, sizeof(line2), "Last: %s ago  Next: %s", last_buf, next_buf);
+                ui_draw_centered_string(STATS_LINE2, line2, COLOR_STATS, COLOR_BLACK, false);
+
+                // Line 3: Clock offset (only meaningful after 2+ syncs)
+                char line3[48];
+                if (stats.sync_count < 2) {
+                    snprintf(line3, sizeof(line3), "Offset: ----");
+                } else {
+                    snprintf(line3, sizeof(line3), "Offset: %+lldms", (long long)stats.last_offset_ms);
+                }
+                ui_draw_centered_string(STATS_LINE3, line3, COLOR_STATS, COLOR_BLACK, false);
             }
         } else {
             // Not synced - show elapsed time on line 2

@@ -29,6 +29,7 @@ static struct {
     uint32_t sync_start_ticks;
     uint32_t sync_count;
     uint32_t interval;
+    int64_t last_offset_us;
     char custom_server[64];
 } ntp_state = {
     .synced = false,
@@ -72,7 +73,20 @@ static void time_sync_notification_cb(struct timeval *tv) {
     ntp_state.synced = true;
     ntp_state.last_sync_time = tv->tv_sec;
     ntp_state.sync_count++;
-    ESP_LOGI(TAG, "NTP time synchronized (sync #%lu)", (unsigned long)ntp_state.sync_count);
+    ESP_LOGI(TAG, "NTP time synchronized (sync #%lu, offset %+lldms)",
+             (unsigned long)ntp_state.sync_count, (long long)(ntp_state.last_offset_us / 1000));
+}
+
+// Override weak sntp_sync_time to capture clock offset before correction
+void sntp_sync_time(struct timeval *tv) {
+    struct timeval now;
+    gettimeofday(&now, NULL);
+    ntp_state.last_offset_us = ((int64_t)tv->tv_sec - now.tv_sec) * 1000000LL
+                             + (tv->tv_usec - now.tv_usec);
+
+    settimeofday(tv, NULL);
+    sntp_set_sync_status(SNTP_SYNC_STATUS_COMPLETED);
+    time_sync_notification_cb(tv);
 }
 
 void wifi_init(void) {
@@ -242,6 +256,8 @@ void wifi_get_ntp_stats(ntp_stats_t *stats) {
     } else {
         stats->sync_elapsed_ms = 0;
     }
+
+    stats->last_offset_ms = ntp_state.last_offset_us / 1000;
 
     // Get current server (index 0 is primary)
     stats->server = esp_sntp_getservername(0);

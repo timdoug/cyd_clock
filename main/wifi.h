@@ -22,6 +22,7 @@ typedef struct {
     uint32_t sync_count;      // Total number of successful syncs
     uint32_t sync_interval;   // Current sync interval in seconds
     uint32_t sync_elapsed_ms; // Milliseconds since sync attempt started (when not synced)
+    int64_t last_offset_ms;   // Clock offset at last sync in milliseconds
     const char *server;       // Current NTP server name
 } ntp_stats_t;
 
