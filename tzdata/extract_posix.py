@@ -14,7 +14,7 @@ import tempfile
 
 # (display_city, iana_zone_id) - order matches main/ui_timezone.c
 ZONES = [
-    ("UTC", "Etc/UTC"),
+    ("Samoa", "Pacific/Pago_Pago"),
     ("Honolulu", "Pacific/Honolulu"),
     ("Anchorage", "America/Anchorage"),
     ("Los Angeles", "America/Los_Angeles"),
@@ -31,10 +31,11 @@ ZONES = [
     ("St. John's", "America/St_Johns"),
     ("Sao Paulo", "America/Sao_Paulo"),
     ("Buenos Aires", "America/Argentina/Buenos_Aires"),
+    ("UTC", "Etc/UTC"),
     ("Reykjavik", "Atlantic/Reykjavik"),
     ("London", "Europe/London"),
-    ("Dublin", "Europe/Dublin"),
     ("Lisbon", "Europe/Lisbon"),
+    ("Dublin", "Europe/Dublin"),
     ("Casablanca", "Africa/Casablanca"),
     ("Lagos", "Africa/Lagos"),
     ("Paris", "Europe/Paris"),
@@ -73,7 +74,6 @@ ZONES = [
     ("Melbourne", "Australia/Melbourne"),
     ("Auckland", "Pacific/Auckland"),
     ("Fiji", "Pacific/Fiji"),
-    ("Samoa", "Pacific/Pago_Pago"),
 ]
 
 # tzdata source region files to compile

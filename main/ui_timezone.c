@@ -16,9 +16,7 @@ typedef struct {
 } timezone_entry_t;
 
 static const timezone_entry_t timezones[] = {
-    // UTC
-    {"UTC (UTC+0)",                 "UTC0"},
-    // Pacific / North America West
+    {"Samoa (UTC-11)",              "SST11"},
     {"Honolulu (UTC-10)",           "HST10"},
     {"Anchorage (UTC-9)",           "AKST9AKDT,M3.2.0,M11.1.0"},
     {"Los Angeles (UTC-8)",         "PST8PDT,M3.2.0,M11.1.0"},
@@ -35,11 +33,11 @@ static const timezone_entry_t timezones[] = {
     {"St. John's (UTC-3:30)",       "NST3:30NDT,M3.2.0,M11.1.0"},
     {"Sao Paulo (UTC-3)",           "<-03>3"},
     {"Buenos Aires (UTC-3)",        "<-03>3"},
-    // Atlantic / Europe / Africa
+    {"UTC (UTC+0)",                 "UTC0"},
     {"Reykjavik (UTC+0)",           "GMT0"},
     {"London (UTC+0)",              "GMT0BST,M3.5.0/1,M10.5.0"},
-    {"Dublin (UTC+1)",              "IST-1GMT0,M10.5.0,M3.5.0/1"},
     {"Lisbon (UTC+0)",              "WET0WEST,M3.5.0/1,M10.5.0"},
+    {"Dublin (UTC+1)",              "IST-1GMT0,M10.5.0,M3.5.0/1"},
     {"Casablanca (UTC+1)",          "<+01>-1"},
     {"Lagos (UTC+1)",               "WAT-1"},
     {"Paris (UTC+1)",               "CET-1CEST,M3.5.0,M10.5.0/3"},
@@ -78,7 +76,6 @@ static const timezone_entry_t timezones[] = {
     {"Melbourne (UTC+10)",          "AEST-10AEDT,M10.1.0,M4.1.0/3"},
     {"Auckland (UTC+12)",           "NZST-12NZDT,M9.5.0,M4.1.0/3"},
     {"Fiji (UTC+12)",               "<+12>-12"},
-    {"Samoa (UTC-11)",              "SST11"},
 };
 
 #define NUM_TIMEZONES (sizeof(timezones) / sizeof(timezones[0]))
