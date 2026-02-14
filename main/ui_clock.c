@@ -124,8 +124,7 @@ static void draw_ntp_stats(time_t now, int sec) {
     if (stats.synced != last_synced_state || last_stats_sec < 0) {
         char status_str[48];
         if (stats.synced) {
-            snprintf(status_str, sizeof(status_str), "NTP: %s", stats.server);
-            ui_draw_centered_string(STATS_Y, status_str, COLOR_SYNC_OK, COLOR_BLACK, false);
+            ui_draw_centered_string(STATS_Y, stats.server, COLOR_SYNC_OK, COLOR_BLACK, false);
         } else {
             snprintf(status_str, sizeof(status_str), "Syncing: %s", wifi_get_custom_ntp_server());
             ui_draw_centered_string(STATS_Y, status_str, COLOR_SYNC_WAIT, COLOR_BLACK, false);
@@ -163,15 +162,15 @@ static void draw_ntp_stats(time_t now, int sec) {
                              (long)(until_next / 3600), (long)((until_next % 3600) / 60));
                 }
 
-                snprintf(line2, sizeof(line2), "Last: %s ago  Next: %s", last_buf, next_buf);
+                snprintf(line2, sizeof(line2), "Synced %s ago, next in %s", last_buf, next_buf);
                 ui_draw_centered_string(STATS_LINE2, line2, COLOR_STATS, COLOR_BLACK, false);
 
                 // Line 3: Clock offset (only meaningful after 2+ syncs)
                 char line3[48];
                 if (stats.sync_count < 2) {
-                    snprintf(line3, sizeof(line3), "Offset: ----");
+                    snprintf(line3, sizeof(line3), "Last offset: ----");
                 } else {
-                    snprintf(line3, sizeof(line3), "Offset: %+lldms", (long long)stats.last_offset_ms);
+                    snprintf(line3, sizeof(line3), "Last offset: %+lldms", (long long)stats.last_offset_ms);
                 }
                 ui_draw_centered_string(STATS_LINE3, line3, COLOR_STATS, COLOR_BLACK, false);
             }
