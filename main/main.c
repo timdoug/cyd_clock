@@ -123,6 +123,10 @@ void app_main(void) {
     if (nvs_config_get_ntp_interval(&ntp_interval)) {
         wifi_set_ntp_interval(ntp_interval);
     }
+    bool ntp_ipv6;
+    if (nvs_config_get_ntp_ipv6(&ntp_ipv6)) {
+        wifi_set_ntp_prefer_ipv6(ntp_ipv6);
+    }
 
     // Check for stored WiFi credentials
     if (nvs_config_get_wifi(stored_ssid, stored_password)) {

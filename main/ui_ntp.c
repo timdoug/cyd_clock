@@ -122,7 +122,14 @@ static void draw_main_screen(void) {
     display_server[sizeof(display_server) - 1] = '\0';
     display_string(15, y + 7, display_server, COLOR_WHITE, COLOR_DARKGRAY);
     display_string(DISPLAY_WIDTH - 30, y + 7, ">", COLOR_WHITE, COLOR_DARKGRAY);
-    y += 40;
+    y += 32;
+
+    char server_ip[46];
+    wifi_get_ntp_server_ip_str(server_ip, sizeof(server_ip));
+    display_string(10, y, "Resolved:", COLOR_GRAY, COLOR_BLACK);
+    display_string(90, y, server_ip[0] ? server_ip : "resolving...",
+                   server_ip[0] ? COLOR_WHITE : COLOR_GRAY, COLOR_BLACK);
+    y += 20;
 
     // Interval section
     display_string(10, y, "Sync Interval:", COLOR_GRAY, COLOR_BLACK);
@@ -147,6 +154,15 @@ static void draw_main_screen(void) {
     // Sync Now button
     display_fill_rect(10, y, 80, 28, COLOR_GREEN);
     display_string(18, y + 7, "Sync Now", COLOR_BLACK, COLOR_GREEN);
+
+    // IPv6 toggle
+    bool ipv6 = wifi_get_ntp_prefer_ipv6();
+    uint16_t ipv6_bg = ipv6 ? COLOR_CYAN : COLOR_DARKGRAY;
+    uint16_t ipv6_fg = ipv6 ? COLOR_BLACK : COLOR_WHITE;
+    const char *ipv6_label = ipv6 ? "IPv6: On" : "IPv6: Off";
+    display_fill_rect(220, y, 90, 28, ipv6_bg);
+    int label_x = 220 + (90 - strlen(ipv6_label) * CHAR_WIDTH) / 2;
+    display_string(label_x, y + 7, ipv6_label, ipv6_fg, ipv6_bg);
 }
 
 static void draw_keyboard_screen(void) {
@@ -189,7 +205,7 @@ ntp_result_t ui_ntp_update(void) {
             }
 
             // Interval buttons
-            int interval_y = 40 + 20 + 40 + 22;
+            int interval_y = 40 + 20 + 32 + 20 + 22;
             if (touch.y >= interval_y && touch.y < interval_y + 24) {
                 int btn_w = 72;
                 int col = (touch.x - 10) / (btn_w + 4);
@@ -200,11 +216,20 @@ ntp_result_t ui_ntp_update(void) {
                 }
             }
 
-            // Sync Now button
+            // Sync Now / IPv6 toggle
             int sync_y = interval_y + 36;
-            if (touch.y >= sync_y && touch.y < sync_y + 28 && touch.x >= 10 && touch.x < 90) {
-                wifi_force_ntp_sync();
-                return NTP_RESULT_SYNCED;
+            if (touch.y >= sync_y && touch.y < sync_y + 28) {
+                if (touch.x >= 10 && touch.x < 90) {
+                    wifi_force_ntp_sync();
+                    return NTP_RESULT_SYNCED;
+                }
+                if (touch.x >= 220 && touch.x < 310) {
+                    bool ipv6 = !wifi_get_ntp_prefer_ipv6();
+                    wifi_set_ntp_prefer_ipv6(ipv6);
+                    nvs_config_set_ntp_ipv6(ipv6);
+                    wifi_force_ntp_sync();
+                    draw_main_screen();
+                }
             }
         } else if (ui_state == NTP_STATE_KEYBOARD) {
             char key = get_key_at(touch.x, touch.y);

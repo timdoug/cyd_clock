@@ -160,6 +160,31 @@ void nvs_config_set_custom_ntp_server(const char *server) {
     nvs_commit_and_close(handle);
 }
 
+bool nvs_config_get_ntp_ipv6(bool *prefer) {
+    nvs_handle_t handle;
+    if (!nvs_open_read(&handle)) {
+        return false;
+    }
+
+    uint8_t value;
+    esp_err_t err = nvs_get_u8(handle, "ntp_ipv6", &value);
+    nvs_close(handle);
+
+    if (err == ESP_OK) {
+        *prefer = (value != 0);
+        return true;
+    }
+    return false;
+}
+
+void nvs_config_set_ntp_ipv6(bool prefer) {
+    nvs_handle_t handle;
+    if (!nvs_open_write(&handle)) return;
+
+    ESP_ERROR_CHECK(nvs_set_u8(handle, "ntp_ipv6", prefer ? 1 : 0));
+    nvs_commit_and_close(handle);
+}
+
 bool nvs_config_get_rotation(bool *rotated) {
     nvs_handle_t handle;
     if (!nvs_open_read(&handle)) {

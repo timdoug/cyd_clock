@@ -6,6 +6,8 @@
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "esp_sntp.h"
+#include "lwip/ip_addr.h"
+#include "lwip/netdb.h"
 #include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
@@ -31,6 +33,7 @@ static struct {
     uint32_t interval;
     int64_t last_offset_us;
     char custom_server[64];
+    bool prefer_ipv6;
 } ntp_state = {
     .synced = false,
     .last_sync_time = 0,
@@ -38,6 +41,7 @@ static struct {
     .sync_count = 0,
     .interval = NTP_DEFAULT_INTERVAL_SEC,
     .custom_server = DEFAULT_NTP_SERVER,
+    .prefer_ipv6 = false,
 };
 
 static void wifi_event_handler(void *arg, esp_event_base_t event_base,
@@ -61,11 +65,16 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
             default:
                 break;
         }
-    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
-        ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
-        ESP_LOGI(TAG, "Got IP: " IPSTR, IP2STR(&event->ip_info.ip));
-        retry_count = 0;
-        xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_BIT);
+    } else if (event_base == IP_EVENT) {
+        if (event_id == IP_EVENT_STA_GOT_IP) {
+            ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
+            ESP_LOGI(TAG, "Got IPv4: " IPSTR, IP2STR(&event->ip_info.ip));
+            retry_count = 0;
+            xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_BIT);
+        } else if (event_id == IP_EVENT_GOT_IP6) {
+            ip_event_got_ip6_t *event = (ip_event_got_ip6_t *)event_data;
+            ESP_LOGI(TAG, "Got IPv6: " IPV6STR, IPV62STR(event->ip6_info.ip));
+        }
     }
 }
 
@@ -98,7 +107,8 @@ void wifi_init(void) {
 
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
-    esp_netif_create_default_wifi_sta();
+    esp_netif_t *netif = esp_netif_create_default_wifi_sta();
+    esp_netif_create_ip6_linklocal(netif);
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
@@ -109,6 +119,10 @@ void wifi_init(void) {
                                                         NULL, NULL));
     ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT,
                                                         IP_EVENT_STA_GOT_IP,
+                                                        &wifi_event_handler,
+                                                        NULL, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT,
+                                                        IP_EVENT_GOT_IP6,
                                                         &wifi_event_handler,
                                                         NULL, NULL));
 
@@ -225,15 +239,48 @@ bool wifi_is_connected(void) {
 void wifi_start_ntp(void) {
     const char *server = wifi_get_custom_ntp_server();
 
-    ESP_LOGI(TAG, "Starting NTP sync (server: %s, interval: %lu sec)",
-             server, (unsigned long)ntp_state.interval);
+    ESP_LOGI(TAG, "Starting NTP sync (server: %s, interval: %lu sec, ipv6: %s)",
+             server, (unsigned long)ntp_state.interval,
+             ntp_state.prefer_ipv6 ? "yes" : "no");
 
     ntp_state.sync_start_ticks = xTaskGetTickCount();
 
     esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
-    esp_sntp_setservername(0, server);
     esp_sntp_set_sync_interval(ntp_state.interval * 1000);  // Convert to ms
     sntp_set_time_sync_notification_cb(time_sync_notification_cb);
+
+    // Resolve synchronously so the address is immediately visible in the UI
+    struct addrinfo hints = {
+        .ai_family = ntp_state.prefer_ipv6 ? AF_INET6 : AF_INET,
+    };
+    struct addrinfo *res = NULL;
+    bool resolved = false;
+    if (getaddrinfo(server, NULL, &hints, &res) == 0 && res) {
+        ip_addr_t sntp_addr = {0};
+        if (res->ai_family == AF_INET6) {
+            struct sockaddr_in6 *sa6 = (struct sockaddr_in6 *)res->ai_addr;
+            memcpy(&sntp_addr.u_addr.ip6.addr, &sa6->sin6_addr, 16);
+            sntp_addr.type = IPADDR_TYPE_V6;
+        } else {
+            struct sockaddr_in *sa4 = (struct sockaddr_in *)res->ai_addr;
+            sntp_addr.u_addr.ip4.addr = sa4->sin_addr.s_addr;
+            sntp_addr.type = IPADDR_TYPE_V4;
+        }
+        esp_sntp_setserver(0, &sntp_addr);
+        char addr_str[46];
+        ipaddr_ntoa_r(&sntp_addr, addr_str, sizeof(addr_str));
+        ESP_LOGI(TAG, "Resolved %s to %s", server, addr_str);
+        resolved = true;
+        freeaddrinfo(res);
+    } else {
+        ESP_LOGW(TAG, "DNS resolution failed for %s, using hostname mode", server);
+        if (res) freeaddrinfo(res);
+    }
+
+    if (!resolved) {
+        esp_sntp_setservername(0, server);
+    }
+
     esp_sntp_init();
 }
 
@@ -260,9 +307,10 @@ void wifi_get_ntp_stats(ntp_stats_t *stats) {
     stats->last_offset_ms = ntp_state.last_offset_us / 1000;
 
     // Get current server (index 0 is primary)
+    // When using esp_sntp_setserver() (IP mode), the name is NULL
     stats->server = esp_sntp_getservername(0);
     if (!stats->server) {
-        stats->server = "N/A";
+        stats->server = wifi_get_custom_ntp_server();
     }
 }
 
@@ -301,6 +349,27 @@ uint32_t wifi_get_ntp_interval(void) {
     return ntp_state.interval;
 }
 
+bool wifi_get_ntp_prefer_ipv6(void) {
+    return ntp_state.prefer_ipv6;
+}
+
+void wifi_set_ntp_prefer_ipv6(bool prefer) {
+    ntp_state.prefer_ipv6 = prefer;
+}
+
+void wifi_get_ntp_server_ip_str(char *buf, size_t len) {
+    if (!esp_sntp_enabled()) {
+        buf[0] = '\0';
+        return;
+    }
+    const ip_addr_t *addr = esp_sntp_getserver(0);
+    if (addr && !ip_addr_isany(addr)) {
+        ipaddr_ntoa_r(addr, buf, len);
+        return;
+    }
+    buf[0] = '\0';
+}
+
 void wifi_get_ip_str(char *buf, size_t len) {
     esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
     if (netif && wifi_is_connected()) {
@@ -311,6 +380,27 @@ void wifi_get_ip_str(char *buf, size_t len) {
         }
     }
     snprintf(buf, len, "0.0.0.0");
+}
+
+void wifi_get_ip6_str(char *buf, size_t len) {
+    esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+    if (netif && wifi_is_connected()) {
+        esp_ip6_addr_t ip6_addrs[CONFIG_LWIP_IPV6_NUM_ADDRESSES];
+        int count = esp_netif_get_all_ip6(netif, ip6_addrs);
+        for (int i = 0; i < count; i++) {
+            // Skip link-local (fe80::) addresses, prefer global
+            if (!ip6_addr_islinklocal(&ip6_addrs[i])) {
+                snprintf(buf, len, IPV6STR, IPV62STR(ip6_addrs[i]));
+                return;
+            }
+        }
+        // Fall back to link-local if no global address
+        if (count > 0) {
+            snprintf(buf, len, IPV6STR, IPV62STR(ip6_addrs[0]));
+            return;
+        }
+    }
+    buf[0] = '\0';
 }
 
 int8_t wifi_get_rssi(void) {

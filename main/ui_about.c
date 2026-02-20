@@ -34,8 +34,14 @@ static void draw_screen(void) {
 
     char ip_str[16];
     wifi_get_ip_str(ip_str, sizeof(ip_str));
-    display_string(20, y, "IP:", COLOR_GRAY, COLOR_BLACK);
+    display_string(20, y, "IPv4:", COLOR_GRAY, COLOR_BLACK);
     display_string(90, y, ip_str, COLOR_WHITE, COLOR_BLACK);
+    y += 20;
+
+    char ip6_str[46];
+    wifi_get_ip6_str(ip6_str, sizeof(ip6_str));
+    display_string(20, y, "IPv6:", COLOR_GRAY, COLOR_BLACK);
+    display_string(90, y, ip6_str[0] ? ip6_str : "none", COLOR_WHITE, COLOR_BLACK);
     y += 20;
 
     char rssi_str[16];

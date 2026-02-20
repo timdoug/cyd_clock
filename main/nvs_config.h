@@ -30,6 +30,10 @@ void nvs_config_set_ntp_interval(uint32_t interval);
 bool nvs_config_get_custom_ntp_server(char *server);
 void nvs_config_set_custom_ntp_server(const char *server);
 
+// NTP IPv6 preference
+bool nvs_config_get_ntp_ipv6(bool *prefer);
+void nvs_config_set_ntp_ipv6(bool prefer);
+
 // Display rotation
 bool nvs_config_get_rotation(bool *rotated);
 void nvs_config_set_rotation(bool rotated);

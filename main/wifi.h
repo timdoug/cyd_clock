@@ -64,8 +64,18 @@ void wifi_set_custom_ntp_server(const char *server);
 // Set timezone (POSIX TZ format, e.g., "PST8PDT,M3.2.0,M11.1.0")
 void wifi_set_timezone(const char *tz);
 
-// Get current IP address as string (returns "0.0.0.0" if not connected)
+// Get current IPv4 address as string (returns "0.0.0.0" if not connected)
 void wifi_get_ip_str(char *buf, size_t len);
+
+// Get current IPv6 address as string (returns "" if no global address)
+void wifi_get_ip6_str(char *buf, size_t len);
+
+// Get resolved NTP server IP as string (returns "" if not yet resolved)
+void wifi_get_ntp_server_ip_str(char *buf, size_t len);
+
+// NTP IPv6 preference (manual AAAA resolution before starting SNTP)
+bool wifi_get_ntp_prefer_ipv6(void);
+void wifi_set_ntp_prefer_ipv6(bool prefer);
 
 // Get WiFi RSSI (signal strength in dBm, returns 0 if not connected)
 int8_t wifi_get_rssi(void);
