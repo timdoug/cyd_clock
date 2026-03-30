@@ -23,7 +23,7 @@ void touch_init(void) {
     gpio_config_t io_conf = {
         .pin_bit_mask = (1ULL << PIN_T_IRQ),
         .mode = GPIO_MODE_INPUT,
-        .pull_up_en = GPIO_PULLUP_ENABLE,
+        .pull_up_en = GPIO_PULLUP_DISABLE,  // GPIO 36 is input-only, no internal pullup (CYD has external)
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
         .intr_type = GPIO_INTR_DISABLE,
     };
