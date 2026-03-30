@@ -36,10 +36,10 @@
 #define TOUCH_MAX_Y         3800
 
 // UI layout constants
-#define CHAR_WIDTH          8
-#define CHAR_HEIGHT         16
-#define CHAR_WIDTH_2X       16
-#define CHAR_HEIGHT_2X      32
+#define FONT_CHAR_WIDTH     8
+#define FONT_CHAR_HEIGHT    16
+#define FONT_CHAR_WIDTH_2X  16
+#define FONT_CHAR_HEIGHT_2X 32
 
 // 7-segment digit dimensions (per size multiplier)
 #define DIGIT_7SEG_WIDTH    19   // Base width, multiply by size

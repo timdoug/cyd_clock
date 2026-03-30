@@ -73,7 +73,7 @@ static void draw_menu(void) {
     uint16_t rot_bg = rotation ? COLOR_GREEN : COLOR_GRAY;
     display_fill_rect(ROTATION_TOGGLE_X, y + 3, ROTATION_TOGGLE_W, 18, rot_bg);
     const char *rot_label = rotation ? "On" : "Off";
-    int rot_text_x = ROTATION_TOGGLE_X + (ROTATION_TOGGLE_W - strlen(rot_label) * CHAR_WIDTH) / 2;
+    int rot_text_x = ROTATION_TOGGLE_X + (ROTATION_TOGGLE_W - strlen(rot_label) * FONT_CHAR_WIDTH) / 2;
     display_string(rot_text_x, y + 4, rot_label, rotation ? COLOR_BLACK : COLOR_WHITE, rot_bg);
     y += UI_ITEM_HEIGHT;
 
@@ -84,7 +84,7 @@ static void draw_menu(void) {
     int btn_w = DISPLAY_WIDTH / 3;
     int btn_x = (DISPLAY_WIDTH - btn_w) / 2;
     display_fill_rect(btn_x, y, btn_w, UI_ITEM_HEIGHT - 3, COLOR_GREEN);
-    display_string(btn_x + (btn_w - 4 * CHAR_WIDTH) / 2, y + UI_TEXT_Y_OFFSET, "Done", COLOR_BLACK, COLOR_GREEN);
+    display_string(btn_x + (btn_w - 4 * FONT_CHAR_WIDTH) / 2, y + UI_TEXT_Y_OFFSET, "Done", COLOR_BLACK, COLOR_GREEN);
 }
 
 void ui_settings_init(void) {

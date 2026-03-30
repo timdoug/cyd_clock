@@ -121,7 +121,7 @@ static void draw_password_input(void) {
     display_string(10, UI_LIST_START_Y + 35, display_pwd, COLOR_GREEN, COLOR_DARKGRAY);
 
     // Cursor
-    display_char(10 + password_len * CHAR_WIDTH, UI_LIST_START_Y + 35, '_', COLOR_GREEN, COLOR_DARKGRAY);
+    display_char(10 + password_len * FONT_CHAR_WIDTH, UI_LIST_START_Y + 35, '_', COLOR_GREEN, COLOR_DARKGRAY);
 }
 
 static void draw_keyboard(void) {

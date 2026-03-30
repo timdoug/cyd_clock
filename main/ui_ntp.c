@@ -82,7 +82,7 @@ static void draw_server_input(void) {
     }
 
     // Show cursor
-    int cursor_x = 15 + (custom_server_len > 35 ? 35 : custom_server_len) * CHAR_WIDTH;
+    int cursor_x = 15 + (custom_server_len > 35 ? 35 : custom_server_len) * FONT_CHAR_WIDTH;
     if (cursor_x < DISPLAY_WIDTH - 20) {
         display_string(cursor_x, 59, "_", COLOR_CYAN, COLOR_DARKGRAY);
     }
@@ -146,7 +146,7 @@ static void draw_main_screen(void) {
         int btn_x = 10 + i * (btn_w + 4);
 
         display_fill_rect(btn_x, y, btn_w, 24, bg);
-        int text_x = btn_x + (btn_w - strlen(interval_names[i]) * CHAR_WIDTH) / 2;
+        int text_x = btn_x + (btn_w - strlen(interval_names[i]) * FONT_CHAR_WIDTH) / 2;
         display_string(text_x, y + 5, interval_names[i], fg, bg);
     }
     y += 36;
@@ -161,7 +161,7 @@ static void draw_main_screen(void) {
     uint16_t ipv6_fg = ipv6 ? COLOR_BLACK : COLOR_WHITE;
     const char *ipv6_label = ipv6 ? "IPv6: On" : "IPv6: Off";
     display_fill_rect(220, y, 90, 28, ipv6_bg);
-    int label_x = 220 + (90 - strlen(ipv6_label) * CHAR_WIDTH) / 2;
+    int label_x = 220 + (90 - strlen(ipv6_label) * FONT_CHAR_WIDTH) / 2;
     display_string(label_x, y + 7, ipv6_label, ipv6_fg, ipv6_bg);
 }
 

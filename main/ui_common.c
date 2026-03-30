@@ -10,7 +10,7 @@ void ui_draw_header(const char *title, bool show_back) {
     display_fill_rect(0, 0, DISPLAY_WIDTH, UI_HEADER_HEIGHT, UI_COLOR_HEADER);
 
     int len = strlen(title);
-    int x = (DISPLAY_WIDTH - len * CHAR_WIDTH) / 2;
+    int x = (DISPLAY_WIDTH - len * FONT_CHAR_WIDTH) / 2;
     display_string(x, UI_HEADER_TEXT_Y, title, COLOR_WHITE, UI_COLOR_HEADER);
 
     if (show_back) {
@@ -21,8 +21,8 @@ void ui_draw_header(const char *title, bool show_back) {
 
 void ui_draw_centered_string(int16_t y, const char *str, uint16_t fg, uint16_t bg, bool scale_2x) {
     int len = strlen(str);
-    int char_width = scale_2x ? CHAR_WIDTH_2X : CHAR_WIDTH;
-    int char_height = scale_2x ? CHAR_HEIGHT_2X : CHAR_HEIGHT;
+    int char_width = scale_2x ? FONT_CHAR_WIDTH_2X : FONT_CHAR_WIDTH;
+    int char_height = scale_2x ? FONT_CHAR_HEIGHT_2X : FONT_CHAR_HEIGHT;
     int text_width = len * char_width;
     int x = (DISPLAY_WIDTH - text_width) / 2;
 
