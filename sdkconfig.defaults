@@ -1,35 +1,14 @@
-# ESP32 Target
-CONFIG_IDF_TARGET="esp32"
-
-# Flash size
+# Flash (CYD has 4MB Boya chip)
 CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
-CONFIG_PARTITION_TABLE_SINGLE_APP=y
-
-# WiFi
-CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM=10
-CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM=32
-CONFIG_ESP_WIFI_DYNAMIC_TX_BUFFER_NUM=32
-
-# LWIP
-CONFIG_LWIP_SNTP_MAX_SERVERS=3
-CONFIG_LWIP_IPV6_AUTOCONFIG=y
-
-# NVS
-CONFIG_NVS_ENCRYPTION=n
-
-# FreeRTOS
-CONFIG_FREERTOS_HZ=1000
-
-# RTC clock: use internal 8.5MHz oscillator / 256 (more accurate than RC)
-CONFIG_RTC_CLK_SRC_INT_8MD256=y
-# 8x default: longer calibration at boot for more accurate RTC tick measurement
-CONFIG_RTC_CLK_CAL_CYCLES=8192
-
-# SPI flash (CYD uses Boya chip)
 CONFIG_SPI_FLASH_SUPPORT_BOYA_CHIP=y
 
-# SPI RAM (CYD doesn't have PSRAM, disable)
-CONFIG_SPIRAM=n
+# RTC clock: use internal 8.5MHz oscillator / 256 (more accurate than RC)
+# 8x default calibration cycles for more accurate RTC tick measurement
+CONFIG_RTC_CLK_SRC_INT_8MD256=y
+CONFIG_RTC_CLK_CAL_CYCLES=8192
 
-# Logging
-CONFIG_LOG_DEFAULT_LEVEL_INFO=y
+# FreeRTOS (1kHz tick for smoother timing)
+CONFIG_FREERTOS_HZ=1000
+
+# Networking
+CONFIG_LWIP_IPV6_AUTOCONFIG=y
