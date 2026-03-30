@@ -25,6 +25,9 @@ CONFIG_RTC_CLK_SRC_INT_8MD256=y
 # 8x default: longer calibration at boot for more accurate RTC tick measurement
 CONFIG_RTC_CLK_CAL_CYCLES=8192
 
+# SPI flash (CYD uses Boya chip)
+CONFIG_SPI_FLASH_SUPPORT_BOYA_CHIP=y
+
 # SPI RAM (CYD doesn't have PSRAM, disable)
 CONFIG_SPIRAM=n
 
