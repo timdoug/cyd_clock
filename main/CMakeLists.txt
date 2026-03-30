@@ -18,6 +18,7 @@ idf_component_register(
         "ui_about.c"
         "ui_ntp.c"
     INCLUDE_DIRS "." "${CMAKE_CURRENT_BINARY_DIR}"
+    REQUIRES esp_driver_gpio esp_driver_spi esp_driver_ledc esp_wifi esp_netif nvs_flash
 )
 
 # Generate version.h at build time (always runs)
