@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 """Extract POSIX TZ strings from IANA tzdata source files.
 
-Compiles tzdata using zic, extracts the POSIX TZ string from each
-compiled TZif binary, computes the UTC offset label, and prints
-C array entries matching the format in main/ui_timezone.c.
+Reads zone1970.tab for the canonical list of zones, compiles tzdata
+using zic, extracts POSIX TZ strings from TZif binaries, and generates
+C code for main/ui_timezone.c with a two-level region/city structure.
+
+Deduplicates zones in two passes:
+1. Exact POSIX string match - keep largest city by population
+2. Functional equivalence (same offset + DST rules, different abbreviation)
+   - keep largest city
 """
 
 import os
@@ -12,74 +17,10 @@ import subprocess
 import sys
 import tempfile
 
-# (display_city, iana_zone_id) - order matches main/ui_timezone.c
-ZONES = [
-    ("Samoa", "Pacific/Pago_Pago"),
-    ("Honolulu", "Pacific/Honolulu"),
-    ("Anchorage", "America/Anchorage"),
-    ("Los Angeles", "America/Los_Angeles"),
-    ("Phoenix", "America/Phoenix"),
-    ("Denver", "America/Denver"),
-    ("Mexico City", "America/Mexico_City"),
-    ("Chicago", "America/Chicago"),
-    ("New York", "America/New_York"),
-    ("Panama", "America/Panama"),
-    ("Bogota", "America/Bogota"),
-    ("Lima", "America/Lima"),
-    ("Halifax", "America/Halifax"),
-    ("Santiago", "America/Santiago"),
-    ("St. John's", "America/St_Johns"),
-    ("Sao Paulo", "America/Sao_Paulo"),
-    ("Buenos Aires", "America/Argentina/Buenos_Aires"),
-    ("UTC", "Etc/UTC"),
-    ("Reykjavik", "Atlantic/Reykjavik"),
-    ("London", "Europe/London"),
-    ("Lisbon", "Europe/Lisbon"),
-    ("Dublin", "Europe/Dublin"),
-    ("Casablanca", "Africa/Casablanca"),
-    ("Lagos", "Africa/Lagos"),
-    ("Paris", "Europe/Paris"),
-    ("Berlin", "Europe/Berlin"),
-    ("Rome", "Europe/Rome"),
-    ("Johannesburg", "Africa/Johannesburg"),
-    ("Cairo", "Africa/Cairo"),
-    ("Athens", "Europe/Athens"),
-    ("Jerusalem", "Asia/Jerusalem"),
-    ("Helsinki", "Europe/Helsinki"),
-    ("Istanbul", "Europe/Istanbul"),
-    ("Moscow", "Europe/Moscow"),
-    ("Nairobi", "Africa/Nairobi"),
-    ("Riyadh", "Asia/Riyadh"),
-    ("Tehran", "Asia/Tehran"),
-    ("Dubai", "Asia/Dubai"),
-    ("Karachi", "Asia/Karachi"),
-    ("Mumbai", "Asia/Kolkata"),
-    ("Kolkata", "Asia/Kolkata"),
-    ("Kathmandu", "Asia/Kathmandu"),
-    ("Dhaka", "Asia/Dhaka"),
-    ("Bangkok", "Asia/Bangkok"),
-    ("Ho Chi Minh", "Asia/Ho_Chi_Minh"),
-    ("Jakarta", "Asia/Jakarta"),
-    ("Singapore", "Asia/Singapore"),
-    ("Kuala Lumpur", "Asia/Kuala_Lumpur"),
-    ("Hong Kong", "Asia/Hong_Kong"),
-    ("Shanghai", "Asia/Shanghai"),
-    ("Taipei", "Asia/Taipei"),
-    ("Manila", "Asia/Manila"),
-    ("Perth", "Australia/Perth"),
-    ("Seoul", "Asia/Seoul"),
-    ("Tokyo", "Asia/Tokyo"),
-    ("Adelaide", "Australia/Adelaide"),
-    ("Sydney", "Australia/Sydney"),
-    ("Melbourne", "Australia/Melbourne"),
-    ("Auckland", "Pacific/Auckland"),
-    ("Fiji", "Pacific/Fiji"),
-]
-
 # tzdata source region files to compile
 REGION_FILES = [
     "northamerica", "southamerica", "europe", "asia",
-    "africa", "australasia", "etcetera", "backward",
+    "africa", "antarctica", "australasia", "etcetera", "backward",
 ]
 
 ZIC = "/usr/sbin/zic"
@@ -111,72 +52,338 @@ def extract_posix_string(tzif_path):
     return data[second_last_nl + 1 : last_nl].decode("ascii")
 
 
-def parse_utc_offset(posix_tz):
-    """Parse a POSIX TZ string and return the UTC offset as a display string.
+def _parse_posix_offset(s):
+    """Parse a POSIX offset string and return (minutes_from_utc, chars_consumed).
 
     POSIX offsets have inverted sign from UTC convention:
-      EST5       -> UTC-5
-      CET-1      -> UTC+1
-      IST-5:30   -> UTC+5:30
-      <-04>4     -> UTC-4
+      5       -> -300 (UTC-5)
+      -1      -> +60  (UTC+1)
+      -5:30   -> +330 (UTC+5:30)
     """
-    s = posix_tz
-    # Skip the standard time abbreviation
-    if s.startswith("<"):
-        s = s[s.index(">") + 1 :]
-    else:
-        i = 0
-        while i < len(s) and s[i].isalpha():
-            i += 1
-        s = s[i:]
-
-    # Parse sign (POSIX: positive = west of UTC)
+    i = 0
     negate = False
-    if s and s[0] == "-":
+    if i < len(s) and s[i] == "-":
         negate = True
-        s = s[1:]
-    elif s and s[0] == "+":
-        s = s[1:]
+        i += 1
+    elif i < len(s) and s[i] == "+":
+        i += 1
 
-    # Parse hours[:minutes]
-    match = re.match(r"(\d+)(?::(\d+))?", s)
+    match = re.match(r"(\d+)(?::(\d+))?", s[i:])
     if not match:
-        return "UTC+0"
+        return 0, i
 
     hours = int(match.group(1))
     minutes = int(match.group(2)) if match.group(2) else 0
+    total = hours * 60 + minutes
 
-    # Invert sign for display
+    # Invert sign: POSIX positive = west of UTC = negative UTC offset
     if negate:
-        sign = "+"
-    elif hours == 0 and minutes == 0:
+        total = total  # east of UTC = positive
+    else:
+        total = -total
+
+    return total, i + match.end()
+
+
+def _skip_abbrev(s):
+    """Skip a POSIX timezone abbreviation, return remaining string."""
+    if s.startswith("<"):
+        return s[s.index(">") + 1:]
+    i = 0
+    while i < len(s) and s[i].isalpha():
+        i += 1
+    return s[i:]
+
+
+def _format_offset(minutes):
+    """Format a UTC offset in minutes as a display string."""
+    if minutes >= 0:
         sign = "+"
     else:
         sign = "-"
-
-    if minutes:
-        return f"UTC{sign}{hours}:{minutes:02d}"
+        minutes = -minutes
+    hours = minutes // 60
+    mins = minutes % 60
+    if mins:
+        return f"UTC{sign}{hours}:{mins:02d}"
     return f"UTC{sign}{hours}"
+
+
+def parse_utc_offset(posix_tz):
+    """Parse a POSIX TZ string and return the standard (non-DST) UTC offset.
+
+    Handles the Dublin/Ireland inversion where IST-1GMT0 defines summer as
+    "standard" - detects this by checking if DST offset is behind standard
+    (springs back instead of forward) and uses the real winter offset.
+    """
+    s = _skip_abbrev(posix_tz)
+    std_minutes, consumed = _parse_posix_offset(s)
+    s = s[consumed:]
+
+    # Check for DST abbreviation + offset
+    if s and (s[0].isalpha() or s[0] == "<"):
+        s = _skip_abbrev(s)
+        if s and (s[0].isdigit() or s[0] in "+-"):
+            dst_minutes, _ = _parse_posix_offset(s)
+        else:
+            # Default DST offset is std + 60
+            dst_minutes = std_minutes + 60
+
+        # If DST is behind standard, the string is inverted (e.g., Dublin).
+        # The "DST" offset is actually the real winter/standard time.
+        if dst_minutes < std_minutes:
+            return _format_offset(dst_minutes)
+
+    return _format_offset(std_minutes)
+
+
+def offset_sort_key(posix_tz):
+    """Return numeric offset in minutes for sorting."""
+    offset = parse_utc_offset(posix_tz)
+    m = re.match(r"UTC([+-])(\d+)(?::(\d+))?", offset)
+    if not m:
+        return 0
+    val = int(m.group(2)) * 60 + (int(m.group(3)) if m.group(3) else 0)
+    return val if m.group(1) == "+" else -val
+
+
+def read_zone1970_tab(path):
+    """Read zone1970.tab and return list of (zone_id, country_codes) tuples."""
+    zones = []
+    with open(path) as f:
+        for line in f:
+            if line.startswith("#") or not line.strip():
+                continue
+            parts = line.split("\t")
+            zone_id = parts[2].strip()
+            zones.append(zone_id)
+    return zones
+
+
+def zone_display_name(zone_id):
+    """Convert IANA zone ID to display city name.
+
+    America/New_York -> "New York"
+    America/Argentina/Buenos_Aires -> "Argentina/Buenos Aires"
+    """
+    parts = zone_id.split("/", 1)
+    if len(parts) < 2:
+        return zone_id
+    return parts[1].replace("_", " ")
+
+
+# Approximate city/metro populations (millions) for dedup representative selection.
+# Only entries that appear in zone1970.tab are needed. Cities not listed default to 0.
+CITY_POPULATIONS = {
+    "Shanghai": 29, "Tokyo": 14, "Istanbul": 16, "Lagos": 16, "Kolkata": 15,
+    "Karachi": 15, "Dhaka": 23, "Cairo": 22, "New_York": 18, "Sao_Paulo": 22,
+    "Mexico_City": 22, "Mumbai": 21, "Beijing": 22, "Jakarta": 11, "Lima": 11,
+    "London": 9.5, "Bangkok": 11, "Ho_Chi_Minh": 9, "Bogota": 8, "Tehran": 9,
+    "Hong_Kong": 7.5, "Baghdad": 8, "Santiago": 7, "Riyadh": 7.5, "Singapore": 6,
+    "Ankara": 5.7, "Nairobi": 5, "Johannesburg": 6, "Casablanca": 4, "Dubai": 3.5,
+    "Kuala_Lumpur": 8, "Taipei": 7, "Toronto": 6.5, "Chicago": 9.5, "Los_Angeles": 13,
+    "Paris": 11, "Madrid": 6.5, "Rome": 4.3, "Berlin": 3.7, "Kyiv": 3,
+    "Bucharest": 2, "Warsaw": 1.8, "Athens": 3.2, "Amsterdam": 1.1,
+    "Denver": 2.9, "Phoenix": 4.9, "Havana": 2.1, "Anchorage": 0.3,
+    "Honolulu": 1, "Auckland": 1.6, "Sydney": 5.3, "Melbourne": 5,
+    "Brisbane": 2.6, "Adelaide": 1.4, "Darwin": 0.15, "Perth": 2.1,
+    "Halifax": 0.4, "Winnipeg": 0.8, "Edmonton": 1.4, "Vancouver": 2.6,
+    "Buenos_Aires": 15, "Montevideo": 1.8, "Asuncion": 2.4,
+    "Santo_Domingo": 3.3, "Caracas": 3, "La_Paz": 2.4, "Guayaquil": 2.7,
+    "Guatemala": 3, "Tegucigalpa": 1.2, "Managua": 1.1, "Panama": 1.5,
+    "San_Juan": 2.3, "Port-au-Prince": 2.8,
+    "Beirut": 2.4, "Jerusalem": 1, "Gaza": 0.7, "Damascus": 2.5,
+    "Amman": 4.3, "Kuwait": 3, "Doha": 2, "Muscat": 1.5, "Baku": 2.3,
+    "Tbilisi": 1.2, "Yerevan": 1.1, "Kabul": 4.4, "Tashkent": 2.5,
+    "Almaty": 2, "Kathmandu": 1.5, "Colombo": 0.75, "Yangon": 5.3,
+    "Novosibirsk": 1.6, "Krasnoyarsk": 1.1, "Vladivostok": 0.6,
+    "Magadan": 0.09, "Kamchatka": 0.18, "Sakhalin": 0.17, "Srednekolymsk": 0.003,
+    "Irkutsk": 0.62, "Yakutsk": 0.31, "Omsk": 1.2, "Yekaterinburg": 1.5,
+    "Samara": 1.2, "Volgograd": 1,
+    "Abidjan": 5, "Khartoum": 6, "Addis_Ababa": 5, "Maputo": 1.1,
+    "Juba": 0.5, "Windhoek": 0.43, "Tunis": 2.4, "Tripoli": 1.1,
+    "El_Aaiun": 0.2, "Sao_Tome": 0.08, "Ndjamena": 1.3,
+    "Pago_Pago": 0.004, "Adak": 0.3, "Marquesas": 0.01,
+    "Gambier": 0.001, "Pitcairn": 0.00005, "Easter": 0.008,
+    "Galapagos": 0.03, "Noumea": 0.18, "Norfolk": 0.002,
+    "Chatham": 0.0006, "Tongatapu": 0.08, "Kiritimati": 0.006,
+    "Fiji": 0.3, "Apia": 0.04, "Azores": 0.07, "Cape_Verde": 0.18,
+    "Nuuk": 0.06, "Miquelon": 0.006, "Noronha": 0.003,
+    "St_Johns": 0.11, "Eucla": 0.002, "Lord_Howe": 0.0004,
+    "Troll": 0.00004, "Casey": 0.00003, "Davis": 0.00003,
+    "Mawson": 0.00003, "Rothera": 0.00003, "Vostok": 0.00003,
+    "Dublin": 1.4, "Lisbon": 2.9,
+}
+
+
+def city_population(zone_id):
+    """Get approximate population for a zone ID's city."""
+    # Try last component (e.g., America/New_York -> New_York)
+    city = zone_id.rsplit("/", 1)[-1]
+    return CITY_POPULATIONS.get(city, 0)
+
+
+def normalize_posix_tz(posix_tz):
+    """Normalize a POSIX TZ string to a canonical form for functional equivalence.
+
+    Strips abbreviation names and replaces with a placeholder, keeping only
+    the numeric offset and DST transition rules.
+
+    Examples:
+        PKT-5           -> <X>-5
+        <+05>-5         -> <X>-5
+        EST5EDT,...     -> <X>5<X>,...
+        AEST-10AEDT,... -> <X>-10<X>,...
+    """
+    s = posix_tz
+    result = []
+    i = 0
+    while i < len(s):
+        if s[i] == "<":
+            # Skip <abbrev>
+            end = s.index(">", i)
+            result.append("<X>")
+            i = end + 1
+        elif s[i].isalpha():
+            # Skip alpha abbreviation
+            while i < len(s) and s[i].isalpha():
+                i += 1
+            result.append("<X>")
+        elif s[i] == ",":
+            # Rest is DST rules, append verbatim
+            result.append(s[i:])
+            break
+        else:
+            result.append(s[i])
+            i += 1
+    return "".join(result)
 
 
 def main():
     script_dir = os.path.dirname(os.path.abspath(__file__))
+    zone1970_path = os.path.join(script_dir, "zone1970.tab")
+
+    zone_ids = read_zone1970_tab(zone1970_path)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         print("Compiling tzdata...", file=sys.stderr)
         compile_tzdata(script_dir, tmpdir)
 
-        for city, iana_id in ZONES:
-            tzif_path = os.path.join(tmpdir, iana_id)
-            if not os.path.exists(tzif_path):
-                print(f"ERROR: {iana_id} not found", file=sys.stderr)
-                continue
+        # Also compile Etc/UTC (not in zone1970.tab)
+        etcetera_path = os.path.join(script_dir, "etcetera")
+        if os.path.exists(etcetera_path):
+            subprocess.run(
+                [ZIC, "-d", tmpdir, etcetera_path],
+                check=True,
+                capture_output=True,
+            )
 
+        # Extract POSIX strings for all zones
+        entries = []
+        for zone_id in zone_ids:
+            tzif_path = os.path.join(tmpdir, zone_id)
+            if not os.path.exists(tzif_path):
+                print(f"WARNING: {zone_id} not found", file=sys.stderr)
+                continue
             posix_tz = extract_posix_string(tzif_path)
-            offset_label = parse_utc_offset(posix_tz)
-            name_field = f'"{city} ({offset_label})"'
-            tz_field = f'"{posix_tz}"'
-            print(f"    {{{name_field + ',':<40s}{tz_field}}},")
+            region = zone_id.split("/")[0]
+            city = zone_display_name(zone_id)
+            entries.append((region, city, posix_tz, zone_id))
+
+        # Add UTC
+        utc_path = os.path.join(tmpdir, "Etc/UTC")
+        if os.path.exists(utc_path):
+            entries.append(("UTC", "UTC", extract_posix_string(utc_path),
+                            "Etc/UTC"))
+
+        print(f"Total zones from zone1970.tab: {len(entries)}",
+              file=sys.stderr)
+
+        # --- Pass 1: Deduplicate by exact POSIX string within region ---
+        # Keep the entry with the largest city population for each string.
+        by_posix = {}
+        for entry in entries:
+            region, city, posix_tz, zone_id = entry
+            key = (region, posix_tz)
+            pop = city_population(zone_id)
+            if key not in by_posix or pop > by_posix[key][1]:
+                by_posix[key] = (entry, pop)
+        entries = [v[0] for v in by_posix.values()]
+        print(f"After exact POSIX dedup (within region): {len(entries)}",
+              file=sys.stderr)
+
+        # --- Pass 2: Deduplicate by functional equivalence within region ---
+        # Two POSIX strings that differ only in abbreviation names
+        # (e.g., PKT-5 vs <+05>-5) compute identical times.
+        # Only dedup within the same region so users can find entries
+        # in their geographic area.
+        by_region_normalized = {}
+        for entry in entries:
+            region, city, posix_tz, zone_id = entry
+            norm = normalize_posix_tz(posix_tz)
+            key = (region, norm)
+            pop = city_population(zone_id)
+            if key not in by_region_normalized or pop > by_region_normalized[key][1]:
+                by_region_normalized[key] = (entry, pop)
+        entries = [v[0] for v in by_region_normalized.values()]
+        print(f"After functional dedup (within region): {len(entries)}",
+              file=sys.stderr)
+
+        # Ensure UTC is always present (it may have been merged with
+        # Abidjan/GMT0 which is functionally identical)
+        has_utc = any(e[0] == "UTC" for e in entries)
+        if not has_utc:
+            # Find the GMT0/UTC0 entry and add UTC alongside it
+            for entry in list(entries):
+                norm = normalize_posix_tz(entry[2])
+                if norm == "<X>0":
+                    entries.append(("UTC", "UTC", "UTC0", "Etc/UTC"))
+                    break
+
+        # Build city display labels with UTC offset and DST status
+        labeled = []
+        for region, city, posix_tz, zone_id in entries:
+            offset = parse_utc_offset(posix_tz)
+            has_dst = "," in posix_tz  # DST rules have comma-separated transitions
+            if city == "UTC":
+                label = f"UTC ({offset})"
+            else:
+                dst_str = "DST" if has_dst else "no DST"
+                label = f"{city} ({offset}, {dst_str})"
+            labeled.append((region, label, posix_tz))
+
+        # Sort by region name, then by UTC offset, then by city label
+        labeled.sort(key=lambda e: (e[0], offset_sort_key(e[2]), e[1]))
+
+        # Collect unique regions in order
+        seen_regions = []
+        for region, _, _ in labeled:
+            if region not in seen_regions:
+                seen_regions.append(region)
+
+        # Print C code
+        print(f"// Generated from zone1970.tab ({len(labeled)} zones)")
+        print(f"// Regions: {', '.join(seen_regions)}")
+        print()
+
+        print("static const char *regions[] = {")
+        for r in seen_regions:
+            print(f'    "{r}",')
+        print("};")
+        print(f"#define NUM_REGIONS {len(seen_regions)}")
+        print()
+
+        print("static const timezone_entry_t timezones[] = {")
+        for region, city, posix_tz in labeled:
+            r_field = f'"{region}"'
+            c_field = f'"{city}"'
+            t_field = f'"{posix_tz}"'
+            print(f"    {{{r_field + ',':<16s}{c_field + ',':<40s}{t_field}}},")
+        print("};")
+        print(f"#define NUM_TIMEZONES {len(labeled)}")
+
+        print(f"\n// {len(labeled)} zones, {len(seen_regions)} regions",
+              file=sys.stderr)
 
 
 if __name__ == "__main__":
