@@ -303,12 +303,15 @@ static int dns_resolve_all(const char *host, bool prefer_ipv6,
     };
     dst.sin_addr.s_addr = ip_addr_get_ip4_u32(server);
 
+    // With the toggle off ("IPv6: Off"), skip AAAA entirely - the user wants
+    // A-records only. With it on, prefer AAAA and fall back to A so dual-stack
+    // still works when the v6 path is broken.
     int count = 0;
-    uint16_t first  = prefer_ipv6 ? DNS_TYPE_AAAA : DNS_TYPE_A;
-    uint16_t second = prefer_ipv6 ? DNS_TYPE_A    : DNS_TYPE_AAAA;
-    count = dns_query_one(sock, &dst, host, first,  out, count, max);
+    if (prefer_ipv6) {
+        count = dns_query_one(sock, &dst, host, DNS_TYPE_AAAA, out, count, max);
+    }
     if (count < max) {
-        count = dns_query_one(sock, &dst, host, second, out, count, max);
+        count = dns_query_one(sock, &dst, host, DNS_TYPE_A, out, count, max);
     }
     close(sock);
     return count;
@@ -332,7 +335,7 @@ static int resolve_peers(void) {
     // Fallback to LWIP getaddrinfo if direct DNS failed (e.g. v6-only resolver).
     if (n == 0) {
         struct addrinfo hints = {
-            .ai_family   = AF_UNSPEC,
+            .ai_family   = g.prefer_ipv6 ? AF_UNSPEC : AF_INET,
             .ai_socktype = SOCK_DGRAM,
             .ai_protocol = IPPROTO_UDP,
         };
