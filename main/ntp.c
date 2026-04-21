@@ -37,7 +37,7 @@ static const char *TAG = "ntp";
 #define IDLE_WAKE_MS         5000
 
 // Discipline gains (integer shifts, i.e. powers of two)
-#define PLL_KI_SHIFT         6            // freq integrator gain = 1/64
+#define PLL_KI_SHIFT         6            // freq integrator gain at MIN_POLL_S
 #define MAX_FREQ_PPM_X1000   500000       // clamp +/-500 ppm
 
 // Per RFC 5905: each sample's dispersion grows linearly with time at this rate.
@@ -776,10 +776,17 @@ static void discipline_clock(int32_t offset_us) {
         if (delta.tv_usec < 0) { delta.tv_sec--; delta.tv_usec += 1000000; }
         adjtime(&delta, NULL);
 
-        // Integrate frequency error: offset accumulated over poll interval
+        // Integrate frequency error: offset accumulated over poll interval.
+        // Scale the gain shift with poll so the effective time constant stays
+        // roughly constant in wall-clock seconds (~2^PLL_KI_SHIFT * MIN_POLL_S).
+        // At poll=MIN_POLL_S we use the baseline 1/64; each doubling of poll
+        // cuts the shift by 1, so at poll=MAX_POLL_S=1024 the shift is 1
+        // (gain 1/2) - still correct since samples come 32* less often.
         int32_t poll_s = g.current_poll_s ? (int32_t)g.current_poll_s : MIN_POLL_S;
-        int32_t inc = (offset_us * 1000) / poll_s;       // ppm * 1000 contribution
-        g.freq_ppm_x1000 += inc >> PLL_KI_SHIFT;
+        int shift = PLL_KI_SHIFT;
+        for (int32_t p = poll_s; p > MIN_POLL_S && shift > 1; p >>= 1) shift--;
+        int32_t inc = (offset_us * 1000) / poll_s;       // ppb drift rate
+        g.freq_ppm_x1000 += inc >> shift;
         if (g.freq_ppm_x1000 >  MAX_FREQ_PPM_X1000) g.freq_ppm_x1000 =  MAX_FREQ_PPM_X1000;
         if (g.freq_ppm_x1000 < -MAX_FREQ_PPM_X1000) g.freq_ppm_x1000 = -MAX_FREQ_PPM_X1000;
 
