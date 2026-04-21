@@ -40,6 +40,10 @@ static const char *TAG = "ntp";
 #define PLL_KI_SHIFT         6            // freq integrator gain = 1/64
 #define MAX_FREQ_PPM_X1000   500000       // clamp +/-500 ppm
 
+// Per RFC 5905: each sample's dispersion grows linearly with time at this rate.
+// Makes root_dispersion honestly track uncertainty between polls.
+#define PHI_US_PER_SEC       15            // 15 us/s growth
+
 typedef struct __attribute__((packed)) {
     uint8_t  li_vn_mode;
     uint8_t  stratum;
@@ -1135,7 +1139,16 @@ void ntp_get_sys_stats(ntp_sys_stats_t *out) {
     out->last_offset_us = g.last_offset_us;
     out->system_jitter_us    = g.system_jitter_us;
     out->root_delay_us       = g.root_delay_us;
+    // Age dispersion by PHI * seconds since we last heard from the selected
+    // peer so the reported +/- bound grows honestly between polls.
     out->root_dispersion_us  = g.root_dispersion_us;
+    if (g.selected_peer >= 0) {
+        uint32_t last = g.peers[g.selected_peer].last_response_ms;
+        if (last != 0) {
+            uint32_t age_ms = mono_ms() - last;
+            out->root_dispersion_us += (int32_t)((uint64_t)PHI_US_PER_SEC * age_ms / 1000);
+        }
+    }
     out->freq_ppm_x1000      = g.freq_ppm_x1000;
     out->stratum        = g.stratum;
     out->selected_peer  = (g.selected_peer < 0) ? 0xFF : (uint8_t)g.selected_peer;
