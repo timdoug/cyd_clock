@@ -48,16 +48,46 @@ static void fmt_duration(char *buf, size_t len, uint32_t seconds) {
     else snprintf(buf, len, "%lud", (unsigned long)(seconds / 86400));
 }
 
+// Signed us formatter capped at 7 chars so peer rows stay inside 40 cells.
+// Adaptive precision - drops decimals as magnitude grows.
 static void fmt_offset_us(char *buf, size_t len, int64_t us) {
     int64_t av = us < 0 ? -us : us;
     char sign = (us < 0) ? '-' : '+';
-    if (av < 1000) {
-        snprintf(buf, len, "%c0.%03lldms", sign, (long long)av);
-    } else if (av < 10000000LL) {
+    if (av < 1000) {                        // "+0.XXms"
+        snprintf(buf, len, "%c0.%02lldms", sign, (long long)(av / 10));
+    } else if (av < 10000) {                // "+X.XXms"
         snprintf(buf, len, "%c%lld.%02lldms", sign,
                  (long long)(av / 1000), (long long)((av % 1000) / 10));
+    } else if (av < 100000) {               // "+XX.Xms"
+        snprintf(buf, len, "%c%lld.%lldms", sign,
+                 (long long)(av / 1000), (long long)((av % 1000) / 100));
+    } else if (av < 10000000LL) {           // "+XXXms" / "+XXXXms"
+        snprintf(buf, len, "%c%lldms", sign, (long long)(av / 1000));
+    } else if (av < 100000000LL) {          // "+XX.Xs"
+        snprintf(buf, len, "%c%lld.%llds", sign,
+                 (long long)(av / 1000000), (long long)((av % 1000000) / 100000));
     } else {
         snprintf(buf, len, "%c%llds", sign, (long long)(av / 1000000));
+    }
+}
+
+// Compact unsigned us -> string (fits in 5 chars). Used for per-peer delay and
+// jitter where the sign is always non-negative and horizontal space is tight.
+static void fmt_unsigned_compact(char *buf, size_t len, uint32_t us) {
+    if (us < 1000) {
+        snprintf(buf, len, "0.%lums", (unsigned long)(us / 100));    // "0.3ms"
+    } else if (us < 10000) {
+        snprintf(buf, len, "%lu.%lums",
+                 (unsigned long)(us / 1000),
+                 (unsigned long)((us % 1000) / 100));                // "1.2ms"
+    } else if (us < 1000000) {
+        snprintf(buf, len, "%lums", (unsigned long)(us / 1000));     // "45ms" / "123ms"
+    } else if (us < 10000000) {
+        snprintf(buf, len, "%lu.%lus",
+                 (unsigned long)(us / 1000000),
+                 (unsigned long)((us % 1000000) / 100000));          // "1.2s"
+    } else {
+        snprintf(buf, len, "%lus", (unsigned long)(us / 1000000));
     }
 }
 
@@ -193,9 +223,13 @@ static void draw_field_cached(int x, int y, int row_idx,
 static void draw_static_chrome(void) {
     display_fill(COLOR_BLACK);
     ui_draw_header("NTP Stats", false);
-    // Peer section divider label
+    // Column headers for the peer rows below - padding matches the peer row
+    // format "%c%-15s %-8s %-6s %-6s", starting at x=4 with a blank where the
+    // selected-peer star goes.
     display_fill_rect(0, PEER_HDR_Y, DISPLAY_WIDTH, FONT_CHAR_HEIGHT, COLOR_BLACK);
-    ui_draw_centered_string(PEER_HDR_Y, "--- Peers ---", COLOR_GRAY, COLOR_BLACK, false);
+    display_string(4, PEER_HDR_Y,
+                   " Peer           Offset  Delay Jit   Age",
+                   COLOR_GRAY, COLOR_BLACK);
 }
 
 static void draw_peer_row(int slot, const ntp_peer_stats_t *p) {
@@ -208,15 +242,19 @@ static void draw_peer_row(int slot, const ntp_peer_stats_t *p) {
         row_fg = COLOR_DARKGRAY;
     } else {
         row_fg = p->selected ? COLOR_CYAN : COLOR_WHITE;
-        char addr[18];
+        char addr[15];
         strncpy(addr, p->addr_str, sizeof(addr) - 1);
         addr[sizeof(addr) - 1] = '\0';
 
-        char off_buf[16], age_buf[8];
+        char off_buf[10], delay_buf[8], jitter_buf[8], age_buf[6];
         if (p->reach) {
             fmt_offset_us(off_buf, sizeof(off_buf), p->offset_us);
+            fmt_unsigned_compact(delay_buf,  sizeof(delay_buf),  (uint32_t)p->delay_us);
+            fmt_unsigned_compact(jitter_buf, sizeof(jitter_buf), (uint32_t)p->jitter_us);
         } else {
-            snprintf(off_buf, sizeof(off_buf), "---");
+            snprintf(off_buf,    sizeof(off_buf),    "---");
+            snprintf(delay_buf,  sizeof(delay_buf),  "---");
+            snprintf(jitter_buf, sizeof(jitter_buf), "---");
         }
         if (p->last_response_ms == UINT32_MAX) {
             snprintf(age_buf, sizeof(age_buf), "--");
@@ -224,10 +262,10 @@ static void draw_peer_row(int slot, const ntp_peer_stats_t *p) {
             fmt_duration(age_buf, sizeof(age_buf), p->last_response_ms / 1000);
         }
 
-        // Format: "[*] addr... sN RR off AGE"
-        snprintf(line, sizeof(line), "%c%-17s s%d %02x %-8s %3s",
+        // Format: "[*] addr(14) offset(7) delay(5) jitter(5) age(3)"
+        snprintf(line, sizeof(line), "%c%-14s %-7s %-5s %-5s %-3s",
                  p->selected ? '*' : ' ', addr,
-                 p->stratum, p->reach, off_buf, age_buf);
+                 off_buf, delay_buf, jitter_buf, age_buf);
     }
 
     char *cache = last_peer_row[slot];
@@ -290,7 +328,9 @@ static void refresh_dynamic(void) {
                                     sizeof(segs) / sizeof(segs[0]));
     }
 
-    // Row 2: Offset / jitter
+    // Row 2: Combined offset (what we slewed by) + combined jitter.
+    // Both are system-level values - the selected peer's own offset/jitter
+    // is already visible on its '*' row below, so no "Sel:" inline here.
     {
         int y = SYS_Y_START + 2 * SYS_LINE_H;
         char off_buf[20], jit_buf[16];
