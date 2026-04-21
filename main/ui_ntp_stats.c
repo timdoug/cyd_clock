@@ -14,14 +14,22 @@
 
 static const char *TAG = "ui_ntp_stats";
 
+#define SYS_ROWS      5
 #define SYS_Y_START   36
 #define SYS_LINE_H    18
-#define PEER_HDR_Y    (SYS_Y_START + 4 * SYS_LINE_H)
+#define PEER_HDR_Y    (SYS_Y_START + SYS_ROWS * SYS_LINE_H)
 #define PEER_Y_START  (PEER_HDR_Y + 18)
 #define PEER_LINE_H   18
 
 static uint32_t last_touch_time = 0;
 static uint32_t last_refresh_ms = 0;
+
+// Cached rendered line contents - skip repaint when unchanged, and when only
+// a few chars change, update just those cells instead of blanking the row.
+static char     last_sys_row[SYS_ROWS][96];
+static uint16_t last_sys_color[SYS_ROWS];
+static char     last_peer_row[NTP_MAX_PEERS][96];
+static uint16_t last_peer_color[NTP_MAX_PEERS];
 
 static void fmt_duration(char *buf, size_t len, uint32_t seconds) {
     if (seconds < 60) snprintf(buf, len, "%lus", (unsigned long)seconds);
@@ -33,8 +41,8 @@ static void fmt_duration(char *buf, size_t len, uint32_t seconds) {
 static void fmt_offset_us(char *buf, size_t len, int64_t us) {
     int64_t av = us < 0 ? -us : us;
     char sign = (us < 0) ? '-' : '+';
-    if (av < 10000) {
-        snprintf(buf, len, "%c%lldus", sign, (long long)av);
+    if (av < 1000) {
+        snprintf(buf, len, "%c0.%03lldms", sign, (long long)av);
     } else if (av < 10000000LL) {
         snprintf(buf, len, "%c%lld.%02lldms", sign,
                  (long long)(av / 1000), (long long)((av % 1000) / 10));
@@ -51,14 +59,54 @@ static void fmt_ppm_x1000(char *buf, size_t len, int32_t val) {
              (unsigned long)((av % 1000) / 10));
 }
 
-// Draw a "label: value" line at (x, y). Clears the value area to the right.
-static void draw_field(int x, int y, const char *label, const char *value,
-                       uint16_t val_color) {
-    display_string(x, y, label, COLOR_GRAY, COLOR_BLACK);
+// Paint new_text starting at (x, y) vs old_text already on screen, touching
+// only the cells that differ. Handles shrink (erases tail) and grow (draws
+// extra chars). Color change forces a full repaint of the value.
+static void diff_paint(int x, int y, const char *old_text, const char *new_text,
+                       uint16_t fg, uint16_t bg, bool force_full) {
+    size_t old_len = strlen(old_text);
+    size_t new_len = strlen(new_text);
+    size_t min_len = new_len < old_len ? new_len : old_len;
+
+    for (size_t i = 0; i < min_len; i++) {
+        if (force_full || old_text[i] != new_text[i]) {
+            display_char(x + (int)i * FONT_CHAR_WIDTH, y, new_text[i], fg, bg);
+        }
+    }
+    for (size_t i = min_len; i < new_len; i++) {
+        display_char(x + (int)i * FONT_CHAR_WIDTH, y, new_text[i], fg, bg);
+    }
+    if (old_len > new_len) {
+        display_fill_rect(x + (int)new_len * FONT_CHAR_WIDTH, y,
+                          (int)(old_len - new_len) * FONT_CHAR_WIDTH,
+                          FONT_CHAR_HEIGHT, bg);
+    }
+}
+
+// Draw "label: value" at (x, y) with per-row caching + char-level diff so
+// only changed cells get written. Label is painted once when the cache is
+// empty; value is diffed against the previous render.
+static void draw_field_cached(int x, int y, int row_idx,
+                              const char *label, const char *value,
+                              uint16_t val_color) {
+    char *cache = last_sys_row[row_idx];
+    uint16_t prev_color = last_sys_color[row_idx];
+    bool first_time = (cache[0] == '\0');
+    bool color_changed = !first_time && prev_color != val_color;
+
+    if (!first_time && !color_changed && strcmp(cache, value) == 0) return;
+
     int vx = x + (int)strlen(label) * FONT_CHAR_WIDTH;
-    // Clear area to the right
-    display_fill_rect(vx, y, DISPLAY_WIDTH - vx, FONT_CHAR_HEIGHT, COLOR_BLACK);
-    display_string(vx, y, value, val_color, COLOR_BLACK);
+    if (first_time) {
+        display_string(x, y, label, COLOR_GRAY, COLOR_BLACK);
+    }
+
+    diff_paint(vx, y, cache, value, val_color, COLOR_BLACK,
+               first_time || color_changed);
+
+    strncpy(cache, value, sizeof(last_sys_row[row_idx]) - 1);
+    cache[sizeof(last_sys_row[row_idx]) - 1] = '\0';
+    last_sys_color[row_idx] = val_color;
 }
 
 static void draw_static_chrome(void) {
@@ -71,41 +119,50 @@ static void draw_static_chrome(void) {
 
 static void draw_peer_row(int slot, const ntp_peer_stats_t *p) {
     int y = PEER_Y_START + slot * PEER_LINE_H;
-    display_fill_rect(0, y, DISPLAY_WIDTH, FONT_CHAR_HEIGHT, COLOR_BLACK);
 
-    if (!p || !p->active) {
-        display_string(10, y, "-", COLOR_DARKGRAY, COLOR_BLACK);
-        return;
-    }
-
-    uint16_t row_fg = p->selected ? COLOR_CYAN : COLOR_WHITE;
     char line[64];
-    // Truncate address to 17 chars to leave room for metrics
-    char addr[18];
-    strncpy(addr, p->addr_str, sizeof(addr) - 1);
-    addr[sizeof(addr) - 1] = '\0';
-
-    char off_buf[16], age_buf[8];
-    if (p->reach) {
-        fmt_offset_us(off_buf, sizeof(off_buf), p->offset_us);
+    uint16_t row_fg;
+    if (!p || !p->active) {
+        snprintf(line, sizeof(line), "-");
+        row_fg = COLOR_DARKGRAY;
     } else {
-        snprintf(off_buf, sizeof(off_buf), "---");
-    }
-    if (p->last_response_ms == UINT32_MAX) {
-        snprintf(age_buf, sizeof(age_buf), "--");
-    } else {
-        fmt_duration(age_buf, sizeof(age_buf), p->last_response_ms / 1000);
+        row_fg = p->selected ? COLOR_CYAN : COLOR_WHITE;
+        char addr[18];
+        strncpy(addr, p->addr_str, sizeof(addr) - 1);
+        addr[sizeof(addr) - 1] = '\0';
+
+        char off_buf[16], age_buf[8];
+        if (p->reach) {
+            fmt_offset_us(off_buf, sizeof(off_buf), p->offset_us);
+        } else {
+            snprintf(off_buf, sizeof(off_buf), "---");
+        }
+        if (p->last_response_ms == UINT32_MAX) {
+            snprintf(age_buf, sizeof(age_buf), "--");
+        } else {
+            fmt_duration(age_buf, sizeof(age_buf), p->last_response_ms / 1000);
+        }
+
+        // Format: "[*] addr... sN RR off AGE"
+        snprintf(line, sizeof(line), "%c%-17s s%d %02x %-8s %3s",
+                 p->selected ? '*' : ' ', addr,
+                 p->stratum, p->reach, off_buf, age_buf);
     }
 
-    // Format: "[*] addr... sN RR off AGE"
-    snprintf(line, sizeof(line), "%c%-17s s%d %02x %-8s %3s",
-             p->selected ? '*' : ' ',
-             addr,
-             p->stratum,
-             p->reach,
-             off_buf,
-             age_buf);
-    display_string(4, y, line, row_fg, COLOR_BLACK);
+    char *cache = last_peer_row[slot];
+    uint16_t prev_color = last_peer_color[slot];
+    bool first_time = (cache[0] == '\0');
+    bool color_changed = !first_time && prev_color != row_fg;
+
+    if (!first_time && !color_changed && strcmp(cache, line) == 0) return;
+
+    int x = (!p || !p->active) ? 10 : 4;
+    diff_paint(x, y, cache, line, row_fg, COLOR_BLACK,
+               first_time || color_changed);
+
+    strncpy(cache, line, sizeof(last_peer_row[slot]) - 1);
+    cache[sizeof(last_peer_row[slot]) - 1] = '\0';
+    last_peer_color[slot] = row_fg;
 }
 
 static void refresh_dynamic(void) {
@@ -119,8 +176,8 @@ static void refresh_dynamic(void) {
     {
         int y = SYS_Y_START;
         snprintf(val, sizeof(val), "%s", server);
-        draw_field(10, y, "Server: ", val,
-                   sys.synced ? COLOR_GREEN : COLOR_ORANGE);
+        draw_field_cached(10, y, 0, "Server: ", val,
+                          sys.synced ? COLOR_GREEN : COLOR_ORANGE);
     }
 
     // Row 1: Stratum / sync count / poll
@@ -135,29 +192,39 @@ static void refresh_dynamic(void) {
             snprintf(val, sizeof(val), "unsynced   syncs %lu   poll %s",
                      (unsigned long)sys.sync_count, poll_buf);
         }
-        draw_field(10, y, "Stratum: ", val, COLOR_WHITE);
+        draw_field_cached(10, y, 1, "Stratum: ", val, COLOR_WHITE);
     }
 
     // Row 2: Offset / jitter
     {
         int y = SYS_Y_START + 2 * SYS_LINE_H;
-        char off_buf[20];
         if (sys.sync_count < 2) {
-            snprintf(val, sizeof(val), "---       jitter ---       drift ---");
+            snprintf(val, sizeof(val), "---       jitter ---");
         } else {
-            char jit_buf[16], drift_buf[16];
+            char off_buf[20], jit_buf[16];
             fmt_offset_us(off_buf, sizeof(off_buf), sys.last_offset_us);
             fmt_offset_us(jit_buf, sizeof(jit_buf), sys.system_jitter_us);
-            fmt_ppm_x1000(drift_buf, sizeof(drift_buf), sys.freq_ppm_x1000);
-            snprintf(val, sizeof(val), "%s  jit %s  drift %s",
-                     off_buf, jit_buf, drift_buf);
+            snprintf(val, sizeof(val), "%s  jit %s", off_buf, jit_buf);
         }
-        draw_field(10, y, "Offset: ", val, COLOR_WHITE);
+        draw_field_cached(10, y, 2, "Offset: ", val, COLOR_WHITE);
     }
 
-    // Row 3: Root delay / dispersion
+    // Row 3: Drift (crystal frequency estimate)
     {
         int y = SYS_Y_START + 3 * SYS_LINE_H;
+        if (sys.sync_count < 2) {
+            snprintf(val, sizeof(val), "---");
+        } else {
+            char drift_buf[16];
+            fmt_ppm_x1000(drift_buf, sizeof(drift_buf), sys.freq_ppm_x1000);
+            snprintf(val, sizeof(val), "%s", drift_buf);
+        }
+        draw_field_cached(10, y, 3, "Drift: ", val, COLOR_WHITE);
+    }
+
+    // Row 4: Root delay / dispersion
+    {
+        int y = SYS_Y_START + 4 * SYS_LINE_H;
         if (sys.sync_count < 2 || !sys.synced) {
             snprintf(val, sizeof(val), "---");
         } else {
@@ -169,7 +236,7 @@ static void refresh_dynamic(void) {
             const char *dp = disp_buf[0] == '+' ? disp_buf + 1 : disp_buf;
             snprintf(val, sizeof(val), "%s delay, %s disp", rd, dp);
         }
-        draw_field(10, y, "Root: ", val, COLOR_WHITE);
+        draw_field_cached(10, y, 4, "Root: ", val, COLOR_WHITE);
     }
 
     // Peer rows
@@ -184,6 +251,8 @@ void ui_ntp_stats_init(void) {
     ESP_LOGI(TAG, "Opening NTP stats");
     last_touch_time = 0;
     last_refresh_ms = 0;
+    for (int i = 0; i < SYS_ROWS; i++) last_sys_row[i][0] = '\0';
+    for (int i = 0; i < NTP_MAX_PEERS; i++) last_peer_row[i][0] = '\0';
     draw_static_chrome();
     refresh_dynamic();
 }

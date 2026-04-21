@@ -48,6 +48,11 @@ static int last_stats_sec = -1;
 static uint8_t led_brightness = BRIGHTNESS_DEFAULT;
 static bool last_time_valid = false;
 
+// Cached rendered contents for each stats line - skip repaints when unchanged.
+static char last_line1[64] = "";
+static char last_line2[96] = "";
+static char last_line3[96] = "";
+
 static const char *day_names[] = {
     "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
 };
@@ -65,6 +70,9 @@ static void reset_display_state(void) {
     last_synced_state = false;
     last_stats_sec = -1;
     last_time_valid = false;
+    last_line1[0] = '\0';
+    last_line2[0] = '\0';
+    last_line3[0] = '\0';
 }
 
 void ui_clock_init(void) {
@@ -126,27 +134,84 @@ static void fmt_duration(char *buf, size_t len, uint32_t seconds) {
     else snprintf(buf, len, "%lud", (unsigned long)(seconds / 86400));
 }
 
+// Drift in ppm with adaptive precision: 2 decimals under 10, 1 under 100, none above.
 static void fmt_signed_fixed(char *buf, size_t len, int32_t val_x1000, const char *unit) {
     char sign = (val_x1000 < 0) ? '-' : '+';
     uint32_t av = val_x1000 < 0 ? (uint32_t)-val_x1000 : (uint32_t)val_x1000;
-    snprintf(buf, len, "%c%lu.%02lu%s", sign,
-             (unsigned long)(av / 1000),
-             (unsigned long)((av % 1000) / 10),
-             unit);
+    if (av < 10000) {           // |x| < 10 ppm: "X.XX"
+        snprintf(buf, len, "%c%lu.%02lu%s", sign,
+                 (unsigned long)(av / 1000),
+                 (unsigned long)((av % 1000) / 10), unit);
+    } else if (av < 100000) {   // 10 - 99 ppm: "XX.X"
+        snprintf(buf, len, "%c%lu.%lu%s", sign,
+                 (unsigned long)(av / 1000),
+                 (unsigned long)((av % 1000) / 100), unit);
+    } else {                    // >= 100 ppm: "XXX"
+        snprintf(buf, len, "%c%lu%s", sign, (unsigned long)(av / 1000), unit);
+    }
 }
 
+// Signed microseconds with adaptive precision. Always in ms (or s for large
+// values); no "us" unit - sub-ms renders as "0.XXXms".
 static void fmt_offset(char *buf, size_t len, int64_t us) {
     int64_t av = us < 0 ? -us : us;
     char sign = (us < 0) ? '-' : '+';
-    if (av < 10000) {
-        snprintf(buf, len, "%c%lldus", sign, (long long)av);
-    } else if (av < 10000000LL) {
+    if (av < 1000) {                    // "0.XXXms"
+        snprintf(buf, len, "%c0.%03lldms", sign, (long long)av);
+    } else if (av < 10000) {            // "X.XXms"
         snprintf(buf, len, "%c%lld.%02lldms", sign,
-                 (long long)(av / 1000),
-                 (long long)((av % 1000) / 10));
-    } else {
+                 (long long)(av / 1000), (long long)((av % 1000) / 10));
+    } else if (av < 100000) {           // "XX.Xms"
+        snprintf(buf, len, "%c%lld.%lldms", sign,
+                 (long long)(av / 1000), (long long)((av % 1000) / 100));
+    } else if (av < 10000000LL) {       // "XXXms" / "XXXXms"
+        snprintf(buf, len, "%c%lldms", sign, (long long)(av / 1000));
+    } else if (av < 100000000LL) {      // "XX.Xs"
+        snprintf(buf, len, "%c%lld.%llds", sign,
+                 (long long)(av / 1000000), (long long)((av % 1000000) / 100000));
+    } else {                            // "XXXs"
         snprintf(buf, len, "%c%llds", sign, (long long)(av / 1000000));
     }
+}
+
+// Unsigned magnitude with "+/-" prefix - used for uncertainty bounds.
+static void fmt_pm_us(char *buf, size_t len, int64_t us) {
+    if (us < 0) us = -us;
+    if (us < 1000) {                    // "0.XXXms"
+        snprintf(buf, len, "+/-0.%03lldms", (long long)us);
+    } else if (us < 10000) {            // "X.Xms"
+        snprintf(buf, len, "+/-%lld.%lldms",
+                 (long long)(us / 1000), (long long)((us % 1000) / 100));
+    } else if (us < 10000000LL) {       // "XXms" ... "XXXXms"
+        snprintf(buf, len, "+/-%lldms", (long long)(us / 1000));
+    } else {                            // "XXs" ...
+        snprintf(buf, len, "+/-%llds", (long long)(us / 1000000));
+    }
+}
+
+static void draw_line_cached(int y, char *cache, size_t cache_len,
+                             const char *line, uint16_t fg) {
+    if (strcmp(cache, line) == 0) return;
+
+    size_t old_len = strlen(cache);
+    size_t new_len = strlen(line);
+
+    if (old_len == new_len && old_len > 0) {
+        // Same centered position; redraw only the characters that differ.
+        int x0 = (DISPLAY_WIDTH - (int)new_len * FONT_CHAR_WIDTH) / 2;
+        for (size_t i = 0; i < new_len; i++) {
+            if (cache[i] != line[i]) {
+                display_char(x0 + (int)i * FONT_CHAR_WIDTH, y,
+                             line[i], fg, COLOR_BLACK);
+            }
+        }
+    } else {
+        // Length change = every char shifts, so full redraw + padding reset.
+        ui_draw_centered_string(y, line, fg, COLOR_BLACK, false);
+    }
+
+    strncpy(cache, line, cache_len - 1);
+    cache[cache_len - 1] = '\0';
 }
 
 static void draw_ntp_stats(time_t now, int sec) {
@@ -154,18 +219,22 @@ static void draw_ntp_stats(time_t now, int sec) {
     ntp_get_sys_stats(&sys);
     const char *server = sys.server ? sys.server : wifi_get_custom_ntp_server();
 
-    // Line 1: server + stratum (green) or "Syncing..." (orange)
-    if (sys.synced != last_synced_state || last_stats_sec < 0) {
-        char line1[64];
-        if (sys.synced) {
-            snprintf(line1, sizeof(line1), "%s  str %d", server, sys.stratum);
-            ui_draw_centered_string(STATS_Y, line1, COLOR_SYNC_OK, COLOR_BLACK, false);
-        } else {
-            snprintf(line1, sizeof(line1), "Syncing: %s", server);
-            ui_draw_centered_string(STATS_Y, line1, COLOR_SYNC_WAIT, COLOR_BLACK, false);
-        }
+    // Line 1: "Synced: <server>" (green) or "Syncing: <server>" (orange)
+    char line1[64];
+    uint16_t line1_fg;
+    if (sys.synced) {
+        snprintf(line1, sizeof(line1), "Synced: %s", server);
+        line1_fg = COLOR_SYNC_OK;
+    } else {
+        snprintf(line1, sizeof(line1), "Syncing: %s", server);
+        line1_fg = COLOR_SYNC_WAIT;
+    }
+    // Recolor forces a redraw when sync state flips (same text, different color)
+    if (sys.synced != last_synced_state) {
+        last_line1[0] = '\0';
         last_synced_state = sys.synced;
     }
+    draw_line_cached(STATS_Y, last_line1, sizeof(last_line1), line1, line1_fg);
 
     if (sec == last_stats_sec) return;
     last_stats_sec = sec;
@@ -174,8 +243,8 @@ static void draw_ntp_stats(time_t now, int sec) {
         char line2[48];
         snprintf(line2, sizeof(line2), "Waiting: %lus",
                  (unsigned long)(sys.sync_elapsed_ms / 1000));
-        ui_draw_centered_string(STATS_LINE2, line2, COLOR_STATS, COLOR_BLACK, false);
-        ui_draw_centered_string(STATS_LINE3, "", COLOR_BLACK, COLOR_BLACK, false);
+        draw_line_cached(STATS_LINE2, last_line2, sizeof(last_line2), line2, COLOR_STATS);
+        draw_line_cached(STATS_LINE3, last_line3, sizeof(last_line3), "", COLOR_BLACK);
         return;
     }
 
@@ -194,19 +263,20 @@ static void draw_ntp_stats(time_t now, int sec) {
     char line2[56];
     snprintf(line2, sizeof(line2), "%d/%d peers  poll %s  %s ago",
              peers_reach, peers_total, poll_buf, ago_buf);
-    ui_draw_centered_string(STATS_LINE2, line2, COLOR_STATS, COLOR_BLACK, false);
+    draw_line_cached(STATS_LINE2, last_line2, sizeof(last_line2), line2, COLOR_STATS);
 
-    // Line 3: offset + drift (ppm) - meaningful only after second sync
-    char line3[56];
+    // Line 3: offset + root dispersion + drift - meaningful only after second sync
+    char line3[96];
     if (sys.sync_count < 2) {
         snprintf(line3, sizeof(line3), "offset ----  drift ----");
     } else {
-        char off_buf[20], drift_buf[16];
+        char off_buf[20], disp_buf[20], drift_buf[16];
         fmt_offset(off_buf, sizeof(off_buf), sys.last_offset_us);
+        fmt_pm_us(disp_buf, sizeof(disp_buf), sys.root_dispersion_us);
         fmt_signed_fixed(drift_buf, sizeof(drift_buf), sys.freq_ppm_x1000, "ppm");
-        snprintf(line3, sizeof(line3), "off %s  drift %s", off_buf, drift_buf);
+        snprintf(line3, sizeof(line3), "off %s %s drift %s", off_buf, disp_buf, drift_buf);
     }
-    ui_draw_centered_string(STATS_LINE3, line3, COLOR_STATS, COLOR_BLACK, false);
+    draw_line_cached(STATS_LINE3, last_line3, sizeof(last_line3), line3, COLOR_STATS);
 }
 
 void ui_clock_update(void) {

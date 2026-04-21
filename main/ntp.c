@@ -28,7 +28,7 @@ static const char *TAG = "ntp";
 #define NTP_FILTER_SIZE      8
 
 // Timing
-#define MIN_POLL_S           8
+#define MIN_POLL_S           32
 #define RESPONSE_TIMEOUT_MS  2500
 #define STEP_THRESHOLD_US    (128LL * 1000)
 #define PANIC_THRESHOLD_S    1000
@@ -698,7 +698,7 @@ static void adaptive_poll_update(void) {
     // Count consecutive good polls. "Good" = got a response (reach bit 0 set)
     // from the selected peer with bounded jitter. Grow after GOOD_RUN good
     // polls, shrink after BAD_RUN bad ones.
-    const int8_t GOOD_RUN = 4;
+    const int8_t GOOD_RUN = 6;
     const int8_t BAD_RUN  = 2;
     const int32_t JITTER_MAX_US = 100 * 1000;   // 100 ms upper sanity bound
 
