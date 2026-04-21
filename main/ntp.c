@@ -102,6 +102,7 @@ typedef struct {
     uint32_t next_poll_ms;
     uint32_t kod_until_ms;
     uint8_t  consecutive_misses;   // polls since last response; trigger swap at threshold
+    uint8_t  falseticker_runs;     // consecutive cycles outside Marzullo intersection
 } ntp_peer_t;
 
 static struct {
@@ -858,11 +859,19 @@ static void select_system_peer(void) {
     int chosen = -1;
     int32_t best_jitter = INT32_MAX;
     for (int i = 0; i < n; i++) {
-        if (!(best_mask & (1 << i))) continue;
-        ntp_peer_t *p = &g.peers[c[i].idx];
-        if (p->jitter_us < best_jitter) {
-            best_jitter = p->jitter_us;
-            chosen = c[i].idx;
+        ntp_peer_t *pp = &g.peers[c[i].idx];
+        if (best_mask & (1 << i)) {
+            // Inside the Marzullo intersection - truechimer this round.
+            pp->falseticker_runs = 0;
+            if (pp->jitter_us < best_jitter) {
+                best_jitter = pp->jitter_us;
+                chosen = c[i].idx;
+            }
+        } else {
+            // Candidate whose interval didn't overlap the consensus.
+            // Count up; the timeout/response path will swap us out if
+            // we're persistently wrong.
+            if (pp->falseticker_runs < 255) pp->falseticker_runs++;
         }
     }
     if (chosen < 0) { g.selected_peer = -1; g.stratum = 16; return; }
@@ -1160,18 +1169,23 @@ static void ntp_task(void *arg) {
                 if (g.selected_peer == i) {
                     adaptive_poll_update();
                 }
-                // Swap out a chronically dead peer for a fresh DNS result so
-                // we're not stuck polling the same bad IP forever.
-                if (p->consecutive_misses >= 4) {
-                    if (try_replace_peer(i)) {
-                        // peer_reset zeroed selected state; let selection re-settle.
-                        if (g.selected_peer == i) g.selected_peer = -1;
-                    } else {
-                        // DNS gave nothing new (or failed). Reset the counter
-                        // so we retry another swap attempt after 4 more misses
-                        // instead of hammering DNS every poll.
-                        p->consecutive_misses = 0;
-                    }
+            }
+
+            // Swap out chronically-bad peers - either consistently unreachable
+            // (4 consecutive misses) or consistently wrong (8 cycles outside
+            // the Marzullo intersection, i.e. its offset disagrees with the
+            // consensus by more than its own uncertainty bound). Both paths
+            // fetch a fresh DNS answer and replace just this slot.
+            if (p->consecutive_misses >= 4 || p->falseticker_runs >= 8) {
+                if (try_replace_peer(i)) {
+                    // peer_reset zeroed selected state; let selection re-settle.
+                    if (g.selected_peer == i) g.selected_peer = -1;
+                } else {
+                    // DNS gave nothing new (or failed). Reset both counters
+                    // so we retry after another round rather than hammering
+                    // DNS on every poll.
+                    p->consecutive_misses = 0;
+                    p->falseticker_runs   = 0;
                 }
             }
 
