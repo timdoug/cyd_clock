@@ -959,8 +959,28 @@ static void apply_freq_correction(void) {
 
 // ---------- main task ----------
 
+// Shared "next poll tick" all peers align to. Without this, each peer scheduled
+// independently from its own response time, and RTT / timeout / swap events
+// caused their poll phases to drift apart - on a 32 s interval you could see
+// up to 20 s of age difference between peers. With alignment, every peer fires
+// at (roughly) the same instant and their ages stay within a few hundred ms.
+static uint32_t next_global_poll_ms;
+
 static void schedule_after_request(ntp_peer_t *p) {
-    p->next_poll_ms = mono_ms() + g.current_poll_s * 1000;
+    uint32_t now = mono_ms();
+    uint32_t interval_ms = g.current_poll_s * 1000;
+    // If the shared tick has already passed (or hasn't been set yet), advance
+    // it to one interval from now. Subsequent peers scheduling in the same
+    // cycle will see it still in the future and use it as-is.
+    if ((int32_t)(now - next_global_poll_ms) >= 0) {
+        next_global_poll_ms = now + interval_ms;
+    }
+    // Stagger each peer by a fixed offset so we don't send all packets in a
+    // burst. 250 ms * peer_index gives ~750 ms spread for 4 peers - still
+    // rounds to the same second in the age display, but the sends are
+    // comfortably far apart to avoid any batching in the WiFi/TCP-IP stack.
+    int idx = (int)(p - g.peers);
+    p->next_poll_ms = next_global_poll_ms + (uint32_t)idx * 250;
 }
 
 static bool sockaddr_matches(const struct sockaddr_storage *a,
