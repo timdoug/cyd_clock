@@ -1236,6 +1236,12 @@ static void ntp_task(void *arg) {
             g.current_poll_s         = MIN_POLL_S;
             g.last_discipline_poll_s = 0;
             g.poll_adjust            = 0;
+            // Reset sync accounting so the drilldown doesn't display a stale
+            // Syncs count / Age value tied to the previous server. Keep
+            // first_sync_done so we don't re-step the clock on the first
+            // response from the new server - the local clock is already set.
+            g.sync_count             = 0;
+            g.last_sync_time         = 0;
         }
         if (!open_sockets()) {
             lock_give();
