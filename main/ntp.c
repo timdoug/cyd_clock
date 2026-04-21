@@ -674,6 +674,15 @@ static bool process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
     ntp_to_tv(ntohl(pkt->recv_ts_sec), ntohl(pkt->recv_ts_frac), &t2);
     ntp_to_tv(ntohl(pkt->xmt_ts_sec),  ntohl(pkt->xmt_ts_frac),  &t3);
 
+    // Defensive sanity checks on server-side fields:
+    //  * t3 (server transmit) must not precede t2 (server receive) - that
+    //    would imply the server processed in negative time.
+    //  * root_delay and root_dispersion are 16.16 seconds; anything > 16s
+    //    is nonsense for a real stratum-N server.
+    if (tv_diff_us(&t3, &t2) < 0) return false;
+    if (fp1616_to_us(ntohl(pkt->root_delay))      > 16000000 ||
+        fp1616_to_us(ntohl(pkt->root_dispersion)) > 16000000) return false;
+
     // Cold boot: system time is at epoch, server is decades ahead. Offset
     // would overflow int32_t sample storage, so bypass the filter and step
     // the clock straight to the server's transmit timestamp.
