@@ -261,6 +261,17 @@ void app_main(void) {
             }
 
             case APP_STATE_SETTINGS: {
+                // BOOT button toggles settings: a press here returns to clock.
+                // Same gesture that opened the menu closes it.
+                if (gpio_get_level(BOOT_BUTTON_GPIO) == 0) {
+                    app_state = APP_STATE_CLOCK;
+                    ui_clock_init();
+                    ui_clock_redraw();
+                    while (gpio_get_level(BOOT_BUTTON_GPIO) == 0) {
+                        vTaskDelay(pdMS_TO_TICKS(TOUCH_RELEASE_POLL_MS));
+                    }
+                    continue;
+                }
                 settings_result_t result = ui_settings_update();
                 if (result == SETTINGS_RESULT_TIMEZONE) {
                     app_state = APP_STATE_TIMEZONE;
