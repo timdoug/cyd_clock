@@ -299,7 +299,7 @@ static void refresh_dynamic(void) {
     {
         int y = SYS_Y_START + SYS_LINE_H;
         char poll_buf[16], syncs_buf[16], strat_buf[16];
-        ui_fmt_duration(poll_buf, sizeof(poll_buf), sys.current_poll_s);
+        ui_fmt_duration_full(poll_buf, sizeof(poll_buf), sys.current_poll_s);
         snprintf(syncs_buf, sizeof(syncs_buf), "%lu", (unsigned long)sys.sync_count);
         if (sys.synced) {
             snprintf(strat_buf, sizeof(strat_buf), "%u", sys.stratum);

@@ -257,7 +257,7 @@ static void draw_ntp_stats(time_t now, int sec) {
         if (p.reach) peers_reach++;
     }
     char poll_buf[16], ago_buf[16];
-    ui_fmt_duration(poll_buf, sizeof(poll_buf), sys.current_poll_s);
+    ui_fmt_duration_full(poll_buf, sizeof(poll_buf), sys.current_poll_s);
     ui_fmt_duration(ago_buf, sizeof(ago_buf),
                  (uint32_t)(now > sys.last_sync_time ? now - sys.last_sync_time : 0));
     char line2[56];
