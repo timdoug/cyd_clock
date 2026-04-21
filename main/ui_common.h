@@ -69,4 +69,11 @@ bool ui_should_debounce(uint32_t last_time_ticks);
 // Read touch with debouncing. Updates last_time_ticks and returns debounced touch state.
 bool ui_read_touch(touch_point_t *touch, uint32_t *last_time_ticks);
 
+// Format a number of seconds into a short human-readable string:
+//   <60s    -> "Xs"
+//   <3600   -> "Xm"
+//   <86400  -> "Xh"
+//   else    -> "Xd"
+void ui_fmt_duration(char *buf, size_t len, uint32_t seconds);
+
 #endif // UI_COMMON_H

@@ -41,13 +41,6 @@ static uint16_t last_sys_color[SYS_ROWS];
 static char     last_peer_row[NTP_MAX_PEERS][96];
 static uint16_t last_peer_color[NTP_MAX_PEERS];
 
-static void fmt_duration(char *buf, size_t len, uint32_t seconds) {
-    if (seconds < 60) snprintf(buf, len, "%lus", (unsigned long)seconds);
-    else if (seconds < 3600) snprintf(buf, len, "%lum", (unsigned long)(seconds / 60));
-    else if (seconds < 86400) snprintf(buf, len, "%luh", (unsigned long)(seconds / 3600));
-    else snprintf(buf, len, "%lud", (unsigned long)(seconds / 86400));
-}
-
 // Signed us formatter capped at 7 chars so peer rows stay inside 40 cells.
 // Adaptive precision - drops decimals as magnitude grows.
 static void fmt_offset_us(char *buf, size_t len, int64_t us) {
@@ -259,7 +252,7 @@ static void draw_peer_row(int slot, const ntp_peer_stats_t *p) {
         if (p->last_response_ms == UINT32_MAX) {
             snprintf(age_buf, sizeof(age_buf), "--");
         } else {
-            fmt_duration(age_buf, sizeof(age_buf), p->last_response_ms / 1000);
+            ui_fmt_duration(age_buf, sizeof(age_buf), p->last_response_ms / 1000);
         }
 
         // Format: "[*] addr(14) offset(7) delay(5) jitter(5) age(3)"
@@ -310,7 +303,7 @@ static void refresh_dynamic(void) {
     {
         int y = SYS_Y_START + SYS_LINE_H;
         char poll_buf[16], syncs_buf[16], strat_buf[16];
-        fmt_duration(poll_buf, sizeof(poll_buf), sys.current_poll_s);
+        ui_fmt_duration(poll_buf, sizeof(poll_buf), sys.current_poll_s);
         snprintf(syncs_buf, sizeof(syncs_buf), "%lu", (unsigned long)sys.sync_count);
         if (sys.synced) {
             snprintf(strat_buf, sizeof(strat_buf), "%u", sys.stratum);

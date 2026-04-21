@@ -127,13 +127,6 @@ static void draw_colon(int position, bool visible) {
     }
 }
 
-static void fmt_duration(char *buf, size_t len, uint32_t seconds) {
-    if (seconds < 60) snprintf(buf, len, "%lus", (unsigned long)seconds);
-    else if (seconds < 3600) snprintf(buf, len, "%lum", (unsigned long)(seconds / 60));
-    else if (seconds < 86400) snprintf(buf, len, "%luh", (unsigned long)(seconds / 3600));
-    else snprintf(buf, len, "%lud", (unsigned long)(seconds / 86400));
-}
-
 // Drift in ppm with adaptive precision: 2 decimals under 10, 1 under 100, none above.
 static void fmt_signed_fixed(char *buf, size_t len, int32_t val_x1000, const char *unit) {
     char sign = (val_x1000 < 0) ? '-' : '+';
@@ -257,8 +250,8 @@ static void draw_ntp_stats(time_t now, int sec) {
         if (p.reach) peers_reach++;
     }
     char poll_buf[16], ago_buf[16];
-    fmt_duration(poll_buf, sizeof(poll_buf), sys.current_poll_s);
-    fmt_duration(ago_buf, sizeof(ago_buf),
+    ui_fmt_duration(poll_buf, sizeof(poll_buf), sys.current_poll_s);
+    ui_fmt_duration(ago_buf, sizeof(ago_buf),
                  (uint32_t)(now > sys.last_sync_time ? now - sys.last_sync_time : 0));
     char line2[56];
     snprintf(line2, sizeof(line2), "%d/%d peers  poll %s  %s ago",

@@ -1,4 +1,5 @@
 #include "ui_common.h"
+#include <stdio.h>
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -113,4 +114,11 @@ void ui_draw_slider(int y, const char *label, uint8_t value, uint8_t max_value, 
     // Plus button
     display_fill_rect(UI_SLIDER_BTN_X2, y + 3, UI_SLIDER_BTN_W, UI_SLIDER_BTN_H, COLOR_GRAY);
     display_string(UI_SLIDER_BTN_X2 + 6, y + 4, "+", COLOR_WHITE, COLOR_GRAY);
+}
+
+void ui_fmt_duration(char *buf, size_t len, uint32_t seconds) {
+    if (seconds < 60)         snprintf(buf, len, "%lus", (unsigned long)seconds);
+    else if (seconds < 3600)  snprintf(buf, len, "%lum", (unsigned long)(seconds / 60));
+    else if (seconds < 86400) snprintf(buf, len, "%luh", (unsigned long)(seconds / 3600));
+    else                      snprintf(buf, len, "%lud", (unsigned long)(seconds / 86400));
 }
