@@ -805,7 +805,6 @@ static void select_system_peer(void) {
     int prev = g.selected_peer;
     g.selected_peer     = chosen;
     g.stratum           = (sp->stratum < 15) ? sp->stratum + 1 : 15;
-    g.system_jitter_us  = sp->jitter_us;
     g.root_delay_us     = fp1616_to_us(sp->root_delay_raw) + sp->best_delay_us;
 
     // Peer combining: dispersion-weighted average of all Marzullo survivors,
@@ -813,17 +812,27 @@ static void select_system_peer(void) {
     // its small dispersion; noisier survivors contribute proportionally less.
     // Gives ~1/sqrt(N) noise reduction when peers have comparable quality and
     // degrades gracefully when one peer is clearly better.
+    //
+    // Also compute system jitter as the weighted RMS of peer jitters - this
+    // is the noise of the combined estimate, lower than any single peer.
     {
-        int64_t num = 0, denom = 0;
+        int64_t num_off = 0, num_jit_sq = 0, denom = 0;
         for (int i = 0; i < n; i++) {
             if (!(best_mask & (1 << i))) continue;
             ntp_peer_t *pp = &g.peers[c[i].idx];
             int32_t disp = pp->dispersion_us > 1 ? pp->dispersion_us : 1;
             int64_t w    = 1000000 / disp;
-            num   += (int64_t)pp->best_offset_us * w;
-            denom += w;
+            num_off    += (int64_t)pp->best_offset_us * w;
+            num_jit_sq += (int64_t)pp->jitter_us * pp->jitter_us * w;
+            denom      += w;
         }
-        g.combined_offset_us = denom > 0 ? (int32_t)(num / denom) : sp->best_offset_us;
+        if (denom > 0) {
+            g.combined_offset_us = (int32_t)(num_off / denom);
+            g.system_jitter_us   = (int32_t)sqrt((double)(num_jit_sq / denom));
+        } else {
+            g.combined_offset_us = sp->best_offset_us;
+            g.system_jitter_us   = sp->jitter_us;
+        }
     }
     g.root_dispersion_us = fp1616_to_us(sp->root_dispersion_raw) + sp->dispersion_us;
     ESP_LOGI(TAG, "SELECT candidates=%d survivors=%d chosen=%s jitter=%ldus%s",

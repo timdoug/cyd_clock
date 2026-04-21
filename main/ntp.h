@@ -28,7 +28,7 @@ typedef struct {
     uint32_t sync_count;
     uint32_t current_poll_s;   // Currently active adaptive poll interval
     uint32_t sync_elapsed_ms;  // ms since sync attempt started (pre-first-sync)
-    int64_t  last_offset_us;   // Offset applied at last discipline step
+    int64_t  last_offset_us;   // Offset applied at last discipline step (combined across survivors)
     int32_t  system_jitter_us;
     int32_t  root_delay_us;
     int32_t  root_dispersion_us;
