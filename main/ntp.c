@@ -451,6 +451,8 @@ static void close_sockets(void) {
 
 // ---------- send ----------
 
+static void schedule_after_request(ntp_peer_t *p);
+
 static void send_request(ntp_peer_t *p) {
     ntp_pkt_t pkt = {0};
     pkt.li_vn_mode = (0 << 6) | (NTP_VERSION << 3) | NTP_MODE_CLIENT;
@@ -473,6 +475,12 @@ static void send_request(ntp_peer_t *p) {
                        (struct sockaddr *)&p->addr, p->addr_len);
     if (n != sizeof(pkt)) {
         ESP_LOGW(TAG, "sendto %s failed (errno=%d)", p->addr_str, errno);
+        // Treat as a miss and advance the schedule so we don't spin-loop
+        // retrying the same unroutable peer every tick. After enough misses
+        // the per-peer swap logic will rotate it out.
+        if (p->consecutive_misses < 255) p->consecutive_misses++;
+        p->reach <<= 1;
+        schedule_after_request(p);
         return;
     }
 
