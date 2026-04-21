@@ -201,7 +201,7 @@ static void draw_field_cached(int x, int y, int row_idx,
 
 static void draw_static_chrome(void) {
     display_fill(COLOR_BLACK);
-    ui_draw_header("NTP Stats", false);
+    ui_draw_header("NTP Statistics", false);
     // Column headers for the peer rows below - padding matches the peer row
     // format "%c%-15s %-8s %-6s %-6s", starting at x=4 with a blank where the
     // selected-peer star goes.
