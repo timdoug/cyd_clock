@@ -25,6 +25,9 @@ static const char *TAG = "ntp";
 #define NTP_MODE_SERVER      4
 #define NTP_PKT_SIZE         48
 #define NTP_EPOCH_OFFSET     2208988800UL  // 1900 -> 1970 in seconds
+// NTP era 1 starts 2036-02-07 when the 32-bit NTP seconds counter wraps.
+// Unix time at that moment: 2^32 - NTP_EPOCH_OFFSET = 2085978496.
+#define NTP_ERA1_UNIX_OFFSET 2085978496UL
 #define NTP_FILTER_SIZE      8
 
 // Timing
@@ -158,7 +161,18 @@ static void tv_to_ntp(const struct timeval *tv, uint32_t *sec, uint32_t *frac) {
 }
 
 static void ntp_to_tv(uint32_t sec, uint32_t frac, struct timeval *tv) {
-    tv->tv_sec  = (time_t)(sec - NTP_EPOCH_OFFSET);
+    // Handle the 2036 NTP era rollover. Era 0 covers 1900-01-01 through
+    // 2036-02-07; past that, the 32-bit NTP seconds counter wraps and the
+    // value must be interpreted against era 1's Unix offset. Heuristic: any
+    // NTP value below NTP_EPOCH_OFFSET (== Unix 0) represents a time before
+    // 1970, which is implausible for this device, so treat it as era 1.
+    uint64_t unix_sec;
+    if (sec >= NTP_EPOCH_OFFSET) {
+        unix_sec = (uint64_t)(sec - NTP_EPOCH_OFFSET);       // era 0, post-1970
+    } else {
+        unix_sec = (uint64_t)sec + NTP_ERA1_UNIX_OFFSET;     // era 1 (2036+)
+    }
+    tv->tv_sec  = (time_t)unix_sec;
     tv->tv_usec = (suseconds_t)(((uint64_t)frac * 1000000ULL) >> 32);
 }
 
