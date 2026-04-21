@@ -722,9 +722,13 @@ static bool process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
         (int64_t)delay < (int64_t)min_delay * 3) {
         int32_t excess     = (int32_t)delay - min_delay;
         int32_t correction = excess / 2;
+        int64_t before     = offset;
         if (offset >  correction)      offset -= correction;
         else if (offset < -correction) offset += correction;
         else                           offset = 0;
+        ESP_LOGI(TAG, "HNP %s delay=%ldus min=%ldus excess=%ldus offset %+lldus -> %+lldus",
+                 p->addr_str, (long)delay, (long)min_delay, (long)excess,
+                 (long long)before, (long long)offset);
     }
 
     p->filter_head = (p->filter_head + 1) % NTP_FILTER_SIZE;
