@@ -103,6 +103,8 @@ typedef struct {
     uint32_t kod_until_ms;
     uint8_t  consecutive_misses;   // polls since last response; trigger swap at threshold
     uint8_t  falseticker_runs;     // consecutive cycles outside Marzullo intersection
+    uint8_t  jittery_runs;         // consecutive cycles substantially noisier than best truechimer
+    uint32_t fresh_until_ms;       // mono deadline; UI paints row green until this time
 } ntp_peer_t;
 
 static struct {
@@ -363,9 +365,27 @@ static int dns_resolve_all(const char *host, bool prefer_ipv6,
 
 // ---------- peer management ----------
 
+// Shared "next poll tick" all peers align to (see schedule_after_request for
+// the rationale). Declared up here because peer_reset reads it to anchor the
+// per-peer fresh-window expiry.
+static uint32_t next_global_poll_ms;
+
 static void peer_reset(ntp_peer_t *p) {
     memset(p, 0, sizeof(*p));
     p->stratum = 16;
+    // Paint the UI row green until the next global poll tick (end of the
+    // cycle we're installed into). If the tick hasn't been set yet (cold
+    // boot, before any response) fall back to one full poll from now. We
+    // snapshot the value here so subsequent cycle advances don't keep
+    // extending the window - a peer installed mid-cycle should only be
+    // green for the REMAINDER of that cycle.
+    uint32_t now = mono_ms();
+    if (next_global_poll_ms != 0 &&
+        (int32_t)(next_global_poll_ms - now) > 0) {
+        p->fresh_until_ms = next_global_poll_ms;
+    } else {
+        p->fresh_until_ms = now + g.current_poll_s * 1000;
+    }
 }
 
 static int resolve_peers(void) {
@@ -421,6 +441,11 @@ static int resolve_peers(void) {
 // Replace a single dead peer with a fresh DNS lookup result that isn't already
 // in our peer table. Keeps the working peers' filter/reach history intact,
 // unlike a full resolve_peers. Returns true if a replacement was installed.
+//
+// No rate-limiting here: pool.ntp.org's DNS TTL is ~60 s, and steady-state
+// polls (MIN_POLL_S = 32 s, typically growing to 64 s+) are already as long
+// as the TTL or longer, so a poll-cycle-aligned retry won't query faster
+// than the resolver refreshes.
 static bool try_replace_peer(int dead_idx) {
     struct sockaddr_storage fresh[NTP_MAX_PEERS];
     int n = dns_resolve_all(g.server, g.prefer_ipv6, fresh, NTP_MAX_PEERS);
@@ -457,7 +482,6 @@ static bool try_replace_peer(int dead_idx) {
         ESP_LOGI(TAG, "Peer swap slot %d: %s -> %s", dead_idx, old_addr, p->addr_str);
         return true;
     }
-    ESP_LOGW(TAG, "Peer swap slot %d: no fresh candidate", dead_idx);
     return false;
 }
 
@@ -540,7 +564,8 @@ static void drain_wake_sock(void) {
 // caused their poll phases to drift apart - on a 32 s interval you could see
 // up to 20 s of age difference between peers. With alignment, every peer fires
 // at (roughly) the same instant and their ages stay within a few hundred ms.
-static uint32_t next_global_poll_ms;
+// (Declared up by peer_reset - that function captures the current tick as
+// the per-peer fresh-window expiry at install time.)
 
 static void schedule_after_request(ntp_peer_t *p) {
     uint32_t now = mono_ms();
@@ -887,6 +912,28 @@ static void select_system_peer(void) {
     }
     if (chosen < 0) { g.selected_peer = -1; g.stratum = 16; return; }
 
+    // Wide-jitter gate: a truechimer whose filter noise is substantially
+    // worse than the cleanest truechimer's is clogging the survivor set -
+    // its Marzullo interval is wide enough to keep it inside consensus, but
+    // it drags up the combined variance and the noise level of the
+    // discipline input. The reference is best_jitter (not a hardcoded
+    // floor), so this self-calibrates to network conditions: on a crappy
+    // WiFi link where every peer runs at 40 ms, nothing churns; on a clean
+    // link where the best peer runs at 2 ms, anything above ~8 ms stands
+    // out. Count runs; the dispatch loop swaps at threshold, same path as
+    // falseticker eviction.
+    const int32_t JITTER_REL_X = 4;
+    for (int i = 0; i < n; i++) {
+        ntp_peer_t *pp = &g.peers[c[i].idx];
+        bool wide = (best_mask & (1 << i)) &&
+                    pp->jitter_us > JITTER_REL_X * best_jitter;
+        if (wide) {
+            if (pp->jittery_runs < 255) pp->jittery_runs++;
+        } else {
+            pp->jittery_runs = 0;
+        }
+    }
+
     ntp_peer_t *sp = &g.peers[chosen];
     g.selected_peer     = chosen;
     g.stratum           = (sp->stratum < 15) ? sp->stratum + 1 : 15;
@@ -898,22 +945,27 @@ static void select_system_peer(void) {
     // Gives ~1/sqrt(N) noise reduction when peers have comparable quality and
     // degrades gracefully when one peer is clearly better.
     //
-    // Also compute system jitter as the weighted RMS of peer jitters - this
-    // is the noise of the combined estimate, lower than any single peer.
+    // System jitter uses the variance-of-weighted-mean formula so it reflects
+    // the actual uncertainty of the combined estimate (which is reduced by
+    // the combining), not just the typical peer's jitter.
+    //   combined = sum(w*x) / sumw                  with w = 1/dispersion
+    //   Var(combined) = sum(w^2*sigma^2) / (sumw)^2
+    //   sigma_combined    = sqrt(sum(w^2*sigma^2)) / sumw
+    // Doubles throughout so w^2*sigma^2 can't overflow with small dispersion.
     {
-        int64_t num_off = 0, num_jit_sq = 0, denom = 0;
+        double num_off = 0.0, num_jit_var = 0.0, denom = 0.0;
         for (int i = 0; i < n; i++) {
             if (!(best_mask & (1 << i))) continue;
             ntp_peer_t *pp = &g.peers[c[i].idx];
-            int32_t disp = pp->dispersion_us > 1 ? pp->dispersion_us : 1;
-            int64_t w    = 1000000 / disp;
-            num_off    += (int64_t)pp->best_offset_us * w;
-            num_jit_sq += (int64_t)pp->jitter_us * pp->jitter_us * w;
-            denom      += w;
+            double disp = pp->dispersion_us > 1 ? pp->dispersion_us : 1;
+            double w    = 1.0 / disp;
+            num_off     += (double)pp->best_offset_us * w;
+            num_jit_var += w * w * (double)pp->jitter_us * pp->jitter_us;
+            denom       += w;
         }
         if (denom > 0) {
             g.combined_offset_us = (int32_t)(num_off / denom);
-            g.system_jitter_us   = (int32_t)sqrt((double)(num_jit_sq / denom));
+            g.system_jitter_us   = (int32_t)(sqrt(num_jit_var) / denom);
         } else {
             g.combined_offset_us = sp->best_offset_us;
             g.system_jitter_us   = sp->jitter_us;
@@ -1080,6 +1132,23 @@ static void handle_socket_readable(int sock) {
     if (ok) {
         update_peer_filter(p);
         select_system_peer();
+
+        // Eviction for falseticker / wide-jitter peers is event-driven: the
+        // counters we check only move inside select_system_peer, so checking
+        // here means one try_replace_peer attempt per peer per poll cycle -
+        // naturally cycle-aligned. On failure, the counters stay elevated
+        // and we retry at the next cycle's response burst. (consecutive_misses
+        // eviction lives in the timeout handler for the same reason.)
+        for (int i = 0; i < NTP_MAX_PEERS; i++) {
+            ntp_peer_t *q = &g.peers[i];
+            if (!q->active) continue;
+            if (q->falseticker_runs >= 8 || q->jittery_runs >= 6) {
+                if (try_replace_peer(i) && g.selected_peer == i) {
+                    g.selected_peer = -1;
+                }
+            }
+        }
+
         // Discipline once per poll cycle from the dispersion-weighted
         // combined offset (g.combined_offset_us is refreshed by every call
         // to select_system_peer). Gating on "this peer happens to be the
@@ -1190,23 +1259,15 @@ static void ntp_task(void *arg) {
                 if (g.selected_peer == i) {
                     adaptive_poll_update();
                 }
-            }
-
-            // Swap out chronically-bad peers - either consistently unreachable
-            // (4 consecutive misses) or consistently wrong (8 cycles outside
-            // the Marzullo intersection, i.e. its offset disagrees with the
-            // consensus by more than its own uncertainty bound). Both paths
-            // fetch a fresh DNS answer and replace just this slot.
-            if (p->consecutive_misses >= 4 || p->falseticker_runs >= 8) {
-                if (try_replace_peer(i)) {
-                    // peer_reset zeroed selected state; let selection re-settle.
-                    if (g.selected_peer == i) g.selected_peer = -1;
-                } else {
-                    // DNS gave nothing new (or failed). Reset both counters
-                    // so we retry after another round rather than hammering
-                    // DNS on every poll.
-                    p->consecutive_misses = 0;
-                    p->falseticker_runs   = 0;
+                // Swap out chronically-unreachable peers. Event-driven like
+                // the falseticker/jittery path: we only evaluate right after
+                // the counter moved, so one try_replace attempt per failed
+                // poll cycle. On failure the counter stays high, we retry
+                // next timeout - DNS re-query cadence = poll cadence.
+                if (p->consecutive_misses >= 4) {
+                    if (try_replace_peer(i) && g.selected_peer == i) {
+                        g.selected_peer = -1;
+                    }
                 }
             }
 
@@ -1355,6 +1416,7 @@ bool ntp_get_peer_stats(int idx, ntp_peer_stats_t *out) {
     out->last_response_ms = p->last_response_ms
         ? (mono_ms() - p->last_response_ms)
         : UINT32_MAX;
+    out->fresh = (int32_t)(mono_ms() - p->fresh_until_ms) < 0;
     strncpy(out->addr_str, p->addr_str, sizeof(out->addr_str) - 1);
     lock_give();
     return true;

@@ -19,6 +19,7 @@ typedef struct {
     int32_t  jitter_us;        // RMS deviation across recent samples
     int32_t  dispersion_us;    // Root dispersion estimate
     uint32_t last_response_ms; // ms since last valid response (UINT32_MAX if never)
+    bool     fresh;            // slot installed, no poll cycle completed yet (no response AND no timeout)
 } ntp_peer_stats_t;
 
 // System-wide NTP statistics

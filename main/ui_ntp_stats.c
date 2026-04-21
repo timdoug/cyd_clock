@@ -220,7 +220,13 @@ static void draw_peer_row(int slot, const ntp_peer_stats_t *p) {
         snprintf(line, sizeof(line), "-");
         row_fg = COLOR_DARKGRAY;
     } else {
-        row_fg = p->selected ? COLOR_CYAN : COLOR_WHITE;
+        // fresh = slot just installed, no poll cycle has completed on it yet
+        // (neither response nor timeout). Survives the counter reset that
+        // happens when a swap-in attempt fails, so a stuck-and-unreplaceable
+        // slot doesn't keep blinking green.
+        row_fg = p->selected ? COLOR_CYAN
+               : p->fresh    ? COLOR_GREEN
+                             : COLOR_WHITE;
         char addr[16];  // room for a full "255.255.255.255" IPv4 dotted-quad
         strncpy(addr, p->addr_str, sizeof(addr) - 1);
         addr[sizeof(addr) - 1] = '\0';
