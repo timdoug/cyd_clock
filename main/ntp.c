@@ -644,9 +644,28 @@ static bool process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
 
     // Cold boot: system time is at epoch, server is decades ahead. Offset
     // would overflow int32_t sample storage, so bypass the filter and step
-    // the clock straight to the server's transmit timestamp. The next poll
-    // produces a sane sample that flows through the normal path.
+    // the clock straight to the server's transmit timestamp.
     if (!g.first_sync_done) {
+        // Other peers we dispatched in the same burst already have requests
+        // outstanding with their t1 captured in the pre-step clock frame.
+        // Without compensation their incoming responses compute offsets that
+        // hit the panic threshold and get tossed - we'd have to wait a full
+        // poll cycle before getting usable samples from them. Shift those
+        // stashed t1 timestamps forward by the same amount we're about to
+        // step, so the late-arriving responses land in the new frame and
+        // produce valid samples on this very poll burst.
+        struct timeval before;
+        gettimeofday(&before, NULL);
+        int64_t step_us = tv_diff_us(&t3, &before);
+        for (int i = 0; i < NTP_MAX_PEERS; i++) {
+            ntp_peer_t *q = &g.peers[i];
+            if (q == p || !q->request_outstanding) continue;
+            int64_t t1_us = (int64_t)q->t1.tv_sec * 1000000LL + q->t1.tv_usec + step_us;
+            q->t1.tv_sec  = (time_t)(t1_us / 1000000);
+            q->t1.tv_usec = (suseconds_t)(t1_us % 1000000);
+            if (q->t1.tv_usec < 0) { q->t1.tv_sec--; q->t1.tv_usec += 1000000; }
+        }
+
         settimeofday(&t3, NULL);
         p->stratum = pkt->stratum;
         p->last_response_ms = mono_ms();
