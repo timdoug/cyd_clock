@@ -57,10 +57,10 @@
 #define TOUCH_DEBOUNCE_MS   200
 #define TOUCH_RELEASE_POLL_MS 50
 
-// Clock polling intervals (ms)
-#define POLL_FAST_MS        2    // Near second boundary (>900ms)
-#define POLL_NORMAL_MS      20   // Normal polling
-#define POLL_THRESHOLD_MS   900  // When to switch to fast polling
+// Clock polling interval (ms) - governs touch responsiveness. The seconds-
+// tick loop sleeps less than this when it's within POLL_NORMAL_MS of the
+// next second boundary so the display ticks right at the boundary.
+#define POLL_NORMAL_MS      20
 
 // WiFi
 #define WIFI_MAX_RETRY      5

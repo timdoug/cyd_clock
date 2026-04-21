@@ -4,7 +4,9 @@
 #include <sys/time.h>
 #include "driver/gpio.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "config.h"
 #include "display.h"
@@ -43,6 +45,29 @@ static char stored_ssid[MAX_SSID_LEN];
 static char stored_password[MAX_PASSWORD_LEN];
 static char stored_tz[MAX_TIMEZONE_LEN];
 static bool ntp_started = false;
+
+// Hardware-timer-driven second boundary. esp_timer fires a callback at the
+// precise us boundary (aligned to the NTP-disciplined clock), the callback
+// signals this semaphore, and the clock state wakes, updates the display,
+// and re-arms for the next boundary.
+static SemaphoreHandle_t clock_tick_sem;
+static esp_timer_handle_t clock_tick_timer;
+
+static void clock_tick_cb(void *arg) {
+    (void)arg;
+    xSemaphoreGive(clock_tick_sem);
+}
+
+static void clock_tick_arm(void) {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    uint64_t us_until = 1000000 - (uint32_t)tv.tv_usec;
+    // If we're within 1 ms of the boundary we'd fire almost immediately; skip
+    // to the second after to avoid a useless callback.
+    if (us_until < 1000) us_until += 1000000;
+    esp_timer_stop(clock_tick_timer);
+    esp_timer_start_once(clock_tick_timer, us_until);
+}
 
 static void show_splash(void) {
     display_fill(COLOR_BLACK);
@@ -84,6 +109,14 @@ void app_main(void) {
     display_init();
     touch_init();
     led_init();
+
+    // Second-boundary tick machinery
+    clock_tick_sem = xSemaphoreCreateBinary();
+    const esp_timer_create_args_t tick_args = {
+        .callback = clock_tick_cb,
+        .name     = "clock_tick",
+    };
+    ESP_ERROR_CHECK(esp_timer_create(&tick_args, &clock_tick_timer));
 
     // Configure BOOT button as input with pull-up
     gpio_config_t boot_btn_cfg = {
@@ -185,14 +218,15 @@ void app_main(void) {
                 break;
 
             case APP_STATE_CLOCK: {
-                static int last_sec = -1;
+                // On state (re)entry we need to arm the tick timer; this flag
+                // gets set true when we transition away and on first boot.
+                static bool tick_needs_arm = true;
 
-                // Check for touch input first
                 clock_touch_zone_t zone = ui_clock_check_touch();
                 if (zone == CLOCK_TOUCH_SETTINGS) {
                     app_state = APP_STATE_SETTINGS;
                     ui_settings_init();
-                    last_sec = -1;  // Reset on return
+                    tick_needs_arm = true;
                     // Wait for BOOT button release
                     while (gpio_get_level(BOOT_BUTTON_GPIO) == 0) {
                         vTaskDelay(pdMS_TO_TICKS(TOUCH_RELEASE_POLL_MS));
@@ -201,29 +235,27 @@ void app_main(void) {
                 } else if (zone == CLOCK_TOUCH_STATS) {
                     app_state = APP_STATE_NTP_STATS;
                     ui_ntp_stats_init();
-                    last_sec = -1;
+                    tick_needs_arm = true;
                     ui_wait_for_touch_release();
                     continue;
                 }
 
-                // Get current time
-                struct timeval tv;
-                gettimeofday(&tv, NULL);
-                struct tm timeinfo;
-                localtime_r(&tv.tv_sec, &timeinfo);
-
-                // Update display when second changes
-                if (timeinfo.tm_sec != last_sec) {
-                    ui_clock_update();
-                    last_sec = timeinfo.tm_sec;
+                if (tick_needs_arm) {
+                    // Drain any stale semaphore left over from a previous
+                    // CLOCK session (timer may have fired while we were in
+                    // SETTINGS etc), then arm for the next real boundary.
+                    xSemaphoreTake(clock_tick_sem, 0);
+                    clock_tick_arm();
+                    tick_needs_arm = false;
                 }
 
-                // Poll faster near second boundary for responsiveness
-                int ms_in_sec = tv.tv_usec / 1000;
-                if (ms_in_sec > POLL_THRESHOLD_MS) {
-                    vTaskDelay(pdMS_TO_TICKS(POLL_FAST_MS));
-                } else {
-                    vTaskDelay(pdMS_TO_TICKS(POLL_NORMAL_MS));
+                // Wait for the next second boundary (esp_timer callback) or
+                // POLL_NORMAL_MS - whichever comes first. The timeout keeps
+                // touch input responsive during the 1-second wait.
+                if (xSemaphoreTake(clock_tick_sem,
+                                   pdMS_TO_TICKS(POLL_NORMAL_MS)) == pdTRUE) {
+                    ui_clock_update();
+                    clock_tick_arm();
                 }
                 continue;
             }
