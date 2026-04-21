@@ -127,6 +127,7 @@ static struct {
     int32_t  freq_ppm_x1000;
     uint32_t last_freq_apply_ms;
     uint32_t last_discipline_ms;
+    uint32_t last_discipline_poll_s;  // current_poll_s at the moment we last disciplined
     uint32_t last_any_response_ms;  // when we last heard from ANY peer
     int8_t   poll_adjust;   // counter: +N grows poll, -N shrinks
 
@@ -737,7 +738,8 @@ static bool process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
         // handle_socket_readable suppresses a second discipline when the
         // rest of this poll burst's peers arrive. Otherwise sync_count
         // would increment twice on a single cold-boot cycle.
-        g.last_discipline_ms   = mono_ms();
+        g.last_discipline_ms     = mono_ms();
+        g.last_discipline_poll_s = g.current_poll_s;
         ESP_LOGI(TAG, "Initial time set from %s (stratum %d)",
                  p->addr_str, pkt->stratum);
         // Fall through: compute offset/delay for this peer against the
@@ -1080,14 +1082,22 @@ static void handle_socket_readable(int sock) {
         // Rate limit: require since_disc to be within a few seconds of the
         // full poll interval so only cycle-boundary responses trigger (a
         // looser half-cycle gate would also let off-schedule responses
-        // through - e.g. try_replace_peer's immediate mid-cycle poll, or
-        // the transitional first cycle after a poll doubling).
+        // through - e.g. try_replace_peer's immediate mid-cycle poll).
+        //
+        // Reference the poll that was in effect at the previous discipline,
+        // not the current one - schedule_after_request (above) locked in the
+        // upcoming cycle length using the pre-adaptive value, so the interval
+        // that just elapsed is last_discipline_poll_s, not the (possibly
+        // already-doubled) current_poll_s.
         uint32_t now = mono_ms();
-        int32_t  threshold_ms = ((int32_t)g.current_poll_s - 3) * 1000;
+        uint32_t ref_poll_s = g.last_discipline_poll_s ?
+                              g.last_discipline_poll_s : g.current_poll_s;
+        int32_t  threshold_ms = ((int32_t)ref_poll_s - 3) * 1000;
         bool due = (g.last_discipline_ms == 0) ||
                    (int32_t)(now - g.last_discipline_ms) >= threshold_ms;
         if (g.selected_peer >= 0 && due) {
-            g.last_discipline_ms = now;
+            g.last_discipline_ms     = now;
+            g.last_discipline_poll_s = g.current_poll_s;   // captures pre-adaptive value
             discipline_clock(g.combined_offset_us);
             adaptive_poll_update();
         }
@@ -1119,6 +1129,7 @@ static void ntp_task(void *arg) {
                          (unsigned long)g.current_poll_s, MIN_POLL_S);
                 g.dirty_config    = true;
                 g.current_poll_s  = MIN_POLL_S;
+                g.last_discipline_poll_s = 0;  // fall back to current_poll_s next check
                 g.poll_adjust     = 0;
                 g.last_any_response_ms = mono_ms();  // avoid immediate retrigger
             }
@@ -1134,8 +1145,9 @@ static void ntp_task(void *arg) {
             // Reset adaptive poll so the new peer set gets a fresh ramp.
             // Crystal drift estimate (freq_ppm_x1000) is hardware-intrinsic
             // and stays, so we don't lose inter-poll accuracy during re-sync.
-            g.current_poll_s = MIN_POLL_S;
-            g.poll_adjust    = 0;
+            g.current_poll_s         = MIN_POLL_S;
+            g.last_discipline_poll_s = 0;
+            g.poll_adjust            = 0;
         }
         if (!open_sockets()) {
             lock_give();
