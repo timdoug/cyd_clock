@@ -94,6 +94,7 @@ typedef struct {
 
     uint32_t next_poll_ms;
     uint32_t kod_until_ms;
+    uint8_t  consecutive_misses;   // polls since last response; trigger swap at threshold
 } ntp_peer_t;
 
 static struct {
@@ -117,6 +118,7 @@ static struct {
     int32_t  freq_ppm_x1000;
     uint32_t last_freq_apply_ms;
     uint32_t last_discipline_ms;
+    uint32_t last_any_response_ms;  // when we last heard from ANY peer
     int8_t   poll_adjust;   // counter: +N grows poll, -N shrinks
 
     int      sock4;
@@ -369,6 +371,49 @@ static int resolve_peers(void) {
     return n;
 }
 
+// Replace a single dead peer with a fresh DNS lookup result that isn't already
+// in our peer table. Keeps the working peers' filter/reach history intact,
+// unlike a full resolve_peers. Returns true if a replacement was installed.
+static bool try_replace_peer(int dead_idx) {
+    struct sockaddr_storage fresh[NTP_MAX_PEERS];
+    int n = dns_resolve_all(g.server, g.prefer_ipv6, fresh, NTP_MAX_PEERS);
+    if (n == 0) return false;
+
+    for (int i = 0; i < n; i++) {
+        bool in_use = false;
+        for (int j = 0; j < NTP_MAX_PEERS; j++) {
+            if (g.peers[j].active && sockaddr_matches(&g.peers[j].addr, &fresh[i])) {
+                in_use = true;
+                break;
+            }
+        }
+        if (in_use) continue;
+
+        ntp_peer_t *p = &g.peers[dead_idx];
+        char old_addr[46];
+        strncpy(old_addr, p->addr_str, sizeof(old_addr) - 1);
+        old_addr[sizeof(old_addr) - 1] = '\0';
+
+        peer_reset(p);
+        socklen_t alen = (fresh[i].ss_family == AF_INET6)
+            ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
+        memcpy(&p->addr, &fresh[i], alen);
+        p->addr_len     = alen;
+        p->active       = true;
+        p->stratum      = 16;
+        p->next_poll_ms = mono_ms();
+        const void *src = (fresh[i].ss_family == AF_INET6)
+            ? (const void *)&((struct sockaddr_in6 *)&fresh[i])->sin6_addr
+            : (const void *)&((struct sockaddr_in  *)&fresh[i])->sin_addr;
+        inet_ntop(fresh[i].ss_family, src, p->addr_str, sizeof(p->addr_str));
+
+        ESP_LOGI(TAG, "Peer swap slot %d: %s -> %s", dead_idx, old_addr, p->addr_str);
+        return true;
+    }
+    ESP_LOGW(TAG, "Peer swap slot %d: no fresh candidate", dead_idx);
+    return false;
+}
+
 // ---------- sockets ----------
 
 static bool open_sockets(void) {
@@ -530,6 +575,8 @@ static bool process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
         p->stratum = pkt->stratum;
         p->last_response_ms = mono_ms();
         p->reach |= 1;
+        p->consecutive_misses = 0;
+        g.last_any_response_ms = mono_ms();
         g.first_sync_done = true;
         g.sync_count++;
         g.last_sync_time = t3.tv_sec;
@@ -565,6 +612,8 @@ static bool process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
     p->root_dispersion_raw = ntohl(pkt->root_dispersion);
     p->last_response_ms = mono_ms();
     p->reach |= 1;
+    p->consecutive_misses = 0;
+    g.last_any_response_ms = mono_ms();
     return true;
 }
 
@@ -844,9 +893,32 @@ static void ntp_task(void *arg) {
 
         apply_freq_correction();
 
+        // Staleness watchdog: if we've heard from no peer for several poll
+        // cycles, shrink the poll interval back toward MIN_POLL_S and re-resolve
+        // DNS. Handles the case where all cached pool IPs went away (network
+        // change, pool rotation, etc.) - otherwise we'd keep retrying the same
+        // dead addresses on a grown poll cap forever.
+        if (g.last_any_response_ms != 0) {
+            uint32_t dead_ms = mono_ms() - g.last_any_response_ms;
+            uint32_t threshold_ms = g.current_poll_s * 4 * 1000;
+            if (dead_ms > threshold_ms) {
+                ESP_LOGW(TAG, "No peer responses in %lus; re-resolving, poll %lus -> %ds",
+                         (unsigned long)(dead_ms / 1000),
+                         (unsigned long)g.current_poll_s, MIN_POLL_S);
+                g.dirty_config    = true;
+                g.current_poll_s  = MIN_POLL_S;
+                g.poll_adjust     = 0;
+                g.last_any_response_ms = mono_ms();  // avoid immediate retrigger
+            }
+        }
+
         if (g.dirty_config) {
             g.dirty_config = false;
             resolve_peers();
+            // Arm the staleness watchdog against this resolution: even before
+            // any peer responds, we'll retrigger after threshold_ms if the new
+            // set of IPs is also silent (e.g. DNS gave stale results).
+            g.last_any_response_ms = mono_ms();
         }
         if (!open_sockets()) {
             lock_give();
@@ -873,11 +945,25 @@ static void ntp_task(void *arg) {
                 (int32_t)(now - p->request_sent_ms) >= RESPONSE_TIMEOUT_MS) {
                 ESP_LOGW(TAG, "TIMEOUT peer=%s reach=%02x", p->addr_str, p->reach);
                 p->request_outstanding = false;
+                if (p->consecutive_misses < 255) p->consecutive_misses++;
                 schedule_after_request(p);
                 // If the selected peer timed out, treat as a "bad" poll-adjust
                 // event so the poll interval has a chance to shrink.
                 if (g.selected_peer == i) {
                     adaptive_poll_update();
+                }
+                // Swap out a chronically dead peer for a fresh DNS result so
+                // we're not stuck polling the same bad IP forever.
+                if (p->consecutive_misses >= 4) {
+                    if (try_replace_peer(i)) {
+                        // peer_reset zeroed selected state; let selection re-settle.
+                        if (g.selected_peer == i) g.selected_peer = -1;
+                    } else {
+                        // DNS gave nothing new (or failed). Reset the counter
+                        // so we retry another swap attempt after 4 more misses
+                        // instead of hammering DNS every poll.
+                        p->consecutive_misses = 0;
+                    }
                 }
             }
 
