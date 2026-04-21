@@ -221,7 +221,7 @@ static void draw_static_chrome(void) {
     // selected-peer star goes.
     display_fill_rect(0, PEER_HDR_Y, DISPLAY_WIDTH, FONT_CHAR_HEIGHT, COLOR_BLACK);
     display_string(4, PEER_HDR_Y,
-                   " Peer           Offset  Delay Jit   Age",
+                   " Peer            R  Offset  Delay Jit",
                    COLOR_GRAY, COLOR_BLACK);
 }
 
@@ -235,11 +235,12 @@ static void draw_peer_row(int slot, const ntp_peer_stats_t *p) {
         row_fg = COLOR_DARKGRAY;
     } else {
         row_fg = p->selected ? COLOR_CYAN : COLOR_WHITE;
-        char addr[15];
+        char addr[16];  // room for a full "255.255.255.255" IPv4 dotted-quad
         strncpy(addr, p->addr_str, sizeof(addr) - 1);
         addr[sizeof(addr) - 1] = '\0';
 
-        char off_buf[10], delay_buf[8], jitter_buf[8], age_buf[6];
+        char off_buf[10], delay_buf[8], jitter_buf[8], reach_buf[3];
+        snprintf(reach_buf, sizeof(reach_buf), "%02x", p->reach);
         if (p->reach) {
             fmt_offset_us(off_buf, sizeof(off_buf), p->offset_us);
             fmt_unsigned_compact(delay_buf,  sizeof(delay_buf),  (uint32_t)p->delay_us);
@@ -249,16 +250,13 @@ static void draw_peer_row(int slot, const ntp_peer_stats_t *p) {
             snprintf(delay_buf,  sizeof(delay_buf),  "---");
             snprintf(jitter_buf, sizeof(jitter_buf), "---");
         }
-        if (p->last_response_ms == UINT32_MAX) {
-            snprintf(age_buf, sizeof(age_buf), "--");
-        } else {
-            ui_fmt_duration(age_buf, sizeof(age_buf), p->last_response_ms / 1000);
-        }
 
-        // Format: "[*] addr(14) offset(7) delay(5) jitter(5) age(3)"
-        snprintf(line, sizeof(line), "%c%-14s %-7s %-5s %-5s %-3s",
+        // Format: "[*] addr(15) reach(2) offset(7) delay(5) jitter(5)" - age
+        // is now on the system-level Drift row (all peers align to a shared
+        // tick so per-peer ages would be identical).
+        snprintf(line, sizeof(line), "%c%-15s %-2s %-7s %-5s %-5s",
                  p->selected ? '*' : ' ', addr,
-                 off_buf, delay_buf, jitter_buf, age_buf);
+                 reach_buf, off_buf, delay_buf, jitter_buf);
     }
 
     char *cache = last_peer_row[slot];
@@ -321,11 +319,42 @@ static void refresh_dynamic(void) {
                                     sizeof(segs) / sizeof(segs[0]));
     }
 
-    // Row 2: Combined offset (what we slewed by) + combined jitter.
+    // Row 2: Drift + time since last sync. Peers all align to a shared tick
+    // so their individual ages match - show it once at the system level
+    // rather than per-peer. Drift needs a disciplined sample to be
+    // meaningful (sync_count >= 2); Age is valid as soon as the first sync
+    // sets the clock (sync_count >= 1).
+    {
+        int y = SYS_Y_START + 2 * SYS_LINE_H;
+        char drift_buf[16], age_buf[8];
+        if (sys.sync_count < 2) {
+            snprintf(drift_buf, sizeof(drift_buf), "---");
+        } else {
+            fmt_ppm_x1000(drift_buf, sizeof(drift_buf), sys.freq_ppm_x1000);
+        }
+        if (sys.sync_count < 1) {
+            snprintf(age_buf, sizeof(age_buf), "--");
+        } else {
+            time_t now_t;
+            time(&now_t);
+            uint32_t age_sec = (now_t > sys.last_sync_time)
+                               ? (uint32_t)(now_t - sys.last_sync_time) : 0;
+            ui_fmt_duration(age_buf, sizeof(age_buf), age_sec);
+        }
+        segment_t segs[] = {
+            { drift_buf, COLOR_WHITE },
+            { "  Age: ", COLOR_GRAY  },
+            { age_buf,   COLOR_WHITE },
+        };
+        draw_segmented_field_cached(10, y, 2, "Drift: ", segs,
+                                    sizeof(segs) / sizeof(segs[0]));
+    }
+
+    // Row 3: Combined offset (what we slewed by) + combined jitter.
     // Both are system-level values - the selected peer's own offset/jitter
     // is already visible on its '*' row below, so no "Sel:" inline here.
     {
-        int y = SYS_Y_START + 2 * SYS_LINE_H;
+        int y = SYS_Y_START + 3 * SYS_LINE_H;
         char off_buf[20], jit_buf[16];
         if (sys.sync_count < 2) {
             snprintf(off_buf, sizeof(off_buf), "---");
@@ -339,21 +368,8 @@ static void refresh_dynamic(void) {
             { "  Jitter: ",  COLOR_GRAY  },
             { jit_buf,       COLOR_WHITE },
         };
-        draw_segmented_field_cached(10, y, 2, "Offset: ", segs,
+        draw_segmented_field_cached(10, y, 3, "Offset: ", segs,
                                     sizeof(segs) / sizeof(segs[0]));
-    }
-
-    // Row 3: Drift (crystal frequency estimate)
-    {
-        int y = SYS_Y_START + 3 * SYS_LINE_H;
-        if (sys.sync_count < 2) {
-            snprintf(val, sizeof(val), "---");
-        } else {
-            char drift_buf[16];
-            fmt_ppm_x1000(drift_buf, sizeof(drift_buf), sys.freq_ppm_x1000);
-            snprintf(val, sizeof(val), "%s", drift_buf);
-        }
-        draw_field_cached(10, y, 3, "Drift: ", val, COLOR_WHITE);
     }
 
     // Row 4: Root delay / dispersion
