@@ -675,6 +675,38 @@ static bool process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
     if (offset > 0x7FFFFFFF) offset = 0x7FFFFFFF;
     if (offset < -0x7FFFFFFF) offset = -0x7FFFFFFF;
 
+    // Huff-n-puff: when the current RTT is noticeably higher than the minimum
+    // we've seen recently from this peer, the excess is almost certainly in
+    // ONE direction (uplink saturation, ISP shaping, WiFi rate adaptation) -
+    // NTP's offset formula assumes symmetric paths, so asymmetry biases the
+    // offset by up to half the excess. Move offset toward zero by that amount
+    // (bounded so we don't overshoot zero). Uses the filter's 8-sample sliding
+    // window as the "recently good" reference.
+    //
+    // Guardrails (conservative - over-correcting is worse than no correction):
+    //   * Require >=3 prior samples so min_delay isn't a one-shot outlier.
+    //   * Only correct when delay > 1.5 * min_delay (ratio, not absolute) -
+    //     this triggers on any scale of path.
+    //   * Skip correction when delay > 3 * min_delay - a spike that large is
+    //     almost certainly a transient (packet loss, retransmit, burst), not
+    //     steady-state asymmetry; inferring direction from it is unreliable.
+    int32_t min_delay = INT32_MAX;
+    int valid_samples = 0;
+    for (int i = 0; i < NTP_FILTER_SIZE; i++) {
+        if (!p->filter[i].valid) continue;
+        valid_samples++;
+        if (p->filter[i].delay_us < min_delay) min_delay = p->filter[i].delay_us;
+    }
+    if (valid_samples >= 3 && min_delay > 0 &&
+        (int64_t)delay > (int64_t)min_delay * 3 / 2 &&
+        (int64_t)delay < (int64_t)min_delay * 3) {
+        int32_t excess     = (int32_t)delay - min_delay;
+        int32_t correction = excess / 2;
+        if (offset >  correction)      offset -= correction;
+        else if (offset < -correction) offset += correction;
+        else                           offset = 0;
+    }
+
     p->filter_head = (p->filter_head + 1) % NTP_FILTER_SIZE;
     p->filter[p->filter_head].offset_us    = (int32_t)offset;
     p->filter[p->filter_head].delay_us     = (int32_t)delay;
