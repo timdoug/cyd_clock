@@ -17,7 +17,7 @@
 #define COLOR_CYAN    0x07FF
 #define COLOR_YELLOW  0xFFE0
 #define COLOR_ORANGE  0xFD20
-#define COLOR_GRAY    0x8410
+#define COLOR_GRAY    0xAD55
 #define COLOR_DARKGRAY 0x4208
 
 // Initialize the ILI9341 display
