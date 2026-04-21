@@ -563,20 +563,27 @@ static void send_request(ntp_peer_t *p) {
     pkt.poll       = 6;
     pkt.precision  = -18;   // ~4 us
 
-    struct timeval t1;
-    gettimeofday(&t1, NULL);
-    uint32_t sec, frac;
-    tv_to_ntp(&t1, &sec, &frac);
-    frac ^= esp_random();   // random low bits -> replay protection / fingerprint
-
-    pkt.xmt_ts_sec  = htonl(sec);
-    pkt.xmt_ts_frac = htonl(frac);
-
     int sock = (p->addr.ss_family == AF_INET6) ? g.sock6 : g.sock4;
     if (sock < 0) return;
 
+    // Stamp xmt as close to sendto as we can - compose the packet with a
+    // placeholder first, then take t1_pre / sendto / t1_post around the
+    // call itself. We use the MIDPOINT of pre and post as the real t1 for
+    // offset computation, which halves the stack-transit bias vs capturing
+    // only before sendto. The packet's xmt field is composed with t1_pre
+    // (for correlation via orig-ts), which is fine since the server just
+    // echoes whatever we put there - it has no timing semantics.
+    struct timeval t1_pre, t1_post;
+    gettimeofday(&t1_pre, NULL);
+    uint32_t sec, frac;
+    tv_to_ntp(&t1_pre, &sec, &frac);
+    frac ^= esp_random();
+    pkt.xmt_ts_sec  = htonl(sec);
+    pkt.xmt_ts_frac = htonl(frac);
+
     ssize_t n = sendto(sock, &pkt, sizeof(pkt), 0,
                        (struct sockaddr *)&p->addr, p->addr_len);
+    gettimeofday(&t1_post, NULL);
     if (n != sizeof(pkt)) {
         ESP_LOGW(TAG, "sendto %s failed (errno=%d)", p->addr_str, errno);
         // Treat as a miss and advance the schedule so we don't spin-loop
@@ -588,7 +595,12 @@ static void send_request(ntp_peer_t *p) {
         return;
     }
 
-    p->t1 = t1;
+    // t1 = midpoint of pre-sendto and post-sendto gettimeofday.
+    int64_t t1_mid_us =
+        ((int64_t)t1_pre.tv_sec  * 1000000LL + t1_pre.tv_usec +
+         (int64_t)t1_post.tv_sec * 1000000LL + t1_post.tv_usec) / 2;
+    p->t1.tv_sec  = (time_t)(t1_mid_us / 1000000);
+    p->t1.tv_usec = (suseconds_t)(t1_mid_us % 1000000);
     p->xmt_sec_net  = pkt.xmt_ts_sec;
     p->xmt_frac_net = pkt.xmt_ts_frac;
     p->reach <<= 1;        // new poll starts with bit 0 = 0 until response
