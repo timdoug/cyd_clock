@@ -22,8 +22,17 @@ static const char *TAG = "ui_ntp_stats";
 #define PEER_Y_START  (PEER_HDR_Y + 18)
 #define PEER_LINE_H   18
 
+// Liveness indicator in the header - ticks every refresh so the user can tell
+// the screen is active even if all displayed stats are steady. Colors match
+// the header title so it looks part of the chrome. Padded equally on top,
+// bottom, and right edges of the blue bar.
+#define SPINNER_PAD   ((UI_HEADER_HEIGHT - FONT_CHAR_HEIGHT) / 2)
+#define SPINNER_X     (DISPLAY_WIDTH - FONT_CHAR_WIDTH - SPINNER_PAD)
+#define SPINNER_Y     SPINNER_PAD
+
 static uint32_t last_touch_time = 0;
 static uint32_t last_refresh_ms = 0;
+static uint8_t  spinner_frame   = 0;
 
 // Cached rendered line contents - skip repaint when unchanged, and when only
 // a few chars change, update just those cells instead of blanking the row.
@@ -238,6 +247,13 @@ static void draw_peer_row(int slot, const ntp_peer_stats_t *p) {
 }
 
 static void refresh_dynamic(void) {
+    // Tick the liveness spinner - redraw even if nothing else changes this
+    // cycle, so the screen visibly "breathes" once per second.
+    static const char spinner_chars[] = "|/-\\";
+    display_char(SPINNER_X, SPINNER_Y, spinner_chars[spinner_frame],
+                 COLOR_WHITE, UI_COLOR_HEADER);
+    spinner_frame = (spinner_frame + 1) & 3;
+
     ntp_sys_stats_t sys;
     ntp_get_sys_stats(&sys);
     const char *server = sys.server ? sys.server : "?";
@@ -336,6 +352,7 @@ void ui_ntp_stats_init(void) {
     ESP_LOGI(TAG, "Opening NTP stats");
     last_touch_time = 0;
     last_refresh_ms = 0;
+    spinner_frame = 0;
     for (int i = 0; i < SYS_ROWS; i++) last_sys_row[i][0] = '\0';
     for (int i = 0; i < NTP_MAX_PEERS; i++) last_peer_row[i][0] = '\0';
     draw_static_chrome();
