@@ -241,7 +241,13 @@ static void draw_peer_row(int slot, const ntp_peer_stats_t *p) {
 
         char off_buf[10], delay_buf[8], jitter_buf[8], reach_buf[3];
         snprintf(reach_buf, sizeof(reach_buf), "%02x", p->reach);
-        if (p->reach) {
+        // A reachable peer with absurdly large jitter is the cold-boot
+        // first-sync peer - its response was used for settimeofday but its
+        // filter was deliberately left empty (pre-step t1 would have produced
+        // a garbage sample). Show "---" until its next poll produces a real
+        // measurement.
+        bool has_sample = p->reach && p->jitter_us < 1000000;  // < 1 s
+        if (has_sample) {
             fmt_offset_us(off_buf, sizeof(off_buf), p->offset_us);
             fmt_unsigned_compact(delay_buf,  sizeof(delay_buf),  (uint32_t)p->delay_us);
             fmt_unsigned_compact(jitter_buf, sizeof(jitter_buf), (uint32_t)p->jitter_us);
