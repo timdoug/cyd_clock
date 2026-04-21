@@ -555,10 +555,6 @@ static void send_request(ntp_peer_t *p) {
     p->reach <<= 1;        // new poll starts with bit 0 = 0 until response
     p->request_outstanding = true;
     p->request_sent_ms     = mono_ms();
-    ESP_LOGI(TAG, "SEND peer=%s reach=%02x next_in=%lds poll_s=%lu",
-             p->addr_str, p->reach,
-             (long)((int32_t)(p->next_poll_ms - p->request_sent_ms) / 1000),
-             (unsigned long)g.current_poll_s);
 }
 
 // ---------- filter ----------
@@ -598,9 +594,6 @@ static void update_peer_filter(ntp_peer_t *p) {
         p->jitter_us = newest->delay_us / 2;
     }
     p->dispersion_us = newest->dispersion_us + p->jitter_us;
-    ESP_LOGI(TAG, "FILTER peer=%s valid=%d reach=%02x off=%+ldus delay=%ldus jitter=%ldus",
-             p->addr_str, valid, p->reach,
-             (long)p->best_offset_us, (long)p->best_delay_us, (long)p->jitter_us);
 }
 
 // ---------- response processing ----------
@@ -806,7 +799,6 @@ static void select_system_peer(void) {
     if (chosen < 0) { g.selected_peer = -1; g.stratum = 16; return; }
 
     ntp_peer_t *sp = &g.peers[chosen];
-    int prev = g.selected_peer;
     g.selected_peer     = chosen;
     g.stratum           = (sp->stratum < 15) ? sp->stratum + 1 : 15;
     g.root_delay_us     = fp1616_to_us(sp->root_delay_raw) + sp->best_delay_us;
@@ -839,9 +831,6 @@ static void select_system_peer(void) {
         }
     }
     g.root_dispersion_us = fp1616_to_us(sp->root_dispersion_raw) + sp->dispersion_us;
-    ESP_LOGI(TAG, "SELECT candidates=%d survivors=%d chosen=%s jitter=%ldus%s",
-             n, best_count, sp->addr_str, (long)sp->jitter_us,
-             prev != chosen ? " (CHANGED)" : "");
 }
 
 // ---------- discipline ----------
@@ -918,8 +907,6 @@ static void adaptive_poll_update(void) {
 
     ntp_peer_t *sp = (g.selected_peer >= 0) ? &g.peers[g.selected_peer] : NULL;
     bool good = sp && (sp->reach & 0x01) && g.system_jitter_us < JITTER_MAX_US;
-    uint32_t prev_poll = g.current_poll_s;
-    int8_t   prev_adj  = g.poll_adjust;
 
     if (good) {
         if (g.poll_adjust < 0) g.poll_adjust = 0;
@@ -939,15 +926,6 @@ static void adaptive_poll_update(void) {
 
     if (g.current_poll_s < MIN_POLL_S) g.current_poll_s = MIN_POLL_S;
     if (g.current_poll_s > MAX_POLL_S) g.current_poll_s = MAX_POLL_S;
-
-    const char *why = good ? "good" : "bad";
-    const char *why2 = "";
-    if (!sp) why2 = " no_sel";
-    else if (!(sp->reach & 0x01)) why2 = " reach_miss";
-    else if (g.system_jitter_us >= JITTER_MAX_US) why2 = " jitter_hi";
-    ESP_LOGI(TAG, "POLL_ADJ %s%s jitter=%ldus adj:%d->%d poll:%lu->%lu",
-             why, why2, (long)g.system_jitter_us, prev_adj, g.poll_adjust,
-             (unsigned long)prev_poll, (unsigned long)g.current_poll_s);
 }
 
 // ---------- frequency correction ----------
@@ -1037,19 +1015,13 @@ static void handle_socket_readable(int sock) {
         select_system_peer();
         uint32_t now = mono_ms();
         bool is_selected = (g.selected_peer >= 0 && &g.peers[g.selected_peer] == p);
-        int32_t since_disc_ms = (int32_t)(now - g.last_discipline_ms);
         bool due = (g.last_discipline_ms == 0) ||
-                   since_disc_ms >= (int32_t)(g.current_poll_s * 500);
+                   (int32_t)(now - g.last_discipline_ms) >= (int32_t)(g.current_poll_s * 500);
         if (is_selected && due) {
             g.last_discipline_ms = now;
             discipline_clock(g.combined_offset_us);
             adaptive_poll_update();
-        } else {
-            ESP_LOGI(TAG, "DISC_SKIP peer=%s is_sel=%d due=%d since_disc=%ldms",
-                     p->addr_str, is_selected, due, (long)since_disc_ms);
         }
-    } else {
-        ESP_LOGI(TAG, "NOT_OK peer=%s reach=%02x", p->addr_str, p->reach);
     }
 }
 
