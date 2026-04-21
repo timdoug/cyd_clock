@@ -326,7 +326,7 @@ static void refresh_dynamic(void) {
     // sets the clock (sync_count >= 1).
     {
         int y = SYS_Y_START + 2 * SYS_LINE_H;
-        char drift_buf[16], age_buf[8];
+        char drift_buf[16], age_buf[16];
         if (sys.sync_count < 2) {
             snprintf(drift_buf, sizeof(drift_buf), "---");
         } else {
@@ -339,7 +339,7 @@ static void refresh_dynamic(void) {
             time(&now_t);
             uint32_t age_sec = (now_t > sys.last_sync_time)
                                ? (uint32_t)(now_t - sys.last_sync_time) : 0;
-            ui_fmt_duration(age_buf, sizeof(age_buf), age_sec);
+            ui_fmt_duration_full(age_buf, sizeof(age_buf), age_sec);
         }
         segment_t segs[] = {
             { drift_buf, COLOR_WHITE },

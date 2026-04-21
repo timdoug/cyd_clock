@@ -122,3 +122,23 @@ void ui_fmt_duration(char *buf, size_t len, uint32_t seconds) {
     else if (seconds < 86400) snprintf(buf, len, "%luh", (unsigned long)(seconds / 3600));
     else                      snprintf(buf, len, "%lud", (unsigned long)(seconds / 86400));
 }
+
+void ui_fmt_duration_full(char *buf, size_t len, uint32_t seconds) {
+    if (seconds < 60) {
+        snprintf(buf, len, "%lus", (unsigned long)seconds);
+    } else if (seconds < 3600) {
+        snprintf(buf, len, "%lum %lus",
+                 (unsigned long)(seconds / 60),
+                 (unsigned long)(seconds % 60));
+    } else if (seconds < 86400) {
+        snprintf(buf, len, "%luh %lum %lus",
+                 (unsigned long)(seconds / 3600),
+                 (unsigned long)((seconds % 3600) / 60),
+                 (unsigned long)(seconds % 60));
+    } else {
+        snprintf(buf, len, "%lud %luh %lum",
+                 (unsigned long)(seconds / 86400),
+                 (unsigned long)((seconds % 86400) / 3600),
+                 (unsigned long)((seconds % 3600) / 60));
+    }
+}

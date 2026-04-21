@@ -76,4 +76,12 @@ bool ui_read_touch(touch_point_t *touch, uint32_t *last_time_ticks);
 //   else    -> "Xd"
 void ui_fmt_duration(char *buf, size_t len, uint32_t seconds);
 
+// Compound form that always carries seconds granularity:
+//   <60s    -> "Xs"
+//   <3600   -> "Xm Ys"
+//   <86400  -> "Xh Ym Zs"
+//   else    -> "Xd Yh Zm"
+// Worst case 11 chars ("23h 59m 59s").
+void ui_fmt_duration_full(char *buf, size_t len, uint32_t seconds);
+
 #endif // UI_COMMON_H
