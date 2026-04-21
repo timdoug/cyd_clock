@@ -25,12 +25,10 @@ static int retry_count = 0;
 
 // Config tracked here; runtime NTP state lives in ntp.c
 static struct {
-    uint32_t interval;
-    char     custom_server[64];
-    bool     prefer_ipv6;
-    bool     started;
+    char custom_server[64];
+    bool prefer_ipv6;
+    bool started;
 } ntp_cfg = {
-    .interval = NTP_DEFAULT_INTERVAL_SEC,
     .custom_server = DEFAULT_NTP_SERVER,
     .prefer_ipv6 = false,
     .started = false,
@@ -210,17 +208,14 @@ bool wifi_is_connected(void) {
 
 void wifi_start_ntp(void) {
     const char *server = wifi_get_custom_ntp_server();
-    ESP_LOGI(TAG, "Starting NTP (server: %s, max interval: %lu sec, ipv6: %s)",
-             server, (unsigned long)ntp_cfg.interval,
-             ntp_cfg.prefer_ipv6 ? "yes" : "no");
+    ESP_LOGI(TAG, "Starting NTP (server: %s, ipv6: %s)",
+             server, ntp_cfg.prefer_ipv6 ? "yes" : "no");
 
     if (ntp_cfg.started) {
         ntp_set_server(server);
-        ntp_set_max_interval(ntp_cfg.interval);
         ntp_set_prefer_ipv6(ntp_cfg.prefer_ipv6);
-        ntp_force_sync();
     } else {
-        ntp_init(server, ntp_cfg.interval, ntp_cfg.prefer_ipv6);
+        ntp_init(server, ntp_cfg.prefer_ipv6);
         ntp_cfg.started = true;
     }
 }
@@ -232,29 +227,6 @@ void wifi_set_timezone(const char *tz) {
     tzset();
 }
 
-void wifi_get_ntp_stats(ntp_stats_t *stats) {
-    ntp_sys_stats_t s = {0};
-    if (ntp_cfg.started) ntp_get_sys_stats(&s);
-
-    stats->synced          = s.synced;
-    stats->last_sync_time  = s.last_sync_time;
-    stats->sync_count      = s.sync_count;
-    stats->sync_interval   = ntp_cfg.interval;
-    stats->sync_elapsed_ms = s.sync_elapsed_ms;
-    stats->last_offset_ms  = s.last_offset_us / 1000;
-    stats->server          = wifi_get_custom_ntp_server();
-}
-
-void wifi_set_ntp_interval(uint32_t seconds) {
-    if (seconds < NTP_MIN_INTERVAL_SEC) seconds = NTP_MIN_INTERVAL_SEC;
-    ntp_cfg.interval = seconds;
-    if (ntp_cfg.started) ntp_set_max_interval(seconds);
-}
-
-void wifi_force_ntp_sync(void) {
-    if (ntp_cfg.started) ntp_force_sync();
-}
-
 
 const char *wifi_get_custom_ntp_server(void) {
     return ntp_cfg.custom_server[0] ? ntp_cfg.custom_server : DEFAULT_NTP_SERVER;
@@ -264,10 +236,6 @@ void wifi_set_custom_ntp_server(const char *server) {
     strncpy(ntp_cfg.custom_server, server, sizeof(ntp_cfg.custom_server) - 1);
     ntp_cfg.custom_server[sizeof(ntp_cfg.custom_server) - 1] = '\0';
     if (ntp_cfg.started) ntp_set_server(wifi_get_custom_ntp_server());
-}
-
-uint32_t wifi_get_ntp_interval(void) {
-    return ntp_cfg.interval;
 }
 
 bool wifi_get_ntp_prefer_ipv6(void) {

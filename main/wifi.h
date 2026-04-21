@@ -15,17 +15,6 @@ typedef struct {
     uint8_t authmode;  // 0 = open, other = secured
 } wifi_network_t;
 
-// NTP statistics
-typedef struct {
-    bool synced;              // Whether time has been synced at least once
-    time_t last_sync_time;    // Unix timestamp of last successful sync
-    uint32_t sync_count;      // Total number of successful syncs
-    uint32_t sync_interval;   // Current sync interval in seconds
-    uint32_t sync_elapsed_ms; // Milliseconds since sync attempt started (when not synced)
-    int64_t last_offset_ms;   // Clock offset at last sync in milliseconds
-    const char *server;       // Current NTP server name
-} ntp_stats_t;
-
 // Initialize WiFi subsystem
 void wifi_init(void);
 
@@ -43,19 +32,6 @@ bool wifi_is_connected(void);
 
 // Start NTP time sync
 void wifi_start_ntp(void);
-
-
-// Get NTP statistics
-void wifi_get_ntp_stats(ntp_stats_t *stats);
-
-// Set NTP sync interval (in seconds, minimum 15)
-void wifi_set_ntp_interval(uint32_t seconds);
-
-// Get NTP sync interval
-uint32_t wifi_get_ntp_interval(void);
-
-// Force an immediate NTP sync
-void wifi_force_ntp_sync(void);
 
 // NTP server management
 const char *wifi_get_custom_ntp_server(void);

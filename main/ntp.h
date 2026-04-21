@@ -21,13 +21,12 @@ typedef struct {
     uint32_t last_response_ms; // ms since last valid response (UINT32_MAX if never)
 } ntp_peer_stats_t;
 
-// System-wide NTP statistics (extends the original ntp_stats_t fields)
+// System-wide NTP statistics
 typedef struct {
     bool     synced;
     time_t   last_sync_time;
     uint32_t sync_count;
-    uint32_t sync_interval;    // Maximum poll interval (user setting)
-    uint32_t current_poll_s;   // Currently active poll interval
+    uint32_t current_poll_s;   // Currently active adaptive poll interval
     uint32_t sync_elapsed_ms;  // ms since sync attempt started (pre-first-sync)
     int64_t  last_offset_us;   // Offset applied at last discipline step
     int32_t  system_jitter_us;
@@ -40,13 +39,11 @@ typedef struct {
 } ntp_sys_stats_t;
 
 // Lifecycle
-void ntp_init(const char *server, uint32_t max_interval_sec, bool prefer_ipv6);
+void ntp_init(const char *server, bool prefer_ipv6);
 void ntp_stop(void);
-void ntp_force_sync(void);
 
-// Configuration (takes effect on next poll cycle)
+// Configuration (takes effect on next poll cycle; triggers a re-sync internally)
 void ntp_set_server(const char *server);
-void ntp_set_max_interval(uint32_t seconds);
 void ntp_set_prefer_ipv6(bool prefer);
 
 // Stats

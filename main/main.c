@@ -121,10 +121,6 @@ void app_main(void) {
     if (nvs_config_get_custom_ntp_server(custom_ntp)) {
         wifi_set_custom_ntp_server(custom_ntp);
     }
-    uint32_t ntp_interval;
-    if (nvs_config_get_ntp_interval(&ntp_interval)) {
-        wifi_set_ntp_interval(ntp_interval);
-    }
     bool ntp_ipv6;
     if (nvs_config_get_ntp_ipv6(&ntp_ipv6)) {
         wifi_set_ntp_prefer_ipv6(ntp_ipv6);
@@ -303,10 +299,6 @@ void app_main(void) {
                     app_state = APP_STATE_SETTINGS;
                     ui_settings_init();
                     ui_wait_for_touch_release();
-                } else if (result == NTP_RESULT_SYNCED) {
-                    app_state = APP_STATE_CLOCK;
-                    ui_clock_init();
-                    ui_clock_redraw();
                 }
                 break;
             }
@@ -318,6 +310,12 @@ void app_main(void) {
                     ui_clock_init();
                     ui_clock_redraw();
                     ui_wait_for_touch_release();
+                } else if (result == NTP_STATS_RESULT_SETTINGS) {
+                    app_state = APP_STATE_SETTINGS;
+                    ui_settings_init();
+                    while (gpio_get_level(BOOT_BUTTON_GPIO) == 0) {
+                        vTaskDelay(pdMS_TO_TICKS(TOUCH_RELEASE_POLL_MS));
+                    }
                 }
                 break;
             }

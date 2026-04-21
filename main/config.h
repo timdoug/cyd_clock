@@ -62,10 +62,6 @@
 #define POLL_NORMAL_MS      20   // Normal polling
 #define POLL_THRESHOLD_MS   900  // When to switch to fast polling
 
-// NTP defaults
-#define NTP_MIN_INTERVAL_SEC    15
-#define NTP_DEFAULT_INTERVAL_SEC 86400  // 24 hours
-
 // WiFi
 #define WIFI_MAX_RETRY      5
 #define WIFI_CONNECT_TIMEOUT_MS 15000

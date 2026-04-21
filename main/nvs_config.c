@@ -121,25 +121,6 @@ void nvs_config_set_brightness(uint8_t brightness) {
     nvs_commit_and_close(handle);
 }
 
-bool nvs_config_get_ntp_interval(uint32_t *interval) {
-    nvs_handle_t handle;
-    if (!nvs_open_read(&handle)) {
-        return false;
-    }
-
-    esp_err_t err = nvs_get_u32(handle, "ntp_interval", interval);
-    nvs_close(handle);
-    return err == ESP_OK;
-}
-
-void nvs_config_set_ntp_interval(uint32_t interval) {
-    nvs_handle_t handle;
-    if (!nvs_open_write(&handle)) return;
-
-    ESP_ERROR_CHECK(nvs_set_u32(handle, "ntp_interval", interval));
-    nvs_commit_and_close(handle);
-}
-
 bool nvs_config_get_custom_ntp_server(char *server) {
     nvs_handle_t handle;
     if (!nvs_open_read(&handle)) {

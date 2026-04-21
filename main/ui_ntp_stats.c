@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include "driver/gpio.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -83,6 +84,77 @@ static void diff_paint(int x, int y, const char *old_text, const char *new_text,
     }
 }
 
+// A colored text segment, used to render rows that mix gray inline labels
+// ("Syncs:", "Jitter:") with white values on a single line.
+typedef struct {
+    const char *text;
+    uint16_t    color;
+} segment_t;
+
+// Flatten segments into a contiguous text + parallel per-char color array.
+static size_t flatten_segments(const segment_t *segs, int nsegs,
+                               char *text_out, uint16_t *colors_out, size_t cap) {
+    size_t pos = 0;
+    for (int i = 0; i < nsegs; i++) {
+        size_t len = strlen(segs[i].text);
+        for (size_t j = 0; j < len && pos + 1 < cap; j++) {
+            text_out[pos]   = segs[i].text[j];
+            colors_out[pos] = segs[i].color;
+            pos++;
+        }
+    }
+    text_out[pos] = '\0';
+    return pos;
+}
+
+// Color-per-character variant of diff_paint for multi-colored rows.
+static void diff_paint_multicolor(int x, int y,
+                                  const char *old_text, const char *new_text,
+                                  const uint16_t *new_colors,
+                                  uint16_t bg, bool force_full) {
+    size_t old_len = strlen(old_text);
+    size_t new_len = strlen(new_text);
+    size_t min_len = new_len < old_len ? new_len : old_len;
+
+    for (size_t i = 0; i < min_len; i++) {
+        if (force_full || old_text[i] != new_text[i]) {
+            display_char(x + (int)i * FONT_CHAR_WIDTH, y,
+                         new_text[i], new_colors[i], bg);
+        }
+    }
+    for (size_t i = min_len; i < new_len; i++) {
+        display_char(x + (int)i * FONT_CHAR_WIDTH, y,
+                     new_text[i], new_colors[i], bg);
+    }
+    if (old_len > new_len) {
+        display_fill_rect(x + (int)new_len * FONT_CHAR_WIDTH, y,
+                          (int)(old_len - new_len) * FONT_CHAR_WIDTH,
+                          FONT_CHAR_HEIGHT, bg);
+    }
+}
+
+static void draw_segmented_field_cached(int x, int y, int row_idx,
+                                        const char *label,
+                                        const segment_t *segs, int nsegs) {
+    char     text[96];
+    uint16_t colors[96];
+    flatten_segments(segs, nsegs, text, colors, sizeof(text));
+
+    char *cache = last_sys_row[row_idx];
+    bool first_time = (cache[0] == '\0');
+    if (!first_time && strcmp(cache, text) == 0) return;
+
+    int vx = x + (int)strlen(label) * FONT_CHAR_WIDTH;
+    if (first_time) {
+        display_string(x, y, label, COLOR_GRAY, COLOR_BLACK);
+    }
+    diff_paint_multicolor(vx, y, cache, text, colors, COLOR_BLACK, first_time);
+
+    strncpy(cache, text, sizeof(last_sys_row[row_idx]) - 1);
+    cache[sizeof(last_sys_row[row_idx]) - 1] = '\0';
+    last_sys_color[row_idx] = 0;   // unused for segmented rows
+}
+
 // Draw "label: value" at (x, y) with per-row caching + char-level diff so
 // only changed cells get written. Label is painted once when the cache is
 // empty; value is diffed against the previous render.
@@ -111,7 +183,7 @@ static void draw_field_cached(int x, int y, int row_idx,
 
 static void draw_static_chrome(void) {
     display_fill(COLOR_BLACK);
-    ui_draw_header("NTP Stats", true);
+    ui_draw_header("NTP Stats", false);
     // Peer section divider label
     display_fill_rect(0, PEER_HDR_Y, DISPLAY_WIDTH, FONT_CHAR_HEIGHT, COLOR_BLACK);
     ui_draw_centered_string(PEER_HDR_Y, "--- Peers ---", COLOR_GRAY, COLOR_BLACK, false);
@@ -183,30 +255,43 @@ static void refresh_dynamic(void) {
     // Row 1: Stratum / sync count / poll
     {
         int y = SYS_Y_START + SYS_LINE_H;
-        char poll_buf[16];
+        char poll_buf[16], syncs_buf[16], strat_buf[16];
         fmt_duration(poll_buf, sizeof(poll_buf), sys.current_poll_s);
+        snprintf(syncs_buf, sizeof(syncs_buf), "%lu", (unsigned long)sys.sync_count);
         if (sys.synced) {
-            snprintf(val, sizeof(val), "%u   syncs %lu   poll %s",
-                     sys.stratum, (unsigned long)sys.sync_count, poll_buf);
+            snprintf(strat_buf, sizeof(strat_buf), "%u", sys.stratum);
         } else {
-            snprintf(val, sizeof(val), "unsynced   syncs %lu   poll %s",
-                     (unsigned long)sys.sync_count, poll_buf);
+            snprintf(strat_buf, sizeof(strat_buf), "unsynced");
         }
-        draw_field_cached(10, y, 1, "Stratum: ", val, COLOR_WHITE);
+        segment_t segs[] = {
+            { strat_buf,     COLOR_WHITE },
+            { "   Syncs: ",  COLOR_GRAY  },
+            { syncs_buf,     COLOR_WHITE },
+            { "   Poll: ",   COLOR_GRAY  },
+            { poll_buf,      COLOR_WHITE },
+        };
+        draw_segmented_field_cached(10, y, 1, "Stratum: ", segs,
+                                    sizeof(segs) / sizeof(segs[0]));
     }
 
     // Row 2: Offset / jitter
     {
         int y = SYS_Y_START + 2 * SYS_LINE_H;
+        char off_buf[20], jit_buf[16];
         if (sys.sync_count < 2) {
-            snprintf(val, sizeof(val), "---       jitter ---");
+            snprintf(off_buf, sizeof(off_buf), "---");
+            snprintf(jit_buf, sizeof(jit_buf), "---");
         } else {
-            char off_buf[20], jit_buf[16];
             fmt_offset_us(off_buf, sizeof(off_buf), sys.last_offset_us);
             fmt_offset_us(jit_buf, sizeof(jit_buf), sys.system_jitter_us);
-            snprintf(val, sizeof(val), "%s  jit %s", off_buf, jit_buf);
         }
-        draw_field_cached(10, y, 2, "Offset: ", val, COLOR_WHITE);
+        segment_t segs[] = {
+            { off_buf,       COLOR_WHITE },
+            { "  Jitter: ",  COLOR_GRAY  },
+            { jit_buf,       COLOR_WHITE },
+        };
+        draw_segmented_field_cached(10, y, 2, "Offset: ", segs,
+                                    sizeof(segs) / sizeof(segs[0]));
     }
 
     // Row 3: Drift (crystal frequency estimate)
@@ -258,10 +343,12 @@ void ui_ntp_stats_init(void) {
 }
 
 ntp_stats_result_t ui_ntp_stats_update(void) {
+    // BOOT button opens settings (same behavior as from the clock screen)
+    if (gpio_get_level(BOOT_BUTTON_GPIO) == 0) {
+        return NTP_STATS_RESULT_SETTINGS;
+    }
     touch_point_t touch;
-    bool touched = ui_read_touch(&touch, &last_touch_time);
-    if (touched && touch.y < UI_HEADER_HEIGHT &&
-        touch.x < UI_BACK_BTN_X + UI_BACK_BTN_W) {
+    if (ui_read_touch(&touch, &last_touch_time)) {
         return NTP_STATS_RESULT_BACK;
     }
 

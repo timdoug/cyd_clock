@@ -4,6 +4,7 @@
 typedef enum {
     NTP_STATS_RESULT_NONE,
     NTP_STATS_RESULT_BACK,
+    NTP_STATS_RESULT_SETTINGS,
 } ntp_stats_result_t;
 
 void ui_ntp_stats_init(void);

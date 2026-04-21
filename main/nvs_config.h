@@ -25,8 +25,6 @@ void nvs_config_set_brightness(uint8_t brightness);
 
 // NTP settings
 #define MAX_NTP_SERVER_LEN 64
-bool nvs_config_get_ntp_interval(uint32_t *interval);
-void nvs_config_set_ntp_interval(uint32_t interval);
 bool nvs_config_get_custom_ntp_server(char *server);
 void nvs_config_set_custom_ntp_server(const char *server);
 

@@ -29,6 +29,7 @@ static const char *TAG = "ntp";
 
 // Timing
 #define MIN_POLL_S           32
+#define MAX_POLL_S           1024    // hard ceiling on adaptive poll growth
 #define RESPONSE_TIMEOUT_MS  2500
 #define STEP_THRESHOLD_US    (128LL * 1000)
 #define PANIC_THRESHOLD_S    1000
@@ -98,7 +99,6 @@ typedef struct {
 static struct {
     char     server[64];
     bool     prefer_ipv6;
-    uint32_t max_interval_s;
     uint32_t current_poll_s;
 
     ntp_peer_t peers[NTP_MAX_PEERS];
@@ -710,7 +710,7 @@ static void adaptive_poll_update(void) {
     if (good) {
         if (g.poll_adjust < 0) g.poll_adjust = 0;
         g.poll_adjust++;
-        if (g.poll_adjust >= GOOD_RUN && g.current_poll_s < g.max_interval_s) {
+        if (g.poll_adjust >= GOOD_RUN && g.current_poll_s < MAX_POLL_S) {
             g.current_poll_s *= 2;
             g.poll_adjust = 0;
         }
@@ -724,7 +724,7 @@ static void adaptive_poll_update(void) {
     }
 
     if (g.current_poll_s < MIN_POLL_S) g.current_poll_s = MIN_POLL_S;
-    if (g.current_poll_s > g.max_interval_s) g.current_poll_s = g.max_interval_s;
+    if (g.current_poll_s > MAX_POLL_S) g.current_poll_s = MAX_POLL_S;
 
     const char *why = good ? "good" : "bad";
     const char *why2 = "";
@@ -927,13 +927,12 @@ static void ntp_task(void *arg) {
 
 // ---------- public API ----------
 
-void ntp_init(const char *server, uint32_t max_interval_sec, bool prefer_ipv6) {
+void ntp_init(const char *server, bool prefer_ipv6) {
     if (g.running) ntp_stop();
     if (!g.lock) g.lock = xSemaphoreCreateMutex();
 
     strncpy(g.server, server ? server : "pool.ntp.org", sizeof(g.server) - 1);
     g.server[sizeof(g.server) - 1] = '\0';
-    g.max_interval_s = max_interval_sec ? max_interval_sec : 86400;
     g.prefer_ipv6    = prefer_ipv6;
     g.current_poll_s = MIN_POLL_S;
     g.first_sync_done = false;
@@ -952,18 +951,6 @@ void ntp_stop(void) {
     // The task polls `running` after each select cycle.
 }
 
-void ntp_force_sync(void) {
-    if (!g.lock) return;
-    lock_take();
-    g.force_sync = true;
-    for (int i = 0; i < NTP_MAX_PEERS; i++) {
-        g.peers[i].next_poll_ms = mono_ms();
-    }
-    g.sync_start_ms = mono_ms();
-    g.first_sync_done = false;   // show "Syncing..." until next success
-    lock_give();
-}
-
 void ntp_set_server(const char *server) {
     if (!g.lock || !server) return;
     lock_take();
@@ -971,15 +958,6 @@ void ntp_set_server(const char *server) {
     g.server[sizeof(g.server) - 1] = '\0';
     g.dirty_config = true;
     g.force_sync   = true;
-    lock_give();
-}
-
-void ntp_set_max_interval(uint32_t seconds) {
-    if (!g.lock) return;
-    if (seconds < MIN_POLL_S) seconds = MIN_POLL_S;
-    lock_take();
-    g.max_interval_s = seconds;
-    if (g.current_poll_s > seconds) g.current_poll_s = seconds;
     lock_give();
 }
 
@@ -1003,7 +981,6 @@ void ntp_get_sys_stats(ntp_sys_stats_t *out) {
     out->synced         = g.first_sync_done;
     out->last_sync_time = g.last_sync_time;
     out->sync_count     = g.sync_count;
-    out->sync_interval  = g.max_interval_s;
     out->current_poll_s = g.current_poll_s;
     out->sync_elapsed_ms = g.first_sync_done ? 0 : (mono_ms() - g.sync_start_ms);
     out->last_offset_us = g.last_offset_us;
