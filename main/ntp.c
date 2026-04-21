@@ -1090,6 +1090,11 @@ static void ntp_task(void *arg) {
             // any peer responds, we'll retrigger after threshold_ms if the new
             // set of IPs is also silent (e.g. DNS gave stale results).
             g.last_any_response_ms = mono_ms();
+            // Reset adaptive poll so the new peer set gets a fresh ramp.
+            // Crystal drift estimate (freq_ppm_x1000) is hardware-intrinsic
+            // and stays, so we don't lose inter-poll accuracy during re-sync.
+            g.current_poll_s = MIN_POLL_S;
+            g.poll_adjust    = 0;
         }
         if (!open_sockets()) {
             lock_give();
