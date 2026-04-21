@@ -34,7 +34,7 @@ static const char *TAG = "ntp";
 #define STEP_THRESHOLD_US    (128LL * 1000)
 #define PANIC_THRESHOLD_S    1000
 #define KOD_BACKOFF_MS       (3600UL * 1000)
-#define IDLE_WAKE_MS         60000
+#define IDLE_WAKE_MS         5000
 
 // Discipline gains (integer shifts, i.e. powers of two)
 #define PLL_KI_SHIFT         6            // freq integrator gain = 1/64
@@ -124,6 +124,11 @@ static struct {
     int      sock4;
     int      sock6;
 
+    // Loopback UDP socket used as a self-pipe to break the select() sleep
+    // when config changes from another task. Any byte received is drained.
+    int      wake_sock;
+    uint16_t wake_port;
+
     TaskHandle_t task;
     SemaphoreHandle_t lock;
     bool     running;
@@ -132,6 +137,7 @@ static struct {
 } g = {
     .selected_peer = -1,
     .stratum = 16,
+    .wake_sock = -1,
     .sock4 = -1,
     .sock6 = -1,
 };
@@ -447,6 +453,46 @@ static bool open_sockets(void) {
 static void close_sockets(void) {
     if (g.sock4 >= 0) { close(g.sock4); g.sock4 = -1; }
     if (g.sock6 >= 0) { close(g.sock6); g.sock6 = -1; }
+}
+
+// ---------- task wake (self-pipe over loopback UDP) ----------
+
+static void open_wake_sock(void) {
+    if (g.wake_sock >= 0) return;
+    int s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (s < 0) return;
+    struct sockaddr_in addr = {
+        .sin_family      = AF_INET,
+        .sin_port        = 0,
+        .sin_addr.s_addr = htonl(INADDR_LOOPBACK),
+    };
+    if (bind(s, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
+        close(s);
+        return;
+    }
+    socklen_t len = sizeof(addr);
+    getsockname(s, (struct sockaddr *)&addr, &len);
+    g.wake_sock = s;
+    g.wake_port = ntohs(addr.sin_port);
+}
+
+// Signal the ntp task to break out of select() immediately. Safe to call
+// from any task; lwip serializes socket ops internally.
+static void wake_task(void) {
+    if (g.wake_sock < 0 || g.wake_port == 0) return;
+    struct sockaddr_in dst = {
+        .sin_family      = AF_INET,
+        .sin_port        = htons(g.wake_port),
+        .sin_addr.s_addr = htonl(INADDR_LOOPBACK),
+    };
+    uint8_t byte = 1;
+    sendto(g.wake_sock, &byte, 1, 0, (struct sockaddr *)&dst, sizeof(dst));
+}
+
+static void drain_wake_sock(void) {
+    if (g.wake_sock < 0) return;
+    uint8_t buf[16];
+    while (recv(g.wake_sock, buf, sizeof(buf), MSG_DONTWAIT) > 0) {}
 }
 
 // ---------- send ----------
@@ -898,6 +944,7 @@ static void ntp_task(void *arg) {
     (void)arg;
     g.sync_start_ms = mono_ms();
     g.current_poll_s = MIN_POLL_S;
+    open_wake_sock();
 
     while (g.running) {
         lock_take();
@@ -996,8 +1043,9 @@ static void ntp_task(void *arg) {
         fd_set rfds;
         FD_ZERO(&rfds);
         int maxfd = -1;
-        if (g.sock4 >= 0) { FD_SET(g.sock4, &rfds); if (g.sock4 > maxfd) maxfd = g.sock4; }
-        if (g.sock6 >= 0) { FD_SET(g.sock6, &rfds); if (g.sock6 > maxfd) maxfd = g.sock6; }
+        if (g.sock4 >= 0)     { FD_SET(g.sock4, &rfds);     if (g.sock4 > maxfd)     maxfd = g.sock4; }
+        if (g.sock6 >= 0)     { FD_SET(g.sock6, &rfds);     if (g.sock6 > maxfd)     maxfd = g.sock6; }
+        if (g.wake_sock >= 0) { FD_SET(g.wake_sock, &rfds); if (g.wake_sock > maxfd) maxfd = g.wake_sock; }
 
         uint32_t wait_ms = (int32_t)(next_wake - now) > 0 ? (next_wake - now) : 0;
         if (wait_ms > IDLE_WAKE_MS) wait_ms = IDLE_WAKE_MS;
@@ -1012,8 +1060,9 @@ static void ntp_task(void *arg) {
 
         if (sr > 0) {
             lock_take();
-            if (g.sock4 >= 0 && FD_ISSET(g.sock4, &rfds)) handle_socket_readable(g.sock4);
-            if (g.sock6 >= 0 && FD_ISSET(g.sock6, &rfds)) handle_socket_readable(g.sock6);
+            if (g.sock4 >= 0     && FD_ISSET(g.sock4, &rfds))     handle_socket_readable(g.sock4);
+            if (g.sock6 >= 0     && FD_ISSET(g.sock6, &rfds))     handle_socket_readable(g.sock6);
+            if (g.wake_sock >= 0 && FD_ISSET(g.wake_sock, &rfds)) drain_wake_sock();
             lock_give();
         }
     }
@@ -1056,17 +1105,20 @@ void ntp_set_server(const char *server) {
     g.dirty_config = true;
     g.force_sync   = true;
     lock_give();
+    wake_task();
 }
 
 void ntp_set_prefer_ipv6(bool prefer) {
     if (!g.lock) return;
     lock_take();
-    if (g.prefer_ipv6 != prefer) {
+    bool changed = (g.prefer_ipv6 != prefer);
+    if (changed) {
         g.prefer_ipv6 = prefer;
         g.dirty_config = true;
         g.force_sync   = true;
     }
     lock_give();
+    if (changed) wake_task();
 }
 
 void ntp_get_sys_stats(ntp_sys_stats_t *out) {
