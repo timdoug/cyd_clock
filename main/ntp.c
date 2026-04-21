@@ -683,24 +683,27 @@ static bool process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
     if (fp1616_to_us(ntohl(pkt->root_delay))      > 16000000 ||
         fp1616_to_us(ntohl(pkt->root_dispersion)) > 16000000) return false;
 
-    // Cold boot: system time is at epoch, server is decades ahead. Offset
-    // would overflow int32_t sample storage, so bypass the filter and step
-    // the clock straight to the server's transmit timestamp.
+    // Mutable copy of t4 so the first-sync branch can refresh it post-step.
+    struct timeval t4_local = *t4;
+
+    // Cold boot: system time is at epoch, server is decades ahead. Step the
+    // clock to the server's transmit timestamp, then compute a real offset
+    // sample for this peer using the shifted t1 and the post-step t4. The
+    // sample flows through the normal filter/select path below, so all four
+    // cold-boot peers end up in the peer table with valid data from the
+    // first burst.
     if (!g.first_sync_done) {
-        // Other peers we dispatched in the same burst already have requests
-        // outstanding with their t1 captured in the pre-step clock frame.
-        // Without compensation their incoming responses compute offsets that
-        // hit the panic threshold and get tossed - we'd have to wait a full
-        // poll cycle before getting usable samples from them. Shift those
-        // stashed t1 timestamps forward by the same amount we're about to
-        // step, so the late-arriving responses land in the new frame and
-        // produce valid samples on this very poll burst.
+        // Every peer in this burst has t1 captured in the pre-step clock
+        // frame; shift ALL outstanding ones (including self) forward by
+        // the step delta so their offsets compute correctly in the new
+        // frame. Without this, peers 1-3 would hit the panic threshold
+        // and get tossed, and peer 0 (self) would produce a nonsense sample.
         struct timeval before;
         gettimeofday(&before, NULL);
         int64_t step_us = tv_diff_us(&t3, &before);
         for (int i = 0; i < NTP_MAX_PEERS; i++) {
             ntp_peer_t *q = &g.peers[i];
-            if (q == p || !q->request_outstanding) continue;
+            if (!q->request_outstanding) continue;
             int64_t t1_us = (int64_t)q->t1.tv_sec * 1000000LL + q->t1.tv_usec + step_us;
             q->t1.tv_sec  = (time_t)(t1_us / 1000000);
             q->t1.tv_usec = (suseconds_t)(t1_us % 1000000);
@@ -708,36 +711,28 @@ static bool process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
         }
 
         settimeofday(&t3, NULL);
-        p->stratum = pkt->stratum;
-        p->last_response_ms = mono_ms();
-        p->reach |= 1;
-        p->consecutive_misses = 0;
-        // Seed conservative (large) jitter/dispersion on this peer so that
-        // select_system_peer doesn't pick it as "lowest jitter" just because
-        // its zero-initialized stats beat other peers' real measurements.
-        // The peer won't participate meaningfully in selection until its
-        // next poll produces a real filter sample, at which point these
-        // values get overwritten by update_peer_filter.
-        p->jitter_us     = 16000000;
-        p->dispersion_us = 16000000;
-        g.last_any_response_ms = mono_ms();
-        g.first_sync_done = true;
+        // Refresh t4 to the post-step clock frame so the offset math below
+        // lands in the same frame as the shifted t1/t2/t3.
+        gettimeofday(&t4_local, NULL);
+
+        g.first_sync_done      = true;
         g.sync_count++;
-        g.last_sync_time = t3.tv_sec;
-        g.last_offset_us = 0;
+        g.last_sync_time       = t3.tv_sec;
+        g.last_offset_us       = 0;
+        g.last_any_response_ms = mono_ms();
         // Treat the step as "just disciplined" so the rate-limit check in
         // handle_socket_readable suppresses a second discipline when the
-        // rest of this poll burst's peers (who now produce valid samples
-        // post-step) arrive. Otherwise sync_count would increment twice on
-        // a single cold-boot cycle.
-        g.last_discipline_ms = mono_ms();
+        // rest of this poll burst's peers arrive. Otherwise sync_count
+        // would increment twice on a single cold-boot cycle.
+        g.last_discipline_ms   = mono_ms();
         ESP_LOGI(TAG, "Initial time set from %s (stratum %d)",
                  p->addr_str, pkt->stratum);
-        return false;   // don't run filter/select/discipline on this sample
+        // Fall through: compute offset/delay for this peer against the
+        // post-step frame and feed into the normal filter path.
     }
 
-    int64_t offset = (tv_diff_us(&t2, &p->t1) + tv_diff_us(&t3, t4)) / 2;
-    int64_t delay  = tv_diff_us(t4, &p->t1) - tv_diff_us(&t3, &t2);
+    int64_t offset = (tv_diff_us(&t2, &p->t1) + tv_diff_us(&t3, &t4_local)) / 2;
+    int64_t delay  = tv_diff_us(&t4_local, &p->t1) - tv_diff_us(&t3, &t2);
 
     if (offset >  (int64_t)PANIC_THRESHOLD_S * 1000000LL ||
         offset < -(int64_t)PANIC_THRESHOLD_S * 1000000LL) {
