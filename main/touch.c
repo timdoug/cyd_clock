@@ -49,6 +49,16 @@ void touch_init(void) {
     };
     ESP_ERROR_CHECK(spi_bus_add_device(SPI3_HOST, &devcfg, &touch_spi));
 
+    // Issue a dummy conversion with PD=00 to ensure PENIRQ is enabled.
+    // If the controller was left in always-powered mode (PD=11), PENIRQ stays
+    // disabled and soft-resets of the MCU don't clear it.
+    uint8_t wake_tx[3] = {XPT2046_CMD_X, 0, 0};
+    uint8_t wake_rx[3] = {0};
+    spi_transaction_t wake_t = {
+        .length = 24, .tx_buffer = wake_tx, .rx_buffer = wake_rx,
+    };
+    spi_device_polling_transmit(touch_spi, &wake_t);
+
     ESP_LOGI(TAG, "Touch controller initialized");
 }
 
