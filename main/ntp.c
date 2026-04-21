@@ -664,11 +664,25 @@ static bool process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
         p->last_response_ms = mono_ms();
         p->reach |= 1;
         p->consecutive_misses = 0;
+        // Seed conservative (large) jitter/dispersion on this peer so that
+        // select_system_peer doesn't pick it as "lowest jitter" just because
+        // its zero-initialized stats beat other peers' real measurements.
+        // The peer won't participate meaningfully in selection until its
+        // next poll produces a real filter sample, at which point these
+        // values get overwritten by update_peer_filter.
+        p->jitter_us     = 16000000;
+        p->dispersion_us = 16000000;
         g.last_any_response_ms = mono_ms();
         g.first_sync_done = true;
         g.sync_count++;
         g.last_sync_time = t3.tv_sec;
         g.last_offset_us = 0;
+        // Treat the step as "just disciplined" so the rate-limit check in
+        // handle_socket_readable suppresses a second discipline when the
+        // rest of this poll burst's peers (who now produce valid samples
+        // post-step) arrive. Otherwise sync_count would increment twice on
+        // a single cold-boot cycle.
+        g.last_discipline_ms = mono_ms();
         ESP_LOGI(TAG, "Initial time set from %s (stratum %d)",
                  p->addr_str, pkt->stratum);
         return false;   // don't run filter/select/discipline on this sample
