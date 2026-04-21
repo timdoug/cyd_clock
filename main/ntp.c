@@ -907,7 +907,12 @@ static bool sockaddr_matches(const struct sockaddr_storage *a,
 }
 
 static void handle_socket_readable(int sock) {
-    uint8_t buf[64];
+    // RFC 5905 header is 48 bytes, followed by optional RFC 7822 extension
+    // fields and a trailing MAC (for authenticated / NTS packets). We don't
+    // validate extensions or MAC, but the buffer is sized generously so a
+    // pool peer that sends an extension-laden response doesn't get truncated
+    // to an unreadable prefix by a tight buffer.
+    uint8_t buf[256];
     struct sockaddr_storage from;
     socklen_t fromlen = sizeof(from);
     ssize_t n = recvfrom(sock, buf, sizeof(buf), MSG_DONTWAIT,
