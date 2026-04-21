@@ -132,15 +132,18 @@ static void fmt_signed_fixed(char *buf, size_t len, int32_t val_x1000, const cha
     char sign = (val_x1000 < 0) ? '-' : '+';
     uint32_t av = val_x1000 < 0 ? (uint32_t)-val_x1000 : (uint32_t)val_x1000;
     if (av < 10000) {           // |x| < 10 ppm: "X.XX"
+        uint32_t r = (av + 5) / 10;
         snprintf(buf, len, "%c%lu.%02lu%s", sign,
-                 (unsigned long)(av / 1000),
-                 (unsigned long)((av % 1000) / 10), unit);
+                 (unsigned long)(r / 100),
+                 (unsigned long)(r % 100), unit);
     } else if (av < 100000) {   // 10 - 99 ppm: "XX.X"
+        uint32_t r = (av + 50) / 100;
         snprintf(buf, len, "%c%lu.%lu%s", sign,
-                 (unsigned long)(av / 1000),
-                 (unsigned long)((av % 1000) / 100), unit);
+                 (unsigned long)(r / 10),
+                 (unsigned long)(r % 10), unit);
     } else {                    // >= 100 ppm: "XXX"
-        snprintf(buf, len, "%c%lu%s", sign, (unsigned long)(av / 1000), unit);
+        snprintf(buf, len, "%c%lu%s", sign,
+                 (unsigned long)((av + 500) / 1000), unit);
     }
 }
 
@@ -149,36 +152,40 @@ static void fmt_signed_fixed(char *buf, size_t len, int32_t val_x1000, const cha
 static void fmt_offset(char *buf, size_t len, int64_t us) {
     int64_t av = us < 0 ? -us : us;
     char sign = (us < 0) ? '-' : '+';
-    if (av < 1000) {                    // "0.XXXms"
+    if (av < 1000) {                    // "0.XXXms" - exact at us precision
         snprintf(buf, len, "%c0.%03lldms", sign, (long long)av);
-    } else if (av < 10000) {            // "X.XXms"
+    } else if (av < 10000) {            // "X.XXms" - round to 10us
+        int64_t r = (av + 5) / 10;
         snprintf(buf, len, "%c%lld.%02lldms", sign,
-                 (long long)(av / 1000), (long long)((av % 1000) / 10));
-    } else if (av < 100000) {           // "XX.Xms"
+                 (long long)(r / 100), (long long)(r % 100));
+    } else if (av < 100000) {           // "XX.Xms" - round to 100us
+        int64_t r = (av + 50) / 100;
         snprintf(buf, len, "%c%lld.%lldms", sign,
-                 (long long)(av / 1000), (long long)((av % 1000) / 100));
-    } else if (av < 10000000LL) {       // "XXXms" / "XXXXms"
-        snprintf(buf, len, "%c%lldms", sign, (long long)(av / 1000));
-    } else if (av < 100000000LL) {      // "XX.Xs"
+                 (long long)(r / 10), (long long)(r % 10));
+    } else if (av < 10000000LL) {       // "XXXms" / "XXXXms" - round to 1ms
+        snprintf(buf, len, "%c%lldms", sign, (long long)((av + 500) / 1000));
+    } else if (av < 100000000LL) {      // "XX.Xs" - round to 100ms
+        int64_t r = (av + 50000) / 100000;
         snprintf(buf, len, "%c%lld.%llds", sign,
-                 (long long)(av / 1000000), (long long)((av % 1000000) / 100000));
-    } else {                            // "XXXs"
-        snprintf(buf, len, "%c%llds", sign, (long long)(av / 1000000));
+                 (long long)(r / 10), (long long)(r % 10));
+    } else {                            // "XXXs" - round to 1s
+        snprintf(buf, len, "%c%llds", sign, (long long)((av + 500000) / 1000000));
     }
 }
 
 // Unsigned magnitude with "+/-" prefix - used for uncertainty bounds.
 static void fmt_pm_us(char *buf, size_t len, int64_t us) {
     if (us < 0) us = -us;
-    if (us < 1000) {                    // "0.XXXms"
+    if (us < 1000) {                    // "0.XXXms" - exact at us precision
         snprintf(buf, len, "+/-0.%03lldms", (long long)us);
-    } else if (us < 10000) {            // "X.Xms"
+    } else if (us < 10000) {            // "X.Xms" - round to 100us
+        int64_t r = (us + 50) / 100;
         snprintf(buf, len, "+/-%lld.%lldms",
-                 (long long)(us / 1000), (long long)((us % 1000) / 100));
-    } else if (us < 10000000LL) {       // "XXms" ... "XXXXms"
-        snprintf(buf, len, "+/-%lldms", (long long)(us / 1000));
-    } else {                            // "XXs" ...
-        snprintf(buf, len, "+/-%llds", (long long)(us / 1000000));
+                 (long long)(r / 10), (long long)(r % 10));
+    } else if (us < 10000000LL) {       // "XXms" ... "XXXXms" - round to 1ms
+        snprintf(buf, len, "+/-%lldms", (long long)((us + 500) / 1000));
+    } else {                            // "XXs" ... - round to 1s
+        snprintf(buf, len, "+/-%llds", (long long)((us + 500000) / 1000000));
     }
 }
 

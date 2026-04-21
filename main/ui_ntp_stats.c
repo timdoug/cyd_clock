@@ -46,50 +46,58 @@ static uint16_t last_peer_color[NTP_MAX_PEERS];
 static void fmt_offset_us(char *buf, size_t len, int64_t us) {
     int64_t av = us < 0 ? -us : us;
     char sign = (us < 0) ? '-' : '+';
-    if (av < 1000) {                        // "+0.XXms"
-        snprintf(buf, len, "%c0.%02lldms", sign, (long long)(av / 10));
-    } else if (av < 10000) {                // "+X.XXms"
+    if (av < 1000) {                        // "+0.XXms" - round to 10us
+        int64_t r = (av + 5) / 10;          // 0..100 after carry
         snprintf(buf, len, "%c%lld.%02lldms", sign,
-                 (long long)(av / 1000), (long long)((av % 1000) / 10));
-    } else if (av < 100000) {               // "+XX.Xms"
+                 (long long)(r / 100), (long long)(r % 100));
+    } else if (av < 10000) {                // "+X.XXms" - round to 10us
+        int64_t r = (av + 5) / 10;
+        snprintf(buf, len, "%c%lld.%02lldms", sign,
+                 (long long)(r / 100), (long long)(r % 100));
+    } else if (av < 100000) {               // "+XX.Xms" - round to 100us
+        int64_t r = (av + 50) / 100;
         snprintf(buf, len, "%c%lld.%lldms", sign,
-                 (long long)(av / 1000), (long long)((av % 1000) / 100));
-    } else if (av < 10000000LL) {           // "+XXXms" / "+XXXXms"
-        snprintf(buf, len, "%c%lldms", sign, (long long)(av / 1000));
-    } else if (av < 100000000LL) {          // "+XX.Xs"
+                 (long long)(r / 10), (long long)(r % 10));
+    } else if (av < 10000000LL) {           // "+XXXms" / "+XXXXms" - round to 1ms
+        snprintf(buf, len, "%c%lldms", sign, (long long)((av + 500) / 1000));
+    } else if (av < 100000000LL) {          // "+XX.Xs" - round to 100ms
+        int64_t r = (av + 50000) / 100000;
         snprintf(buf, len, "%c%lld.%llds", sign,
-                 (long long)(av / 1000000), (long long)((av % 1000000) / 100000));
-    } else {
-        snprintf(buf, len, "%c%llds", sign, (long long)(av / 1000000));
+                 (long long)(r / 10), (long long)(r % 10));
+    } else {                                // round to 1s
+        snprintf(buf, len, "%c%llds", sign, (long long)((av + 500000) / 1000000));
     }
 }
 
 // Compact unsigned us -> string (fits in 5 chars). Used for per-peer delay and
 // jitter where the sign is always non-negative and horizontal space is tight.
 static void fmt_unsigned_compact(char *buf, size_t len, uint32_t us) {
-    if (us < 1000) {
-        snprintf(buf, len, "0.%lums", (unsigned long)(us / 100));    // "0.3ms"
-    } else if (us < 10000) {
+    if (us < 1000) {                                // "0.Xms" - round to 100us
+        uint32_t r = (us + 50) / 100;               // 0..10 after carry
         snprintf(buf, len, "%lu.%lums",
-                 (unsigned long)(us / 1000),
-                 (unsigned long)((us % 1000) / 100));                // "1.2ms"
-    } else if (us < 1000000) {
-        snprintf(buf, len, "%lums", (unsigned long)(us / 1000));     // "45ms" / "123ms"
-    } else if (us < 10000000) {
+                 (unsigned long)(r / 10), (unsigned long)(r % 10));
+    } else if (us < 10000) {                        // "X.Xms" - round to 100us
+        uint32_t r = (us + 50) / 100;
+        snprintf(buf, len, "%lu.%lums",
+                 (unsigned long)(r / 10), (unsigned long)(r % 10));
+    } else if (us < 1000000) {                      // "XXms" - round to 1ms
+        snprintf(buf, len, "%lums", (unsigned long)((us + 500) / 1000));
+    } else if (us < 10000000) {                     // "X.Xs" - round to 100ms
+        uint32_t r = (us + 50000) / 100000;
         snprintf(buf, len, "%lu.%lus",
-                 (unsigned long)(us / 1000000),
-                 (unsigned long)((us % 1000000) / 100000));          // "1.2s"
-    } else {
-        snprintf(buf, len, "%lus", (unsigned long)(us / 1000000));
+                 (unsigned long)(r / 10), (unsigned long)(r % 10));
+    } else {                                        // "XXs" - round to 1s
+        snprintf(buf, len, "%lus", (unsigned long)((us + 500000) / 1000000));
     }
 }
 
 static void fmt_ppm_x1000(char *buf, size_t len, int32_t val) {
     char sign = (val < 0) ? '-' : '+';
     uint32_t av = val < 0 ? (uint32_t)-val : (uint32_t)val;
+    uint32_t r = (av + 5) / 10;     // round to 10 (= 0.01 ppm)
     snprintf(buf, len, "%c%lu.%02luppm", sign,
-             (unsigned long)(av / 1000),
-             (unsigned long)((av % 1000) / 10));
+             (unsigned long)(r / 100),
+             (unsigned long)(r % 100));
 }
 
 // A colored text segment, used to render rows that mix gray inline labels
