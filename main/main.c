@@ -15,6 +15,7 @@
 #include "ui_clock.h"
 #include "ui_common.h"
 #include "ui_ntp.h"
+#include "ui_ntp_stats.h"
 #include "ui_settings.h"
 #include "ui_timezone.h"
 #include "ui_wifi_setup.h"
@@ -32,6 +33,7 @@ typedef enum {
     APP_STATE_TIMEZONE,
     APP_STATE_ABOUT,
     APP_STATE_NTP,
+    APP_STATE_NTP_STATS,
 } app_state_t;
 
 static app_state_t app_state = APP_STATE_INIT;
@@ -200,6 +202,12 @@ void app_main(void) {
                         vTaskDelay(pdMS_TO_TICKS(TOUCH_RELEASE_POLL_MS));
                     }
                     continue;
+                } else if (zone == CLOCK_TOUCH_STATS) {
+                    app_state = APP_STATE_NTP_STATS;
+                    ui_ntp_stats_init();
+                    last_sec = -1;
+                    ui_wait_for_touch_release();
+                    continue;
                 }
 
                 // Get current time
@@ -299,6 +307,17 @@ void app_main(void) {
                     app_state = APP_STATE_CLOCK;
                     ui_clock_init();
                     ui_clock_redraw();
+                }
+                break;
+            }
+
+            case APP_STATE_NTP_STATS: {
+                ntp_stats_result_t result = ui_ntp_stats_update();
+                if (result == NTP_STATS_RESULT_BACK) {
+                    app_state = APP_STATE_CLOCK;
+                    ui_clock_init();
+                    ui_clock_redraw();
+                    ui_wait_for_touch_release();
                 }
                 break;
             }

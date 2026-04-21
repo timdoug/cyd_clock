@@ -5,14 +5,13 @@
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_netif.h"
-#include "esp_sntp.h"
-#include "lwip/ip_addr.h"
-#include "lwip/netdb.h"
 #include "esp_wifi.h"
+#include "lwip/ip_addr.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 #include "freertos/task.h"
 #include "config.h"
+#include "ntp.h"
 
 static const char *TAG = "wifi";
 
@@ -24,24 +23,17 @@ static EventGroupHandle_t wifi_event_group;
 static bool wifi_initialized = false;
 static int retry_count = 0;
 
-// NTP state grouped together
+// Config tracked here; runtime NTP state lives in ntp.c
 static struct {
-    bool synced;
-    time_t last_sync_time;
-    uint32_t sync_start_ticks;
-    uint32_t sync_count;
     uint32_t interval;
-    int64_t last_offset_us;
-    char custom_server[64];
-    bool prefer_ipv6;
-} ntp_state = {
-    .synced = false,
-    .last_sync_time = 0,
-    .sync_start_ticks = 0,
-    .sync_count = 0,
+    char     custom_server[64];
+    bool     prefer_ipv6;
+    bool     started;
+} ntp_cfg = {
     .interval = NTP_DEFAULT_INTERVAL_SEC,
     .custom_server = DEFAULT_NTP_SERVER,
     .prefer_ipv6 = false,
+    .started = false,
 };
 
 static void wifi_event_handler(void *arg, esp_event_base_t event_base,
@@ -76,26 +68,6 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
             ESP_LOGI(TAG, "Got IPv6: " IPV6STR, IPV62STR(event->ip6_info.ip));
         }
     }
-}
-
-static void time_sync_notification_cb(struct timeval *tv) {
-    ntp_state.synced = true;
-    ntp_state.last_sync_time = tv->tv_sec;
-    ntp_state.sync_count++;
-    ESP_LOGI(TAG, "NTP time synchronized (sync #%lu, offset %+lldms)",
-             (unsigned long)ntp_state.sync_count, (long long)(ntp_state.last_offset_us / 1000));
-}
-
-// Override weak sntp_sync_time to capture clock offset before correction
-void sntp_sync_time(struct timeval *tv) {
-    struct timeval now;
-    gettimeofday(&now, NULL);
-    ntp_state.last_offset_us = ((int64_t)tv->tv_sec - now.tv_sec) * 1000000LL
-                             + (tv->tv_usec - now.tv_usec);
-
-    settimeofday(tv, NULL);
-    sntp_set_sync_status(SNTP_SYNC_STATUS_COMPLETED);
-    time_sync_notification_cb(tv);
 }
 
 void wifi_init(void) {
@@ -238,50 +210,19 @@ bool wifi_is_connected(void) {
 
 void wifi_start_ntp(void) {
     const char *server = wifi_get_custom_ntp_server();
+    ESP_LOGI(TAG, "Starting NTP (server: %s, max interval: %lu sec, ipv6: %s)",
+             server, (unsigned long)ntp_cfg.interval,
+             ntp_cfg.prefer_ipv6 ? "yes" : "no");
 
-    ESP_LOGI(TAG, "Starting NTP sync (server: %s, interval: %lu sec, ipv6: %s)",
-             server, (unsigned long)ntp_state.interval,
-             ntp_state.prefer_ipv6 ? "yes" : "no");
-
-    ntp_state.sync_start_ticks = xTaskGetTickCount();
-
-    esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
-    esp_sntp_set_sync_interval(ntp_state.interval * 1000);  // Convert to ms
-    sntp_set_time_sync_notification_cb(time_sync_notification_cb);
-
-    // Resolve synchronously so the address is immediately visible in the UI
-    struct addrinfo hints = {
-        .ai_family = ntp_state.prefer_ipv6 ? AF_INET6 : AF_INET,
-    };
-    struct addrinfo *res = NULL;
-    bool resolved = false;
-    if (getaddrinfo(server, NULL, &hints, &res) == 0 && res) {
-        ip_addr_t sntp_addr = {0};
-        if (res->ai_family == AF_INET6) {
-            struct sockaddr_in6 *sa6 = (struct sockaddr_in6 *)res->ai_addr;
-            memcpy(&sntp_addr.u_addr.ip6.addr, &sa6->sin6_addr, 16);
-            sntp_addr.type = IPADDR_TYPE_V6;
-        } else {
-            struct sockaddr_in *sa4 = (struct sockaddr_in *)res->ai_addr;
-            sntp_addr.u_addr.ip4.addr = sa4->sin_addr.s_addr;
-            sntp_addr.type = IPADDR_TYPE_V4;
-        }
-        esp_sntp_setserver(0, &sntp_addr);
-        char addr_str[46];
-        ipaddr_ntoa_r(&sntp_addr, addr_str, sizeof(addr_str));
-        ESP_LOGI(TAG, "Resolved %s to %s", server, addr_str);
-        resolved = true;
-        freeaddrinfo(res);
+    if (ntp_cfg.started) {
+        ntp_set_server(server);
+        ntp_set_max_interval(ntp_cfg.interval);
+        ntp_set_prefer_ipv6(ntp_cfg.prefer_ipv6);
+        ntp_force_sync();
     } else {
-        ESP_LOGW(TAG, "DNS resolution failed for %s, using hostname mode", server);
-        if (res) freeaddrinfo(res);
+        ntp_init(server, ntp_cfg.interval, ntp_cfg.prefer_ipv6);
+        ntp_cfg.started = true;
     }
-
-    if (!resolved) {
-        esp_sntp_setservername(0, server);
-    }
-
-    esp_sntp_init();
 }
 
 
@@ -292,82 +233,55 @@ void wifi_set_timezone(const char *tz) {
 }
 
 void wifi_get_ntp_stats(ntp_stats_t *stats) {
-    stats->synced = ntp_state.synced;
-    stats->last_sync_time = ntp_state.last_sync_time;
-    stats->sync_count = ntp_state.sync_count;
-    stats->sync_interval = ntp_state.interval;
+    ntp_sys_stats_t s = {0};
+    if (ntp_cfg.started) ntp_get_sys_stats(&s);
 
-    // Calculate elapsed time since sync started
-    if (!ntp_state.synced && ntp_state.sync_start_ticks > 0) {
-        stats->sync_elapsed_ms = pdTICKS_TO_MS(xTaskGetTickCount() - ntp_state.sync_start_ticks);
-    } else {
-        stats->sync_elapsed_ms = 0;
-    }
-
-    stats->last_offset_ms = ntp_state.last_offset_us / 1000;
-
-    // Get current server (index 0 is primary)
-    // When using esp_sntp_setserver() (IP mode), the name is NULL
-    stats->server = esp_sntp_getservername(0);
-    if (!stats->server) {
-        stats->server = wifi_get_custom_ntp_server();
-    }
+    stats->synced          = s.synced;
+    stats->last_sync_time  = s.last_sync_time;
+    stats->sync_count      = s.sync_count;
+    stats->sync_interval   = ntp_cfg.interval;
+    stats->sync_elapsed_ms = s.sync_elapsed_ms;
+    stats->last_offset_ms  = s.last_offset_us / 1000;
+    stats->server          = wifi_get_custom_ntp_server();
 }
 
 void wifi_set_ntp_interval(uint32_t seconds) {
     if (seconds < NTP_MIN_INTERVAL_SEC) seconds = NTP_MIN_INTERVAL_SEC;
-    ntp_state.interval = seconds;
-
-    // Update the running SNTP if initialized
-    if (esp_sntp_enabled()) {
-        esp_sntp_stop();
-        esp_sntp_set_sync_interval(seconds * 1000);
-        esp_sntp_init();
-    }
+    ntp_cfg.interval = seconds;
+    if (ntp_cfg.started) ntp_set_max_interval(seconds);
 }
 
 void wifi_force_ntp_sync(void) {
-    // Full restart to pick up any new server/interval settings
-    if (esp_sntp_enabled()) {
-        ntp_state.synced = false;  // Reset so UI shows "Syncing..." state
-        esp_sntp_stop();
-        wifi_start_ntp();
-    }
+    if (ntp_cfg.started) ntp_force_sync();
 }
 
 
 const char *wifi_get_custom_ntp_server(void) {
-    return ntp_state.custom_server[0] ? ntp_state.custom_server : DEFAULT_NTP_SERVER;
+    return ntp_cfg.custom_server[0] ? ntp_cfg.custom_server : DEFAULT_NTP_SERVER;
 }
 
 void wifi_set_custom_ntp_server(const char *server) {
-    strncpy(ntp_state.custom_server, server, sizeof(ntp_state.custom_server) - 1);
-    ntp_state.custom_server[sizeof(ntp_state.custom_server) - 1] = '\0';
+    strncpy(ntp_cfg.custom_server, server, sizeof(ntp_cfg.custom_server) - 1);
+    ntp_cfg.custom_server[sizeof(ntp_cfg.custom_server) - 1] = '\0';
+    if (ntp_cfg.started) ntp_set_server(wifi_get_custom_ntp_server());
 }
 
 uint32_t wifi_get_ntp_interval(void) {
-    return ntp_state.interval;
+    return ntp_cfg.interval;
 }
 
 bool wifi_get_ntp_prefer_ipv6(void) {
-    return ntp_state.prefer_ipv6;
+    return ntp_cfg.prefer_ipv6;
 }
 
 void wifi_set_ntp_prefer_ipv6(bool prefer) {
-    ntp_state.prefer_ipv6 = prefer;
+    ntp_cfg.prefer_ipv6 = prefer;
+    if (ntp_cfg.started) ntp_set_prefer_ipv6(prefer);
 }
 
 void wifi_get_ntp_server_ip_str(char *buf, size_t len) {
-    if (!esp_sntp_enabled()) {
-        buf[0] = '\0';
-        return;
-    }
-    const ip_addr_t *addr = esp_sntp_getserver(0);
-    if (addr && !ip_addr_isany(addr)) {
-        ipaddr_ntoa_r(addr, buf, len);
-        return;
-    }
-    buf[0] = '\0';
+    if (!ntp_cfg.started) { if (len) buf[0] = '\0'; return; }
+    ntp_get_primary_addr_str(buf, len);
 }
 
 void wifi_get_ip_str(char *buf, size_t len) {

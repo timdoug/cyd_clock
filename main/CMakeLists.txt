@@ -8,6 +8,7 @@ idf_component_register(
         "led.c"
         "touch.c"
         "wifi.c"
+        "ntp.c"
         "nvs_config.c"
         "ui_common.c"
         "ui_keyboard.c"
@@ -17,6 +18,7 @@ idf_component_register(
         "ui_settings.c"
         "ui_about.c"
         "ui_ntp.c"
+        "ui_ntp_stats.c"
     INCLUDE_DIRS "." "${CMAKE_CURRENT_BINARY_DIR}"
     REQUIRES esp_driver_gpio esp_driver_spi esp_driver_ledc esp_wifi esp_netif nvs_flash
 )

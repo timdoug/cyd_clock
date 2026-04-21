@@ -6,7 +6,8 @@
 // Touch zone identifiers
 typedef enum {
     CLOCK_TOUCH_NONE,
-    CLOCK_TOUCH_SETTINGS,
+    CLOCK_TOUCH_SETTINGS,   // BOOT button
+    CLOCK_TOUCH_STATS,      // Touchscreen tap
 } clock_touch_zone_t;
 
 // Initialize clock display

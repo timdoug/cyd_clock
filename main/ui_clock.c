@@ -1,4 +1,5 @@
 #include "ui_clock.h"
+#include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <time.h>
@@ -7,7 +8,9 @@
 #include "config.h"
 #include "display.h"
 #include "led.h"
+#include "ntp.h"
 #include "nvs_config.h"
+#include "touch.h"
 #include "ui_common.h"
 #include "wifi.h"
 
@@ -116,73 +119,94 @@ static void draw_colon(int position, bool visible) {
     }
 }
 
+static void fmt_duration(char *buf, size_t len, uint32_t seconds) {
+    if (seconds < 60) snprintf(buf, len, "%lus", (unsigned long)seconds);
+    else if (seconds < 3600) snprintf(buf, len, "%lum", (unsigned long)(seconds / 60));
+    else if (seconds < 86400) snprintf(buf, len, "%luh", (unsigned long)(seconds / 3600));
+    else snprintf(buf, len, "%lud", (unsigned long)(seconds / 86400));
+}
+
+static void fmt_signed_fixed(char *buf, size_t len, int32_t val_x1000, const char *unit) {
+    char sign = (val_x1000 < 0) ? '-' : '+';
+    uint32_t av = val_x1000 < 0 ? (uint32_t)-val_x1000 : (uint32_t)val_x1000;
+    snprintf(buf, len, "%c%lu.%02lu%s", sign,
+             (unsigned long)(av / 1000),
+             (unsigned long)((av % 1000) / 10),
+             unit);
+}
+
+static void fmt_offset(char *buf, size_t len, int64_t us) {
+    int64_t av = us < 0 ? -us : us;
+    char sign = (us < 0) ? '-' : '+';
+    if (av < 10000) {
+        snprintf(buf, len, "%c%lldus", sign, (long long)av);
+    } else if (av < 10000000LL) {
+        snprintf(buf, len, "%c%lld.%02lldms", sign,
+                 (long long)(av / 1000),
+                 (long long)((av % 1000) / 10));
+    } else {
+        snprintf(buf, len, "%c%llds", sign, (long long)(av / 1000000));
+    }
+}
+
 static void draw_ntp_stats(time_t now, int sec) {
-    ntp_stats_t stats;
-    wifi_get_ntp_stats(&stats);
+    ntp_sys_stats_t sys;
+    ntp_get_sys_stats(&sys);
+    const char *server = sys.server ? sys.server : wifi_get_custom_ntp_server();
 
-    // Line 1: Sync status with server
-    if (stats.synced != last_synced_state || last_stats_sec < 0) {
-        char status_str[48];
-        if (stats.synced) {
-            ui_draw_centered_string(STATS_Y, stats.server, COLOR_SYNC_OK, COLOR_BLACK, false);
+    // Line 1: server + stratum (green) or "Syncing..." (orange)
+    if (sys.synced != last_synced_state || last_stats_sec < 0) {
+        char line1[64];
+        if (sys.synced) {
+            snprintf(line1, sizeof(line1), "%s  str %d", server, sys.stratum);
+            ui_draw_centered_string(STATS_Y, line1, COLOR_SYNC_OK, COLOR_BLACK, false);
         } else {
-            snprintf(status_str, sizeof(status_str), "Syncing: %s", wifi_get_custom_ntp_server());
-            ui_draw_centered_string(STATS_Y, status_str, COLOR_SYNC_WAIT, COLOR_BLACK, false);
+            snprintf(line1, sizeof(line1), "Syncing: %s", server);
+            ui_draw_centered_string(STATS_Y, line1, COLOR_SYNC_WAIT, COLOR_BLACK, false);
         }
-        last_synced_state = stats.synced;
+        last_synced_state = sys.synced;
     }
 
-    // Line 2 & 3: Update stats display every second
-    if (sec != last_stats_sec) {
-        last_stats_sec = sec;
+    if (sec == last_stats_sec) return;
+    last_stats_sec = sec;
 
-        if (stats.synced) {
-            if (stats.last_sync_time > 0) {
-                // Line 2: Last sync ago / next sync countdown
-                time_t time_since = now - stats.last_sync_time;
-                time_t next_sync = stats.last_sync_time + stats.sync_interval;
-                time_t until_next = next_sync - now;
-                char line2[64];
-
-                char last_buf[16];
-                if (time_since < 3600) {
-                    snprintf(last_buf, sizeof(last_buf), "%ldm", (long)(time_since / 60));
-                } else {
-                    snprintf(last_buf, sizeof(last_buf), "%ldh %ldm",
-                             (long)(time_since / 3600), (long)((time_since % 3600) / 60));
-                }
-
-                char next_buf[16];
-                if (until_next <= 0) {
-                    snprintf(next_buf, sizeof(next_buf), "pending");
-                } else if (until_next < 3600) {
-                    snprintf(next_buf, sizeof(next_buf), "%ldm", (long)((until_next + 59) / 60));
-                } else {
-                    snprintf(next_buf, sizeof(next_buf), "%ldh %ldm",
-                             (long)(until_next / 3600), (long)((until_next % 3600) / 60));
-                }
-
-                snprintf(line2, sizeof(line2), "Synced %s ago, next in %s", last_buf, next_buf);
-                ui_draw_centered_string(STATS_LINE2, line2, COLOR_STATS, COLOR_BLACK, false);
-
-                // Line 3: Clock offset (only meaningful after 2+ syncs)
-                char line3[48];
-                if (stats.sync_count < 2) {
-                    snprintf(line3, sizeof(line3), "Last offset: ----");
-                } else {
-                    snprintf(line3, sizeof(line3), "Last offset: %+lldms", (long long)stats.last_offset_ms);
-                }
-                ui_draw_centered_string(STATS_LINE3, line3, COLOR_STATS, COLOR_BLACK, false);
-            }
-        } else {
-            // Not synced - show elapsed time on line 2
-            char line2[48];
-            uint32_t elapsed_sec = stats.sync_elapsed_ms / 1000;
-            snprintf(line2, sizeof(line2), "Waiting: %lus", (unsigned long)elapsed_sec);
-            ui_draw_centered_string(STATS_LINE2, line2, COLOR_STATS, COLOR_BLACK, false);
-            ui_draw_centered_string(STATS_LINE3, "", COLOR_BLACK, COLOR_BLACK, false);
-        }
+    if (!sys.synced) {
+        char line2[48];
+        snprintf(line2, sizeof(line2), "Waiting: %lus",
+                 (unsigned long)(sys.sync_elapsed_ms / 1000));
+        ui_draw_centered_string(STATS_LINE2, line2, COLOR_STATS, COLOR_BLACK, false);
+        ui_draw_centered_string(STATS_LINE3, "", COLOR_BLACK, COLOR_BLACK, false);
+        return;
     }
+
+    // Line 2: peer reach + adaptive poll + time since last sync
+    int peers_reach = 0, peers_total = 0;
+    for (int i = 0; i < NTP_MAX_PEERS; i++) {
+        ntp_peer_stats_t p;
+        if (!ntp_get_peer_stats(i, &p)) continue;
+        peers_total++;
+        if (p.reach) peers_reach++;
+    }
+    char poll_buf[16], ago_buf[16];
+    fmt_duration(poll_buf, sizeof(poll_buf), sys.current_poll_s);
+    fmt_duration(ago_buf, sizeof(ago_buf),
+                 (uint32_t)(now > sys.last_sync_time ? now - sys.last_sync_time : 0));
+    char line2[56];
+    snprintf(line2, sizeof(line2), "%d/%d peers  poll %s  %s ago",
+             peers_reach, peers_total, poll_buf, ago_buf);
+    ui_draw_centered_string(STATS_LINE2, line2, COLOR_STATS, COLOR_BLACK, false);
+
+    // Line 3: offset + drift (ppm) - meaningful only after second sync
+    char line3[56];
+    if (sys.sync_count < 2) {
+        snprintf(line3, sizeof(line3), "offset ----  drift ----");
+    } else {
+        char off_buf[20], drift_buf[16];
+        fmt_offset(off_buf, sizeof(off_buf), sys.last_offset_us);
+        fmt_signed_fixed(drift_buf, sizeof(drift_buf), sys.freq_ppm_x1000, "ppm");
+        snprintf(line3, sizeof(line3), "off %s  drift %s", off_buf, drift_buf);
+    }
+    ui_draw_centered_string(STATS_LINE3, line3, COLOR_STATS, COLOR_BLACK, false);
 }
 
 void ui_clock_update(void) {
@@ -275,6 +299,10 @@ clock_touch_zone_t ui_clock_check_touch(void) {
     // BOOT button (active low) opens settings
     if (gpio_get_level(BOOT_BUTTON_GPIO) == 0) {
         return CLOCK_TOUCH_SETTINGS;
+    }
+    // Touchscreen tap opens stats
+    if (touch_is_pressed()) {
+        return CLOCK_TOUCH_STATS;
     }
     return CLOCK_TOUCH_NONE;
 }
