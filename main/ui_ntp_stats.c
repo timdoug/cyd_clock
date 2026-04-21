@@ -291,7 +291,7 @@ static void refresh_dynamic(void) {
     {
         int y = SYS_Y_START;
         snprintf(val, sizeof(val), "%s", server);
-        draw_field_cached(10, y, 0, "Server: ", val,
+        draw_field_cached(12, y, 0, "Server: ", val,
                           sys.synced ? COLOR_GREEN : COLOR_ORANGE);
     }
 
@@ -313,7 +313,7 @@ static void refresh_dynamic(void) {
             { "   Poll: ",   COLOR_GRAY  },
             { poll_buf,      COLOR_WHITE },
         };
-        draw_segmented_field_cached(10, y, 1, "Stratum: ", segs,
+        draw_segmented_field_cached(12, y, 1, "Stratum: ", segs,
                                     sizeof(segs) / sizeof(segs[0]));
     }
 
@@ -344,7 +344,7 @@ static void refresh_dynamic(void) {
             { "  Age: ", COLOR_GRAY  },
             { age_buf,   COLOR_WHITE },
         };
-        draw_segmented_field_cached(10, y, 2, "Drift: ", segs,
+        draw_segmented_field_cached(12, y, 2, "Drift: ", segs,
                                     sizeof(segs) / sizeof(segs[0]));
     }
 
@@ -366,7 +366,7 @@ static void refresh_dynamic(void) {
             { "  Jitter: ",  COLOR_GRAY  },
             { jit_buf,       COLOR_WHITE },
         };
-        draw_segmented_field_cached(10, y, 3, "Offset: ", segs,
+        draw_segmented_field_cached(12, y, 3, "Offset: ", segs,
                                     sizeof(segs) / sizeof(segs[0]));
     }
 
@@ -384,7 +384,7 @@ static void refresh_dynamic(void) {
             const char *dp = disp_buf[0] == '+' ? disp_buf + 1 : disp_buf;
             snprintf(val, sizeof(val), "%s delay, %s disp", rd, dp);
         }
-        draw_field_cached(10, y, 4, "Root: ", val, COLOR_WHITE);
+        draw_field_cached(12, y, 4, "Root: ", val, COLOR_WHITE);
     }
 
     // Peer rows
