@@ -1060,11 +1060,24 @@ static void handle_socket_readable(int sock) {
     if (ok) {
         update_peer_filter(p);
         select_system_peer();
+        // Discipline once per poll cycle from the dispersion-weighted
+        // combined offset (g.combined_offset_us is refreshed by every call
+        // to select_system_peer). Gating on "this peer happens to be the
+        // selected one post-update" is too fragile with combining: when all
+        // survivors have similar jitter, each peer's own fresh sample often
+        // bumps its jitter just enough that select picks a different peer -
+        // which could leave a whole cycle with no discipline firing at all.
+        //
+        // Rate limit: require since_disc to be within a few seconds of the
+        // full poll interval so only cycle-boundary responses trigger (a
+        // looser half-cycle gate would also let off-schedule responses
+        // through - e.g. try_replace_peer's immediate mid-cycle poll, or
+        // the transitional first cycle after a poll doubling).
         uint32_t now = mono_ms();
-        bool is_selected = (g.selected_peer >= 0 && &g.peers[g.selected_peer] == p);
+        int32_t  threshold_ms = ((int32_t)g.current_poll_s - 3) * 1000;
         bool due = (g.last_discipline_ms == 0) ||
-                   (int32_t)(now - g.last_discipline_ms) >= (int32_t)(g.current_poll_s * 500);
-        if (is_selected && due) {
+                   (int32_t)(now - g.last_discipline_ms) >= threshold_ms;
+        if (g.selected_peer >= 0 && due) {
             g.last_discipline_ms = now;
             discipline_clock(g.combined_offset_us);
             adaptive_poll_update();
