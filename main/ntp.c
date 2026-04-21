@@ -701,20 +701,21 @@ static bool process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
     struct timeval t4_local = *t4;
 
     // Cold boot: system time is at epoch, server is decades ahead. Step the
-    // clock to the server's transmit timestamp, then compute a real offset
-    // sample for this peer using the shifted t1 and the post-step t4. The
-    // sample flows through the normal filter/select path below, so all four
-    // cold-boot peers end up in the peer table with valid data from the
-    // first burst.
+    // clock by the standard NTP offset ((t2-t1)+(t3-t4))/2 - NOT directly to
+    // t3. A naive `settimeofday(&t3)` lands our clock at the moment the
+    // server SENT the response, ignoring the inbound network delay we
+    // already spent receiving it; that leaves us trailing by ~d_in (~ RTT/2,
+    // so 10-20 ms for typical pool peers) and every subsequent sample from
+    // every peer shows up biased by that amount until the first slew. Using
+    // the offset formula symmetrically splits the RTT and lands within us.
     if (!g.first_sync_done) {
+        int64_t step_us = (tv_diff_us(&t2, &p->t1) + tv_diff_us(&t3, &t4_local)) / 2;
+
         // Every peer in this burst has t1 captured in the pre-step clock
         // frame; shift ALL outstanding ones (including self) forward by
-        // the step delta so their offsets compute correctly in the new
+        // the same step so their offsets compute correctly in the new
         // frame. Without this, peers 1-3 would hit the panic threshold
         // and get tossed, and peer 0 (self) would produce a nonsense sample.
-        struct timeval before;
-        gettimeofday(&before, NULL);
-        int64_t step_us = tv_diff_us(&t3, &before);
         for (int i = 0; i < NTP_MAX_PEERS; i++) {
             ntp_peer_t *q = &g.peers[i];
             if (!q->request_outstanding) continue;
@@ -724,14 +725,22 @@ static bool process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
             if (q->t1.tv_usec < 0) { q->t1.tv_sec--; q->t1.tv_usec += 1000000; }
         }
 
-        settimeofday(&t3, NULL);
+        // Step the local clock by step_us: target = now + step_us.
+        struct timeval now_pre, target;
+        gettimeofday(&now_pre, NULL);
+        int64_t target_us = (int64_t)now_pre.tv_sec * 1000000LL +
+                            now_pre.tv_usec + step_us;
+        target.tv_sec  = (time_t)(target_us / 1000000);
+        target.tv_usec = (suseconds_t)(target_us % 1000000);
+        if (target.tv_usec < 0) { target.tv_sec--; target.tv_usec += 1000000; }
+        settimeofday(&target, NULL);
         // Refresh t4 to the post-step clock frame so the offset math below
         // lands in the same frame as the shifted t1/t2/t3.
         gettimeofday(&t4_local, NULL);
 
         g.first_sync_done      = true;
         g.sync_count++;
-        g.last_sync_time       = t3.tv_sec;
+        g.last_sync_time       = t4_local.tv_sec;
         g.last_offset_us       = 0;
         g.last_any_response_ms = mono_ms();
         // Treat the step as "just disciplined" so the rate-limit check in
