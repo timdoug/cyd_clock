@@ -1139,10 +1139,20 @@ static void handle_socket_readable(int sock) {
         // naturally cycle-aligned. On failure, the counters stay elevated
         // and we retry at the next cycle's response burst. (consecutive_misses
         // eviction lives in the timeout handler for the same reason.)
+        //
+        // Thresholds: falseticker = 8 cycles of "outside Marzullo consensus"
+        // (systematic wrong-offset peer); wide-jitter = 10 cycles of "jitter
+        // > 4* best truechimer". The wide-jitter threshold deliberately
+        // exceeds NTP_FILTER_SIZE (8): a single 100 ms+ outlier sample
+        // inflates per-peer jitter for the full 8 cycles it takes to age
+        // out of the ring, so any threshold <= 8 would evict a peer for one
+        // bad sample. 10 requires the high-jitter condition to persist
+        // past the filter's self-healing window, confirming it's a real
+        // noisy peer rather than transient pathology.
         for (int i = 0; i < NTP_MAX_PEERS; i++) {
             ntp_peer_t *q = &g.peers[i];
             if (!q->active) continue;
-            if (q->falseticker_runs >= 8 || q->jittery_runs >= 6) {
+            if (q->falseticker_runs >= 8 || q->jittery_runs >= 10) {
                 if (try_replace_peer(i) && g.selected_peer == i) {
                     g.selected_peer = -1;
                 }
