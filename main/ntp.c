@@ -191,6 +191,26 @@ static int32_t fp1616_to_us(uint32_t raw) {
 static void lock_take(void)  { xSemaphoreTake(g.lock, portMAX_DELAY); }
 static void lock_give(void)  { xSemaphoreGive(g.lock); }
 
+// Family-aware sockaddr comparison (family + port + address only). Avoids
+// padding-byte surprises that a raw memcmp on sockaddr_storage would hit.
+static bool sockaddr_matches(const struct sockaddr_storage *a,
+                             const struct sockaddr_storage *b) {
+    if (a->ss_family != b->ss_family) return false;
+    if (a->ss_family == AF_INET) {
+        const struct sockaddr_in *ai = (const struct sockaddr_in *)a;
+        const struct sockaddr_in *bi = (const struct sockaddr_in *)b;
+        return ai->sin_port == bi->sin_port &&
+               ai->sin_addr.s_addr == bi->sin_addr.s_addr;
+    }
+    if (a->ss_family == AF_INET6) {
+        const struct sockaddr_in6 *ai = (const struct sockaddr_in6 *)a;
+        const struct sockaddr_in6 *bi = (const struct sockaddr_in6 *)b;
+        return ai->sin6_port == bi->sin6_port &&
+               memcmp(&ai->sin6_addr, &bi->sin6_addr, sizeof(ai->sin6_addr)) == 0;
+    }
+    return false;
+}
+
 // ---------- DNS (multi-record) ----------
 
 // LWIP's getaddrinfo only surfaces the first A/AAAA record, even though
@@ -202,9 +222,6 @@ static void lock_give(void)  { xSemaphoreGive(g.lock); }
 #define DNS_TYPE_AAAA      28
 #define DNS_CLASS_IN       1
 #define DNS_RECV_TIMEOUT_S 2
-
-static bool sockaddr_matches(const struct sockaddr_storage *a,
-                             const struct sockaddr_storage *b);
 
 // Advance past a DNS name. Returns new offset, or -1 on malformed input.
 static int dns_skip_name(const uint8_t *buf, int len, int pos) {
@@ -516,7 +533,29 @@ static void drain_wake_sock(void) {
 
 // ---------- send ----------
 
-static void schedule_after_request(ntp_peer_t *p);
+// Shared "next poll tick" all peers align to. Without this, each peer scheduled
+// independently from its own response time, and RTT / timeout / swap events
+// caused their poll phases to drift apart - on a 32 s interval you could see
+// up to 20 s of age difference between peers. With alignment, every peer fires
+// at (roughly) the same instant and their ages stay within a few hundred ms.
+static uint32_t next_global_poll_ms;
+
+static void schedule_after_request(ntp_peer_t *p) {
+    uint32_t now = mono_ms();
+    uint32_t interval_ms = g.current_poll_s * 1000;
+    // If the shared tick has already passed (or hasn't been set yet), advance
+    // it to one interval from now. Subsequent peers scheduling in the same
+    // cycle will see it still in the future and use it as-is.
+    if ((int32_t)(now - next_global_poll_ms) >= 0) {
+        next_global_poll_ms = now + interval_ms;
+    }
+    // Stagger each peer by a fixed offset so we don't send all packets in a
+    // burst. 250 ms * peer_index gives ~750 ms spread for 4 peers - still
+    // rounds to the same second in the age display, but the sends are
+    // comfortably far apart to avoid any batching in the WiFi/TCP-IP stack.
+    int idx = (int)(p - g.peers);
+    p->next_poll_ms = next_global_poll_ms + (uint32_t)idx * 250;
+}
 
 static void send_request(ntp_peer_t *p) {
     ntp_pkt_t pkt = {0};
@@ -733,7 +772,7 @@ static bool process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
         if (offset >  correction)      offset -= correction;
         else if (offset < -correction) offset += correction;
         else                           offset = 0;
-        ESP_LOGI(TAG, "HNP %s delay=%ldus min=%ldus excess=%ldus offset %+lldus -> %+lldus",
+        ESP_LOGD(TAG, "HNP %s delay=%ldus min=%ldus excess=%ldus offset %+lldus -> %+lldus",
                  p->addr_str, (long)delay, (long)min_delay, (long)excess,
                  (long long)before, (long long)offset);
     }
@@ -972,48 +1011,6 @@ static void apply_freq_correction(void) {
 }
 
 // ---------- main task ----------
-
-// Shared "next poll tick" all peers align to. Without this, each peer scheduled
-// independently from its own response time, and RTT / timeout / swap events
-// caused their poll phases to drift apart - on a 32 s interval you could see
-// up to 20 s of age difference between peers. With alignment, every peer fires
-// at (roughly) the same instant and their ages stay within a few hundred ms.
-static uint32_t next_global_poll_ms;
-
-static void schedule_after_request(ntp_peer_t *p) {
-    uint32_t now = mono_ms();
-    uint32_t interval_ms = g.current_poll_s * 1000;
-    // If the shared tick has already passed (or hasn't been set yet), advance
-    // it to one interval from now. Subsequent peers scheduling in the same
-    // cycle will see it still in the future and use it as-is.
-    if ((int32_t)(now - next_global_poll_ms) >= 0) {
-        next_global_poll_ms = now + interval_ms;
-    }
-    // Stagger each peer by a fixed offset so we don't send all packets in a
-    // burst. 250 ms * peer_index gives ~750 ms spread for 4 peers - still
-    // rounds to the same second in the age display, but the sends are
-    // comfortably far apart to avoid any batching in the WiFi/TCP-IP stack.
-    int idx = (int)(p - g.peers);
-    p->next_poll_ms = next_global_poll_ms + (uint32_t)idx * 250;
-}
-
-static bool sockaddr_matches(const struct sockaddr_storage *a,
-                             const struct sockaddr_storage *b) {
-    if (a->ss_family != b->ss_family) return false;
-    if (a->ss_family == AF_INET) {
-        const struct sockaddr_in *ai = (const struct sockaddr_in *)a;
-        const struct sockaddr_in *bi = (const struct sockaddr_in *)b;
-        return ai->sin_port == bi->sin_port &&
-               ai->sin_addr.s_addr == bi->sin_addr.s_addr;
-    }
-    if (a->ss_family == AF_INET6) {
-        const struct sockaddr_in6 *ai = (const struct sockaddr_in6 *)a;
-        const struct sockaddr_in6 *bi = (const struct sockaddr_in6 *)b;
-        return ai->sin6_port == bi->sin6_port &&
-               memcmp(&ai->sin6_addr, &bi->sin6_addr, sizeof(ai->sin6_addr)) == 0;
-    }
-    return false;
-}
 
 static void handle_socket_readable(int sock) {
     // RFC 5905 header is 48 bytes, followed by optional RFC 7822 extension
