@@ -122,6 +122,7 @@ static struct {
     int32_t  system_jitter_us;
     int32_t  root_delay_us;
     int32_t  root_dispersion_us;
+    int32_t  combined_offset_us;   // dispersion-weighted avg across survivors
     int32_t  freq_ppm_x1000;
     uint32_t last_freq_apply_ms;
     uint32_t last_discipline_ms;
@@ -787,6 +788,24 @@ static void select_system_peer(void) {
     g.stratum           = (sp->stratum < 15) ? sp->stratum + 1 : 15;
     g.system_jitter_us  = sp->jitter_us;
     g.root_delay_us     = fp1616_to_us(sp->root_delay_raw) + sp->best_delay_us;
+
+    // Peer combining: dispersion-weighted average of all Marzullo survivors,
+    // not just the lowest-jitter one. A clean peer dominates the average via
+    // its small dispersion; noisier survivors contribute proportionally less.
+    // Gives ~1/sqrt(N) noise reduction when peers have comparable quality and
+    // degrades gracefully when one peer is clearly better.
+    {
+        int64_t num = 0, denom = 0;
+        for (int i = 0; i < n; i++) {
+            if (!(best_mask & (1 << i))) continue;
+            ntp_peer_t *pp = &g.peers[c[i].idx];
+            int32_t disp = pp->dispersion_us > 1 ? pp->dispersion_us : 1;
+            int64_t w    = 1000000 / disp;
+            num   += (int64_t)pp->best_offset_us * w;
+            denom += w;
+        }
+        g.combined_offset_us = denom > 0 ? (int32_t)(num / denom) : sp->best_offset_us;
+    }
     g.root_dispersion_us = fp1616_to_us(sp->root_dispersion_raw) + sp->dispersion_us;
     ESP_LOGI(TAG, "SELECT candidates=%d survivors=%d chosen=%s jitter=%ldus%s",
              n, best_count, sp->addr_str, (long)sp->jitter_us,
@@ -991,7 +1010,7 @@ static void handle_socket_readable(int sock) {
                    since_disc_ms >= (int32_t)(g.current_poll_s * 500);
         if (is_selected && due) {
             g.last_discipline_ms = now;
-            discipline_clock(p->best_offset_us);
+            discipline_clock(g.combined_offset_us);
             adaptive_poll_update();
         } else {
             ESP_LOGI(TAG, "DISC_SKIP peer=%s is_sel=%d due=%d since_disc=%ldms",
