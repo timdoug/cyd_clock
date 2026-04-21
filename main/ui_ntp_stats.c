@@ -92,30 +92,6 @@ static void fmt_ppm_x1000(char *buf, size_t len, int32_t val) {
              (unsigned long)((av % 1000) / 10));
 }
 
-// Paint new_text starting at (x, y) vs old_text already on screen, touching
-// only the cells that differ. Handles shrink (erases tail) and grow (draws
-// extra chars). Color change forces a full repaint of the value.
-static void diff_paint(int x, int y, const char *old_text, const char *new_text,
-                       uint16_t fg, uint16_t bg, bool force_full) {
-    size_t old_len = strlen(old_text);
-    size_t new_len = strlen(new_text);
-    size_t min_len = new_len < old_len ? new_len : old_len;
-
-    for (size_t i = 0; i < min_len; i++) {
-        if (force_full || old_text[i] != new_text[i]) {
-            display_char(x + (int)i * FONT_CHAR_WIDTH, y, new_text[i], fg, bg);
-        }
-    }
-    for (size_t i = min_len; i < new_len; i++) {
-        display_char(x + (int)i * FONT_CHAR_WIDTH, y, new_text[i], fg, bg);
-    }
-    if (old_len > new_len) {
-        display_fill_rect(x + (int)new_len * FONT_CHAR_WIDTH, y,
-                          (int)(old_len - new_len) * FONT_CHAR_WIDTH,
-                          FONT_CHAR_HEIGHT, bg);
-    }
-}
-
 // A colored text segment, used to render rows that mix gray inline labels
 // ("Syncs:", "Jitter:") with white values on a single line.
 typedef struct {
@@ -139,24 +115,26 @@ static size_t flatten_segments(const segment_t *segs, int nsegs,
     return pos;
 }
 
-// Color-per-character variant of diff_paint for multi-colored rows.
-static void diff_paint_multicolor(int x, int y,
-                                  const char *old_text, const char *new_text,
-                                  const uint16_t *new_colors,
-                                  uint16_t bg, bool force_full) {
+// Paint new_text starting at (x, y) vs old_text already on screen, touching
+// only the cells that differ. Handles shrink (erases tail) and grow (draws
+// extra chars). If `colors` is non-NULL, each char uses its per-position
+// color (used for multi-color rows); otherwise the scalar `fg` applies.
+static void diff_paint(int x, int y, const char *old_text, const char *new_text,
+                       uint16_t fg, const uint16_t *colors,
+                       uint16_t bg, bool force_full) {
     size_t old_len = strlen(old_text);
     size_t new_len = strlen(new_text);
     size_t min_len = new_len < old_len ? new_len : old_len;
 
     for (size_t i = 0; i < min_len; i++) {
         if (force_full || old_text[i] != new_text[i]) {
-            display_char(x + (int)i * FONT_CHAR_WIDTH, y,
-                         new_text[i], new_colors[i], bg);
+            uint16_t cell_fg = colors ? colors[i] : fg;
+            display_char(x + (int)i * FONT_CHAR_WIDTH, y, new_text[i], cell_fg, bg);
         }
     }
     for (size_t i = min_len; i < new_len; i++) {
-        display_char(x + (int)i * FONT_CHAR_WIDTH, y,
-                     new_text[i], new_colors[i], bg);
+        uint16_t cell_fg = colors ? colors[i] : fg;
+        display_char(x + (int)i * FONT_CHAR_WIDTH, y, new_text[i], cell_fg, bg);
     }
     if (old_len > new_len) {
         display_fill_rect(x + (int)new_len * FONT_CHAR_WIDTH, y,
@@ -180,7 +158,7 @@ static void draw_segmented_field_cached(int x, int y, int row_idx,
     if (first_time) {
         display_string(x, y, label, COLOR_GRAY, COLOR_BLACK);
     }
-    diff_paint_multicolor(vx, y, cache, text, colors, COLOR_BLACK, first_time);
+    diff_paint(vx, y, cache, text, 0, colors, COLOR_BLACK, first_time);
 
     strncpy(cache, text, sizeof(last_sys_row[row_idx]) - 1);
     cache[sizeof(last_sys_row[row_idx]) - 1] = '\0';
@@ -205,7 +183,7 @@ static void draw_field_cached(int x, int y, int row_idx,
         display_string(x, y, label, COLOR_GRAY, COLOR_BLACK);
     }
 
-    diff_paint(vx, y, cache, value, val_color, COLOR_BLACK,
+    diff_paint(vx, y, cache, value, val_color, NULL, COLOR_BLACK,
                first_time || color_changed);
 
     strncpy(cache, value, sizeof(last_sys_row[row_idx]) - 1);
@@ -273,7 +251,7 @@ static void draw_peer_row(int slot, const ntp_peer_stats_t *p) {
     if (!first_time && !color_changed && strcmp(cache, line) == 0) return;
 
     int x = (!p || !p->active) ? 10 : 4;
-    diff_paint(x, y, cache, line, row_fg, COLOR_BLACK,
+    diff_paint(x, y, cache, line, row_fg, NULL, COLOR_BLACK,
                first_time || color_changed);
 
     strncpy(cache, line, sizeof(last_peer_row[slot]) - 1);
