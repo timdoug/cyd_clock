@@ -83,8 +83,11 @@ void ui_clock_init(void) {
     if (!nvs_config_get_led_brightness(&led_brightness)) {
         led_brightness = BRIGHTNESS_DEFAULT;
     }
-    // Turn off LED initially
-    led_set_brightness(0);
+    // Don't touch the 1PPS pulse state here - it runs independently of the
+    // clock screen so transitions into/out of this state shouldn't visibly
+    // interrupt the pulse. reset_display_state() already cleared
+    // last_time_valid, so the next ui_clock_update will re-assert the
+    // current brightness via the "time just became valid" edge.
 }
 
 void ui_clock_redraw(void) {
@@ -298,12 +301,13 @@ void ui_clock_update(void) {
     // Check if time is valid (year >= 2025)
     bool time_valid = (timeinfo.tm_year + 1900 >= 2025);
 
-    // If time just became valid, force redraw
+    // If time just became valid, force redraw and enable the 1PPS pulse.
     if (time_valid && !last_time_valid) {
         last_hour = -1;
         last_min = -1;
         last_sec = -1;
         last_day = -1;
+        led_set_brightness(led_brightness);
     }
     last_time_valid = time_valid;
 
@@ -332,12 +336,14 @@ void ui_clock_update(void) {
             draw_time_digit(5, sec % 10);
         }
 
-        // Blink colons every second (and sync LED)
+        // Blink colons every second. LED is not toggled here anymore - the
+        // red LED runs an independent 1PPS pulse driven by a dedicated timer
+        // in led.c, so its edges align to the wall-clock boundary rather
+        // than the display-latency-compensated tick that fires ~12 ms early.
         bool new_colon_visible = (sec % 2 == 0);
         if (new_colon_visible != colon_visible || last_sec < 0) {
             draw_colon(0, new_colon_visible);
             draw_colon(1, new_colon_visible);
-            led_set_brightness(new_colon_visible ? led_brightness : 0);
             colon_visible = new_colon_visible;
         }
 

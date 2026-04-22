@@ -103,9 +103,6 @@ void ui_settings_init(void) {
         led_brightness = BRIGHTNESS_DEFAULT;
     }
 
-    // Turn off LED when entering settings
-    led_set_brightness(0);
-
     display_fill(COLOR_BLACK);
     ui_draw_header("Settings", false);
     draw_menu();
@@ -123,21 +120,18 @@ settings_result_t ui_settings_update(void) {
 
     // Timezone
     if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT) {
-        led_set_brightness(0);
         return SETTINGS_RESULT_TIMEZONE;
     }
     y += UI_ITEM_HEIGHT;
 
     // WiFi
     if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT) {
-        led_set_brightness(0);
         return SETTINGS_RESULT_WIFI;
     }
     y += UI_ITEM_HEIGHT;
 
     // NTP
     if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT) {
-        led_set_brightness(0);
         return SETTINGS_RESULT_NTP;
     }
     y += UI_ITEM_HEIGHT;
@@ -177,7 +171,6 @@ settings_result_t ui_settings_update(void) {
 
     // About
     if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT) {
-        led_set_brightness(0);
         return SETTINGS_RESULT_ABOUT;
     }
     y += UI_ITEM_HEIGHT;
@@ -187,7 +180,6 @@ settings_result_t ui_settings_update(void) {
     int btn_x = (DISPLAY_WIDTH - btn_w) / 2;
     if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT &&
         touch.x >= btn_x && touch.x < btn_x + btn_w) {
-        led_set_brightness(0);
         return SETTINGS_RESULT_DONE;
     }
 
