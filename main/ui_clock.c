@@ -262,7 +262,7 @@ static void draw_ntp_stats(time_t now, int sec) {
     }
     char poll_buf[16], ago_buf[16];
     ui_fmt_duration_full(poll_buf, sizeof(poll_buf), sys.current_poll_s);
-    ui_fmt_duration(ago_buf, sizeof(ago_buf),
+    ui_fmt_duration_full(ago_buf, sizeof(ago_buf),
                  (uint32_t)(now > sys.last_sync_time ? now - sys.last_sync_time : 0));
     char line2[56];
     snprintf(line2, sizeof(line2), "%d/%d peers  poll %s  %s ago",
