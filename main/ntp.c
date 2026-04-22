@@ -47,6 +47,34 @@ static const char *TAG = "ntp";
 // Makes root_dispersion honestly track uncertainty between polls.
 #define PHI_US_PER_SEC       15            // 15 us/s growth
 
+// Our local clock precision as the NTP log2(seconds) field. -18 ~ 4 us, which
+// is conservative for the ESP32's microsecond-granular gettimeofday. We both
+// advertise this to peers (pkt.precision below) AND use it as one of the
+// inputs to each sample's per-sample dispersion, so a single constant keeps
+// the advertised and internally-accounted precision consistent.
+#define LOCAL_PRECISION      (-18)
+
+// Floor on per-sample dispersion - guards against a server that lies about
+// its precision (or a stratum-1 that legitimately advertises sub-us) driving
+// the sample's uncertainty estimate unreasonably low. 100 us is about what
+// WiFi + LAN + ESP32 capture jitter can actually deliver in the best case.
+#define SAMPLE_DISP_FLOOR_US 100
+
+// Convert an NTP precision field (log2(seconds), typically negative) to the
+// corresponding wall-clock uncertainty in us. Clamps at 1 us on the low end
+// (anything finer gets rounded up) and at INT32_MAX on the high end (a broken
+// server that sends precision=0 would mean 1 s / >= our filter cap).
+static int32_t precision_to_us(int8_t precision) {
+    if (precision >= 0) {
+        // 2^p seconds = 2^p * 10^6 us
+        if (precision >= 31) return INT32_MAX;
+        return (int32_t)(1000000LL << precision);
+    }
+    int shift = -(int)precision;
+    if (shift >= 20) return 1;   // sub-us rounded up to 1 us
+    return 1000000 >> shift;
+}
+
 typedef struct __attribute__((packed)) {
     uint8_t  li_vn_mode;
     uint8_t  stratum;
@@ -588,7 +616,7 @@ static void send_request(ntp_peer_t *p) {
     ntp_pkt_t pkt = {0};
     pkt.li_vn_mode = (0 << 6) | (NTP_VERSION << 3) | NTP_MODE_CLIENT;
     pkt.poll       = 6;
-    pkt.precision  = -18;   // ~4 us
+    pkt.precision  = LOCAL_PRECISION;
 
     int sock = (p->addr.ss_family == AF_INET6) ? g.sock6 : g.sock4;
     if (sock < 0) return;
@@ -830,11 +858,25 @@ static bool process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
                  (long long)before, (long long)offset);
     }
 
+    // Per RFC 5905 section 5: per-sample dispersion epsilon = rho_local + rho_server + PHI*(T4-T1).
+    // rho terms are the clock precisions of each end (2^precision seconds each),
+    // and PHI*(T4-T1) accounts for frequency uncertainty across the measurement
+    // window. Sum is floored to avoid under-reporting when a stratum-1 peer
+    // advertises sub-us precision that our transport can't actually deliver.
+    int64_t rtt_us  = tv_diff_us(&t4_local, &p->t1);
+    int32_t eps_phi = (rtt_us > 0)
+                      ? (int32_t)((uint64_t)PHI_US_PER_SEC * rtt_us / 1000000)
+                      : 0;
+    int32_t sample_disp = precision_to_us(LOCAL_PRECISION) +
+                          precision_to_us(pkt->precision) +
+                          eps_phi;
+    if (sample_disp < SAMPLE_DISP_FLOOR_US) sample_disp = SAMPLE_DISP_FLOOR_US;
+
     p->filter_head = (p->filter_head + 1) % NTP_FILTER_SIZE;
-    p->filter[p->filter_head].offset_us    = (int32_t)offset;
-    p->filter[p->filter_head].delay_us     = (int32_t)delay;
-    p->filter[p->filter_head].dispersion_us = 10000;   // initial per-sample dispersion
-    p->filter[p->filter_head].valid        = true;
+    p->filter[p->filter_head].offset_us     = (int32_t)offset;
+    p->filter[p->filter_head].delay_us      = (int32_t)delay;
+    p->filter[p->filter_head].dispersion_us = sample_disp;
+    p->filter[p->filter_head].valid         = true;
 
     p->stratum         = pkt->stratum;
     p->precision       = pkt->precision;
