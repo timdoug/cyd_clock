@@ -40,4 +40,9 @@ void nvs_config_set_rotation(bool rotated);
 bool nvs_config_get_led_brightness(uint8_t *brightness);
 void nvs_config_set_led_brightness(uint8_t brightness);
 
+// NTP frequency-correction estimate (ppm * 1000). Persisted across reboots
+// so the PI loop doesn't have to re-converge from 0 ppm on every cold boot.
+bool nvs_config_get_freq_ppm_x1000(int32_t *value);
+void nvs_config_set_freq_ppm_x1000(int32_t value);
+
 #endif // NVS_CONFIG_H

@@ -15,6 +15,7 @@
 #include "lwip/dns.h"
 #include "lwip/netdb.h"
 #include "lwip/sockets.h"
+#include "nvs_config.h"
 
 static const char *TAG = "ntp";
 
@@ -1128,6 +1129,26 @@ static void discipline_clock(int32_t offset_us) {
 
         ESP_LOGI(TAG, "Clock slewed %+ld us (freq est %+ld ppb)",
                  (long)offset_us, (long)g.freq_ppm_x1000);
+
+        // Persist the freq estimate to NVS so cold boots don't need to
+        // re-converge from 0 ppm. Throttled to once per 30 minutes AND only
+        // if the estimate has shifted by >= 0.1 ppm since the last write -
+        // keeps flash wear trivial (a handful of writes per day at most)
+        // while still tracking slow temperature drift.
+        static uint32_t last_freq_save_ms;
+        static int32_t  last_saved_freq    = INT32_MIN;
+        const  uint32_t SAVE_INTERVAL_MS   = 30 * 60 * 1000;
+        const  int32_t  SAVE_DELTA_PPB     = 100;     // 0.1 ppm
+        uint32_t now_ms     = mono_ms();
+        int32_t  freq_delta = g.freq_ppm_x1000 - last_saved_freq;
+        if (freq_delta < 0) freq_delta = -freq_delta;
+        if ((last_saved_freq == INT32_MIN) ||
+            ((now_ms - last_freq_save_ms) >= SAVE_INTERVAL_MS &&
+             freq_delta >= SAVE_DELTA_PPB)) {
+            nvs_config_set_freq_ppm_x1000(g.freq_ppm_x1000);
+            last_saved_freq    = g.freq_ppm_x1000;
+            last_freq_save_ms  = now_ms;
+        }
     }
 
     g.first_sync_done = true;
@@ -1470,6 +1491,16 @@ void ntp_init(const char *server, bool prefer_ipv6) {
     g.selected_peer  = -1;
     g.stratum        = 16;
     g.dirty_config   = true;
+    // Restore the persisted crystal-drift estimate so we start near-converged
+    // instead of the ~30 minutes the PI loop normally needs to settle on the
+    // hardware-intrinsic value from a cold 0 ppm seed.
+    int32_t saved_freq = 0;
+    if (nvs_config_get_freq_ppm_x1000(&saved_freq) &&
+        saved_freq >  -MAX_FREQ_PPM_X1000 &&
+        saved_freq <   MAX_FREQ_PPM_X1000) {
+        g.freq_ppm_x1000 = saved_freq;
+        ESP_LOGI(TAG, "Restored freq estimate: %+ld ppb", (long)saved_freq);
+    }
 
     g.running = true;
     xTaskCreate(ntp_task, "ntp", 4096, NULL, 5, &g.task);

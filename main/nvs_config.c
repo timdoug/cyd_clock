@@ -210,3 +210,20 @@ void nvs_config_set_led_brightness(uint8_t brightness) {
     ESP_ERROR_CHECK(nvs_set_u8(handle, "led_bright", brightness));
     nvs_commit_and_close(handle);
 }
+
+bool nvs_config_get_freq_ppm_x1000(int32_t *value) {
+    nvs_handle_t handle;
+    if (!nvs_open_read(&handle)) {
+        return false;
+    }
+    esp_err_t err = nvs_get_i32(handle, "freq_ppm", value);
+    nvs_close(handle);
+    return (err == ESP_OK);
+}
+
+void nvs_config_set_freq_ppm_x1000(int32_t value) {
+    nvs_handle_t handle;
+    if (!nvs_open_write(&handle)) return;
+    ESP_ERROR_CHECK(nvs_set_i32(handle, "freq_ppm", value));
+    nvs_commit_and_close(handle);
+}
