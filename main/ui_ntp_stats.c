@@ -328,7 +328,7 @@ static void refresh_dynamic(void) {
     {
         int y = SYS_Y_START + 2 * SYS_LINE_H;
         char drift_buf[16], age_buf[16];
-        if (sys.sync_count < 2) {
+        if (!sys.freq_known) {
             snprintf(drift_buf, sizeof(drift_buf), "---");
         } else {
             fmt_ppm_x1000(drift_buf, sizeof(drift_buf), sys.freq_ppm_x1000);

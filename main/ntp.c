@@ -156,6 +156,7 @@ static struct {
     int32_t  root_dispersion_us;
     int32_t  combined_offset_us;   // dispersion-weighted avg across survivors
     int32_t  freq_ppm_x1000;
+    bool     freq_loaded_from_nvs; // freq_ppm_x1000 was restored at boot - usable before any sync
     uint32_t last_freq_apply_ms;
     uint32_t last_discipline_ms;
     uint32_t last_discipline_poll_s;  // current_poll_s at the moment we last disciplined
@@ -1495,10 +1496,12 @@ void ntp_init(const char *server, bool prefer_ipv6) {
     // instead of the ~30 minutes the PI loop normally needs to settle on the
     // hardware-intrinsic value from a cold 0 ppm seed.
     int32_t saved_freq = 0;
+    g.freq_loaded_from_nvs = false;
     if (nvs_config_get_freq_ppm_x1000(&saved_freq) &&
         saved_freq >  -MAX_FREQ_PPM_X1000 &&
         saved_freq <   MAX_FREQ_PPM_X1000) {
-        g.freq_ppm_x1000 = saved_freq;
+        g.freq_ppm_x1000       = saved_freq;
+        g.freq_loaded_from_nvs = true;
         ESP_LOGI(TAG, "Restored freq estimate: %+ld ppb", (long)saved_freq);
     }
 
@@ -1561,6 +1564,7 @@ void ntp_get_sys_stats(ntp_sys_stats_t *out) {
         }
     }
     out->freq_ppm_x1000      = g.freq_ppm_x1000;
+    out->freq_known          = g.freq_loaded_from_nvs || g.sync_count >= 2;
     out->stratum        = g.stratum;
     out->selected_peer  = (g.selected_peer < 0) ? 0xFF : (uint8_t)g.selected_peer;
     out->server         = g.server;

@@ -269,17 +269,24 @@ static void draw_ntp_stats(time_t now, int sec) {
              peers_reach, peers_total, poll_buf, ago_buf);
     draw_line_cached(STATS_LINE2, last_line2, sizeof(last_line2), line2, COLOR_STATS);
 
-    // Line 3: offset + root dispersion + drift - meaningful only after second sync
+    // Line 3: offset + root dispersion + drift. Gated independently - drift
+    // can come from NVS (valid before any sync), offset/dispersion need a
+    // current-session discipline (sync_count >= 2) to be meaningful.
     char line3[96];
+    char off_buf[20], disp_buf[20], drift_buf[16];
     if (sys.sync_count < 2) {
-        snprintf(line3, sizeof(line3), "offset ----  drift ----");
+        snprintf(off_buf,  sizeof(off_buf),  "----");
+        snprintf(disp_buf, sizeof(disp_buf), "----");
     } else {
-        char off_buf[20], disp_buf[20], drift_buf[16];
         fmt_offset(off_buf, sizeof(off_buf), sys.last_offset_us);
         fmt_pm_us(disp_buf, sizeof(disp_buf), sys.root_dispersion_us);
-        fmt_signed_fixed(drift_buf, sizeof(drift_buf), sys.freq_ppm_x1000, "ppm");
-        snprintf(line3, sizeof(line3), "off %s %s drift %s", off_buf, disp_buf, drift_buf);
     }
+    if (!sys.freq_known) {
+        snprintf(drift_buf, sizeof(drift_buf), "----");
+    } else {
+        fmt_signed_fixed(drift_buf, sizeof(drift_buf), sys.freq_ppm_x1000, "ppm");
+    }
+    snprintf(line3, sizeof(line3), "off %s %s drift %s", off_buf, disp_buf, drift_buf);
     draw_line_cached(STATS_LINE3, last_line3, sizeof(last_line3), line3, COLOR_STATS);
 }
 

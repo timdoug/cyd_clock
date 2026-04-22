@@ -34,6 +34,7 @@ typedef struct {
     int32_t  root_delay_us;
     int32_t  root_dispersion_us;
     int32_t  freq_ppm_x1000;   // Estimated crystal freq error, ppm * 1000 (for 1 ppb resolution)
+    bool     freq_known;       // true iff we have a real estimate (current session or restored from NVS)
     uint8_t  stratum;          // Our stratum (selected peer's + 1, or 16 if unsynced)
     uint8_t  selected_peer;    // Index into peer table, 0xFF if none
     const char *server;        // Configured hostname
