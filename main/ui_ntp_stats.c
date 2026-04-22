@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <sys/time.h>
 #include "driver/gpio.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -31,7 +32,7 @@ static const char *TAG = "ui_ntp_stats";
 #define SPINNER_Y     SPINNER_PAD
 
 static uint32_t last_touch_time = 0;
-static uint32_t last_refresh_ms = 0;
+static time_t   last_refresh_sec = 0;
 static uint8_t  spinner_frame   = 0;
 
 // Cached rendered line contents - skip repaint when unchanged, and when only
@@ -397,13 +398,18 @@ static void refresh_dynamic(void) {
 
 void ui_ntp_stats_init(void) {
     ESP_LOGI(TAG, "Opening NTP stats");
-    last_touch_time = 0;
-    last_refresh_ms = 0;
-    spinner_frame = 0;
+    last_touch_time  = 0;
+    spinner_frame    = 0;
     for (int i = 0; i < SYS_ROWS; i++) last_sys_row[i][0] = '\0';
     for (int i = 0; i < NTP_MAX_PEERS; i++) last_peer_row[i][0] = '\0';
     draw_static_chrome();
     refresh_dynamic();
+    // Mark the current second as already-painted so the next polled tick
+    // doesn't double-refresh; subsequent updates only fire on a wall-clock
+    // second rollover (see ui_ntp_stats_update).
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    last_refresh_sec = tv.tv_sec;
 }
 
 ntp_stats_result_t ui_ntp_stats_update(void) {
@@ -416,10 +422,15 @@ ntp_stats_result_t ui_ntp_stats_update(void) {
         return NTP_STATS_RESULT_BACK;
     }
 
-    // Refresh at 1 Hz
-    uint32_t now_ms = pdTICKS_TO_MS(xTaskGetTickCount());
-    if (now_ms - last_refresh_ms >= 1000) {
-        last_refresh_ms = now_ms;
+    // Refresh on each wall-clock second boundary so the displayed values
+    // tick in lockstep with the clock screen (Age / spinner / etc. advance
+    // at the same instant the seconds digit would on the time page).
+    // Detection latency is bounded by the outer TOUCH_RELEASE_POLL_MS
+    // (50 ms) - small enough to be invisible.
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    if (tv.tv_sec != last_refresh_sec) {
+        last_refresh_sec = tv.tv_sec;
         refresh_dynamic();
     }
     return NTP_STATS_RESULT_NONE;
