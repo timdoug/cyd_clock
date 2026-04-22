@@ -204,11 +204,11 @@ static void draw_static_chrome(void) {
     display_fill(COLOR_BLACK);
     ui_draw_header("NTP Statistics", false);
     // Column headers for the peer rows below - padding matches the peer row
-    // format "%c%-15s %-8s %-6s %-6s", starting at x=4 with a blank where the
-    // selected-peer star goes.
+    // format "%-15s %-2s %-7s %-5s %-5s%c". Selection marker ('*') is the
+    // last char of each row so there's no leading-blank column to skip.
     display_fill_rect(0, PEER_HDR_Y, DISPLAY_WIDTH, FONT_CHAR_HEIGHT, COLOR_BLACK);
     display_string(4, PEER_HDR_Y,
-                   " Peer            R  Offset  Delay Jit",
+                   "Peer            R  Offset  Delay Jitter",
                    COLOR_GRAY, COLOR_BLACK);
 }
 
@@ -250,12 +250,15 @@ static void draw_peer_row(int slot, const ntp_peer_stats_t *p) {
             snprintf(jitter_buf, sizeof(jitter_buf), "---");
         }
 
-        // Format: "[*] addr(15) reach(2) offset(7) delay(5) jitter(5)" - age
-        // is now on the system-level Drift row (all peers align to a shared
-        // tick so per-peer ages would be identical).
-        snprintf(line, sizeof(line), "%c%-15s %-2s %-7s %-5s %-5s",
-                 p->selected ? '*' : ' ', addr,
-                 reach_buf, off_buf, delay_buf, jitter_buf);
+        // Format: "addr(15) reach(2) offset(7) delay(5) jitter(5) [marker]"
+        // The trailing status character mirrors the row color: '*' for the
+        // selected peer (cyan), '!' for a freshly-installed slot still
+        // inside its green window, ' ' otherwise. Age sits on the
+        // system-level Drift row (all peers share a poll tick, so
+        // per-peer ages would be identical).
+        char marker = p->selected ? '*' : (p->fresh ? '!' : ' ');
+        snprintf(line, sizeof(line), "%-15s %-2s %-7s %-5s %-5s%c",
+                 addr, reach_buf, off_buf, delay_buf, jitter_buf, marker);
     }
 
     char *cache = last_peer_row[slot];
@@ -265,8 +268,7 @@ static void draw_peer_row(int slot, const ntp_peer_stats_t *p) {
 
     if (!first_time && !color_changed && strcmp(cache, line) == 0) return;
 
-    int x = (!p || !p->active) ? 10 : 4;
-    diff_paint(x, y, cache, line, row_fg, NULL, COLOR_BLACK,
+    diff_paint(4, y, cache, line, row_fg, NULL, COLOR_BLACK,
                first_time || color_changed);
 
     strncpy(cache, line, sizeof(last_peer_row[slot]) - 1);
@@ -292,7 +294,7 @@ static void refresh_dynamic(void) {
     {
         int y = SYS_Y_START;
         snprintf(val, sizeof(val), "%s", server);
-        draw_field_cached(12, y, 0, "Server: ", val,
+        draw_field_cached(4, y, 0, "Server: ", val,
                           sys.synced ? COLOR_GREEN : COLOR_ORANGE);
     }
 
@@ -314,7 +316,7 @@ static void refresh_dynamic(void) {
             { "   Poll: ",   COLOR_GRAY  },
             { poll_buf,      COLOR_WHITE },
         };
-        draw_segmented_field_cached(12, y, 1, "Stratum: ", segs,
+        draw_segmented_field_cached(4, y, 1, "Stratum: ", segs,
                                     sizeof(segs) / sizeof(segs[0]));
     }
 
@@ -345,7 +347,7 @@ static void refresh_dynamic(void) {
             { "  Age: ", COLOR_GRAY  },
             { age_buf,   COLOR_WHITE },
         };
-        draw_segmented_field_cached(12, y, 2, "Drift: ", segs,
+        draw_segmented_field_cached(4, y, 2, "Drift: ", segs,
                                     sizeof(segs) / sizeof(segs[0]));
     }
 
@@ -367,7 +369,7 @@ static void refresh_dynamic(void) {
             { "  Jitter: ",  COLOR_GRAY  },
             { jit_buf,       COLOR_WHITE },
         };
-        draw_segmented_field_cached(12, y, 3, "Offset: ", segs,
+        draw_segmented_field_cached(4, y, 3, "Offset: ", segs,
                                     sizeof(segs) / sizeof(segs[0]));
     }
 
@@ -385,14 +387,39 @@ static void refresh_dynamic(void) {
             const char *dp = disp_buf[0] == '+' ? disp_buf + 1 : disp_buf;
             snprintf(val, sizeof(val), "%s delay, %s disp", rd, dp);
         }
-        draw_field_cached(12, y, 4, "Root: ", val, COLOR_WHITE);
+        draw_field_cached(4, y, 4, "Root: ", val, COLOR_WHITE);
     }
 
-    // Peer rows
+    // Peer rows - sorted by IP so a given peer always lives on the same row
+    // for the user, regardless of which internal slot it occupies. Pure
+    // strcmp on addr_str (not numerical IP sort, but stable and identical
+    // across reboots when DNS gives back the same set). Inactive slots
+    // render as "-" rows below the active peers.
+    ntp_peer_stats_t peers[NTP_MAX_PEERS];
+    int active_idx[NTP_MAX_PEERS];
+    int n_active = 0;
     for (int i = 0; i < NTP_MAX_PEERS; i++) {
-        ntp_peer_stats_t p;
-        bool ok = ntp_get_peer_stats(i, &p);
-        draw_peer_row(i, ok ? &p : NULL);
+        if (ntp_get_peer_stats(i, &peers[i]) && peers[i].active) {
+            active_idx[n_active++] = i;
+        }
+    }
+    // Insertion sort by addr_str (n <= 4, so a simple O(n^2) is fine).
+    for (int i = 1; i < n_active; i++) {
+        int cur = active_idx[i];
+        int j = i - 1;
+        while (j >= 0 &&
+               strcmp(peers[active_idx[j]].addr_str, peers[cur].addr_str) > 0) {
+            active_idx[j + 1] = active_idx[j];
+            j--;
+        }
+        active_idx[j + 1] = cur;
+    }
+    for (int slot = 0; slot < NTP_MAX_PEERS; slot++) {
+        if (slot < n_active) {
+            draw_peer_row(slot, &peers[active_idx[slot]]);
+        } else {
+            draw_peer_row(slot, NULL);
+        }
     }
 }
 
