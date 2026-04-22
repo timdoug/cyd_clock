@@ -252,6 +252,14 @@ void app_main(void) {
                     continue;
                 }
 
+                // Skip the FIRST latency measurement after re-entering the
+                // clock state. ui_clock_redraw just repainted everything, so
+                // that initial ui_clock_update typically has nothing to draw
+                // and measures unrealistically short (~1-2 ms). Feeding that
+                // into the EMA over many tap-settings-back cycles would drag
+                // clock_latency_us far below the real steady-state value and
+                // leave every subsequent tick's pixels landing visibly late.
+                static bool skip_next_measurement = true;
                 if (tick_needs_arm) {
                     // Drain any stale semaphore left over from a previous
                     // CLOCK session (timer may have fired while we were in
@@ -259,6 +267,7 @@ void app_main(void) {
                     xSemaphoreTake(clock_tick_sem, 0);
                     clock_tick_arm();
                     tick_needs_arm = false;
+                    skip_next_measurement = true;
                 }
 
                 // Wait for the next second boundary (esp_timer callback) or
@@ -272,18 +281,20 @@ void app_main(void) {
                     ui_clock_update();
                     int64_t t_end   = esp_timer_get_time();
                     uint32_t measured = (uint32_t)(t_end - t_start);
-                    // Guard against pathological samples (the task got
-                    // preempted for a long time, or some unrelated work
-                    // slipped in). 30 ms is comfortably above the worst
-                    // normal tick (hour-rollover repaint); anything larger
-                    // is noise and shouldn't drag the estimate.
-                    if (measured < 30000) {
+                    // Guard against pathological samples. Upper bound (30 ms)
+                    // rejects ticks where the task got preempted for a long
+                    // time - noise that shouldn't drag the EMA. Lower bound
+                    // (3 ms) rejects "nothing changed, no repaint" ticks
+                    // that would spuriously pull the EMA down.
+                    if (!skip_next_measurement &&
+                        measured >= 3000 && measured < 30000) {
                         // EMA with alpha = 1/8: new = (7/8)*old + (1/8)*measured.
                         // Converges in ~8 ticks, smooths cell-count variance.
                         clock_latency_us = clock_latency_us
                                          - (clock_latency_us / 8)
                                          + (measured / 8);
                     }
+                    skip_next_measurement = false;
                     clock_tick_arm();
                 }
                 continue;
