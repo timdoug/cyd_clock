@@ -1040,16 +1040,24 @@ static void select_system_peer(void) {
     g.stratum           = (sp->stratum < 15) ? sp->stratum + 1 : 15;
     g.root_delay_us     = fp1616_to_us(sp->root_delay_raw) + sp->best_delay_us;
 
-    // Peer combining: dispersion-weighted average of all Marzullo survivors,
-    // not just the lowest-jitter one. A clean peer dominates the average via
-    // its small dispersion; noisier survivors contribute proportionally less.
-    // Gives ~1/sqrt(N) noise reduction when peers have comparable quality and
-    // degrades gracefully when one peer is clearly better.
+    // Peer combining: inverse-variance-weighted average of all Marzullo
+    // survivors, not just the lowest-jitter one. A clean peer dominates the
+    // average via its small dispersion; noisier survivors contribute
+    // proportionally less. Gives ~1/sqrt(N) noise reduction when peers have
+    // comparable quality and degrades gracefully when one peer is clearly
+    // better.
     //
-    // System jitter uses the variance-of-weighted-mean formula so it reflects
-    // the actual uncertainty of the combined estimate (which is reduced by
-    // the combining), not just the typical peer's jitter.
-    //   combined = sum(w*x) / sumw                  with w = 1/dispersion
+    // Weights are 1/dispersion^2 (not 1/dispersion). This is the textbook
+    // minimum-variance unbiased combination of independent estimates: with
+    // sigma_i ~ dispersion_i, the optimal weight is 1/sigma_i^2. Cleaner peers get
+    // *quadratically* more weight than noisier ones, so a single good peer
+    // can dominate a survivor set that includes wider-jitter peers - which
+    // is exactly what we want.
+    //
+    // System jitter uses the variance-of-weighted-mean formula so it
+    // reflects the actual uncertainty of the combined estimate (which is
+    // reduced by the combining), not just the typical peer's jitter.
+    //   combined      = sum(w*x) / sumw            with w = 1/dispersion^2
     //   Var(combined) = sum(w^2*sigma^2) / (sumw)^2
     //   sigma_combined    = sqrt(sum(w^2*sigma^2)) / sumw
     // Doubles throughout so w^2*sigma^2 can't overflow with small dispersion.
@@ -1059,7 +1067,7 @@ static void select_system_peer(void) {
             if (!(best_mask & (1 << i))) continue;
             ntp_peer_t *pp = &g.peers[c[i].idx];
             double disp = pp->dispersion_us > 1 ? pp->dispersion_us : 1;
-            double w    = 1.0 / disp;
+            double w    = 1.0 / (disp * disp);
             num_off     += (double)pp->best_offset_us * w;
             num_jit_var += w * w * (double)pp->jitter_us * pp->jitter_us;
             denom       += w;
