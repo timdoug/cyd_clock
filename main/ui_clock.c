@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <time.h>
+#include <sys/time.h>
 #include "driver/gpio.h"
 #include "esp_log.h"
 #include "config.h"
@@ -283,7 +284,15 @@ void ui_clock_update(void) {
     time_t now;
     struct tm timeinfo;
 
-    time(&now);
+    // The tick timer fires ~clock_latency_us BEFORE the wall-clock second
+    // boundary so the pixels land on it. That means at the moment we read
+    // the clock here, tv_usec is close to 1e6 and the second value hasn't
+    // ticked over yet. Rounding to the nearest second gives us the second
+    // that will be current once the pixels appear - without it we'd render
+    // a digit that's consistently 1 s behind real time.
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    now = tv.tv_sec + (tv.tv_usec >= 500000 ? 1 : 0);
     localtime_r(&now, &timeinfo);
 
     // Check if time is valid (year >= 2025)

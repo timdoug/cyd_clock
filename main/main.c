@@ -53,6 +53,17 @@ static bool ntp_started = false;
 static SemaphoreHandle_t clock_tick_sem;
 static esp_timer_handle_t clock_tick_timer;
 
+// Adaptive display-pipeline compensation. ui_clock_update takes nonzero time
+// to push pixels over SPI - typically ~10-15 ms for a full second-digit cell
+// repaint - so if we armed the timer to fire at exactly the wall-clock
+// second boundary, the user sees the new digit that many ms AFTER each
+// second. Measure the actual update latency each tick (via a monotonic
+// timer around ui_clock_update) and feed it through an EMA, then fire the
+// next tick that many us EARLY so the pixels land on the boundary instead of
+// after it. Seeded at 12 ms - a realistic starting point that the EMA will
+// correct toward the real value within ~8 ticks.
+static volatile uint32_t clock_latency_us = 12000;
+
 static void clock_tick_cb(void *arg) {
     (void)arg;
     xSemaphoreGive(clock_tick_sem);
@@ -61,12 +72,13 @@ static void clock_tick_cb(void *arg) {
 static void clock_tick_arm(void) {
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    uint64_t us_until = 1000000 - (uint32_t)tv.tv_usec;
-    // If we're within 1 ms of the boundary we'd fire almost immediately; skip
-    // to the second after to avoid a useless callback.
+    int64_t us_until = (int64_t)(1000000 - (uint32_t)tv.tv_usec) -
+                       (int64_t)clock_latency_us;
+    // Too-soon guard: if the compensated fire time has already passed (or is
+    // within 1 ms), push to the following second.
     if (us_until < 1000) us_until += 1000000;
     esp_timer_stop(clock_tick_timer);
-    esp_timer_start_once(clock_tick_timer, us_until);
+    esp_timer_start_once(clock_tick_timer, (uint64_t)us_until);
 }
 
 static void show_splash(void) {
@@ -254,7 +266,24 @@ void app_main(void) {
                 // touch input responsive during the 1-second wait.
                 if (xSemaphoreTake(clock_tick_sem,
                                    pdMS_TO_TICKS(POLL_NORMAL_MS)) == pdTRUE) {
+                    // Measure the actual display-update latency and fold into
+                    // the EMA used for the next tick's fire-early offset.
+                    int64_t t_start = esp_timer_get_time();
                     ui_clock_update();
+                    int64_t t_end   = esp_timer_get_time();
+                    uint32_t measured = (uint32_t)(t_end - t_start);
+                    // Guard against pathological samples (the task got
+                    // preempted for a long time, or some unrelated work
+                    // slipped in). 30 ms is comfortably above the worst
+                    // normal tick (hour-rollover repaint); anything larger
+                    // is noise and shouldn't drag the estimate.
+                    if (measured < 30000) {
+                        // EMA with alpha = 1/8: new = (7/8)*old + (1/8)*measured.
+                        // Converges in ~8 ticks, smooths cell-count variance.
+                        clock_latency_us = clock_latency_us
+                                         - (clock_latency_us / 8)
+                                         + (measured / 8);
+                    }
                     clock_tick_arm();
                 }
                 continue;
