@@ -417,22 +417,29 @@ static void peer_reset(ntp_peer_t *p) {
 }
 
 static int resolve_peers(void) {
-    for (int i = 0; i < NTP_MAX_PEERS; i++) peer_reset(&g.peers[i]);
-    g.selected_peer = -1;
-    g.stratum = 16;
+    // DNS is slow (tens to hundreds of ms, up to 2 s on timeout) and was
+    // holding the NTP lock the whole time - which blocked UI stats getters
+    // and caused ui_clock_update to stall, with visible-on-film lag spikes
+    // up to ~100 ms. Snapshot config, release the lock for the network
+    // round-trips, then re-acquire before touching shared state.
+    char server_copy[sizeof(g.server)];
+    strncpy(server_copy, g.server, sizeof(server_copy) - 1);
+    server_copy[sizeof(server_copy) - 1] = '\0';
+    bool prefer_ipv6_copy = g.prefer_ipv6;
+    lock_give();
 
     struct sockaddr_storage addrs[NTP_MAX_PEERS];
-    int n = dns_resolve_all(g.server, g.prefer_ipv6, addrs, NTP_MAX_PEERS);
+    int n = dns_resolve_all(server_copy, prefer_ipv6_copy, addrs, NTP_MAX_PEERS);
 
     // Fallback to LWIP getaddrinfo if direct DNS failed (e.g. v6-only resolver).
     if (n == 0) {
         struct addrinfo hints = {
-            .ai_family   = g.prefer_ipv6 ? AF_UNSPEC : AF_INET,
+            .ai_family   = prefer_ipv6_copy ? AF_UNSPEC : AF_INET,
             .ai_socktype = SOCK_DGRAM,
             .ai_protocol = IPPROTO_UDP,
         };
         struct addrinfo *res = NULL;
-        if (getaddrinfo(g.server, "123", &hints, &res) == 0) {
+        if (getaddrinfo(server_copy, "123", &hints, &res) == 0) {
             for (struct addrinfo *ai = res; ai && n < NTP_MAX_PEERS; ai = ai->ai_next) {
                 if (ai->ai_addrlen > sizeof(addrs[0])) continue;
                 memcpy(&addrs[n], ai->ai_addr, ai->ai_addrlen);
@@ -442,8 +449,14 @@ static int resolve_peers(void) {
         }
     }
 
+    lock_take();
+
+    for (int i = 0; i < NTP_MAX_PEERS; i++) peer_reset(&g.peers[i]);
+    g.selected_peer = -1;
+    g.stratum = 16;
+
     if (n == 0) {
-        ESP_LOGW(TAG, "DNS failed for %s", g.server);
+        ESP_LOGW(TAG, "DNS failed for %s", server_copy);
         return 0;
     }
 
@@ -474,9 +487,22 @@ static int resolve_peers(void) {
 // polls (MIN_POLL_S = 32 s, typically growing to 64 s+) are already as long
 // as the TTL or longer, so a poll-cycle-aligned retry won't query faster
 // than the resolver refreshes.
+//
+// Drops the NTP lock during the DNS query - otherwise a 50-200 ms DNS
+// round-trip would block ui_clock_update's stats getters and surface as a
+// visible lag spike on the display and LED.
 static bool try_replace_peer(int dead_idx) {
+    char server_copy[sizeof(g.server)];
+    strncpy(server_copy, g.server, sizeof(server_copy) - 1);
+    server_copy[sizeof(server_copy) - 1] = '\0';
+    bool prefer_ipv6_copy = g.prefer_ipv6;
+    lock_give();
+
     struct sockaddr_storage fresh[NTP_MAX_PEERS];
-    int n = dns_resolve_all(g.server, g.prefer_ipv6, fresh, NTP_MAX_PEERS);
+    int n = dns_resolve_all(server_copy, prefer_ipv6_copy, fresh, NTP_MAX_PEERS);
+
+    lock_take();
+
     if (n == 0) return false;
 
     for (int i = 0; i < n; i++) {
