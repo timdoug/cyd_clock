@@ -62,7 +62,9 @@ static esp_timer_handle_t clock_tick_timer;
 // next tick that many us EARLY so the pixels land on the boundary instead of
 // after it. Seeded at 12 ms - a realistic starting point that the EMA will
 // correct toward the real value within ~8 ticks.
-static volatile uint32_t clock_latency_us = 12000;
+// Non-static: ui_clock.c reads this to pick the second that will be current
+// when its pixels actually land (see comment in ui_clock_update).
+volatile uint32_t clock_latency_us = 12000;
 
 static void clock_tick_cb(void *arg) {
     (void)arg;
@@ -74,9 +76,14 @@ static void clock_tick_arm(void) {
     gettimeofday(&tv, NULL);
     int64_t us_until = (int64_t)(1000000 - (uint32_t)tv.tv_usec) -
                        (int64_t)clock_latency_us;
-    // Too-soon guard: if the compensated fire time has already passed (or is
-    // within 1 ms), push to the following second.
-    if (us_until < 1000) us_until += 1000000;
+    // Too-soon guard: if the compensated fire time has already passed, fire
+    // ASAP rather than pushing to the following second. Pushing a full second
+    // skips the boundary we were aiming for - visible after ui_clock_redraw
+    // when arming lands in the last ~latency us of the second (e.g. :35 jumps
+    // straight to :37, never displaying :36). Firing immediately means the
+    // pixels for the upcoming second land a few ms late but every second is
+    // shown.
+    if (us_until < 1000) us_until = 1000;
     esp_timer_stop(clock_tick_timer);
     esp_timer_start_once(clock_tick_timer, (uint64_t)us_until);
 }
@@ -265,6 +272,14 @@ void app_main(void) {
                     // CLOCK session (timer may have fired while we were in
                     // SETTINGS etc), then arm for the next real boundary.
                     xSemaphoreTake(clock_tick_sem, 0);
+                    // Wall time may have advanced a whole second past whatever
+                    // ui_clock_redraw painted: ui_wait_for_touch_release blocks
+                    // until the user lifts their finger, and the redraw itself
+                    // takes nontrivial time. Without this catch-up call, the
+                    // display sits on the stale second until the next tick,
+                    // which then rounds up to the *following* second and
+                    // visibly skips one (e.g. :00 -> :02).
+                    ui_clock_update();
                     clock_tick_arm();
                     tick_needs_arm = false;
                     skip_next_measurement = true;

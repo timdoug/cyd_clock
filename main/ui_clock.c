@@ -17,6 +17,10 @@
 
 static const char *TAG = "ui_clock";
 
+// Measured display-pipeline latency, owned and EMA-updated by main.c. Used
+// here to pick the second that will be current when the pixels actually land.
+extern volatile uint32_t clock_latency_us;
+
 // Layout constants
 #define TIME_Y      20
 #define DATE_Y      116
@@ -294,15 +298,20 @@ void ui_clock_update(void) {
     time_t now;
     struct tm timeinfo;
 
-    // The tick timer fires ~clock_latency_us BEFORE the wall-clock second
-    // boundary so the pixels land on it. That means at the moment we read
-    // the clock here, tv_usec is close to 1e6 and the second value hasn't
-    // ticked over yet. Rounding to the nearest second gives us the second
-    // that will be current once the pixels appear - without it we'd render
-    // a digit that's consistently 1 s behind real time.
+    // Pick the second that will be current when the pixels actually land.
+    // Two calling contexts:
+    //   (a) Tick-timer fire: timer was armed for (boundary - clock_latency_us),
+    //       so tv_usec is close to 1e6 here and we need to round up to the
+    //       upcoming second so the digit appears in sync with the boundary.
+    //   (b) ui_clock_redraw after returning from another screen: tv_usec can
+    //       be at any phase. We want to show whatever second will be current
+    //       when the freshly-drawn pixels land, not jump ahead prematurely.
+    // (tv_usec + latency) >= 1e6 correctly captures both: it's true only when
+    // rendering will actually cross the next boundary.
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    now = tv.tv_sec + (tv.tv_usec >= 500000 ? 1 : 0);
+    now = tv.tv_sec + ((tv.tv_usec + (suseconds_t)clock_latency_us)
+                       >= 1000000 ? 1 : 0);
     localtime_r(&now, &timeinfo);
 
     // Check if time is valid (year >= 2025)
