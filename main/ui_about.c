@@ -1,6 +1,7 @@
 #include "ui_about.h"
 #include <string.h>
 #include <stdio.h>
+#include "esp_idf_version.h"
 #include "esp_log.h"
 #include "config.h"
 #include "display.h"
@@ -19,37 +20,41 @@ static void draw_screen(void) {
     ui_draw_header("About", true);
 
     // Content
-    int y = 50;
+    int y = 48;
 
     ui_draw_centered_string(y, "Domaine Nyquist", COLOR_GRAY, COLOR_BLACK, false);
-    y += 20;
+    y += 18;
     ui_draw_centered_string(y, "The CYD Clock", COLOR_CYAN, COLOR_BLACK, false);
-    y += 20;
+    y += 18;
     ui_draw_centered_string(y, URL, COLOR_GRAY, COLOR_BLACK, false);
-    y += 35;
+    y += 34;
 
     display_string(20, y, "Version:", COLOR_GRAY, COLOR_BLACK);
     display_string(90, y, VERSION_STRING, COLOR_WHITE, COLOR_BLACK);
-    y += 20;
+    y += 18;
+
+    display_string(20, y, "ESP-IDF:", COLOR_GRAY, COLOR_BLACK);
+    display_string(90, y, esp_get_idf_version(), COLOR_WHITE, COLOR_BLACK);
+    y += 18;
 
     char ip_str[16];
     wifi_get_ip_str(ip_str, sizeof(ip_str));
     display_string(20, y, "IPv4:", COLOR_GRAY, COLOR_BLACK);
     display_string(90, y, ip_str, COLOR_WHITE, COLOR_BLACK);
-    y += 20;
+    y += 18;
 
     char ip6_str[46];
     wifi_get_ip6_str(ip6_str, sizeof(ip6_str));
     display_string(20, y, "IPv6:", COLOR_GRAY, COLOR_BLACK);
     display_string(90, y, ip6_str[0] ? ip6_str : "none", COLOR_WHITE, COLOR_BLACK);
-    y += 20;
+    y += 18;
 
     char rssi_str[16];
     int8_t rssi = wifi_get_rssi();
     snprintf(rssi_str, sizeof(rssi_str), "%d dBm", rssi);
     display_string(20, y, "RSSI:", COLOR_GRAY, COLOR_BLACK);
     display_string(90, y, rssi_str, COLOR_WHITE, COLOR_BLACK);
-    y += 20;
+    y += 18;
 
     char mac_str[18];
     wifi_get_mac_str(mac_str, sizeof(mac_str));
