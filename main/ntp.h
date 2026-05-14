@@ -44,6 +44,12 @@ typedef struct {
 void ntp_init(const char *server, bool prefer_ipv6);
 void ntp_stop(void);
 
+// Install a WiFi internal RX callback that stamps NTP responses at the
+// WiFi-task layer (before the lwIP/scheduler latency that would otherwise
+// inflate t4). Call once after esp_wifi_start(). Safe to call before any
+// connection - the cb just isn't exercised until packets arrive.
+void ntp_install_wifi_rx_hook(void);
+
 // Configuration (takes effect on next poll cycle; triggers a re-sync internally)
 void ntp_set_server(const char *server);
 void ntp_set_prefer_ipv6(bool prefer);

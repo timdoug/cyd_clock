@@ -59,6 +59,10 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
         if (event_id == IP_EVENT_STA_GOT_IP) {
             ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
             ESP_LOGI(TAG, "Got IPv4: " IPSTR, IP2STR(&event->ip_info.ip));
+            // wifi-netif registers its STA rxcb on the connect event, AFTER
+            // esp_wifi_start. Install/re-install ours here so we sit on top
+            // of theirs (and so reconnects also re-install).
+            ntp_install_wifi_rx_hook();
             retry_count = 0;
             xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_BIT);
         } else if (event_id == IP_EVENT_GOT_IP6) {
@@ -98,6 +102,11 @@ void wifi_init(void) {
 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_start());
+
+    // RX hook install moved to the IP_EVENT_STA_GOT_IP handler - wifi-netif
+    // registers its own STA rxcb on the connect event, which would clobber
+    // ours if we installed here. TX-done cb is global and unaffected, but
+    // we register both from the same place to keep them in sync.
 
     wifi_initialized = true;
     ESP_LOGI(TAG, "WiFi initialized");

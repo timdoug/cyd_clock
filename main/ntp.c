@@ -8,7 +8,10 @@
 #include <time.h>
 #include <arpa/inet.h>
 #include "esp_log.h"
+#include "esp_netif.h"
+#include "esp_private/wifi.h"
 #include "esp_random.h"
+#include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
@@ -763,6 +766,159 @@ static void update_peer_filter(ntp_peer_t *p) {
     p->dispersion_us = newest->dispersion_us + p->jitter_us;
 }
 
+// ---------- early t1/t4 capture (WiFi hooks) ----------
+//
+// Stamp t4 at the WiFi RX cb (saves lwIP + scheduler latency between radio
+// and recvfrom - typically 1-2 ms) and t1 at the WiFi TX-done cb (the radio
+// has actually transmitted by then, including DCF backoff + ACK + retries
+// - saves 5-30 ms versus stamping pre-sendto). Both keyed by NTP originate
+// timestamp (the server echoes our xmt as orig), so process_response can
+// look them up by pkt->orig_ts_*. Falls back to the original timestamps on
+// any parse miss.
+//
+// Buffer formats are not the same: the RX cb gets the cooked Ethernet frame
+// esp_netif feeds to lwIP, while the TX-done cb gets the over-the-air 802.11
+// MPDU. AND: *data_len from the TX cb is the post-MAC-header length (CCMP +
+// LLC/SNAP + payload + MIC), even though `data` points to the start of the
+// MAC header - bounds-check against (buf + hdr_len + len), not just len.
+
+#define EARLY_RING_SIZE 8
+
+typedef struct {
+    uint32_t      ts_sec, ts_frac;     // wire order, matches ntp_pkt_t fields
+    int64_t       wall_us;
+    bool          valid;
+} early_entry_t;
+
+typedef struct {
+    early_entry_t ring[EARLY_RING_SIZE];
+    portMUX_TYPE  lock;
+    int           head;
+} early_ring_t;
+
+static early_ring_t s_t1 = { .lock = portMUX_INITIALIZER_UNLOCKED };
+static early_ring_t s_t4 = { .lock = portMUX_INITIALIZER_UNLOCKED };
+static esp_netif_t *s_sta_netif;
+
+static void stash_early(early_ring_t *r, uint32_t sec, uint32_t frac, int64_t us) {
+    portENTER_CRITICAL(&r->lock);
+    r->ring[r->head] = (early_entry_t){
+        .ts_sec = sec, .ts_frac = frac, .wall_us = us, .valid = true,
+    };
+    r->head = (r->head + 1) % EARLY_RING_SIZE;
+    portEXIT_CRITICAL(&r->lock);
+}
+
+static bool consume_early(early_ring_t *r, uint32_t sec, uint32_t frac, int64_t *us) {
+    bool found = false;
+    portENTER_CRITICAL(&r->lock);
+    for (int i = 0; i < EARLY_RING_SIZE; i++) {
+        if (r->ring[i].valid && r->ring[i].ts_sec == sec && r->ring[i].ts_frac == frac) {
+            *us = r->ring[i].wall_us;
+            r->ring[i].valid = false;
+            found = true;
+            break;
+        }
+    }
+    portEXIT_CRITICAL(&r->lock);
+    return found;
+}
+
+// Shift every live entry by delta_us. Used by the cold-boot first-sync path
+// to drag entries captured pre-step into the post-step frame.
+static void shift_early(early_ring_t *r, int64_t delta_us) {
+    portENTER_CRITICAL(&r->lock);
+    for (int i = 0; i < EARLY_RING_SIZE; i++) {
+        if (r->ring[i].valid) r->ring[i].wall_us += delta_us;
+    }
+    portEXIT_CRITICAL(&r->lock);
+}
+
+static inline uint16_t rd_be16(const uint8_t *p) {
+    return ((uint16_t)p[0] << 8) | p[1];
+}
+
+// Common tail: given a pointer at the start of an IP header and `rem` bytes
+// reachable from there, validate IPv4/IPv6 -> UDP, check the port at offset
+// `port_off` within the UDP header (0 = src, 2 = dst), and copy the 8-byte
+// NTP timestamp at offset `ntp_field_off` (24 for orig_ts, 40 for xmt_ts).
+static bool parse_ip_udp_ntp(const uint8_t *ip, size_t rem, uint16_t et,
+                             int port_off, int ntp_field_off,
+                             uint32_t *sec, uint32_t *frac) {
+    const uint8_t *udp;
+    if (et == 0x0800) {                                       // IPv4
+        if (rem < 20u + 8u + 48u) return false;
+        uint8_t ihl = (ip[0] & 0x0f) * 4;
+        if (ihl < 20u || rem < (size_t)ihl + 8u + 48u || ip[9] != 17) return false;
+        udp = ip + ihl;
+    } else if (et == 0x86DD) {                                // IPv6, no ext headers
+        if (rem < 40u + 8u + 48u || ip[6] != 17) return false;
+        udp = ip + 40;
+    } else {
+        return false;
+    }
+    if (rd_be16(udp + port_off) != NTP_PORT) return false;
+    const uint8_t *ntp = udp + 8;
+    memcpy(sec,  ntp + ntp_field_off,     4);
+    memcpy(frac, ntp + ntp_field_off + 4, 4);
+    return true;
+}
+
+static esp_err_t ntp_wifi_rxcb(void *buffer, uint16_t len, void *eb) {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);                                  // capture asap
+
+    const uint8_t *buf = buffer;
+    uint32_t sec, frac;
+    if (len >= 14u + 20u + 8u + 48u &&
+        parse_ip_udp_ntp(buf + 14, len - 14u, rd_be16(buf + 12),
+                         /*src port*/ 0, /*orig_ts*/ 24, &sec, &frac)) {
+        stash_early(&s_t4, sec, frac,
+                    (int64_t)tv.tv_sec * 1000000LL + tv.tv_usec);
+    }
+    return esp_netif_receive(s_sta_netif, buffer, len, eb);
+}
+
+static void ntp_wifi_tx_done_cb(uint8_t ifidx, uint8_t *data,
+                                 uint16_t *data_len, bool txStatus) {
+    (void)ifidx;
+    if (!txStatus || !data || !data_len || *data_len < 4) return;
+    uint16_t len = *data_len;
+
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+
+    uint8_t fc0 = data[0], fc1 = data[1];
+    if ((fc0 & 0x0c) != 0x08) return;                         // type != Data
+    uint8_t subtype = (fc0 & 0xf0) >> 4;
+    if (subtype != 0 && subtype != 8) return;                 // Data / QoS Data only
+    size_t hdr_len    = 24
+                      + (subtype == 8           ? 2 : 0)      // QoS Control
+                      + ((fc1 & 0x03) == 0x03   ? 6 : 0);     // 4-address (rare)
+    size_t cipher_hdr = (fc1 & 0x40) ? 8 : 0;                 // CCMP/TKIP if Protected
+    if ((size_t)len < cipher_hdr + 8u + 20u + 8u + 48u) return;
+
+    static const uint8_t llc_snap[6] = {0xaa, 0xaa, 0x03, 0x00, 0x00, 0x00};
+    const uint8_t *p = data + hdr_len + cipher_hdr;
+    if (memcmp(p, llc_snap, 6) != 0) return;
+
+    uint32_t sec, frac;
+    if (parse_ip_udp_ntp(p + 8, len - cipher_hdr - 8u, rd_be16(p + 6),
+                         /*dst port*/ 2, /*xmt_ts*/ 40, &sec, &frac)) {
+        stash_early(&s_t1, sec, frac,
+                    (int64_t)tv.tv_sec * 1000000LL + tv.tv_usec);
+    }
+}
+
+void ntp_install_wifi_rx_hook(void) {
+    s_sta_netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+    if (!s_sta_netif) { ESP_LOGW(TAG, "STA netif not found"); return; }
+    esp_err_t err = esp_wifi_internal_reg_rxcb(WIFI_IF_STA, ntp_wifi_rxcb);
+    if (err != ESP_OK) { ESP_LOGW(TAG, "rxcb reg failed: %d", err); return; }
+    err = esp_wifi_set_tx_done_cb(ntp_wifi_tx_done_cb);
+    if (err != ESP_OK) ESP_LOGW(TAG, "tx_done_cb reg failed: %d", err);
+}
+
 // ---------- response processing ----------
 
 static bool process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
@@ -811,8 +967,23 @@ static bool process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
     if (fp1616_to_us(ntohl(pkt->root_delay))      > 16000000 ||
         fp1616_to_us(ntohl(pkt->root_dispersion)) > 16000000) return false;
 
-    // Mutable copy of t4 so the first-sync branch can refresh it post-step.
+    // Prefer the WiFi-hook timestamps (t4 from the RX cb, t1 from the TX-done
+    // cb) when present. Skip early_t1 on the cold-boot path: the shift loop
+    // below mutates each peer's stored t1, and reconciling that with an
+    // independent early value is more bookkeeping than it's worth for an
+    // event that fires at most once per boot.
+    struct timeval t1_local = p->t1;
     struct timeval t4_local = *t4;
+    int64_t early_us;
+    if (consume_early(&s_t4, pkt->orig_ts_sec, pkt->orig_ts_frac, &early_us)) {
+        t4_local.tv_sec  = (time_t)(early_us / 1000000);
+        t4_local.tv_usec = (suseconds_t)(early_us % 1000000);
+    }
+    if (g.first_sync_done &&
+        consume_early(&s_t1, pkt->orig_ts_sec, pkt->orig_ts_frac, &early_us)) {
+        t1_local.tv_sec  = (time_t)(early_us / 1000000);
+        t1_local.tv_usec = (suseconds_t)(early_us % 1000000);
+    }
 
     // Cold boot: system time is at epoch, server is decades ahead. Step the
     // clock by the standard NTP offset ((t2-t1)+(t3-t4))/2 - NOT directly to
@@ -830,6 +1001,8 @@ static bool process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
         // the same step so their offsets compute correctly in the new
         // frame. Without this, peers 1-3 would hit the panic threshold
         // and get tossed, and peer 0 (self) would produce a nonsense sample.
+        // Same applies to the early_t1/t4 hook rings - entries stashed
+        // before the step are in the pre-step frame.
         for (int i = 0; i < NTP_MAX_PEERS; i++) {
             ntp_peer_t *q = &g.peers[i];
             if (!q->request_outstanding) continue;
@@ -838,6 +1011,8 @@ static bool process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
             q->t1.tv_usec = (suseconds_t)(t1_us % 1000000);
             if (q->t1.tv_usec < 0) { q->t1.tv_sec--; q->t1.tv_usec += 1000000; }
         }
+        shift_early(&s_t1, step_us);
+        shift_early(&s_t4, step_us);
 
         // Step the local clock by step_us: target = now + step_us.
         struct timeval now_pre, target;
@@ -865,12 +1040,16 @@ static bool process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
         g.last_discipline_poll_s = g.current_poll_s;
         ESP_LOGI(TAG, "Initial time set from %s (stratum %d)",
                  p->addr_str, pkt->stratum);
+        // Refresh t1_local from the now-shifted p->t1 so the offset math
+        // below sees this peer's t1 in the same post-step frame as t2/t3/t4.
+        // (Skipping the early_t1 override here; see comment above.)
+        t1_local = p->t1;
         // Fall through: compute offset/delay for this peer against the
         // post-step frame and feed into the normal filter path.
     }
 
-    int64_t offset = (tv_diff_us(&t2, &p->t1) + tv_diff_us(&t3, &t4_local)) / 2;
-    int64_t delay  = tv_diff_us(&t4_local, &p->t1) - tv_diff_us(&t3, &t2);
+    int64_t offset = (tv_diff_us(&t2, &t1_local) + tv_diff_us(&t3, &t4_local)) / 2;
+    int64_t delay  = tv_diff_us(&t4_local, &t1_local) - tv_diff_us(&t3, &t2);
 
     if (offset >  (int64_t)PANIC_THRESHOLD_S * 1000000LL ||
         offset < -(int64_t)PANIC_THRESHOLD_S * 1000000LL) {
@@ -924,7 +1103,7 @@ static bool process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
     // and PHI*(T4-T1) accounts for frequency uncertainty across the measurement
     // window. Sum is floored to avoid under-reporting when a stratum-1 peer
     // advertises sub-us precision that our transport can't actually deliver.
-    int64_t rtt_us  = tv_diff_us(&t4_local, &p->t1);
+    int64_t rtt_us  = tv_diff_us(&t4_local, &t1_local);
     int32_t eps_phi = (rtt_us > 0)
                       ? (int32_t)((uint64_t)PHI_US_PER_SEC * rtt_us / 1000000)
                       : 0;
