@@ -6,6 +6,7 @@
 #include <sys/time.h>
 #include "driver/gpio.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "config.h"
 #include "display.h"
 #include "led.h"
@@ -53,6 +54,7 @@ static int last_stats_sec = -1;
 static uint8_t led_brightness = BRIGHTNESS_DEFAULT;
 static bool last_time_valid = false;
 static uint8_t last_update_digits = 1;
+static uint32_t last_visible_latency_us = 0;
 
 // Cached rendered contents for each stats line - skip repaints when unchanged.
 static char last_line1[80] = "";
@@ -88,6 +90,10 @@ static uint8_t digit_change_count(const struct tm *timeinfo) {
 
 uint8_t ui_clock_last_update_digits(void) {
     return last_update_digits;
+}
+
+uint32_t ui_clock_last_visible_latency_us(void) {
+    return last_visible_latency_us;
 }
 
 uint8_t ui_clock_predict_next_update_digits(void) {
@@ -329,6 +335,7 @@ static void draw_ntp_stats(time_t now, int sec) {
 }
 
 void ui_clock_update(void) {
+    int64_t update_start_us = esp_timer_get_time();
     time_t now;
     struct tm timeinfo;
 
@@ -427,6 +434,10 @@ void ui_clock_update(void) {
             last_hour = -2;  // Mark as showing dashes
         }
     }
+
+    int64_t visible_latency = esp_timer_get_time() - update_start_us;
+    last_visible_latency_us = (visible_latency > 0 && visible_latency < UINT32_MAX)
+                              ? (uint32_t)visible_latency : 0;
 
     last_update_digits = update_digits;
     draw_ntp_stats(now, sec);

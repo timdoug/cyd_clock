@@ -297,10 +297,8 @@ void app_main(void) {
                                    pdMS_TO_TICKS(POLL_NORMAL_MS)) == pdTRUE) {
                     // Measure the actual display-update latency and fold into
                     // the EMA used for the next tick's fire-early offset.
-                    int64_t t_start = esp_timer_get_time();
                     ui_clock_update();
-                    int64_t t_end   = esp_timer_get_time();
-                    uint32_t measured = (uint32_t)(t_end - t_start);
+                    uint32_t measured = ui_clock_last_visible_latency_us();
                     // Guard against pathological samples. Upper bound is high
                     // enough to keep true rollover samples, but rejects major
                     // scheduler stalls. Lower bound rejects "nothing changed"

@@ -229,6 +229,22 @@ static int64_t tv_diff_us(const struct timeval *a, const struct timeval *b) {
     return ((int64_t)a->tv_sec - b->tv_sec) * 1000000LL + (a->tv_usec - b->tv_usec);
 }
 
+static struct timeval tv_from_us(int64_t total_us) {
+    struct timeval tv = {
+        .tv_sec  = (time_t)(total_us / 1000000),
+        .tv_usec = (suseconds_t)(total_us % 1000000),
+    };
+    if (tv.tv_usec < 0) {
+        tv.tv_sec--;
+        tv.tv_usec += 1000000;
+    }
+    return tv;
+}
+
+static int64_t tv_to_us(const struct timeval *tv) {
+    return (int64_t)tv->tv_sec * 1000000LL + tv->tv_usec;
+}
+
 // ntpfp 16.16 seconds -> microseconds (saturating)
 static int32_t fp1616_to_us(uint32_t raw) {
     uint64_t us = ((uint64_t)raw * 1000000ULL) >> 16;
@@ -371,12 +387,17 @@ static int dns_query_one(int sock, const struct sockaddr_in *dst, const char *ho
     if (sendto(sock, qbuf, qlen, 0, (const struct sockaddr *)dst, sizeof(*dst)) != qlen) {
         return count;
     }
-    ssize_t n = recv(sock, rbuf, sizeof(rbuf), 0);
-    if (n < 12) return count;
-    uint16_t resp_id = ((uint16_t)rbuf[0] << 8) | rbuf[1];
-    uint16_t flags   = ((uint16_t)rbuf[2] << 8) | rbuf[3];
-    if (resp_id != id || (flags & 0x8000) == 0) return count;
-    return dns_parse_answers(rbuf, (int)n, out, count, max);
+    for (int tries = 0; tries < 4; tries++) {
+        ssize_t n = recv(sock, rbuf, sizeof(rbuf), 0);
+        if (n < 12) return count;
+        uint16_t resp_id = ((uint16_t)rbuf[0] << 8) | rbuf[1];
+        uint16_t flags   = ((uint16_t)rbuf[2] << 8) | rbuf[3];
+        if (resp_id != id || (flags & 0x8000) == 0) {
+            continue;   // stale response from a previous query on this socket
+        }
+        return dns_parse_answers(rbuf, (int)n, out, count, max);
+    }
+    return count;
 }
 
 static int dns_resolve_all(const char *host, bool prefer_ipv6,
@@ -842,6 +863,18 @@ static void update_peer_filter(ntp_peer_t *p) {
     p->dispersion_us = newest->dispersion_us + p->jitter_us;
 }
 
+static int32_t aged_peer_dispersion_us(const ntp_peer_t *p, uint32_t now_ms) {
+    int64_t disp = p->dispersion_us;
+    if (p->last_response_ms != 0) {
+        uint32_t age_ms = now_ms - p->last_response_ms;
+        disp += (int64_t)PHI_US_PER_SEC * age_ms / 1000;
+    } else {
+        disp += 16000000LL;
+    }
+    if (disp > INT32_MAX) return INT32_MAX;
+    return (int32_t)disp;
+}
+
 // ---------- early t1/t4 capture (WiFi hooks) ----------
 //
 // Stamp t4 at the WiFi RX cb (saves lwIP + scheduler latency between radio
@@ -1055,10 +1088,11 @@ static bool process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
         t4_local.tv_sec  = (time_t)(early_us / 1000000);
         t4_local.tv_usec = (suseconds_t)(early_us % 1000000);
     }
-    if (g.first_sync_done &&
-        consume_early(&s_t1, pkt->orig_ts_sec, pkt->orig_ts_frac, &early_us)) {
-        t1_local.tv_sec  = (time_t)(early_us / 1000000);
-        t1_local.tv_usec = (suseconds_t)(early_us % 1000000);
+    if (g.first_sync_done) {
+        if (consume_early(&s_t1, pkt->orig_ts_sec, pkt->orig_ts_frac, &early_us)) {
+            t1_local.tv_sec  = (time_t)(early_us / 1000000);
+            t1_local.tv_usec = (suseconds_t)(early_us % 1000000);
+        }
     }
 
     // Cold boot: system time is at epoch, server is decades ahead. Step the
@@ -1082,10 +1116,7 @@ static bool process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
         for (int i = 0; i < NTP_MAX_PEERS; i++) {
             ntp_peer_t *q = &g.peers[i];
             if (!q->request_outstanding) continue;
-            int64_t t1_us = (int64_t)q->t1.tv_sec * 1000000LL + q->t1.tv_usec + step_us;
-            q->t1.tv_sec  = (time_t)(t1_us / 1000000);
-            q->t1.tv_usec = (suseconds_t)(t1_us % 1000000);
-            if (q->t1.tv_usec < 0) { q->t1.tv_sec--; q->t1.tv_usec += 1000000; }
+            q->t1 = tv_from_us(tv_to_us(&q->t1) + step_us);
         }
         shift_early(&s_t1, step_us);
         shift_early(&s_t4, step_us);
@@ -1093,15 +1124,13 @@ static bool process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
         // Step the local clock by step_us: target = now + step_us.
         struct timeval now_pre, target;
         gettimeofday(&now_pre, NULL);
-        int64_t target_us = (int64_t)now_pre.tv_sec * 1000000LL +
-                            now_pre.tv_usec + step_us;
-        target.tv_sec  = (time_t)(target_us / 1000000);
-        target.tv_usec = (suseconds_t)(target_us % 1000000);
-        if (target.tv_usec < 0) { target.tv_sec--; target.tv_usec += 1000000; }
+        target = tv_from_us(tv_to_us(&now_pre) + step_us);
         settimeofday(&target, NULL);
-        // Refresh t4 to the post-step clock frame so the offset math below
-        // lands in the same frame as the shifted t1/t2/t3.
-        gettimeofday(&t4_local, NULL);
+        // Preserve the actual response-arrival timestamp. Refreshing this
+        // with gettimeofday() after settimeofday() would add parser/logging
+        // latency to the first sample; translating the captured t4 keeps all
+        // four NTP timestamps in the same post-step clock frame.
+        t4_local = tv_from_us(tv_to_us(&t4_local) + step_us);
 
         g.first_sync_done      = true;
         g.sync_count++;
@@ -1209,6 +1238,7 @@ static bool process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
 
 static void select_system_peer(void) {
     struct { int idx; int32_t lo; int32_t hi; } c[NTP_MAX_PEERS];
+    uint32_t now = mono_ms();
     int n = 0;
     for (int i = 0; i < NTP_MAX_PEERS; i++) {
         ntp_peer_t *p = &g.peers[i];
@@ -1223,7 +1253,7 @@ static void select_system_peer(void) {
         // has room for real network uncertainty without letting RTT dominate.
         int32_t delay_allowance = p->best_delay_us / 4;
         if (delay_allowance > 10000) delay_allowance = 10000;
-        int32_t unc = delay_allowance + p->jitter_us + p->dispersion_us;
+        int32_t unc = delay_allowance + p->jitter_us + aged_peer_dispersion_us(p, now);
         c[n].idx = i;
         c[n].lo  = p->best_offset_us - unc;
         c[n].hi  = p->best_offset_us + unc;
@@ -1332,7 +1362,8 @@ static void select_system_peer(void) {
         for (int i = 0; i < n; i++) {
             if (!(best_mask & (1 << i))) continue;
             ntp_peer_t *pp = &g.peers[c[i].idx];
-            double disp = pp->dispersion_us > 1 ? pp->dispersion_us : 1;
+            int32_t aged_disp_us = aged_peer_dispersion_us(pp, now);
+            double disp = aged_disp_us > 1 ? aged_disp_us : 1;
             double w    = 1.0 / (disp * disp);
             num_off     += (double)pp->best_offset_us * w;
             num_jit_var += w * w * (double)pp->jitter_us * pp->jitter_us;
@@ -1359,23 +1390,14 @@ static void discipline_clock(int32_t offset_us) {
     if (step) {
         struct timeval tv;
         gettimeofday(&tv, NULL);
-        int64_t total_us = (int64_t)tv.tv_sec * 1000000LL + tv.tv_usec + offset_us;
-        tv.tv_sec  = (time_t)(total_us / 1000000);
-        tv.tv_usec = (suseconds_t)(total_us % 1000000);
-        if (tv.tv_usec < 0) { tv.tv_sec--; tv.tv_usec += 1000000; }
+        tv = tv_from_us(tv_to_us(&tv) + offset_us);
         settimeofday(&tv, NULL);
         ESP_LOGI(TAG, "Clock stepped %+ld us", (long)offset_us);
     } else {
         // Merge with any outstanding slew so we don't overwrite it.
         struct timeval outstanding = {0};
         adjtime(NULL, &outstanding);
-        int64_t merged_us = (int64_t)outstanding.tv_sec * 1000000LL +
-                            outstanding.tv_usec + offset_us;
-        struct timeval delta = {
-            .tv_sec  = (time_t)(merged_us / 1000000),
-            .tv_usec = (suseconds_t)(merged_us % 1000000),
-        };
-        if (delta.tv_usec < 0) { delta.tv_sec--; delta.tv_usec += 1000000; }
+        struct timeval delta = tv_from_us(tv_to_us(&outstanding) + offset_us);
         adjtime(&delta, NULL);
 
         // Integrate frequency error: offset accumulated over poll interval.
@@ -1482,13 +1504,7 @@ static void apply_freq_correction(void) {
     // Merge with any outstanding slew so we don't overwrite it.
     struct timeval outstanding = {0};
     adjtime(NULL, &outstanding);
-    int64_t merged = (int64_t)outstanding.tv_sec * 1000000LL +
-                     outstanding.tv_usec + delta_us;
-    struct timeval merged_tv = {
-        .tv_sec  = (time_t)(merged / 1000000),
-        .tv_usec = (suseconds_t)(merged % 1000000),
-    };
-    if (merged_tv.tv_usec < 0) { merged_tv.tv_sec--; merged_tv.tv_usec += 1000000; }
+    struct timeval merged_tv = tv_from_us(tv_to_us(&outstanding) + delta_us);
     adjtime(&merged_tv, NULL);
     g.last_freq_apply_ms = now;
 }
@@ -1910,11 +1926,9 @@ void ntp_get_sys_stats(ntp_sys_stats_t *out) {
     // peer so the reported +/- bound grows honestly between polls.
     out->root_dispersion_us  = g.root_dispersion_us;
     if (g.selected_peer >= 0) {
-        uint32_t last = g.peers[g.selected_peer].last_response_ms;
-        if (last != 0) {
-            uint32_t age_ms = mono_ms() - last;
-            out->root_dispersion_us += (int32_t)((uint64_t)PHI_US_PER_SEC * age_ms / 1000);
-        }
+        ntp_peer_t *sp = &g.peers[g.selected_peer];
+        out->root_dispersion_us = fp1616_to_us(sp->root_dispersion_raw) +
+                                  aged_peer_dispersion_us(sp, mono_ms());
     }
     out->freq_ppm_x1000      = g.freq_ppm_x1000;
     out->freq_known          = g.freq_loaded_from_nvs || g.sync_count >= 2;
@@ -1939,7 +1953,7 @@ bool ntp_get_peer_stats(int idx, ntp_peer_stats_t *out) {
     out->offset_us     = p->best_offset_us;
     out->delay_us      = p->best_delay_us;
     out->jitter_us     = p->jitter_us;
-    out->dispersion_us = p->dispersion_us;
+    out->dispersion_us = aged_peer_dispersion_us(p, mono_ms());
     out->last_response_ms = p->last_response_ms
         ? (mono_ms() - p->last_response_ms)
         : UINT32_MAX;
