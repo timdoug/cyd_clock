@@ -21,9 +21,24 @@ void ui_draw_header(const char *title, bool show_back) {
 }
 
 void ui_draw_centered_string(int16_t y, const char *str, uint16_t fg, uint16_t bg, bool scale_2x) {
-    int len = strlen(str);
     int char_width = scale_2x ? FONT_CHAR_WIDTH_2X : FONT_CHAR_WIDTH;
     int char_height = scale_2x ? FONT_CHAR_HEIGHT_2X : FONT_CHAR_HEIGHT;
+    int max_chars = DISPLAY_WIDTH / char_width;
+    char clipped[DISPLAY_WIDTH / FONT_CHAR_WIDTH + 1];
+
+    int len = (int)strlen(str);
+    if (len > max_chars) {
+        if (max_chars > 3) {
+            memcpy(clipped, str, (size_t)(max_chars - 3));
+            memcpy(clipped + max_chars - 3, "...", 3);
+        } else {
+            memcpy(clipped, str, (size_t)max_chars);
+        }
+        clipped[max_chars] = '\0';
+        str = clipped;
+        len = max_chars;
+    }
+
     int text_width = len * char_width;
     int x = (DISPLAY_WIDTH - text_width) / 2;
 

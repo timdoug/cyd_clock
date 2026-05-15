@@ -12,8 +12,8 @@ typedef struct {
     bool     active;           // Peer slot in use
     bool     selected;         // Chosen as system peer
     char     addr_str[46];     // Printable address
-    uint8_t  stratum;          // 0 = unreachable / KoD
-    uint8_t  reach;            // 8-bit reach register (MSB = most recent)
+    uint8_t  stratum;          // 1-15 = synced peer, 16 = unsynced/unreachable
+    uint8_t  reach;            // 8-bit reach register (LSB = most recent)
     int32_t  offset_us;        // Best-sample offset in microseconds
     int32_t  delay_us;         // Best-sample round-trip delay
     int32_t  jitter_us;        // RMS deviation across recent samples
@@ -37,7 +37,7 @@ typedef struct {
     bool     freq_known;       // true iff we have a real estimate (current session or restored from NVS)
     uint8_t  stratum;          // Our stratum (selected peer's + 1, or 16 if unsynced)
     uint8_t  selected_peer;    // Index into peer table, 0xFF if none
-    const char *server;        // Configured hostname
+    char     server[64];       // Configured hostname
 } ntp_sys_stats_t;
 
 // Lifecycle

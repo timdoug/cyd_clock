@@ -83,6 +83,7 @@ bool touch_is_pressed(void) {
 }
 
 bool touch_read(touch_point_t *point) {
+    if (!point) return false;
     if (!touch_is_pressed()) {
         point->pressed = false;
         return false;

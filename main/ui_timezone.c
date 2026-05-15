@@ -125,7 +125,7 @@ static const timezone_entry_t timezones[] = {
     {"Pacific",      "Kiritimati (UTC+14, no DST)",          "<+14>-14"},
     {"UTC",          "UTC (UTC+0)",                          "UTC0"},
 };
-#define NUM_TIMEZONES 90
+#define NUM_TIMEZONES ((int)(sizeof(timezones) / sizeof(timezones[0])))
 
 // UI state
 typedef enum {
@@ -150,6 +150,7 @@ static void build_city_list(int region_idx) {
     city_count = 0;
     for (int i = 0; i < NUM_TIMEZONES; i++) {
         if (strcmp(timezones[i].region, region) == 0) {
+            if (city_count >= (int)(sizeof(city_indices) / sizeof(city_indices[0]))) break;
             city_indices[city_count++] = i;
         }
     }

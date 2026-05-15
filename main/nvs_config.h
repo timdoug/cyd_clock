@@ -4,7 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define MAX_SSID_LEN     32
+// Buffer sizes including the terminating NUL. 802.11 SSIDs are up to 32 bytes.
+#define WIFI_SSID_BUF_LEN 33
 #define MAX_PASSWORD_LEN 64
 #define MAX_TIMEZONE_LEN 48
 

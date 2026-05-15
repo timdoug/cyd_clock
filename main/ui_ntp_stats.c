@@ -286,7 +286,7 @@ static void refresh_dynamic(void) {
 
     ntp_sys_stats_t sys;
     ntp_get_sys_stats(&sys);
-    const char *server = sys.server ? sys.server : "?";
+    const char *server = sys.server[0] ? sys.server : "?";
 
     char val[96];
 

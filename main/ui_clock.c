@@ -52,9 +52,10 @@ static bool last_synced_state = false;
 static int last_stats_sec = -1;
 static uint8_t led_brightness = BRIGHTNESS_DEFAULT;
 static bool last_time_valid = false;
+static uint8_t last_update_digits = 1;
 
 // Cached rendered contents for each stats line - skip repaints when unchanged.
-static char last_line1[64] = "";
+static char last_line1[80] = "";
 static char last_line2[96] = "";
 static char last_line3[96] = "";
 
@@ -66,6 +67,39 @@ static const char *month_names[] = {
     "Jan", "Feb", "Mar", "Apr", "May", "Jun",
     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 };
+
+static uint8_t digit_change_count(const struct tm *timeinfo) {
+    if (!last_time_valid || last_hour < 0 || last_min < 0 || last_sec < 0) return 6;
+
+    int hour = timeinfo->tm_hour;
+    int min = timeinfo->tm_min;
+    int sec = timeinfo->tm_sec;
+    uint8_t changes = 0;
+    if (hour / 10 != last_hour / 10) changes++;
+    if (hour % 10 != last_hour % 10) changes++;
+    if (min / 10 != last_min / 10) changes++;
+    if (min % 10 != last_min % 10) changes++;
+    if (sec / 10 != last_sec / 10) changes++;
+    if (sec % 10 != last_sec % 10) changes++;
+    if (timeinfo->tm_yday != last_day) changes = 6;
+    if (changes == 0) changes = 1;
+    return changes;
+}
+
+uint8_t ui_clock_last_update_digits(void) {
+    return last_update_digits;
+}
+
+uint8_t ui_clock_predict_next_update_digits(void) {
+    if (!last_time_valid || last_hour < 0) return 6;
+
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    time_t next = tv.tv_sec + 1;
+    struct tm timeinfo;
+    localtime_r(&next, &timeinfo);
+    return digit_change_count(&timeinfo);
+}
 
 static void reset_display_state(void) {
     last_hour = -1;
@@ -225,10 +259,10 @@ static void draw_line_cached(int y, char *cache, size_t cache_len,
 static void draw_ntp_stats(time_t now, int sec) {
     ntp_sys_stats_t sys;
     ntp_get_sys_stats(&sys);
-    const char *server = sys.server ? sys.server : wifi_get_custom_ntp_server();
+    const char *server = sys.server[0] ? sys.server : wifi_get_custom_ntp_server();
 
     // Line 1: "Synced: <server>" (green) or "Syncing: <server>" (orange)
-    char line1[64];
+    char line1[80];
     uint16_t line1_fg;
     if (sys.synced) {
         snprintf(line1, sizeof(line1), "Synced: %s", server);
@@ -330,6 +364,7 @@ void ui_clock_update(void) {
     int hour = timeinfo.tm_hour;
     int min = timeinfo.tm_min;
     int sec = timeinfo.tm_sec;
+    uint8_t update_digits = time_valid ? digit_change_count(&timeinfo) : 6;
 
     if (time_valid) {
         // Update time digits only when they change
@@ -393,6 +428,7 @@ void ui_clock_update(void) {
         }
     }
 
+    last_update_digits = update_digits;
     draw_ntp_stats(now, sec);
 }
 

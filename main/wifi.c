@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "esp_err.h"
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_netif.h"
@@ -22,6 +23,7 @@ static EventGroupHandle_t wifi_event_group;
 
 static bool wifi_initialized = false;
 static int retry_count = 0;
+static bool ignore_next_disconnect = false;
 
 // Config tracked here; runtime NTP state lives in ntp.c
 static struct {
@@ -43,6 +45,11 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                 break;
             case WIFI_EVENT_STA_DISCONNECTED:
                 ESP_LOGI(TAG, "WiFi disconnected");
+                xEventGroupClearBits(wifi_event_group, WIFI_CONNECTED_BIT);
+                if (ignore_next_disconnect) {
+                    ignore_next_disconnect = false;
+                    break;
+                }
                 if (retry_count < WIFI_MAX_RETRY) {
                     esp_wifi_connect();
                     retry_count++;
@@ -50,7 +57,6 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                 } else {
                     xEventGroupSetBits(wifi_event_group, WIFI_FAIL_BIT);
                 }
-                xEventGroupClearBits(wifi_event_group, WIFI_CONNECTED_BIT);
                 break;
             default:
                 break;
@@ -113,6 +119,7 @@ void wifi_init(void) {
 }
 
 int wifi_scan(wifi_network_t *networks, int max_networks) {
+    if (!networks || max_networks <= 0) return 0;
     if (!wifi_initialized) {
         wifi_init();
     }
@@ -129,10 +136,18 @@ int wifi_scan(wifi_network_t *networks, int max_networks) {
         .scan_time.active.max = 300,
     };
 
-    ESP_ERROR_CHECK(esp_wifi_scan_start(&scan_config, true));
+    esp_err_t err = esp_wifi_scan_start(&scan_config, true);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "WiFi scan failed to start: %s", esp_err_to_name(err));
+        return 0;
+    }
 
     uint16_t ap_count = 0;
-    ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
+    err = esp_wifi_scan_get_ap_num(&ap_count);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "WiFi scan count failed: %s", esp_err_to_name(err));
+        return 0;
+    }
 
     if (ap_count == 0) {
         ESP_LOGI(TAG, "No networks found");
@@ -145,7 +160,12 @@ int wifi_scan(wifi_network_t *networks, int max_networks) {
         return 0;
     }
 
-    ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&ap_count, ap_records));
+    err = esp_wifi_scan_get_ap_records(&ap_count, ap_records);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "WiFi scan records failed: %s", esp_err_to_name(err));
+        free(ap_records);
+        return 0;
+    }
 
     int count = 0;
     for (int i = 0; i < ap_count && count < max_networks; i++) {
@@ -162,8 +182,8 @@ int wifi_scan(wifi_network_t *networks, int max_networks) {
         }
         if (duplicate) continue;
 
-        strncpy(networks[count].ssid, (char *)ap_records[i].ssid, 32);
-        networks[count].ssid[32] = '\0';
+        strncpy(networks[count].ssid, (char *)ap_records[i].ssid, sizeof(networks[count].ssid) - 1);
+        networks[count].ssid[sizeof(networks[count].ssid) - 1] = '\0';
         networks[count].rssi = ap_records[i].rssi;
         networks[count].authmode = (ap_records[i].authmode != WIFI_AUTH_OPEN) ? 1 : 0;
         count++;
@@ -175,6 +195,8 @@ int wifi_scan(wifi_network_t *networks, int max_networks) {
 }
 
 bool wifi_connect(const char *ssid, const char *password) {
+    if (!ssid || !ssid[0]) return false;
+    if (!password) password = "";
     if (!wifi_initialized) {
         wifi_init();
     }
@@ -182,15 +204,23 @@ bool wifi_connect(const char *ssid, const char *password) {
     ESP_LOGI(TAG, "Connecting to %s", ssid);
 
     wifi_config_t wifi_config = {0};
-    strncpy((char *)wifi_config.sta.ssid, ssid, sizeof(wifi_config.sta.ssid) - 1);
+    size_t ssid_len = strlen(ssid);
+    if (ssid_len > sizeof(wifi_config.sta.ssid)) ssid_len = sizeof(wifi_config.sta.ssid);
+    memcpy(wifi_config.sta.ssid, ssid, ssid_len);
     strncpy((char *)wifi_config.sta.password, password, sizeof(wifi_config.sta.password) - 1);
-    wifi_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
+    wifi_config.sta.threshold.authmode = WIFI_AUTH_OPEN;
+
+    bool was_connected = wifi_is_connected();
 
     // Clear previous state
     xEventGroupClearBits(wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT);
     retry_count = 0;
 
-    esp_wifi_disconnect();
+    ignore_next_disconnect = was_connected;
+    esp_err_t disc_err = esp_wifi_disconnect();
+    if (disc_err != ESP_OK) {
+        ignore_next_disconnect = false;
+    }
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_connect());
 
@@ -204,6 +234,11 @@ bool wifi_connect(const char *ssid, const char *password) {
         ESP_LOGI(TAG, "Connected to %s", ssid);
         return true;
     } else {
+        ignore_next_disconnect = true;
+        esp_err_t stop_err = esp_wifi_disconnect();
+        if (stop_err != ESP_OK) {
+            ignore_next_disconnect = false;
+        }
         ESP_LOGW(TAG, "Failed to connect to %s", ssid);
         return false;
     }
@@ -257,11 +292,13 @@ void wifi_set_ntp_prefer_ipv6(bool prefer) {
 }
 
 void wifi_get_ntp_server_ip_str(char *buf, size_t len) {
-    if (!ntp_cfg.started) { if (len) buf[0] = '\0'; return; }
+    if (!buf || len == 0) return;
+    if (!ntp_cfg.started) { buf[0] = '\0'; return; }
     ntp_get_primary_addr_str(buf, len);
 }
 
 void wifi_get_ip_str(char *buf, size_t len) {
+    if (!buf || len == 0) return;
     esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
     if (netif && wifi_is_connected()) {
         esp_netif_ip_info_t ip_info;
@@ -274,6 +311,7 @@ void wifi_get_ip_str(char *buf, size_t len) {
 }
 
 void wifi_get_ip6_str(char *buf, size_t len) {
+    if (!buf || len == 0) return;
     esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
     if (netif && wifi_is_connected()) {
         esp_ip6_addr_t ip6_addrs[CONFIG_LWIP_IPV6_NUM_ADDRESSES];
@@ -304,6 +342,7 @@ int8_t wifi_get_rssi(void) {
 }
 
 void wifi_get_mac_str(char *buf, size_t len) {
+    if (!buf || len == 0) return;
     uint8_t mac[6];
     if (esp_wifi_get_mac(WIFI_IF_STA, mac) == ESP_OK) {
         snprintf(buf, len, "%02X:%02X:%02X:%02X:%02X:%02X",

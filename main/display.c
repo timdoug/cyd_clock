@@ -379,8 +379,10 @@ void display_fill_rect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t colo
     if (x >= DISPLAY_WIDTH || y >= DISPLAY_HEIGHT || w <= 0 || h <= 0) return;
     if (x < 0) { w += x; x = 0; }
     if (y < 0) { h += y; y = 0; }
+    if (w <= 0 || h <= 0) return;
     if (x + w > DISPLAY_WIDTH) w = DISPLAY_WIDTH - x;
     if (y + h > DISPLAY_HEIGHT) h = DISPLAY_HEIGHT - y;
+    if (w <= 0 || h <= 0) return;
 
     set_addr_window(x, y, w, h);
     dc_data();
@@ -414,6 +416,7 @@ void display_vline(int16_t x, int16_t y, int16_t h, uint16_t color) {
 }
 
 void display_rect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) {
+    if (w <= 0 || h <= 0) return;
     display_hline(x, y, w, color);
     display_hline(x, y + h - 1, w, color);
     display_vline(x, y, h, color);
@@ -421,6 +424,11 @@ void display_rect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) {
 }
 
 void display_char(int16_t x, int16_t y, char c, uint16_t fg, uint16_t bg) {
+    if (x < 0 || y < 0 ||
+        x + FONT_CHAR_WIDTH > DISPLAY_WIDTH ||
+        y + FONT_CHAR_HEIGHT > DISPLAY_HEIGHT) {
+        return;
+    }
     if (c < 32 || c > 127) c = '?';
     const uint8_t *glyph = &font_8x16[(c - 32) * 16];
 
@@ -463,6 +471,11 @@ static inline int get_glyph_pixel(const uint8_t *glyph, int row, int col) {
 }
 
 static void display_char_2x(int16_t x, int16_t y, char c, uint16_t fg, uint16_t bg) {
+    if (x < 0 || y < 0 ||
+        x + FONT_CHAR_WIDTH_2X > DISPLAY_WIDTH ||
+        y + FONT_CHAR_HEIGHT_2X > DISPLAY_HEIGHT) {
+        return;
+    }
     if (c < 32 || c > 127) c = '?';
     const uint8_t *glyph = &font_8x16[(c - 32) * 16];
     uint16_t smooth = blend_color(fg, bg);

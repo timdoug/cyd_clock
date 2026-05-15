@@ -71,8 +71,9 @@ static const char *TAG = "ntp";
 static int32_t precision_to_us(int8_t precision) {
     if (precision >= 0) {
         // 2^p seconds = 2^p * 10^6 us
-        if (precision >= 31) return INT32_MAX;
-        return (int32_t)(1000000LL << precision);
+        if (precision >= 12) return INT32_MAX;
+        int64_t us = 1000000LL << precision;
+        return us > INT32_MAX ? INT32_MAX : (int32_t)us;
     }
     int shift = -(int)precision;
     if (shift >= 20) return 1;   // sub-us rounded up to 1 us
@@ -130,6 +131,16 @@ typedef struct {
     uint32_t xmt_frac_net;
     bool     request_outstanding;
     uint32_t request_sent_ms;
+
+    // Wave bookkeeping for "discipline only when all peers have settled this
+    // wave". next_poll_cycle_id is assigned when the next poll is scheduled,
+    // then copied into cycle_id_when_sent at send time. After the peer
+    // responds, times out, or the send fails, last_settle_cycle_id is set to
+    // the same tag. Matching sent/settled tags mean "this peer's most recent
+    // request is resolved", regardless of which way it resolved.
+    uint32_t next_poll_cycle_id;
+    uint32_t cycle_id_when_sent;
+    uint32_t last_settle_cycle_id;
 
     uint32_t next_poll_ms;
     uint32_t kod_until_ms;
@@ -354,13 +365,17 @@ static int dns_query_one(int sock, const struct sockaddr_in *dst, const char *ho
                          uint16_t qtype, struct sockaddr_storage *out,
                          int count, int max) {
     uint8_t qbuf[256], rbuf[512];
-    int qlen = dns_build_query(qbuf, sizeof(qbuf), esp_random() & 0xFFFF, host, qtype);
+    uint16_t id = esp_random() & 0xFFFF;
+    int qlen = dns_build_query(qbuf, sizeof(qbuf), id, host, qtype);
     if (qlen <= 0) return count;
     if (sendto(sock, qbuf, qlen, 0, (const struct sockaddr *)dst, sizeof(*dst)) != qlen) {
         return count;
     }
     ssize_t n = recv(sock, rbuf, sizeof(rbuf), 0);
     if (n < 12) return count;
+    uint16_t resp_id = ((uint16_t)rbuf[0] << 8) | rbuf[1];
+    uint16_t flags   = ((uint16_t)rbuf[2] << 8) | rbuf[3];
+    if (resp_id != id || (flags & 0x8000) == 0) return count;
     return dns_parse_answers(rbuf, (int)n, out, count, max);
 }
 
@@ -402,6 +417,17 @@ static int dns_resolve_all(const char *host, bool prefer_ipv6,
 // the rationale). Declared up here because peer_reset reads it to anchor the
 // per-peer fresh-window expiry.
 static uint32_t next_global_poll_ms;
+static uint32_t next_global_poll_cycle_id = 1;
+static uint32_t last_poll_adjust_cycle_id;
+
+static void adaptive_poll_update(void);
+static bool try_discipline(uint32_t settled_cycle_id);
+
+static void adaptive_poll_update_once(uint32_t cycle_id) {
+    if (cycle_id == 0 || last_poll_adjust_cycle_id == cycle_id) return;
+    adaptive_poll_update();
+    last_poll_adjust_cycle_id = cycle_id;
+}
 
 // next_global_poll_ms value at the last successful try_replace_peer. Used as
 // a one-eviction-per-cycle rate limit - equality means we've already swapped
@@ -463,6 +489,11 @@ static int resolve_peers(void) {
 
     lock_take();
 
+    if (strcmp(g.server, server_copy) != 0 || g.prefer_ipv6 != prefer_ipv6_copy) {
+        ESP_LOGI(TAG, "Discarding stale DNS results for %s", server_copy);
+        return 0;
+    }
+
     for (int i = 0; i < NTP_MAX_PEERS; i++) peer_reset(&g.peers[i]);
     g.selected_peer = -1;
     g.stratum = 16;
@@ -481,6 +512,7 @@ static int resolve_peers(void) {
         p->active   = true;
         p->stratum  = 16;
         p->next_poll_ms = mono_ms();
+        p->next_poll_cycle_id = next_global_poll_cycle_id;
 
         const void *src = (addrs[i].ss_family == AF_INET6)
             ? (const void *)&((struct sockaddr_in6 *)&addrs[i])->sin6_addr
@@ -541,6 +573,11 @@ static bool try_replace_peer(int dead_idx) {
 
     lock_take();
 
+    if (g.dirty_config ||
+        strcmp(g.server, server_copy) != 0 ||
+        g.prefer_ipv6 != prefer_ipv6_copy) {
+        return false;
+    }
     if (n == 0) return false;
 
     for (int i = 0; i < n; i++) {
@@ -566,6 +603,7 @@ static bool try_replace_peer(int dead_idx) {
         p->active       = true;
         p->stratum      = 16;
         p->next_poll_ms = mono_ms();
+        p->next_poll_cycle_id = next_global_poll_cycle_id;
         const void *src = (fresh[i].ss_family == AF_INET6)
             ? (const void *)&((struct sockaddr_in6 *)&fresh[i])->sin6_addr
             : (const void *)&((struct sockaddr_in  *)&fresh[i])->sin_addr;
@@ -607,6 +645,14 @@ static bool open_sockets(void) {
 static void close_sockets(void) {
     if (g.sock4 >= 0) { close(g.sock4); g.sock4 = -1; }
     if (g.sock6 >= 0) { close(g.sock6); g.sock6 = -1; }
+}
+
+static void close_wake_sock(void) {
+    if (g.wake_sock >= 0) {
+        close(g.wake_sock);
+        g.wake_sock = -1;
+        g.wake_port = 0;
+    }
 }
 
 // ---------- task wake (self-pipe over loopback UDP) ----------
@@ -655,35 +701,60 @@ static void drain_wake_sock(void) {
 // independently from its own response time, and RTT / timeout / swap events
 // caused their poll phases to drift apart - on a 32 s interval you could see
 // up to 20 s of age difference between peers. With alignment, every peer fires
-// at (roughly) the same instant and their ages stay within a few hundred ms.
+// within a known splay window of the same shared tick.
 // (Declared up by peer_reset - that function captures the current tick as
 // the per-peer fresh-window expiry at install time.)
+
+// Total splay window across all peers, chosen so each peer hits a different
+// moment of the WiFi / pool-peer / upstream-router timeline (a transient bad
+// second on one peer's slot doesn't poison the others' samples). Per-peer
+// slot is SPLAY_WINDOW_MS / NTP_MAX_PEERS, with random jitter inside the
+// slot so we don't phase-lock with any periodic network event.
+//
+// Sized comfortably under (MIN_POLL_S - RESPONSE_TIMEOUT - margin) so even
+// the last-scheduled peer's response lands before the discipline threshold.
+#define SPLAY_WINDOW_MS  8000
 
 static void schedule_after_request(ntp_peer_t *p) {
     uint32_t now = mono_ms();
     uint32_t interval_ms = g.current_poll_s * 1000;
-    // If the shared tick has already passed (or hasn't been set yet), advance
-    // it to one interval from now. Subsequent peers scheduling in the same
-    // cycle will see it still in the future and use it as-is.
     if ((int32_t)(now - next_global_poll_ms) >= 0) {
         next_global_poll_ms = now + interval_ms;
+        next_global_poll_cycle_id++;
+        if (next_global_poll_cycle_id == 0) next_global_poll_cycle_id = 1;
     }
-    // Stagger each peer by a fixed offset so we don't send all packets in a
-    // burst. 250 ms * peer_index gives ~750 ms spread for 4 peers - still
-    // rounds to the same second in the age display, but the sends are
-    // comfortably far apart to avoid any batching in the WiFi/TCP-IP stack.
     int idx = (int)(p - g.peers);
-    p->next_poll_ms = next_global_poll_ms + (uint32_t)idx * 250;
+    uint32_t slot_ms = SPLAY_WINDOW_MS / NTP_MAX_PEERS;
+    uint32_t jitter  = esp_random() % slot_ms;
+    p->next_poll_ms  = next_global_poll_ms + (uint32_t)idx * slot_ms + jitter;
+    p->next_poll_cycle_id = next_global_poll_cycle_id;
 }
 
-static void send_request(ntp_peer_t *p) {
+static bool send_request(ntp_peer_t *p) {
     ntp_pkt_t pkt = {0};
     pkt.li_vn_mode = (0 << 6) | (NTP_VERSION << 3) | NTP_MODE_CLIENT;
-    pkt.poll       = 6;
     pkt.precision  = LOCAL_PRECISION;
+    uint32_t poll_s = g.current_poll_s ? g.current_poll_s : MIN_POLL_S;
+    int8_t poll_exp = 0;
+    while ((1U << poll_exp) < poll_s && poll_exp < 15) poll_exp++;
+    pkt.poll = poll_exp;
+
+    uint32_t request_cycle_id = p->next_poll_cycle_id;
+    if (request_cycle_id == 0) {
+        request_cycle_id = next_global_poll_cycle_id ? next_global_poll_cycle_id : 1;
+    }
 
     int sock = (p->addr.ss_family == AF_INET6) ? g.sock6 : g.sock4;
-    if (sock < 0) return;
+    if (sock < 0) {
+        ESP_LOGW(TAG, "No socket for peer=%s family=%d", p->addr_str, p->addr.ss_family);
+        if (p->consecutive_misses < 255) p->consecutive_misses++;
+        p->reach <<= 1;
+        p->cycle_id_when_sent  = request_cycle_id;
+        p->last_settle_cycle_id = request_cycle_id;
+        schedule_after_request(p);
+        try_discipline(request_cycle_id);
+        return false;
+    }
 
     // Stamp xmt as close to sendto as we can - compose the packet with a
     // placeholder first, then take t1_pre / sendto / t1_post around the
@@ -710,8 +781,11 @@ static void send_request(ntp_peer_t *p) {
         // the per-peer swap logic will rotate it out.
         if (p->consecutive_misses < 255) p->consecutive_misses++;
         p->reach <<= 1;
+        p->cycle_id_when_sent  = request_cycle_id;
+        p->last_settle_cycle_id = request_cycle_id;
         schedule_after_request(p);
-        return;
+        try_discipline(request_cycle_id);
+        return false;
     }
 
     // t1 = midpoint of pre-sendto and post-sendto gettimeofday.
@@ -725,6 +799,8 @@ static void send_request(ntp_peer_t *p) {
     p->reach <<= 1;        // new poll starts with bit 0 = 0 until response
     p->request_outstanding = true;
     p->request_sent_ms     = mono_ms();
+    p->cycle_id_when_sent  = request_cycle_id;      // wave tag, see ntp_peer_t
+    return true;
 }
 
 // ---------- filter ----------
@@ -1138,7 +1214,16 @@ static void select_system_peer(void) {
         ntp_peer_t *p = &g.peers[i];
         if (!p->active || p->reach == 0) continue;
         if (p->stratum == 0 || p->stratum >= 16) continue;
-        int32_t unc = p->best_delay_us / 2 + p->jitter_us + p->dispersion_us;
+        // Marzullo half-width. Full textbook delay/2 is too wide for WiFi +
+        // public pool peers: a 60 ms RTT turns every interval into +/-30 ms,
+        // which lets stable-but-wrong peers survive. But using zero delay
+        // allowance is too tight: honest peers separated by normal path
+        // asymmetry can fail to overlap and selection collapses to whichever
+        // single-peer mask appears first. Use a bounded delay term so consensus
+        // has room for real network uncertainty without letting RTT dominate.
+        int32_t delay_allowance = p->best_delay_us / 4;
+        if (delay_allowance > 10000) delay_allowance = 10000;
+        int32_t unc = delay_allowance + p->jitter_us + p->dispersion_us;
         c[n].idx = i;
         c[n].lo  = p->best_offset_us - unc;
         c[n].hi  = p->best_offset_us + unc;
@@ -1410,6 +1495,67 @@ static void apply_freq_correction(void) {
 
 // ---------- main task ----------
 
+// Discipline gate. Fires when:
+//   1. The basic poll interval has elapsed since the last discipline.
+//   2. Every reachable peer has settled this wave (responded successfully or
+//      timed out) - so combined_offset_us reflects fresh samples from all of
+//      them, not one fresh sample plus three from the previous wave (which
+//      at MAX_POLL_S is ~17 minutes stale). Peers in KoD or with several
+//      consecutive misses don't count toward "reachable" - we don't want
+//      one chronically dead peer to block discipline forever.
+//   3. At least one of those reachable peers actually responded.
+//
+// Safety net: if we've been stuck waiting past `threshold + GRACE` (one
+// full splay window + response timeout + a small margin), force-fire
+// anyway, but only if this wave produced at least one response. Combined data
+// may be slightly stale in that case, but better than not disciplining at all.
+//
+// Called from the response and timeout handlers - both are the only
+// places that update last_settle_cycle_id, so they're the only places
+// where the gate can transition to "fireable".
+static bool try_discipline(uint32_t settled_cycle_id) {
+    if (settled_cycle_id == 0 || g.selected_peer < 0) return false;
+
+    uint32_t now = mono_ms();
+    uint32_t ref_poll_s = g.last_discipline_poll_s ?
+                          g.last_discipline_poll_s : g.current_poll_s;
+    int32_t  threshold_ms = ((int32_t)ref_poll_s - 3) * 1000;
+    int32_t  since_disc = (int32_t)(now - g.last_discipline_ms);
+    bool basic_due = (g.last_discipline_ms == 0) || since_disc >= threshold_ms;
+    if (!basic_due) return false;
+
+    bool all_settled = true;
+    int  responded   = 0;
+    int  reachable   = 0;
+    for (int i = 0; i < NTP_MAX_PEERS; i++) {
+        ntp_peer_t *q = &g.peers[i];
+        if (!q->active) continue;
+        if (q->stratum == 0 || q->stratum >= 16) continue;       // KoD or unsynced
+        if (q->kod_until_ms && (int32_t)(now - q->kod_until_ms) < 0) continue;
+        if (q->consecutive_misses >= 2) continue;                 // chronically silent
+        if (q->cycle_id_when_sent != settled_cycle_id &&
+            q->next_poll_cycle_id != settled_cycle_id) continue;  // not part of this wave
+        reachable++;
+        if (q->cycle_id_when_sent != settled_cycle_id ||
+            q->last_settle_cycle_id != settled_cycle_id) {
+            all_settled = false;
+        }
+        if (q->last_settle_cycle_id == settled_cycle_id && (q->reach & 0x01)) responded++;
+    }
+
+    const int32_t GRACE_MS = (int32_t)SPLAY_WINDOW_MS + RESPONSE_TIMEOUT_MS + 1000;
+    bool overdue = since_disc >= threshold_ms + GRACE_MS;
+    bool good    = reachable > 0 && all_settled && responded > 0;
+    bool force   = overdue && responded > 0;
+    if (!good && !force) return false;
+
+    g.last_discipline_ms     = now;
+    g.last_discipline_poll_s = g.current_poll_s;   // captures pre-adaptive value
+    discipline_clock(g.combined_offset_us);
+    adaptive_poll_update_once(settled_cycle_id);
+    return true;
+}
+
 static void handle_socket_readable(int sock) {
     // RFC 5905 header is 48 bytes, followed by optional RFC 7822 extension
     // fields and a trailing MAC (for authenticated / NTS packets). We don't
@@ -1426,10 +1572,15 @@ static void handle_socket_readable(int sock) {
     if (n < (ssize_t)sizeof(ntp_pkt_t)) return;
 
     ntp_peer_t *p = NULL;
+    int peer_idx = -1;
     for (int i = 0; i < NTP_MAX_PEERS; i++) {
         ntp_peer_t *q = &g.peers[i];
         if (!q->active || !q->request_outstanding) continue;
-        if (sockaddr_matches(&q->addr, &from)) { p = q; break; }
+        if (sockaddr_matches(&q->addr, &from)) {
+            p = q;
+            peer_idx = i;
+            break;
+        }
     }
     if (!p) return;
 
@@ -1437,7 +1588,16 @@ static void handle_socket_readable(int sock) {
     memcpy(&pkt, buf, sizeof(pkt));
     bool ok = process_response(p, &pkt, &t4);
     p->request_outstanding = false;
-    schedule_after_request(p);
+    p->last_settle_cycle_id = p->cycle_id_when_sent;   // resolved this wave
+    uint32_t settled_cycle_id = p->cycle_id_when_sent;
+    if (g.selected_peer == peer_idx &&
+        (!p->active || p->stratum == 0 || p->stratum >= 16)) {
+        g.selected_peer = -1;
+        g.stratum = 16;
+    }
+    if (p->active) {
+        schedule_after_request(p);
+    }
 
     if (ok) {
         update_peer_filter(p);
@@ -1477,36 +1637,9 @@ static void handle_socket_readable(int sock) {
             }
         }
 
-        // Discipline once per poll cycle from the dispersion-weighted
-        // combined offset (g.combined_offset_us is refreshed by every call
-        // to select_system_peer). Gating on "this peer happens to be the
-        // selected one post-update" is too fragile with combining: when all
-        // survivors have similar jitter, each peer's own fresh sample often
-        // bumps its jitter just enough that select picks a different peer -
-        // which could leave a whole cycle with no discipline firing at all.
-        //
-        // Rate limit: require since_disc to be within a few seconds of the
-        // full poll interval so only cycle-boundary responses trigger (a
-        // looser half-cycle gate would also let off-schedule responses
-        // through - e.g. try_replace_peer's immediate mid-cycle poll).
-        //
-        // Reference the poll that was in effect at the previous discipline,
-        // not the current one - schedule_after_request (above) locked in the
-        // upcoming cycle length using the pre-adaptive value, so the interval
-        // that just elapsed is last_discipline_poll_s, not the (possibly
-        // already-doubled) current_poll_s.
-        uint32_t now = mono_ms();
-        uint32_t ref_poll_s = g.last_discipline_poll_s ?
-                              g.last_discipline_poll_s : g.current_poll_s;
-        int32_t  threshold_ms = ((int32_t)ref_poll_s - 3) * 1000;
-        bool due = (g.last_discipline_ms == 0) ||
-                   (int32_t)(now - g.last_discipline_ms) >= threshold_ms;
-        if (g.selected_peer >= 0 && due) {
-            g.last_discipline_ms     = now;
-            g.last_discipline_poll_s = g.current_poll_s;   // captures pre-adaptive value
-            discipline_clock(g.combined_offset_us);
-            adaptive_poll_update();
-        }
+        try_discipline(settled_cycle_id);
+    } else {
+        try_discipline(settled_cycle_id);
     }
 }
 
@@ -1543,6 +1676,11 @@ static void ntp_task(void *arg) {
 
         if (g.dirty_config) {
             g.dirty_config = false;
+            next_global_poll_ms = 0;
+            next_global_poll_cycle_id++;
+            if (next_global_poll_cycle_id == 0) next_global_poll_cycle_id = 1;
+            last_evict_tick_ms = UINT32_MAX;
+            last_poll_adjust_cycle_id = 0;
             resolve_peers();
             // Arm the staleness watchdog against this resolution: even before
             // any peer responds, we'll retrigger after threshold_ms if the new
@@ -1585,14 +1723,11 @@ static void ntp_task(void *arg) {
             if (p->request_outstanding &&
                 (int32_t)(now - p->request_sent_ms) >= RESPONSE_TIMEOUT_MS) {
                 ESP_LOGW(TAG, "TIMEOUT peer=%s reach=%02x", p->addr_str, p->reach);
-                p->request_outstanding = false;
+                uint32_t settled_cycle_id = p->cycle_id_when_sent;
+                p->request_outstanding   = false;
+                p->last_settle_cycle_id  = settled_cycle_id;  // resolved (badly)
                 if (p->consecutive_misses < 255) p->consecutive_misses++;
                 schedule_after_request(p);
-                // If the selected peer timed out, treat as a "bad" poll-adjust
-                // event so the poll interval has a chance to shrink.
-                if (g.selected_peer == i) {
-                    adaptive_poll_update();
-                }
                 // Swap out chronically-bad peers. Trigger is event-driven
                 // (this peer just crossed its miss threshold), but the peer
                 // we actually evict is the WORST currently-eligible one - it
@@ -1608,13 +1743,25 @@ static void ntp_task(void *arg) {
                         if (g.selected_peer == worst) g.selected_peer = -1;
                     }
                 }
+                // Re-evaluate the discipline gate: this timeout may have
+                // been the last unresolved peer of the wave (the response
+                // path won't fire again for it).
+                bool disciplined = try_discipline(settled_cycle_id);
+                // If no discipline fired, still treat a selected-peer timeout
+                // as a bad poll-adjust event so the interval can shrink.
+                if (!disciplined && g.selected_peer == i) {
+                    adaptive_poll_update_once(settled_cycle_id);
+                }
             }
 
             bool due = g.force_sync || (int32_t)(now - p->next_poll_ms) >= 0;
             if (due && !p->request_outstanding) {
-                send_request(p);
-                uint32_t deadline = p->request_sent_ms + RESPONSE_TIMEOUT_MS;
-                if ((int32_t)(deadline - next_wake) < 0) next_wake = deadline;
+                if (send_request(p)) {
+                    uint32_t deadline = p->request_sent_ms + RESPONSE_TIMEOUT_MS;
+                    if ((int32_t)(deadline - next_wake) < 0) next_wake = deadline;
+                } else {
+                    if ((int32_t)(p->next_poll_ms - next_wake) < 0) next_wake = p->next_poll_ms;
+                }
             } else if (p->request_outstanding) {
                 uint32_t deadline = p->request_sent_ms + RESPONSE_TIMEOUT_MS;
                 if ((int32_t)(deadline - next_wake) < 0) next_wake = deadline;
@@ -1653,6 +1800,8 @@ static void ntp_task(void *arg) {
     }
 
     close_sockets();
+    close_wake_sock();
+    g.task = NULL;
     vTaskDelete(NULL);
 }
 
@@ -1671,10 +1820,28 @@ void ntp_init(const char *server, bool prefer_ipv6) {
     g.selected_peer  = -1;
     g.stratum        = 16;
     g.dirty_config   = true;
+    g.force_sync     = false;
+    g.last_sync_time = 0;
+    g.last_offset_us = 0;
+    g.system_jitter_us = 0;
+    g.root_delay_us = 0;
+    g.root_dispersion_us = 0;
+    g.combined_offset_us = 0;
+    g.last_freq_apply_ms = 0;
+    g.last_discipline_ms = 0;
+    g.last_discipline_poll_s = 0;
+    g.last_any_response_ms = 0;
+    g.poll_adjust = 0;
+    next_global_poll_ms = 0;
+    next_global_poll_cycle_id++;
+    if (next_global_poll_cycle_id == 0) next_global_poll_cycle_id = 1;
+    last_evict_tick_ms = UINT32_MAX;
+    last_poll_adjust_cycle_id = 0;
     // Restore the persisted crystal-drift estimate so we start near-converged
     // instead of the ~30 minutes the PI loop normally needs to settle on the
     // hardware-intrinsic value from a cold 0 ppm seed.
     int32_t saved_freq = 0;
+    g.freq_ppm_x1000 = 0;
     g.freq_loaded_from_nvs = false;
     if (nvs_config_get_freq_ppm_x1000(&saved_freq) &&
         saved_freq >  -MAX_FREQ_PPM_X1000 &&
@@ -1685,13 +1852,20 @@ void ntp_init(const char *server, bool prefer_ipv6) {
     }
 
     g.running = true;
-    xTaskCreate(ntp_task, "ntp", 4096, NULL, 5, &g.task);
+    if (xTaskCreate(ntp_task, "ntp", 4096, NULL, 5, &g.task) != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create NTP task");
+        g.running = false;
+        g.task = NULL;
+    }
 }
 
 void ntp_stop(void) {
     if (!g.running) return;
     g.running = false;
-    // The task polls `running` after each select cycle.
+    wake_task();
+    while (g.task) {
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
 }
 
 void ntp_set_server(const char *server) {
@@ -1746,7 +1920,8 @@ void ntp_get_sys_stats(ntp_sys_stats_t *out) {
     out->freq_known          = g.freq_loaded_from_nvs || g.sync_count >= 2;
     out->stratum        = g.stratum;
     out->selected_peer  = (g.selected_peer < 0) ? 0xFF : (uint8_t)g.selected_peer;
-    out->server         = g.server;
+    strncpy(out->server, g.server, sizeof(out->server) - 1);
+    out->server[sizeof(out->server) - 1] = '\0';
     lock_give();
 }
 

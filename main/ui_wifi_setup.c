@@ -55,7 +55,7 @@ static char password[MAX_PASSWORD_LEN] = {0};
 static int password_len = 0;
 static int keyboard_mode = 0;  // 0=lower, 1=upper, 2=symbols
 static bool shift_active = false;
-static char connected_ssid[MAX_SSID_LEN + 1] = {0};
+static char connected_ssid[WIFI_SSID_BUF_LEN] = {0};
 static char connected_password[MAX_PASSWORD_LEN] = {0};
 static uint32_t last_touch_time = 0;
 static bool show_back_button = false;
@@ -180,11 +180,11 @@ static char get_key_at(int tx, int ty) {
     // Special keys row
     int y = ui_keyboard_bottom_y(4, KEYBOARD_Y);
     if (ty >= y && ty < y + KB_KEY_HEIGHT) {
-        if (tx < 45) return VKEY_SHIFT;
-        if (tx < 90) return VKEY_MODE;
-        if (tx < 195) return ' ';    // Space
-        if (tx < 240) return VKEY_BACKSPACE;
-        return VKEY_ENTER;
+        if (tx >= 5   && tx < 45)  return VKEY_SHIFT;
+        if (tx >= 50  && tx < 90)  return VKEY_MODE;
+        if (tx >= 95  && tx < 195) return ' ';    // Space
+        if (tx >= 200 && tx < 240) return VKEY_BACKSPACE;
+        if (tx >= 245 && tx < 305) return VKEY_ENTER;
     }
 
     return 0;
@@ -247,13 +247,21 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
                     int item = (touch.y - UI_LIST_START_Y) / UI_LIST_ITEM_H + list_scroll;
                     if (item < network_count) {
                         selected_network = item;
-                        state = STATE_PASSWORD_ENTRY;
                         password_len = 0;
                         password[0] = '\0';
-                        display_fill(COLOR_BLACK);
-                        ui_draw_header("Enter Password", true);
-                        draw_password_input();
-                        draw_keyboard();
+                        if (networks[selected_network].authmode == 0) {
+                            state = STATE_CONNECTING;
+                            display_fill(COLOR_BLACK);
+                            ui_draw_header("Connecting", false);
+                            ui_draw_centered_string(100, "Connecting to", COLOR_WHITE, COLOR_BLACK, false);
+                            ui_draw_centered_string(130, networks[selected_network].ssid, COLOR_CYAN, COLOR_BLACK, false);
+                        } else {
+                            state = STATE_PASSWORD_ENTRY;
+                            display_fill(COLOR_BLACK);
+                            ui_draw_header("Enter Password", true);
+                            draw_password_input();
+                            draw_keyboard();
+                        }
                     }
                 }
 
@@ -353,8 +361,8 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
 }
 
 void ui_wifi_setup_get_credentials(char *ssid, char *pwd) {
-    strncpy(ssid, connected_ssid, MAX_SSID_LEN);
-    ssid[MAX_SSID_LEN] = '\0';
+    strncpy(ssid, connected_ssid, WIFI_SSID_BUF_LEN - 1);
+    ssid[WIFI_SSID_BUF_LEN - 1] = '\0';
     strncpy(pwd, connected_password, MAX_PASSWORD_LEN - 1);
     pwd[MAX_PASSWORD_LEN - 1] = '\0';
 }

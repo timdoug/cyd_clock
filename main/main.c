@@ -3,6 +3,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include "driver/gpio.h"
+#include "esp_err.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
@@ -41,7 +42,7 @@ typedef enum {
 static app_state_t app_state = APP_STATE_INIT;
 static bool wifi_setup_from_settings = false;
 static bool initial_setup = false;
-static char stored_ssid[MAX_SSID_LEN];
+static char stored_ssid[WIFI_SSID_BUF_LEN];
 static char stored_password[MAX_PASSWORD_LEN];
 static char stored_tz[MAX_TIMEZONE_LEN];
 static bool ntp_started = false;
@@ -54,17 +55,16 @@ static SemaphoreHandle_t clock_tick_sem;
 static esp_timer_handle_t clock_tick_timer;
 
 // Adaptive display-pipeline compensation. ui_clock_update takes nonzero time
-// to push pixels over SPI - typically ~10-15 ms for a full second-digit cell
-// repaint - so if we armed the timer to fire at exactly the wall-clock
-// second boundary, the user sees the new digit that many ms AFTER each
-// second. Measure the actual update latency each tick (via a monotonic
-// timer around ui_clock_update) and feed it through an EMA, then fire the
-// next tick that many us EARLY so the pixels land on the boundary instead of
-// after it. Seeded at 12 ms - a realistic starting point that the EMA will
-// correct toward the real value within ~8 ticks.
+// to push pixels over SPI, so firing exactly at the wall-clock boundary makes
+// the visible digit late. Keep separate EMAs by "number of digits that will
+// repaint" so cheap one-second ticks and expensive rollovers don't poison each
+// other's estimate, then fire the timer that many us early.
 // Non-static: ui_clock.c reads this to pick the second that will be current
 // when its pixels actually land (see comment in ui_clock_update).
 volatile uint32_t clock_latency_us = 12000;
+static uint32_t clock_latency_by_digits[7] = {
+    0, 12000, 16000, 20000, 24000, 28000, 32000
+};
 
 static void clock_tick_cb(void *arg) {
     (void)arg;
@@ -72,6 +72,10 @@ static void clock_tick_cb(void *arg) {
 }
 
 static void clock_tick_arm(void) {
+    uint8_t predicted_digits = ui_clock_predict_next_update_digits();
+    if (predicted_digits > 6) predicted_digits = 6;
+    clock_latency_us = clock_latency_by_digits[predicted_digits];
+
     struct timeval tv;
     gettimeofday(&tv, NULL);
     int64_t us_until = (int64_t)(1000000 - (uint32_t)tv.tv_usec) -
@@ -131,6 +135,7 @@ void app_main(void) {
 
     // Second-boundary tick machinery
     clock_tick_sem = xSemaphoreCreateBinary();
+    ESP_ERROR_CHECK(clock_tick_sem ? ESP_OK : ESP_ERR_NO_MEM);
     const esp_timer_create_args_t tick_args = {
         .callback = clock_tick_cb,
         .name     = "clock_tick",
@@ -198,7 +203,7 @@ void app_main(void) {
                 wifi_setup_result_t result = ui_wifi_setup_update();
                 if (result == WIFI_SETUP_CONNECTED) {
                     // Save credentials
-                    char ssid[33], password[64];
+                    char ssid[WIFI_SSID_BUF_LEN], password[MAX_PASSWORD_LEN];
                     ui_wifi_setup_get_credentials(ssid, password);
                     nvs_config_set_wifi(ssid, password);
 
@@ -296,18 +301,20 @@ void app_main(void) {
                     ui_clock_update();
                     int64_t t_end   = esp_timer_get_time();
                     uint32_t measured = (uint32_t)(t_end - t_start);
-                    // Guard against pathological samples. Upper bound (30 ms)
-                    // rejects ticks where the task got preempted for a long
-                    // time - noise that shouldn't drag the EMA. Lower bound
-                    // (3 ms) rejects "nothing changed, no repaint" ticks
-                    // that would spuriously pull the EMA down.
+                    // Guard against pathological samples. Upper bound is high
+                    // enough to keep true rollover samples, but rejects major
+                    // scheduler stalls. Lower bound rejects "nothing changed"
+                    // ticks that would spuriously pull the EMA down.
                     if (!skip_next_measurement &&
-                        measured >= 3000 && measured < 30000) {
+                        measured >= 3000 && measured < 80000) {
+                        uint8_t digits = ui_clock_last_update_digits();
+                        if (digits > 6) digits = 6;
                         // EMA with alpha = 1/8: new = (7/8)*old + (1/8)*measured.
                         // Converges in ~8 ticks, smooths cell-count variance.
-                        clock_latency_us = clock_latency_us
-                                         - (clock_latency_us / 8)
-                                         + (measured / 8);
+                        clock_latency_by_digits[digits] =
+                            clock_latency_by_digits[digits]
+                            - (clock_latency_by_digits[digits] / 8)
+                            + (measured / 8);
                     }
                     skip_next_measurement = false;
                     clock_tick_arm();

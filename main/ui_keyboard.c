@@ -25,8 +25,10 @@ char ui_keyboard_get_key(const char **layout, int num_rows, int start_y,
                          int touch_x, int touch_y) {
     if (touch_y < start_y) return 0;
 
-    int row = (touch_y - start_y) / (KB_KEY_HEIGHT + KB_KEY_SPACING);
+    int row_pitch = KB_KEY_HEIGHT + KB_KEY_SPACING;
+    int row = (touch_y - start_y) / row_pitch;
     if (row >= num_rows) return 0;
+    if ((touch_y - start_y) % row_pitch >= KB_KEY_HEIGHT) return 0;
 
     const char *keys = layout[row];
     int row_len = strlen(keys);
@@ -34,8 +36,10 @@ char ui_keyboard_get_key(const char **layout, int num_rows, int start_y,
 
     if (touch_x < row_start) return 0;
 
-    int col = (touch_x - row_start) / (KB_KEY_WIDTH + KB_KEY_SPACING);
+    int col_pitch = KB_KEY_WIDTH + KB_KEY_SPACING;
+    int col = (touch_x - row_start) / col_pitch;
     if (col >= row_len) return 0;
+    if ((touch_x - row_start) % col_pitch >= KB_KEY_WIDTH) return 0;
 
     return keys[col];
 }

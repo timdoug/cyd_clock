@@ -44,7 +44,7 @@ bool nvs_config_get_wifi(char *ssid, char *password) {
         return false;
     }
 
-    size_t ssid_len = MAX_SSID_LEN;
+    size_t ssid_len = WIFI_SSID_BUF_LEN;
     size_t pass_len = MAX_PASSWORD_LEN;
 
     esp_err_t err = nvs_get_str(handle, "ssid", ssid, &ssid_len);

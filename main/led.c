@@ -4,6 +4,7 @@
 #include "driver/gpio.h"
 #include "driver/ledc.h"
 #include "esp_attr.h"
+#include "esp_err.h"
 #include "esp_timer.h"
 #include "config.h"
 
@@ -26,6 +27,8 @@
 static esp_timer_handle_t pps_on_timer;
 static esp_timer_handle_t pps_off_timer;
 static volatile uint8_t   pps_brightness;   // user setting; 0 = PPS disabled
+
+#define PPS_LED_PIN LED_PIN_R
 
 // LEDC 8-bit: 0 = always LOW (= LED fully ON with active-low wiring),
 // 256 = always HIGH (= LED fully OFF). duty = 255 - gamma(brightness) gives
@@ -62,9 +65,8 @@ static void pps_on_cb(void *arg) {
 }
 
 void led_init(void) {
-    // Green/blue stay plain GPIO (we only need them as always-off indicators
-    // on this board); red is driven by LEDC so we get gamma-corrected PWM
-    // brightness while the 1PPS pulse is active.
+    // Green/blue stay plain GPIO, held off. Red is driven by LEDC so we get
+    // gamma-corrected PWM brightness while the 1PPS pulse is active.
     gpio_config_t io_conf = {
         .pin_bit_mask = (1ULL << LED_PIN_G) | (1ULL << LED_PIN_B),
         .mode         = GPIO_MODE_OUTPUT,
@@ -83,7 +85,7 @@ void led_init(void) {
         .channel    = LEDC_CHANNEL_1,
         .timer_sel  = LEDC_TIMER_0,
         .intr_type  = LEDC_INTR_DISABLE,
-        .gpio_num   = LED_PIN_R,
+        .gpio_num   = PPS_LED_PIN,
         .duty       = LED_DUTY_OFF,
         .hpoint     = 0,
     };
@@ -91,15 +93,15 @@ void led_init(void) {
 
     esp_timer_create_args_t on_args  = { .callback = pps_on_cb,  .name = "pps_on"  };
     esp_timer_create_args_t off_args = { .callback = pps_off_cb, .name = "pps_off" };
-    esp_timer_create(&on_args,  &pps_on_timer);
-    esp_timer_create(&off_args, &pps_off_timer);
+    ESP_ERROR_CHECK(esp_timer_create(&on_args,  &pps_on_timer));
+    ESP_ERROR_CHECK(esp_timer_create(&off_args, &pps_off_timer));
 
     // Arm for the first boundary; the callback keeps re-arming itself.
     struct timeval tv;
     gettimeofday(&tv, NULL);
     uint64_t us_until = 1000000 - (uint32_t)tv.tv_usec;
     if (us_until < 1000) us_until += 1000000;
-    esp_timer_start_once(pps_on_timer, us_until);
+    ESP_ERROR_CHECK(esp_timer_start_once(pps_on_timer, us_until));
 }
 
 void led_set_brightness(uint8_t brightness) {
