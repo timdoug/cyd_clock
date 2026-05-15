@@ -44,9 +44,12 @@ static const char *TAG = "ntp";
 #define IDLE_WAKE_MS         5000
 #define NEW_PEER_HIGHLIGHT_MS 10000
 
-// Discipline gains (integer shifts, i.e. powers of two)
-#define PLL_KI_SHIFT         6            // freq integrator gain at MIN_POLL_S
+// Discipline gains / guards
 #define MAX_FREQ_PPM_X1000   500000       // clamp +/-500 ppm
+#define FREQ_KI_SHIFT        5            // 1/32 gain for the crystal drift estimator
+#define MAX_FREQ_STEP_PPB    1000         // one NTP sample may move drift estimate by <= 1 ppm
+#define FREQ_MAX_OFFSET_US   25000        // larger residuals are usually path asymmetry / spikes
+#define FREQ_MAX_JITTER_US   20000        // don't learn crystal drift from very noisy peer sets
 
 // Per RFC 5905: each sample's dispersion grows linearly with time at this rate.
 // Makes root_dispersion honestly track uncertainty between polls.
@@ -172,7 +175,9 @@ static struct {
     int32_t  combined_offset_us;   // dispersion-weighted avg across survivors
     int32_t  freq_ppm_x1000;
     bool     freq_loaded_from_nvs; // freq_ppm_x1000 was restored at boot - usable before any sync
+    bool     freq_learned_this_session;
     uint32_t last_freq_apply_ms;
+    uint32_t last_freq_sample_ms;
     uint32_t last_discipline_ms;
     uint32_t last_discipline_poll_s;  // current_poll_s at the moment we last disciplined
     uint32_t last_any_response_ms;  // when we last heard from ANY peer
@@ -244,6 +249,12 @@ static struct timeval tv_from_us(int64_t total_us) {
 
 static int64_t tv_to_us(const struct timeval *tv) {
     return (int64_t)tv->tv_sec * 1000000LL + tv->tv_usec;
+}
+
+static int32_t clamp_i32(int32_t v, int32_t lo, int32_t hi) {
+    if (v < lo) return lo;
+    if (v > hi) return hi;
+    return v;
 }
 
 // ntpfp 16.16 seconds -> microseconds (saturating)
@@ -1387,22 +1398,37 @@ static void discipline_clock(int32_t offset_us) {
         struct timeval delta = tv_from_us(tv_to_us(&outstanding) + offset_us);
         adjtime(&delta, NULL);
 
-        // Integrate frequency error: offset accumulated over poll interval.
-        // Scale the gain shift with poll so the effective time constant stays
-        // roughly constant in wall-clock seconds (~2^PLL_KI_SHIFT * MIN_POLL_S).
-        // At poll=MIN_POLL_S we use the baseline 1/64; each doubling of poll
-        // cuts the shift by 1, so at poll=MAX_POLL_S=1024 the shift is 1
-        // (gain 1/2) - still correct since samples come 32* less often.
-        int32_t poll_s = g.current_poll_s ? (int32_t)g.current_poll_s : MIN_POLL_S;
-        int shift = PLL_KI_SHIFT;
-        for (int32_t p = poll_s; p > MIN_POLL_S && shift > 1; p >>= 1) shift--;
-        int32_t inc = (offset_us * 1000) / poll_s;       // ppb drift rate
-        g.freq_ppm_x1000 += inc >> shift;
-        if (g.freq_ppm_x1000 >  MAX_FREQ_PPM_X1000) g.freq_ppm_x1000 =  MAX_FREQ_PPM_X1000;
-        if (g.freq_ppm_x1000 < -MAX_FREQ_PPM_X1000) g.freq_ppm_x1000 = -MAX_FREQ_PPM_X1000;
+        // Integrate crystal frequency slowly from the residual phase error.
+        // The residual contains both real oscillator drift and network path
+        // asymmetry. Treat it as a noisy measurement, use the actual elapsed
+        // time between discipline samples, and cap each update so one WiFi /
+        // pool-server outlier cannot move the displayed "Drift" by 10-20 ppm.
+        uint32_t now_ms = mono_ms();
+        int32_t freq_step = 0;
+        bool learned_freq = false;
+        if (g.last_freq_sample_ms != 0 &&
+            g.system_jitter_us <= FREQ_MAX_JITTER_US &&
+            offset_us < FREQ_MAX_OFFSET_US &&
+            offset_us > -FREQ_MAX_OFFSET_US) {
+            uint32_t elapsed_ms = now_ms - g.last_freq_sample_ms;
+            if (elapsed_ms >= (MIN_POLL_S / 2) * 1000) {
+                int64_t measured_ppb = ((int64_t)offset_us * 1000000LL) / elapsed_ms;
+                freq_step = (int32_t)(measured_ppb >> FREQ_KI_SHIFT);
+                freq_step = clamp_i32(freq_step, -MAX_FREQ_STEP_PPB, MAX_FREQ_STEP_PPB);
+                g.freq_ppm_x1000 += freq_step;
+                g.freq_ppm_x1000 = clamp_i32(g.freq_ppm_x1000,
+                                             -MAX_FREQ_PPM_X1000,
+                                              MAX_FREQ_PPM_X1000);
+                g.freq_learned_this_session = true;
+                learned_freq = true;
+            }
+        }
+        g.last_freq_sample_ms = now_ms;
 
-        ESP_LOGI(TAG, "Clock slewed %+ld us (freq est %+ld ppb)",
-                 (long)offset_us, (long)g.freq_ppm_x1000);
+        ESP_LOGI(TAG, "Clock slewed %+ld us (freq est %+ld ppb%s%+ld)",
+                 (long)offset_us, (long)g.freq_ppm_x1000,
+                 learned_freq ? " step " : " no freq step ",
+                 (long)freq_step);
 
         // Persist the freq estimate to NVS so cold boots don't need to
         // re-converge from 0 ppm. Throttled to once per 30 minutes AND only
@@ -1413,12 +1439,13 @@ static void discipline_clock(int32_t offset_us) {
         static int32_t  last_saved_freq    = INT32_MIN;
         const  uint32_t SAVE_INTERVAL_MS   = 30 * 60 * 1000;
         const  int32_t  SAVE_DELTA_PPB     = 100;     // 0.1 ppm
-        uint32_t now_ms     = mono_ms();
         int32_t  freq_delta = g.freq_ppm_x1000 - last_saved_freq;
         if (freq_delta < 0) freq_delta = -freq_delta;
-        if ((last_saved_freq == INT32_MIN) ||
-            ((now_ms - last_freq_save_ms) >= SAVE_INTERVAL_MS &&
-             freq_delta >= SAVE_DELTA_PPB)) {
+        bool freq_known = g.freq_loaded_from_nvs || g.freq_learned_this_session;
+        if (freq_known &&
+            ((last_saved_freq == INT32_MIN) ||
+             ((now_ms - last_freq_save_ms) >= SAVE_INTERVAL_MS &&
+              freq_delta >= SAVE_DELTA_PPB))) {
             nvs_config_set_freq_ppm_x1000(g.freq_ppm_x1000);
             last_saved_freq    = g.freq_ppm_x1000;
             last_freq_save_ms  = now_ms;
@@ -1672,6 +1699,7 @@ static void ntp_task(void *arg) {
                 g.dirty_config    = true;
                 g.current_poll_s  = MIN_POLL_S;
                 g.last_discipline_poll_s = 0;  // fall back to current_poll_s next check
+                g.last_freq_sample_ms = 0;      // don't learn drift across a no-response gap
                 g.poll_adjust     = 0;
                 g.last_any_response_ms = mono_ms();  // avoid immediate retrigger
             }
@@ -1694,6 +1722,7 @@ static void ntp_task(void *arg) {
             // and stays, so we don't lose inter-poll accuracy during re-sync.
             g.current_poll_s         = MIN_POLL_S;
             g.last_discipline_poll_s = 0;
+            g.last_freq_sample_ms    = 0;       // skip first freq update on the new peer set
             g.poll_adjust            = 0;
             // Reset sync accounting so the drilldown doesn't display a stale
             // Syncs count / Age value tied to the previous server. Keep
@@ -1831,6 +1860,7 @@ void ntp_init(const char *server, bool prefer_ipv6) {
     g.root_dispersion_us = 0;
     g.combined_offset_us = 0;
     g.last_freq_apply_ms = 0;
+    g.last_freq_sample_ms = 0;
     g.last_discipline_ms = 0;
     g.last_discipline_poll_s = 0;
     g.last_any_response_ms = 0;
@@ -1846,6 +1876,7 @@ void ntp_init(const char *server, bool prefer_ipv6) {
     int32_t saved_freq = 0;
     g.freq_ppm_x1000 = 0;
     g.freq_loaded_from_nvs = false;
+    g.freq_learned_this_session = false;
     if (nvs_config_get_freq_ppm_x1000(&saved_freq) &&
         saved_freq >  -MAX_FREQ_PPM_X1000 &&
         saved_freq <   MAX_FREQ_PPM_X1000) {
@@ -1918,7 +1949,7 @@ void ntp_get_sys_stats(ntp_sys_stats_t *out) {
                                   aged_peer_dispersion_us(sp, mono_ms());
     }
     out->freq_ppm_x1000      = g.freq_ppm_x1000;
-    out->freq_known          = g.freq_loaded_from_nvs || g.sync_count >= 2;
+    out->freq_known          = g.freq_loaded_from_nvs || g.freq_learned_this_session;
     out->stratum        = g.stratum;
     out->selected_peer  = (g.selected_peer < 0) ? 0xFF : (uint8_t)g.selected_peer;
     strncpy(out->server, g.server, sizeof(out->server) - 1);
