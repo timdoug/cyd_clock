@@ -221,10 +221,7 @@ static void draw_peer_row(int slot, const ntp_peer_stats_t *p) {
         snprintf(line, sizeof(line), "-");
         row_fg = COLOR_DARKGRAY;
     } else {
-        // fresh = slot just installed, no poll cycle has completed on it yet
-        // (neither response nor timeout). Survives the counter reset that
-        // happens when a swap-in attempt fails, so a stuck-and-unreplaceable
-        // slot doesn't keep blinking green.
+        // fresh is a short UI-only marker for newly-installed peer slots.
         row_fg = p->selected ? COLOR_CYAN
                : p->fresh    ? COLOR_GREEN
                              : COLOR_WHITE;
@@ -252,10 +249,9 @@ static void draw_peer_row(int slot, const ntp_peer_stats_t *p) {
 
         // Format: "addr(15) reach(2) offset(7) delay(5) jitter(5) [marker]"
         // The trailing status character mirrors the row color: '*' for the
-        // selected peer (cyan), '!' for a freshly-installed slot still
-        // inside its green window, ' ' otherwise. Age sits on the
-        // system-level Drift row (all peers share a poll tick, so
-        // per-peer ages would be identical).
+        // selected peer (cyan), '!' for a recently-installed slot, ' '
+        // otherwise. Age sits on the system-level Drift row (all peers share
+        // a poll tick, so per-peer ages would be identical).
         char marker = p->selected ? '*' : (p->fresh ? '!' : ' ');
         snprintf(line, sizeof(line), "%-15s %-2s %-7s %-5s %-5s%c",
                  addr, reach_buf, off_buf, delay_buf, jitter_buf, marker);

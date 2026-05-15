@@ -42,6 +42,7 @@ static const char *TAG = "ntp";
 #define PANIC_THRESHOLD_S    1000
 #define KOD_BACKOFF_MS       (3600UL * 1000)
 #define IDLE_WAKE_MS         5000
+#define NEW_PEER_HIGHLIGHT_MS 10000
 
 // Discipline gains (integer shifts, i.e. powers of two)
 #define PLL_KI_SHIFT         6            // freq integrator gain at MIN_POLL_S
@@ -147,7 +148,7 @@ typedef struct {
     uint8_t  consecutive_misses;   // polls since last response; trigger swap at threshold
     uint8_t  falseticker_runs;     // consecutive cycles outside Marzullo intersection
     uint8_t  jittery_runs;         // consecutive cycles substantially noisier than best truechimer
-    uint32_t fresh_until_ms;       // mono deadline; UI paints row green until this time
+    uint32_t fresh_until_ms;       // mono deadline for the UI-only new-peer highlight
 } ntp_peer_t;
 
 static struct {
@@ -434,9 +435,6 @@ static int dns_resolve_all(const char *host, bool prefer_ipv6,
 
 // ---------- peer management ----------
 
-// Shared "next poll tick" all peers align to (see schedule_after_request for
-// the rationale). Declared up here because peer_reset reads it to anchor the
-// per-peer fresh-window expiry.
 static uint32_t next_global_poll_ms;
 static uint32_t next_global_poll_cycle_id = 1;
 static uint32_t last_poll_adjust_cycle_id;
@@ -460,19 +458,11 @@ static uint32_t last_evict_tick_ms = UINT32_MAX;
 static void peer_reset(ntp_peer_t *p) {
     memset(p, 0, sizeof(*p));
     p->stratum = 16;
-    // Paint the UI row green until the next global poll tick (end of the
-    // cycle we're installed into). If the tick hasn't been set yet (cold
-    // boot, before any response) fall back to one full poll from now. We
-    // snapshot the value here so subsequent cycle advances don't keep
-    // extending the window - a peer installed mid-cycle should only be
-    // green for the REMAINDER of that cycle.
-    uint32_t now = mono_ms();
-    if (next_global_poll_ms != 0 &&
-        (int32_t)(next_global_poll_ms - now) > 0) {
-        p->fresh_until_ms = next_global_poll_ms;
-    } else {
-        p->fresh_until_ms = now + g.current_poll_s * 1000;
-    }
+    // This is purely a UI affordance: show a newly-installed peer long
+    // enough to notice, independent of the adaptive poll interval. Tying the
+    // highlight to the next poll tick made replacement peers stay green for
+    // minutes once polling had grown to 1024 s.
+    p->fresh_until_ms = mono_ms() + NEW_PEER_HIGHLIGHT_MS;
 }
 
 static int resolve_peers(void) {
@@ -723,9 +713,6 @@ static void drain_wake_sock(void) {
 // caused their poll phases to drift apart - on a 32 s interval you could see
 // up to 20 s of age difference between peers. With alignment, every peer fires
 // within a known splay window of the same shared tick.
-// (Declared up by peer_reset - that function captures the current tick as
-// the per-peer fresh-window expiry at install time.)
-
 // Total splay window across all peers, chosen so each peer hits a different
 // moment of the WiFi / pool-peer / upstream-router timeline (a transient bad
 // second on one peer's slot doesn't poison the others' samples). Per-peer
