@@ -63,7 +63,7 @@ static esp_timer_handle_t clock_tick_timer;
 // when its pixels actually land (see comment in ui_clock_update).
 volatile uint32_t clock_latency_us = 12000;
 static uint32_t clock_latency_by_digits[7] = {
-    0, 12000, 16000, 20000, 24000, 28000, 32000
+    0, 9500, 17000, 24500, 32000, 39500, 47000
 };
 
 static void clock_tick_cb(void *arg) {
