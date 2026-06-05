@@ -306,11 +306,11 @@ static void refresh_dynamic(void) {
             snprintf(strat_buf, sizeof(strat_buf), "unsynced");
         }
         segment_t segs[] = {
-            { strat_buf,     COLOR_WHITE },
-            { "   Syncs: ",  COLOR_GRAY  },
-            { syncs_buf,     COLOR_WHITE },
-            { "   Poll: ",   COLOR_GRAY  },
-            { poll_buf,      COLOR_WHITE },
+            { strat_buf,    COLOR_WHITE },
+            { "  Poll: ",   COLOR_GRAY  },
+            { poll_buf,     COLOR_WHITE },
+            { "  Syncs: ",  COLOR_GRAY  },
+            { syncs_buf,    COLOR_WHITE },
         };
         draw_segmented_field_cached(4, y, 1, "Stratum: ", segs,
                                     sizeof(segs) / sizeof(segs[0]));
