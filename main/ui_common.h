@@ -60,6 +60,9 @@ void ui_draw_centered_string(int16_t y, const char *str, uint16_t fg, uint16_t b
 // Draw a scrollable list with selection highlight and scroll indicators
 void ui_draw_list(const char **labels, int count, int scroll_offset, int selected);
 
+// Hit-test the "Back" button drawn by ui_draw_header
+bool ui_back_button_hit(const touch_point_t *touch);
+
 // Wait for touch release (blocks until finger lifted)
 void ui_wait_for_touch_release(void);
 

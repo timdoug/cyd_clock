@@ -22,6 +22,7 @@
 #include "ui_settings.h"
 #include "ui_timezone.h"
 #include "ui_wifi_setup.h"
+#include "util.h"
 #include "wifi.h"
 
 static const char *TAG = "main";
@@ -168,8 +169,7 @@ void app_main(void) {
 
     // Load timezone (default to UTC)
     if (!nvs_config_get_timezone(stored_tz)) {
-        strncpy(stored_tz, "UTC0", sizeof(stored_tz) - 1);
-        stored_tz[sizeof(stored_tz) - 1] = '\0';
+        str_copy(stored_tz, sizeof(stored_tz), "UTC0");
     }
     wifi_set_timezone(stored_tz);
 
@@ -364,8 +364,7 @@ void app_main(void) {
                 if (result == TZ_SELECT_DONE) {
                     // Save and apply new timezone
                     const char *tz = ui_timezone_get_selected();
-                    strncpy(stored_tz, tz, sizeof(stored_tz) - 1);
-                    stored_tz[sizeof(stored_tz) - 1] = '\0';
+                    str_copy(stored_tz, sizeof(stored_tz), tz);
                     nvs_config_set_timezone(tz);
                     wifi_set_timezone(tz);
                     ESP_LOGI(TAG, "Timezone set to: %s", ui_timezone_get_name());

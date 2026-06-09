@@ -10,9 +10,19 @@
 #include "touch.h"
 #include "ui_common.h"
 #include "ui_keyboard.h"
+#include "util.h"
 #include "wifi.h"
 
 static const char *TAG = "ui_ntp";
+
+// Main screen layout - the touch handler hit-tests against these same values
+#define SERVER_LABEL_Y  40
+#define SERVER_BOX_Y    (SERVER_LABEL_Y + 20)
+#define SERVER_BOX_H    28
+#define IPV6_TOGGLE_X   10
+#define IPV6_TOGGLE_Y   (SERVER_BOX_Y + SERVER_BOX_H + 4)
+#define IPV6_TOGGLE_W   90
+#define IPV6_TOGGLE_H   28
 
 // Keyboard layout
 static const char *keyboard_rows[] = {
@@ -96,29 +106,25 @@ static void draw_main_screen(void) {
 
     ui_draw_header("NTP Settings", true);
 
-    int y = 40;
-
     // Server display
-    display_string(10, y, "Server:", COLOR_GRAY, COLOR_BLACK);
-    y += 20;
+    display_string(10, SERVER_LABEL_Y, "Server:", COLOR_GRAY, COLOR_BLACK);
 
-    // Show current server in a tappable box
-    display_fill_rect(10, y, DISPLAY_WIDTH - 20, 28, COLOR_DARKGRAY);
+    // Show current server in a tappable box, clipped to the box width
+    display_fill_rect(10, SERVER_BOX_Y, DISPLAY_WIDTH - 20, SERVER_BOX_H, COLOR_DARKGRAY);
     char display_server[38];
-    strncpy(display_server, wifi_get_custom_ntp_server(), sizeof(display_server) - 1);
-    display_server[sizeof(display_server) - 1] = '\0';
-    display_string(15, y + 7, display_server, COLOR_WHITE, COLOR_DARKGRAY);
-    display_string(DISPLAY_WIDTH - 30, y + 7, ">", COLOR_WHITE, COLOR_DARKGRAY);
-    y += 32;
+    str_copy(display_server, sizeof(display_server), wifi_get_custom_ntp_server());
+    display_string(15, SERVER_BOX_Y + 7, display_server, COLOR_WHITE, COLOR_DARKGRAY);
+    display_string(DISPLAY_WIDTH - 30, SERVER_BOX_Y + 7, ">", COLOR_WHITE, COLOR_DARKGRAY);
 
     // IPv6 toggle
     bool ipv6 = wifi_get_ntp_prefer_ipv6();
     uint16_t ipv6_bg = ipv6 ? COLOR_CYAN : COLOR_DARKGRAY;
     uint16_t ipv6_fg = ipv6 ? COLOR_BLACK : COLOR_WHITE;
     const char *ipv6_label = ipv6 ? "IPv6: On" : "IPv6: Off";
-    display_fill_rect(10, y, 90, 28, ipv6_bg);
-    int label_x = 10 + (90 - strlen(ipv6_label) * FONT_CHAR_WIDTH) / 2;
-    display_string(label_x, y + 7, ipv6_label, ipv6_fg, ipv6_bg);
+    display_fill_rect(IPV6_TOGGLE_X, IPV6_TOGGLE_Y, IPV6_TOGGLE_W, IPV6_TOGGLE_H, ipv6_bg);
+    int label_x = IPV6_TOGGLE_X +
+        (IPV6_TOGGLE_W - (int)strlen(ipv6_label) * FONT_CHAR_WIDTH) / 2;
+    display_string(label_x, IPV6_TOGGLE_Y + 7, ipv6_label, ipv6_fg, ipv6_bg);
 }
 
 static void draw_keyboard_screen(void) {
@@ -136,8 +142,7 @@ void ui_ntp_init(void) {
     ui_state = NTP_STATE_MAIN;
 
     // Load current custom server
-    strncpy(custom_server, wifi_get_custom_ntp_server(), sizeof(custom_server) - 1);
-    custom_server[sizeof(custom_server) - 1] = '\0';
+    str_copy(custom_server, sizeof(custom_server), wifi_get_custom_ntp_server());
     custom_server_len = strlen(custom_server);
 
     draw_main_screen();
@@ -150,20 +155,19 @@ ntp_result_t ui_ntp_update(void) {
     if (touched) {
         if (ui_state == NTP_STATE_MAIN) {
             // Back button
-            if (touch.y < UI_HEADER_HEIGHT && touch.x < UI_BACK_BTN_X + UI_BACK_BTN_W) {
+            if (ui_back_button_hit(&touch)) {
                 return NTP_RESULT_BACK;
             }
 
             // Server box (tap to edit)
-            if (touch.y >= 60 && touch.y < 88) {
+            if (touch.y >= SERVER_BOX_Y && touch.y < SERVER_BOX_Y + SERVER_BOX_H) {
                 ui_state = NTP_STATE_KEYBOARD;
                 draw_keyboard_screen();
             }
 
             // IPv6 toggle
-            int ipv6_y = 40 + 20 + 32;
-            if (touch.y >= ipv6_y && touch.y < ipv6_y + 28 &&
-                touch.x >= 10 && touch.x < 100) {
+            if (touch.y >= IPV6_TOGGLE_Y && touch.y < IPV6_TOGGLE_Y + IPV6_TOGGLE_H &&
+                touch.x >= IPV6_TOGGLE_X && touch.x < IPV6_TOGGLE_X + IPV6_TOGGLE_W) {
                 bool ipv6 = !wifi_get_ntp_prefer_ipv6();
                 wifi_set_ntp_prefer_ipv6(ipv6);
                 nvs_config_set_ntp_ipv6(ipv6);
@@ -174,8 +178,7 @@ ntp_result_t ui_ntp_update(void) {
 
             if (key == VKEY_ESCAPE) {  // Cancel
                 // Restore from saved
-                strncpy(custom_server, wifi_get_custom_ntp_server(), sizeof(custom_server) - 1);
-                custom_server[sizeof(custom_server) - 1] = '\0';
+                str_copy(custom_server, sizeof(custom_server), wifi_get_custom_ntp_server());
                 custom_server_len = strlen(custom_server);
                 ui_state = NTP_STATE_MAIN;
                 draw_main_screen();

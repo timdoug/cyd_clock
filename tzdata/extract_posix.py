@@ -77,9 +77,8 @@ def _parse_posix_offset(s):
     total = hours * 60 + minutes
 
     # Invert sign: POSIX positive = west of UTC = negative UTC offset
-    if negate:
-        total = total  # east of UTC = positive
-    else:
+    # (a leading "-" means east of UTC, which stays positive)
+    if not negate:
         total = -total
 
     return total, i + match.end()

@@ -76,7 +76,7 @@ about_result_t ui_about_update(void) {
 
     if (touched) {
         // Back button
-        if (touch.y < UI_HEADER_HEIGHT && touch.x < UI_BACK_BTN_X + UI_BACK_BTN_W) {
+        if (ui_back_button_hit(&touch)) {
             return ABOUT_RESULT_BACK;
         }
     }

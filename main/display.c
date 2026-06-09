@@ -424,29 +424,29 @@ void display_char(int16_t x, int16_t y, char c, uint16_t fg, uint16_t bg) {
         return;
     }
     if (c < 32 || c > 127) c = '?';
-    const uint8_t *glyph = &font_8x16[(c - 32) * 16];
+    const uint8_t *glyph = &font_8x16[(c - 32) * FONT_CHAR_HEIGHT];
 
-    set_addr_window(x, y, 8, 16);
+    set_addr_window(x, y, FONT_CHAR_WIDTH, FONT_CHAR_HEIGHT);
     dc_data();
 
-    uint8_t buf[256];  // 8 * 16 * 2 = 256 bytes
+    uint8_t buf[FONT_CHAR_WIDTH * FONT_CHAR_HEIGHT * 2];
     int idx = 0;
-    for (int row = 0; row < 16; row++) {
+    for (int row = 0; row < FONT_CHAR_HEIGHT; row++) {
         uint8_t bits = glyph[row];
-        for (int col = 0; col < 8; col++) {
+        for (int col = 0; col < FONT_CHAR_WIDTH; col++) {
             uint16_t color = (bits & 0x80) ? fg : bg;
             buf[idx++] = color >> 8;
             buf[idx++] = color & 0xFF;
             bits <<= 1;
         }
     }
-    spi_write_bytes(buf, 256);
+    spi_write_bytes(buf, sizeof(buf));
 }
 
 void display_string(int16_t x, int16_t y, const char *str, uint16_t fg, uint16_t bg) {
     while (*str) {
         display_char(x, y, *str++, fg, bg);
-        x += 8;
+        x += FONT_CHAR_WIDTH;
     }
 }
 
@@ -460,7 +460,7 @@ static uint16_t blend_color(uint16_t c1, uint16_t c2) {
 
 // Get pixel from glyph (returns 1 if set, 0 if not, handles bounds)
 static inline int get_glyph_pixel(const uint8_t *glyph, int row, int col) {
-    if (row < 0 || row >= 16 || col < 0 || col >= 8) return 0;
+    if (row < 0 || row >= FONT_CHAR_HEIGHT || col < 0 || col >= FONT_CHAR_WIDTH) return 0;
     return (glyph[row] >> (7 - col)) & 1;
 }
 
@@ -471,18 +471,18 @@ static void display_char_2x(int16_t x, int16_t y, char c, uint16_t fg, uint16_t 
         return;
     }
     if (c < 32 || c > 127) c = '?';
-    const uint8_t *glyph = &font_8x16[(c - 32) * 16];
+    const uint8_t *glyph = &font_8x16[(c - 32) * FONT_CHAR_HEIGHT];
     uint16_t smooth = blend_color(fg, bg);
 
-    set_addr_window(x, y, 16, 32);
+    set_addr_window(x, y, FONT_CHAR_WIDTH_2X, FONT_CHAR_HEIGHT_2X);
     dc_data();
 
-    uint8_t buf[1024];  // 16 * 32 * 2 = 1024 bytes
+    uint8_t buf[FONT_CHAR_WIDTH_2X * FONT_CHAR_HEIGHT_2X * 2];
     int idx = 0;
 
-    for (int row = 0; row < 16; row++) {
+    for (int row = 0; row < FONT_CHAR_HEIGHT; row++) {
         for (int dup = 0; dup < 2; dup++) {  // Each source row becomes 2 output rows
-            for (int col = 0; col < 8; col++) {
+            for (int col = 0; col < FONT_CHAR_WIDTH; col++) {
                 int cur = get_glyph_pixel(glyph, row, col);
                 uint16_t base_color = cur ? fg : bg;
 
@@ -521,13 +521,13 @@ static void display_char_2x(int16_t x, int16_t y, char c, uint16_t fg, uint16_t 
             }
         }
     }
-    spi_write_bytes(buf, 1024);
+    spi_write_bytes(buf, sizeof(buf));
 }
 
 void display_string_2x(int16_t x, int16_t y, const char *str, uint16_t fg, uint16_t bg) {
     while (*str) {
         display_char_2x(x, y, *str++, fg, bg);
-        x += 16;
+        x += FONT_CHAR_WIDTH_2X;
     }
 }
 

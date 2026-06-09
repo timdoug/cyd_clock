@@ -13,6 +13,7 @@
 #include "freertos/task.h"
 #include "config.h"
 #include "ntp.h"
+#include "util.h"
 
 static const char *TAG = "wifi";
 
@@ -182,8 +183,7 @@ int wifi_scan(wifi_network_t *networks, int max_networks) {
         }
         if (duplicate) continue;
 
-        strncpy(networks[count].ssid, (char *)ap_records[i].ssid, sizeof(networks[count].ssid) - 1);
-        networks[count].ssid[sizeof(networks[count].ssid) - 1] = '\0';
+        str_copy(networks[count].ssid, sizeof(networks[count].ssid), (char *)ap_records[i].ssid);
         networks[count].rssi = ap_records[i].rssi;
         networks[count].authmode = (ap_records[i].authmode != WIFI_AUTH_OPEN) ? 1 : 0;
         count++;
@@ -277,8 +277,7 @@ const char *wifi_get_custom_ntp_server(void) {
 }
 
 void wifi_set_custom_ntp_server(const char *server) {
-    strncpy(ntp_cfg.custom_server, server, sizeof(ntp_cfg.custom_server) - 1);
-    ntp_cfg.custom_server[sizeof(ntp_cfg.custom_server) - 1] = '\0';
+    str_copy(ntp_cfg.custom_server, sizeof(ntp_cfg.custom_server), server);
     if (ntp_cfg.started) ntp_set_server(wifi_get_custom_ntp_server());
 }
 

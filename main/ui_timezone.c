@@ -247,7 +247,7 @@ tz_select_result_t ui_timezone_update(void) {
     }
 
     // Back button
-    if (touch.y < UI_HEADER_HEIGHT && touch.x < UI_BACK_BTN_X + UI_BACK_BTN_W) {
+    if (ui_back_button_hit(&touch)) {
         if (ui_state == TZ_STATE_CITY) {
             enter_region_view();
             return TZ_SELECT_CONTINUE;

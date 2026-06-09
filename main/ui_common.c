@@ -84,6 +84,10 @@ void ui_draw_list(const char **labels, int count, int scroll_offset, int selecte
     }
 }
 
+bool ui_back_button_hit(const touch_point_t *touch) {
+    return touch->y < UI_HEADER_HEIGHT && touch->x < UI_BACK_BTN_X + UI_BACK_BTN_W;
+}
+
 void ui_wait_for_touch_release(void) {
     while (touch_is_pressed()) {
         vTaskDelay(pdMS_TO_TICKS(TOUCH_RELEASE_POLL_MS));

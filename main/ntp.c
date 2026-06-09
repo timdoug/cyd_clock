@@ -19,6 +19,7 @@
 #include "lwip/netdb.h"
 #include "lwip/sockets.h"
 #include "nvs_config.h"
+#include "util.h"
 
 static const char *TAG = "ntp";
 
@@ -483,8 +484,7 @@ static int resolve_peers(void) {
     // up to ~100 ms. Snapshot config, release the lock for the network
     // round-trips, then re-acquire before touching shared state.
     char server_copy[sizeof(g.server)];
-    strncpy(server_copy, g.server, sizeof(server_copy) - 1);
-    server_copy[sizeof(server_copy) - 1] = '\0';
+    str_copy(server_copy, sizeof(server_copy), g.server);
     bool prefer_ipv6_copy = g.prefer_ipv6;
     lock_give();
 
@@ -585,8 +585,7 @@ static int find_worst_eligible_peer(void) {
 
 static bool try_replace_peer(int dead_idx) {
     char server_copy[sizeof(g.server)];
-    strncpy(server_copy, g.server, sizeof(server_copy) - 1);
-    server_copy[sizeof(server_copy) - 1] = '\0';
+    str_copy(server_copy, sizeof(server_copy), g.server);
     bool prefer_ipv6_copy = g.prefer_ipv6;
     lock_give();
 
@@ -614,8 +613,7 @@ static bool try_replace_peer(int dead_idx) {
 
         ntp_peer_t *p = &g.peers[dead_idx];
         char old_addr[46];
-        strncpy(old_addr, p->addr_str, sizeof(old_addr) - 1);
-        old_addr[sizeof(old_addr) - 1] = '\0';
+        str_copy(old_addr, sizeof(old_addr), p->addr_str);
 
         peer_reset(p);
         socklen_t alen = (fresh[i].ss_family == AF_INET6)
@@ -1843,8 +1841,7 @@ void ntp_init(const char *server, bool prefer_ipv6) {
     if (g.running) ntp_stop();
     if (!g.lock) g.lock = xSemaphoreCreateMutex();
 
-    strncpy(g.server, server ? server : "pool.ntp.org", sizeof(g.server) - 1);
-    g.server[sizeof(g.server) - 1] = '\0';
+    str_copy(g.server, sizeof(g.server), server ? server : "pool.ntp.org");
     g.prefer_ipv6    = prefer_ipv6;
     g.current_poll_s = MIN_POLL_S;
     g.first_sync_done = false;
@@ -1905,8 +1902,7 @@ void ntp_stop(void) {
 void ntp_set_server(const char *server) {
     if (!g.lock || !server) return;
     lock_take();
-    strncpy(g.server, server, sizeof(g.server) - 1);
-    g.server[sizeof(g.server) - 1] = '\0';
+    str_copy(g.server, sizeof(g.server), server);
     g.dirty_config = true;
     g.force_sync   = true;
     lock_give();

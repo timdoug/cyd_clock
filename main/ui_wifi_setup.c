@@ -9,6 +9,7 @@
 #include "touch.h"
 #include "ui_common.h"
 #include "ui_keyboard.h"
+#include "util.h"
 #include "wifi.h"
 
 static const char *TAG = "ui_wifi_setup";
@@ -108,20 +109,25 @@ static void draw_password_input(void) {
     display_fill_rect(5, UI_LIST_START_Y + 30, DISPLAY_WIDTH - 10, 24, COLOR_DARKGRAY);
     display_rect(5, UI_LIST_START_Y + 30, DISPLAY_WIDTH - 10, 24, COLOR_WHITE);
 
-    // Show password as dots with last char visible
-    char display_pwd[65];
-    for (int i = 0; i < password_len; i++) {
-        if (i == password_len - 1) {
-            display_pwd[i] = password[i];  // Show last character briefly
+    // Show password as dots with last char visible. Long passwords scroll:
+    // only the tail that fits the field (with one cell left for the cursor)
+    // is drawn.
+    const int max_visible = (DISPLAY_WIDTH - 20) / FONT_CHAR_WIDTH - 1;
+    int start = password_len > max_visible ? password_len - max_visible : 0;
+    int shown = password_len - start;
+    char display_pwd[MAX_PASSWORD_LEN];
+    for (int i = 0; i < shown; i++) {
+        if (start + i == password_len - 1) {
+            display_pwd[i] = password[start + i];  // Show last character briefly
         } else {
             display_pwd[i] = '*';
         }
     }
-    display_pwd[password_len] = '\0';
+    display_pwd[shown] = '\0';
     display_string(10, UI_LIST_START_Y + 35, display_pwd, COLOR_GREEN, COLOR_DARKGRAY);
 
     // Cursor
-    display_char(10 + password_len * FONT_CHAR_WIDTH, UI_LIST_START_Y + 35, '_', COLOR_GREEN, COLOR_DARKGRAY);
+    display_char(10 + shown * FONT_CHAR_WIDTH, UI_LIST_START_Y + 35, '_', COLOR_GREEN, COLOR_DARKGRAY);
 }
 
 static void draw_keyboard(void) {
@@ -227,7 +233,7 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
 
                 if (touched) {
                     // Back button
-                    if (show_back_button && touch.y < UI_HEADER_HEIGHT && touch.x < UI_BACK_BTN_X + UI_BACK_BTN_W) {
+                    if (show_back_button && ui_back_button_hit(&touch)) {
                         return WIFI_SETUP_CANCELLED;
                     }
                     state = STATE_SCANNING;
@@ -238,7 +244,7 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
         case STATE_NETWORK_LIST:
             if (touched) {
                 // Back button
-                if (show_back_button && touch.y < UI_HEADER_HEIGHT && touch.x < UI_BACK_BTN_X + UI_BACK_BTN_W) {
+                if (show_back_button && ui_back_button_hit(&touch)) {
                     return WIFI_SETUP_CANCELLED;
                 }
 
@@ -282,7 +288,7 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
         case STATE_PASSWORD_ENTRY:
             if (touched) {
                 // Header Back button - return to network list
-                if (touch.y < UI_HEADER_HEIGHT && touch.x < UI_BACK_BTN_X + UI_BACK_BTN_W) {
+                if (ui_back_button_hit(&touch)) {
                     state = STATE_NETWORK_LIST;
                     selected_network = -1;
                     display_fill(COLOR_BLACK);
@@ -326,10 +332,8 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
 
         case STATE_CONNECTING:
             if (wifi_connect(networks[selected_network].ssid, password)) {
-                strncpy(connected_ssid, networks[selected_network].ssid, sizeof(connected_ssid) - 1);
-                connected_ssid[sizeof(connected_ssid) - 1] = '\0';
-                strncpy(connected_password, password, sizeof(connected_password) - 1);
-                connected_password[sizeof(connected_password) - 1] = '\0';
+                str_copy(connected_ssid, sizeof(connected_ssid), networks[selected_network].ssid);
+                str_copy(connected_password, sizeof(connected_password), password);
                 state = STATE_CONNECTED;
                 display_fill_rect(0, 160, DISPLAY_WIDTH, 30, COLOR_BLACK);
                 display_string(120, 160, "Connected!", COLOR_GREEN, COLOR_BLACK);
@@ -361,8 +365,6 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
 }
 
 void ui_wifi_setup_get_credentials(char *ssid, char *pwd) {
-    strncpy(ssid, connected_ssid, WIFI_SSID_BUF_LEN - 1);
-    ssid[WIFI_SSID_BUF_LEN - 1] = '\0';
-    strncpy(pwd, connected_password, MAX_PASSWORD_LEN - 1);
-    pwd[MAX_PASSWORD_LEN - 1] = '\0';
+    str_copy(ssid, WIFI_SSID_BUF_LEN, connected_ssid);
+    str_copy(pwd, MAX_PASSWORD_LEN, connected_password);
 }
