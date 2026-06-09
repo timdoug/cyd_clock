@@ -296,19 +296,13 @@ void display_init(void) {
 
     // Configure GPIO
     gpio_config_t io_conf = {
-        .pin_bit_mask = (1ULL << PIN_DC) | (1ULL << PIN_RST),
+        .pin_bit_mask = (1ULL << PIN_DC),
         .mode = GPIO_MODE_OUTPUT,
         .pull_up_en = GPIO_PULLUP_DISABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
         .intr_type = GPIO_INTR_DISABLE,
     };
     gpio_config(&io_conf);
-
-    // Hardware reset
-    gpio_set_level(PIN_RST, 0);
-    vTaskDelay(pdMS_TO_TICKS(100));
-    gpio_set_level(PIN_RST, 1);
-    vTaskDelay(pdMS_TO_TICKS(100));
 
     // Initialize SPI bus
     spi_bus_config_t buscfg = {

@@ -3,10 +3,10 @@
 
 #include <stdint.h>
 
-// Display SPI pins (ILI9341 on ESP32-CYD)
+// Display SPI pins (ILI9341 on ESP32-CYD). The panel's reset line is tied to
+// the board EN signal, not a GPIO; init relies on SWRESET instead.
 #define PIN_DC    2
 #define PIN_CS    15
-#define PIN_RST   4
 #define PIN_MOSI  13
 #define PIN_CLK   14
 #define PIN_BL    21
