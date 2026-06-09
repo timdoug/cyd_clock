@@ -207,7 +207,7 @@ bool wifi_connect(const char *ssid, const char *password) {
     size_t ssid_len = strlen(ssid);
     if (ssid_len > sizeof(wifi_config.sta.ssid)) ssid_len = sizeof(wifi_config.sta.ssid);
     memcpy(wifi_config.sta.ssid, ssid, ssid_len);
-    strncpy((char *)wifi_config.sta.password, password, sizeof(wifi_config.sta.password) - 1);
+    str_copy((char *)wifi_config.sta.password, sizeof(wifi_config.sta.password), password);
     wifi_config.sta.threshold.authmode = WIFI_AUTH_OPEN;
 
     bool was_connected = wifi_is_connected();

@@ -1948,8 +1948,7 @@ void ntp_get_sys_stats(ntp_sys_stats_t *out) {
     out->freq_known          = g.freq_loaded_from_nvs || g.freq_learned_this_session;
     out->stratum        = g.stratum;
     out->selected_peer  = (g.selected_peer < 0) ? 0xFF : (uint8_t)g.selected_peer;
-    strncpy(out->server, g.server, sizeof(out->server) - 1);
-    out->server[sizeof(out->server) - 1] = '\0';
+    str_copy(out->server, sizeof(out->server), g.server);
     lock_give();
 }
 
@@ -1972,7 +1971,7 @@ bool ntp_get_peer_stats(int idx, ntp_peer_stats_t *out) {
         ? (mono_ms() - p->last_response_ms)
         : UINT32_MAX;
     out->fresh = (int32_t)(mono_ms() - p->fresh_until_ms) < 0;
-    strncpy(out->addr_str, p->addr_str, sizeof(out->addr_str) - 1);
+    str_copy(out->addr_str, sizeof(out->addr_str), p->addr_str);
     lock_give();
     return true;
 }
@@ -1990,8 +1989,7 @@ void ntp_get_primary_addr_str(char *buf, size_t len) {
         }
     }
     if (idx >= 0) {
-        strncpy(buf, g.peers[idx].addr_str, len - 1);
-        buf[len - 1] = '\0';
+        str_copy(buf, len, g.peers[idx].addr_str);
     }
     lock_give();
 }

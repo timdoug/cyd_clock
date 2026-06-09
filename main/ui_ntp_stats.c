@@ -13,6 +13,7 @@
 #include "ntp.h"
 #include "touch.h"
 #include "ui_common.h"
+#include "util.h"
 
 static const char *TAG = "ui_ntp_stats";
 
@@ -169,8 +170,7 @@ static void draw_segmented_field_cached(int x, int y, int row_idx,
     }
     diff_paint(vx, y, cache, text, 0, colors, COLOR_BLACK, first_time);
 
-    strncpy(cache, text, sizeof(last_sys_row[row_idx]) - 1);
-    cache[sizeof(last_sys_row[row_idx]) - 1] = '\0';
+    str_copy(cache, sizeof(last_sys_row[row_idx]), text);
     last_sys_color[row_idx] = 0;   // unused for segmented rows
 }
 
@@ -195,8 +195,7 @@ static void draw_field_cached(int x, int y, int row_idx,
     diff_paint(vx, y, cache, value, val_color, NULL, COLOR_BLACK,
                first_time || color_changed);
 
-    strncpy(cache, value, sizeof(last_sys_row[row_idx]) - 1);
-    cache[sizeof(last_sys_row[row_idx]) - 1] = '\0';
+    str_copy(cache, sizeof(last_sys_row[row_idx]), value);
     last_sys_color[row_idx] = val_color;
 }
 
@@ -226,8 +225,7 @@ static void draw_peer_row(int slot, const ntp_peer_stats_t *p) {
                : p->fresh    ? COLOR_GREEN
                              : COLOR_WHITE;
         char addr[16];  // room for a full "255.255.255.255" IPv4 dotted-quad
-        strncpy(addr, p->addr_str, sizeof(addr) - 1);
-        addr[sizeof(addr) - 1] = '\0';
+        str_copy(addr, sizeof(addr), p->addr_str);
 
         char off_buf[10], delay_buf[8], jitter_buf[8], reach_buf[3];
         snprintf(reach_buf, sizeof(reach_buf), "%02x", p->reach);
@@ -267,8 +265,7 @@ static void draw_peer_row(int slot, const ntp_peer_stats_t *p) {
     diff_paint(4, y, cache, line, row_fg, NULL, COLOR_BLACK,
                first_time || color_changed);
 
-    strncpy(cache, line, sizeof(last_peer_row[slot]) - 1);
-    cache[sizeof(last_peer_row[slot]) - 1] = '\0';
+    str_copy(cache, sizeof(last_peer_row[slot]), line);
     last_peer_color[slot] = row_fg;
 }
 

@@ -22,8 +22,17 @@ static bool nvs_open_write(nvs_handle_t *handle) {
 }
 
 static void nvs_commit_and_close(nvs_handle_t handle) {
-    nvs_commit(handle);
+    esp_err_t err = nvs_commit(handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to commit NVS changes: %s", esp_err_to_name(err));
+    }
     nvs_close(handle);
+}
+
+static bool nvs_set_ok(esp_err_t err, const char *key) {
+    if (err == ESP_OK) return true;
+    ESP_LOGE(TAG, "Failed to write NVS key '%s': %s", key, esp_err_to_name(err));
+    return false;
 }
 
 void nvs_config_init(void) {
@@ -68,10 +77,13 @@ void nvs_config_set_wifi(const char *ssid, const char *password) {
     nvs_handle_t handle;
     if (!nvs_open_write(&handle)) return;
 
-    ESP_ERROR_CHECK(nvs_set_str(handle, "ssid", ssid));
-    ESP_ERROR_CHECK(nvs_set_str(handle, "password", password));
-    nvs_commit_and_close(handle);
-    ESP_LOGI(TAG, "Saved WiFi credentials for SSID: %s", ssid);
+    if (nvs_set_ok(nvs_set_str(handle, "ssid", ssid ? ssid : ""), "ssid") &&
+        nvs_set_ok(nvs_set_str(handle, "password", password ? password : ""), "password")) {
+        nvs_commit_and_close(handle);
+        ESP_LOGI(TAG, "Saved WiFi credentials for SSID: %s", ssid ? ssid : "");
+    } else {
+        nvs_close(handle);
+    }
 }
 
 
@@ -97,9 +109,12 @@ void nvs_config_set_timezone(const char *tz) {
     nvs_handle_t handle;
     if (!nvs_open_write(&handle)) return;
 
-    ESP_ERROR_CHECK(nvs_set_str(handle, "timezone", tz));
-    nvs_commit_and_close(handle);
-    ESP_LOGI(TAG, "Saved timezone: %s", tz);
+    if (nvs_set_ok(nvs_set_str(handle, "timezone", tz ? tz : ""), "timezone")) {
+        nvs_commit_and_close(handle);
+        ESP_LOGI(TAG, "Saved timezone: %s", tz ? tz : "");
+    } else {
+        nvs_close(handle);
+    }
 }
 
 bool nvs_config_get_brightness(uint8_t *brightness) {
@@ -117,8 +132,11 @@ void nvs_config_set_brightness(uint8_t brightness) {
     nvs_handle_t handle;
     if (!nvs_open_write(&handle)) return;
 
-    ESP_ERROR_CHECK(nvs_set_u8(handle, "brightness", brightness));
-    nvs_commit_and_close(handle);
+    if (nvs_set_ok(nvs_set_u8(handle, "brightness", brightness), "brightness")) {
+        nvs_commit_and_close(handle);
+    } else {
+        nvs_close(handle);
+    }
 }
 
 bool nvs_config_get_custom_ntp_server(char *server) {
@@ -137,8 +155,11 @@ void nvs_config_set_custom_ntp_server(const char *server) {
     nvs_handle_t handle;
     if (!nvs_open_write(&handle)) return;
 
-    ESP_ERROR_CHECK(nvs_set_str(handle, "ntp_custom", server));
-    nvs_commit_and_close(handle);
+    if (nvs_set_ok(nvs_set_str(handle, "ntp_custom", server ? server : ""), "ntp_custom")) {
+        nvs_commit_and_close(handle);
+    } else {
+        nvs_close(handle);
+    }
 }
 
 bool nvs_config_get_ntp_ipv6(bool *prefer) {
@@ -162,8 +183,11 @@ void nvs_config_set_ntp_ipv6(bool prefer) {
     nvs_handle_t handle;
     if (!nvs_open_write(&handle)) return;
 
-    ESP_ERROR_CHECK(nvs_set_u8(handle, "ntp_ipv6", prefer ? 1 : 0));
-    nvs_commit_and_close(handle);
+    if (nvs_set_ok(nvs_set_u8(handle, "ntp_ipv6", prefer ? 1 : 0), "ntp_ipv6")) {
+        nvs_commit_and_close(handle);
+    } else {
+        nvs_close(handle);
+    }
 }
 
 bool nvs_config_get_rotation(bool *rotated) {
@@ -187,8 +211,11 @@ void nvs_config_set_rotation(bool rotated) {
     nvs_handle_t handle;
     if (!nvs_open_write(&handle)) return;
 
-    ESP_ERROR_CHECK(nvs_set_u8(handle, "rotation", rotated ? 1 : 0));
-    nvs_commit_and_close(handle);
+    if (nvs_set_ok(nvs_set_u8(handle, "rotation", rotated ? 1 : 0), "rotation")) {
+        nvs_commit_and_close(handle);
+    } else {
+        nvs_close(handle);
+    }
 }
 
 bool nvs_config_get_led_brightness(uint8_t *brightness) {
@@ -207,8 +234,11 @@ void nvs_config_set_led_brightness(uint8_t brightness) {
     nvs_handle_t handle;
     if (!nvs_open_write(&handle)) return;
 
-    ESP_ERROR_CHECK(nvs_set_u8(handle, "led_bright", brightness));
-    nvs_commit_and_close(handle);
+    if (nvs_set_ok(nvs_set_u8(handle, "led_bright", brightness), "led_bright")) {
+        nvs_commit_and_close(handle);
+    } else {
+        nvs_close(handle);
+    }
 }
 
 bool nvs_config_get_freq_ppm_x1000(int32_t *value) {
@@ -224,6 +254,9 @@ bool nvs_config_get_freq_ppm_x1000(int32_t *value) {
 void nvs_config_set_freq_ppm_x1000(int32_t value) {
     nvs_handle_t handle;
     if (!nvs_open_write(&handle)) return;
-    ESP_ERROR_CHECK(nvs_set_i32(handle, "freq_ppm", value));
-    nvs_commit_and_close(handle);
+    if (nvs_set_ok(nvs_set_i32(handle, "freq_ppm", value), "freq_ppm")) {
+        nvs_commit_and_close(handle);
+    } else {
+        nvs_close(handle);
+    }
 }

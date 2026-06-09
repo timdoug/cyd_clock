@@ -14,6 +14,7 @@
 #include "nvs_config.h"
 #include "touch.h"
 #include "ui_common.h"
+#include "util.h"
 #include "wifi.h"
 
 static const char *TAG = "ui_clock";
@@ -258,8 +259,7 @@ static void draw_line_cached(int y, char *cache, size_t cache_len,
         ui_draw_centered_string(y, line, fg, COLOR_BLACK, false);
     }
 
-    strncpy(cache, line, cache_len - 1);
-    cache[cache_len - 1] = '\0';
+    str_copy(cache, cache_len, line);
 }
 
 static void draw_ntp_stats(time_t now, int sec) {
