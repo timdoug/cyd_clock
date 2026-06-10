@@ -388,19 +388,20 @@ static int dns_parse_answers(const uint8_t *buf, int len,
     return count;
 }
 
-static int dns_query_one(int sock, const struct sockaddr_in *dst, const char *host,
+static int dns_query_one(int sock, const char *host,
                          uint16_t qtype, struct sockaddr_storage *out,
                          int count, int max) {
     uint8_t qbuf[256], rbuf[512];
     uint16_t id = esp_random() & 0xFFFF;
     int qlen = dns_build_query(qbuf, sizeof(qbuf), id, host, qtype);
     if (qlen <= 0) return count;
-    if (sendto(sock, qbuf, qlen, 0, (const struct sockaddr *)dst, sizeof(*dst)) != qlen) {
+    if (send(sock, qbuf, qlen, 0) != qlen) {
         return count;
     }
     for (int tries = 0; tries < 4; tries++) {
         ssize_t n = recv(sock, rbuf, sizeof(rbuf), 0);
-        if (n < 12) return count;
+        if (n < 0) return count;     // timeout or socket error
+        if (n < 12) continue;        // runt datagram; keep waiting for the answer
         uint16_t resp_id = ((uint16_t)rbuf[0] << 8) | rbuf[1];
         uint16_t flags   = ((uint16_t)rbuf[2] << 8) | rbuf[3];
         if (resp_id != id || (flags & 0x8000) == 0) {
@@ -429,15 +430,23 @@ static int dns_resolve_all(const char *host, bool prefer_ipv6,
     };
     dst.sin_addr.s_addr = ip_addr_get_ip4_u32(server);
 
+    // connect() so the stack only delivers datagrams from the resolver;
+    // otherwise recv() accepts any source and the 16-bit query ID is the
+    // only protection against off-path spoofed answers.
+    if (connect(sock, (const struct sockaddr *)&dst, sizeof(dst)) != 0) {
+        close(sock);
+        return 0;
+    }
+
     // With the toggle off ("IPv6: Off"), skip AAAA entirely - the user wants
     // A-records only. With it on, prefer AAAA and fall back to A so dual-stack
     // still works when the v6 path is broken.
     int count = 0;
     if (prefer_ipv6) {
-        count = dns_query_one(sock, &dst, host, DNS_TYPE_AAAA, out, count, max);
+        count = dns_query_one(sock, host, DNS_TYPE_AAAA, out, count, max);
     }
     if (count < max) {
-        count = dns_query_one(sock, &dst, host, DNS_TYPE_A, out, count, max);
+        count = dns_query_one(sock, host, DNS_TYPE_A, out, count, max);
     }
     close(sock);
     return count;
