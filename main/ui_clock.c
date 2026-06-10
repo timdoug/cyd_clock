@@ -330,13 +330,21 @@ static void draw_ntp_stats(time_t now, int sec) {
     // Line 3: offset + root dispersion + drift. Gated independently - drift
     // can come from NVS (valid before any sync), offset/dispersion need a
     // current-session discipline (sync_count >= 2) to be meaningful.
+    // Gates by what each value IS. The offset is a MEASUREMENT - the
+    // residual found by a discipline pass - and the cold-boot step is not
+    // one (last_offset_us is a hardwired 0 there), so it needs the second
+    // sync. The +/- bound is real from the FIRST sync: it bounds the cold
+    // step itself. Drift can predate both, restored from NVS.
     char line3[96];
     char off_buf[20], disp_buf[20], drift_buf[16];
     if (sys.sync_count < 2) {
         snprintf(off_buf,  sizeof(off_buf),  "----");
-        snprintf(disp_buf, sizeof(disp_buf), "----");
     } else {
         fmt_offset(off_buf, sizeof(off_buf), sys.last_offset_us);
+    }
+    if (sys.sync_count < 1) {
+        snprintf(disp_buf, sizeof(disp_buf), "----");
+    } else {
         // Synchronization distance (root_delay/2 + root_dispersion): the
         // RFC 5905 worst-case bound on our error vs UTC. Dispersion alone
         // understated the claim by the path-asymmetry term, delay/2 -

@@ -370,7 +370,10 @@ static void refresh_dynamic(void) {
     // Row 4: Root delay / dispersion
     {
         int y = SYS_Y_START + 4 * SYS_LINE_H;
-        if (sys.sync_count < 2 || !sys.synced) {
+        // Valid from the FIRST sync: root delay/dispersion come from the
+        // selected peer's actual sample, unlike the measured offset/jitter
+        // above which need a real discipline pass (sync_count >= 2).
+        if (sys.sync_count < 1 || !sys.synced) {
             snprintf(val, sizeof(val), "---");
         } else {
             char rd_buf[16], disp_buf[16];
