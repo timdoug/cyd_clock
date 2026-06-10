@@ -51,7 +51,11 @@ static const char *TAG = "ntp";
 
 // Discipline gains / guards
 #define MAX_FREQ_PPM_X1000   500000       // clamp +/-500 ppm
-#define FREQ_KI_SHIFT        5            // 1/32 gain for the crystal drift estimator
+#define FREQ_TAU_S           1024         // crystal-drift integrator time constant:
+                                          // each discipline corrects freq by
+                                          // offset/TAU (per-update gain scales with
+                                          // the elapsed baseline, so convergence
+                                          // takes ~TAU of wall time at ANY poll)
 #define MAX_FREQ_STEP_PPB    1000         // one NTP sample may move drift estimate by <= 1 ppm
 #define FREQ_MAX_OFFSET_US   25000        // larger residuals are usually path asymmetry / spikes
 #define FREQ_MAX_JITTER_US   20000        // don't learn crystal drift from very noisy peer sets
@@ -1672,7 +1676,11 @@ static void select_system_peer(void) {
 
 // ---------- discipline ----------
 
-static void discipline_clock(int32_t offset_us) {
+// `fresh` is false when the wave was force-fired before fully settling:
+// the combined offset then includes stale samples, still worth slewing by
+// (better than no discipline) but not worth teaching the crystal-drift
+// estimator from.
+static void discipline_clock(int32_t offset_us, bool fresh) {
     bool step = !g.first_sync_done ||
                 offset_us >  STEP_THRESHOLD_US ||
                 offset_us < -STEP_THRESHOLD_US;
@@ -1697,20 +1705,29 @@ static void discipline_clock(int32_t offset_us) {
 
         // Integrate crystal frequency slowly from the residual phase error.
         // The residual contains both real oscillator drift and network path
-        // asymmetry. Treat it as a noisy measurement, use the actual elapsed
-        // time between discipline samples, and cap each update so one WiFi /
-        // pool-server outlier cannot move the displayed "Drift" by 10-20 ppm.
+        // asymmetry, so treat it as a noisy measurement and cap each update
+        // so one WiFi / pool-server outlier cannot move the displayed
+        // "Drift" by 10-20 ppm.
+        //
+        // Classic PLL phase-to-frequency form: step = offset/TAU. This is
+        // an integrator whose per-update gain is PROPORTIONAL to the
+        // elapsed baseline (step = measured_rate * elapsed / TAU, with the
+        // elapsed factors cancelling), so convergence takes ~FREQ_TAU_S of
+        // wall time at any poll interval. The old fixed 1/32-per-update
+        // gain matched this at 32 s polls but adapted 32x slower at the
+        // 1024 s cap. Division, not an arithmetic shift: >> rounds toward
+        // -inf and biased negative residuals by up to 1 ppb per update.
         uint32_t now_ms = mono_ms();
         int32_t freq_step = 0;
         bool learned_freq = false;
-        if (g.last_freq_sample_ms != 0 &&
+        if (fresh &&
+            g.last_freq_sample_ms != 0 &&
             g.system_jitter_us <= FREQ_MAX_JITTER_US &&
             offset_us < FREQ_MAX_OFFSET_US &&
             offset_us > -FREQ_MAX_OFFSET_US) {
             uint32_t elapsed_ms = now_ms - g.last_freq_sample_ms;
             if (elapsed_ms >= (MIN_POLL_S / 2) * 1000) {
-                int64_t measured_ppb = ((int64_t)offset_us * 1000000LL) / elapsed_ms;
-                freq_step = (int32_t)(measured_ppb >> FREQ_KI_SHIFT);
+                freq_step = (int32_t)(((int64_t)offset_us * 1000) / FREQ_TAU_S);
                 freq_step = clamp_i32(freq_step, -MAX_FREQ_STEP_PPB, MAX_FREQ_STEP_PPB);
                 g.freq_ppm_x1000 += freq_step;
                 g.freq_ppm_x1000 = clamp_i32(g.freq_ppm_x1000,
@@ -1893,7 +1910,7 @@ static bool try_discipline(uint32_t settled_cycle_id) {
 
     g.last_discipline_ms     = now;
     g.last_discipline_poll_s = g.current_poll_s;   // captures pre-adaptive value
-    discipline_clock(g.combined_offset_us);
+    discipline_clock(g.combined_offset_us, good);
     adaptive_poll_update_once(settled_cycle_id);
     return true;
 }
