@@ -51,11 +51,13 @@ static const char *TAG = "ntp";
 
 // Discipline gains / guards
 #define MAX_FREQ_PPM_X1000   500000       // clamp +/-500 ppm
-#define FREQ_TAU_S           1024         // crystal-drift integrator time constant:
-                                          // each discipline corrects freq by
-                                          // offset/TAU (per-update gain scales with
-                                          // the elapsed baseline, so convergence
-                                          // takes ~TAU of wall time at ANY poll)
+#define FREQ_TAU_S           4096         // crystal-drift integrator time constant
+                                          // (seconds): each discipline corrects a
+                                          // fraction poll/TAU of the frequency error,
+                                          // so the loop has a ~TAU time constant at
+                                          // ANY poll interval. ~0.24 gain even at the
+                                          // 1024 s cap, heavily damped so a single-
+                                          // wave offset spike can't yank the estimate.
 #define MAX_FREQ_STEP_PPB    1000         // one NTP sample may move drift estimate by <= 1 ppm
 #define FREQ_MAX_OFFSET_US   25000        // larger residuals are usually path asymmetry / spikes
 #define FREQ_MAX_JITTER_US   20000        // don't learn crystal drift from very noisy peer sets
@@ -1709,14 +1711,16 @@ static void discipline_clock(int32_t offset_us, bool fresh) {
         // so one WiFi / pool-server outlier cannot move the displayed
         // "Drift" by 10-20 ppm.
         //
-        // Classic PLL phase-to-frequency form: step = offset/TAU. This is
-        // an integrator whose per-update gain is PROPORTIONAL to the
-        // elapsed baseline (step = measured_rate * elapsed / TAU, with the
-        // elapsed factors cancelling), so convergence takes ~FREQ_TAU_S of
-        // wall time at any poll interval. The old fixed 1/32-per-update
-        // gain matched this at 32 s polls but adapted 32x slower at the
-        // 1024 s cap. Division, not an arithmetic shift: >> rounds toward
-        // -inf and biased negative residuals by up to 1 ppb per update.
+        // Classic PLL phase-to-frequency form: step = offset/TAU, an
+        // integrator that corrects a fraction poll/TAU of the frequency
+        // error per discipline (the elapsed factors cancel), giving a ~TAU
+        // time constant at any poll interval. TAU is sized so the gain stays
+        // well under 1 even at the 1024 s poll cap - a heavily damped loop
+        // that tracks the slow crystal-vs-temperature drift while rejecting
+        // per-wave network offset spikes, which a near-unity gain (the old
+        // fixed 1/32-per-update value, ~1.0 at 32 s polls) chased straight
+        // into the estimate. Division, not an arithmetic shift: >> rounds
+        // toward -inf and biased negative residuals up to 1 ppb per update.
         uint32_t now_ms = mono_ms();
         int32_t freq_step = 0;
         bool learned_freq = false;
