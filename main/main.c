@@ -137,9 +137,15 @@ static void try_connect_stored_credentials(void) {
         wifi_start_ntp();
         ntp_started = true;
     } else {
-        ESP_LOGW(TAG, "Failed to connect with stored credentials");
-        app_state = APP_STATE_WIFI_SETUP;
-        ui_wifi_setup_init(false);
+        ESP_LOGW(TAG, "No connection yet; showing clock, retrying in background");
+        // Show the clock in its waiting state instead of dropping into the
+        // setup wizard: a clock rebooting during a power outage races the
+        // router back up and used to land in WiFi setup until a human
+        // intervened. Credentials remain editable via settings; NTP starts
+        // from the main loop once connectivity arrives.
+        app_state = APP_STATE_CLOCK;
+        ui_clock_init();
+        ui_clock_redraw();
     }
 }
 
@@ -265,6 +271,13 @@ void app_main(void) {
                 break;
 
             case APP_STATE_CLOCK: {
+                // Deferred NTP start for the boot-without-connectivity path:
+                // the background reconnect machinery owns getting online.
+                if (!ntp_started && wifi_is_connected()) {
+                    wifi_start_ntp();
+                    ntp_started = true;
+                }
+
                 // On state (re)entry we need to arm the tick timer; this flag
                 // gets set true when we transition away and on first boot.
                 static bool tick_needs_arm = true;

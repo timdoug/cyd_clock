@@ -6,6 +6,7 @@
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_netif.h"
+#include "esp_timer.h"
 #include "esp_wifi.h"
 #include "lwip/ip_addr.h"
 #include "freertos/FreeRTOS.h"
@@ -25,6 +26,33 @@ static EventGroupHandle_t wifi_event_group;
 static bool wifi_initialized = false;
 static int retry_count = 0;
 static bool ignore_next_disconnect = false;
+
+// Background reconnect: a wall clock must never stop trying. The blocking
+// wifi_connect() stops WAITING after WIFI_MAX_RETRY fast retries so the
+// caller gets a timely verdict (boot fallback, setup-screen feedback), but
+// the disconnect handler keeps scheduling retries forever with capped
+// exponential backoff - otherwise a router reboot at 3am stranded the
+// clock offline until a power cycle, silently drifting on the crystal.
+#define WIFI_RECONNECT_MIN_MS 1000
+#define WIFI_RECONNECT_MAX_MS 30000
+static esp_timer_handle_t reconnect_timer;
+static uint32_t reconnect_delay_ms = WIFI_RECONNECT_MIN_MS;
+
+static void reconnect_timer_cb(void *arg) {
+    (void)arg;
+    ESP_LOGI(TAG, "Background reconnect attempt");
+    esp_wifi_connect();
+}
+
+static void schedule_reconnect(void) {
+    if (!reconnect_timer) return;
+    esp_timer_stop(reconnect_timer);
+    esp_timer_start_once(reconnect_timer, (uint64_t)reconnect_delay_ms * 1000);
+    reconnect_delay_ms *= 2;
+    if (reconnect_delay_ms > WIFI_RECONNECT_MAX_MS) {
+        reconnect_delay_ms = WIFI_RECONNECT_MAX_MS;
+    }
+}
 
 // Config tracked here; runtime NTP state lives in ntp.c
 static struct {
@@ -56,7 +84,10 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                     retry_count++;
                     ESP_LOGI(TAG, "Retrying connection (%d/%d)", retry_count, WIFI_MAX_RETRY);
                 } else {
+                    // Unblock any wifi_connect() waiting on a verdict...
                     xEventGroupSetBits(wifi_event_group, WIFI_FAIL_BIT);
+                    // ...but never actually give up.
+                    schedule_reconnect();
                 }
                 break;
             default:
@@ -71,6 +102,9 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
             // of theirs (and so reconnects also re-install).
             ntp_install_wifi_rx_hook();
             retry_count = 0;
+            reconnect_delay_ms = WIFI_RECONNECT_MIN_MS;
+            if (reconnect_timer) esp_timer_stop(reconnect_timer);
+            xEventGroupClearBits(wifi_event_group, WIFI_FAIL_BIT);
             xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_BIT);
         } else if (event_id == IP_EVENT_GOT_IP6) {
             ip_event_got_ip6_t *event = (ip_event_got_ip6_t *)event_data;
@@ -85,6 +119,12 @@ void wifi_init(void) {
     ESP_LOGI(TAG, "Initializing WiFi");
 
     wifi_event_group = xEventGroupCreate();
+
+    const esp_timer_create_args_t rc_args = {
+        .callback = reconnect_timer_cb,
+        .name     = "wifi_reconnect",
+    };
+    ESP_ERROR_CHECK(esp_timer_create(&rc_args, &reconnect_timer));
 
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
@@ -134,6 +174,11 @@ int wifi_scan(wifi_network_t *networks, int max_networks) {
     }
 
     ESP_LOGI(TAG, "Starting WiFi scan");
+
+    // Pause any pending background reconnect for the scan window - a
+    // connect attempt in flight makes esp_wifi_scan_start fail.
+    bool resume_reconnect = reconnect_timer && esp_timer_is_active(reconnect_timer);
+    if (reconnect_timer) esp_timer_stop(reconnect_timer);
 
     wifi_scan_config_t scan_config = {
         .ssid = NULL,
@@ -199,6 +244,7 @@ int wifi_scan(wifi_network_t *networks, int max_networks) {
 
     free(ap_records);
     ESP_LOGI(TAG, "Found %d networks", count);
+    if (resume_reconnect && !wifi_is_connected()) schedule_reconnect();
     return count;
 }
 
@@ -220,7 +266,9 @@ bool wifi_connect(const char *ssid, const char *password) {
 
     bool was_connected = wifi_is_connected();
 
-    // Clear previous state
+    // Clear previous state; this attempt supersedes any background retry.
+    if (reconnect_timer) esp_timer_stop(reconnect_timer);
+    reconnect_delay_ms = WIFI_RECONNECT_MIN_MS;
     xEventGroupClearBits(wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT);
     retry_count = 0;
 
@@ -242,12 +290,16 @@ bool wifi_connect(const char *ssid, const char *password) {
         ESP_LOGI(TAG, "Connected to %s", ssid);
         return true;
     } else {
-        ignore_next_disconnect = true;
-        esp_err_t stop_err = esp_wifi_disconnect();
-        if (stop_err != ESP_OK) {
-            ignore_next_disconnect = false;
-        }
-        ESP_LOGW(TAG, "Failed to connect to %s", ssid);
+        // Stop WAITING, not trying: the disconnect handler keeps fast
+        // retries and then capped-backoff retries running autonomously
+        // (tearing the attempt down here also risked a lingering
+        // ignore_next_disconnect eating the next real disconnect event and
+        // breaking the retry chain). For the boot path the active config is
+        // the stored, previously proven credentials; after a failed setup
+        // attempt the retries burn harmlessly until the user fixes them,
+        // and any new wifi_connect() supersedes the timer.
+        ESP_LOGW(TAG, "No connection to %s within %d ms; retrying in background",
+                 ssid, WIFI_CONNECT_TIMEOUT_MS);
         return false;
     }
 }
