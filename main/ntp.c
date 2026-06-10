@@ -958,6 +958,32 @@ static int32_t aged_peer_dispersion_us(const ntp_peer_t *p, uint32_t now_ms) {
     return (int32_t)disp;
 }
 
+// Re-frame stored filter samples after a clock correction: every sample was
+// measured against the pre-correction clock and is now stale by exactly the
+// applied amount. Subtracting it keeps stored offsets as residuals against
+// the CURRENT clock, so mid-wave selections never compare a fresh sample
+// with stale-frame ones (transient consensus splits, selected-peer
+// flapping, spurious falseticker pressure - dramatic after a step, which
+// otherwise leaves whole filters lying by the step size). Re-framing by a
+// constant leaves per-peer jitter unchanged; update_peer_filter refreshes
+// the derived fields.
+static void shift_filters(int32_t offset_us) {
+    for (int i = 0; i < NTP_MAX_PEERS; i++) {
+        ntp_peer_t *p = &g.peers[i];
+        if (!p->active) continue;
+        bool any = false;
+        for (int j = 0; j < NTP_FILTER_SIZE; j++) {
+            if (!p->filter[j].valid) continue;
+            int64_t adj = (int64_t)p->filter[j].offset_us - offset_us;
+            if (adj > INT32_MAX) adj = INT32_MAX;
+            if (adj < INT32_MIN) adj = INT32_MIN;
+            p->filter[j].offset_us = (int32_t)adj;
+            any = true;
+        }
+        if (any) update_peer_filter(p);
+    }
+}
+
 // ---------- early t1/t4 capture (WiFi hooks) ----------
 //
 // Stamp t4 at the WiFi RX cb (saves lwIP + scheduler latency between radio
@@ -1665,6 +1691,9 @@ static void discipline_clock(int32_t offset_us) {
         adjtime(NULL, &outstanding);
         struct timeval delta = tv_from_us(tv_to_us(&outstanding) + offset_us);
         adjtime(&delta, NULL);
+        // (The slew is applied by the kernel over the next fraction of a
+        // second; re-framing the filters below treats it as immediate,
+        // which is within the noise for the few-ms slews discipline emits.)
 
         // Integrate crystal frequency slowly from the residual phase error.
         // The residual contains both real oscillator drift and network path
@@ -1719,6 +1748,10 @@ static void discipline_clock(int32_t offset_us) {
             last_freq_save_ms  = now_ms;
         }
     }
+
+    // Both paths corrected the clock by offset_us; bring every peer's
+    // stored samples into the post-correction frame.
+    shift_filters(offset_us);
 
     g.first_sync_done = true;
     g.last_offset_us  = offset_us;
