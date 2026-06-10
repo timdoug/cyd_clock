@@ -267,10 +267,16 @@ static void draw_ntp_stats(time_t now, int sec) {
     ntp_get_sys_stats(&sys);
     const char *server = sys.server[0] ? sys.server : wifi_get_custom_ntp_server();
 
-    // Line 1: "Synced: <server>" (green) or "Syncing: <server>" (orange)
+    // Line 1: "Synced: <server>" (green) or "Syncing: <server>" (orange).
+    // Green requires the CURRENT peer set to have disciplined the clock at
+    // least once (sync_count > 0), not just first_sync_done: changing the
+    // server (or a staleness re-resolve) resets sync accounting while the
+    // clock keeps running on the old discipline, and an unreachable new
+    // server used to sit there claiming "Synced" indefinitely.
+    bool synced_here = sys.synced && sys.sync_count > 0;
     char line1[80];
     uint16_t line1_fg;
-    if (sys.synced) {
+    if (synced_here) {
         snprintf(line1, sizeof(line1), "Synced: %s", server);
         line1_fg = COLOR_SYNC_OK;
     } else {
@@ -278,9 +284,9 @@ static void draw_ntp_stats(time_t now, int sec) {
         line1_fg = COLOR_SYNC_WAIT;
     }
     // Recolor forces a redraw when sync state flips (same text, different color)
-    if (sys.synced != last_synced_state) {
+    if (synced_here != last_synced_state) {
         last_line1[0] = '\0';
-        last_synced_state = sys.synced;
+        last_synced_state = synced_here;
     }
     draw_line_cached(STATS_Y, last_line1, sizeof(last_line1), line1, line1_fg);
 
@@ -306,11 +312,19 @@ static void draw_ntp_stats(time_t now, int sec) {
     }
     char poll_buf[16], ago_buf[16];
     ui_fmt_duration_full(poll_buf, sizeof(poll_buf), sys.current_poll_s);
-    ui_fmt_duration_full(ago_buf, sizeof(ago_buf),
-                 (uint32_t)(now > sys.last_sync_time ? now - sys.last_sync_time : 0));
     char line2[80];
-    snprintf(line2, sizeof(line2), "%d/%d peers  poll %s  %s ago",
-             peers_reach, peers_total, poll_buf, ago_buf);
+    if (sys.sync_count == 0) {
+        // No discipline from the current peer set yet: there is no age to
+        // show. Rendering now - last_sync_time(0) here used to display the
+        // full Unix epoch as "20614d 15h 35m ago".
+        snprintf(line2, sizeof(line2), "%d/%d peers  poll %s  no sync yet",
+                 peers_reach, peers_total, poll_buf);
+    } else {
+        ui_fmt_duration_full(ago_buf, sizeof(ago_buf),
+                     (uint32_t)(now > sys.last_sync_time ? now - sys.last_sync_time : 0));
+        snprintf(line2, sizeof(line2), "%d/%d peers  poll %s  %s ago",
+                 peers_reach, peers_total, poll_buf, ago_buf);
+    }
     draw_line_cached(STATS_LINE2, last_line2, sizeof(last_line2), line2, COLOR_STATS);
 
     // Line 3: offset + root dispersion + drift. Gated independently - drift
