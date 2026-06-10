@@ -561,15 +561,27 @@ static int resolve_peers(void) {
 
 // Return the peer index whose eviction counters are furthest over threshold,
 // or -1 if nothing is currently eligible. Severity is just the sum of the
-// three counters (all saturate at 255, same magnitude range) - higher means
-// further gone. Callers should gate this against last_evict_tick_ms so we
-// only swap one peer per poll cycle even when several look bad.
+// counters (all saturate at 255, same magnitude range) - higher means
+// further gone.
+//
+// Slots deactivated by a DENY/RSTR KoD (inactive but with an address still
+// recorded) are maximally severe: nothing else ever refills an inactive slot
+// short of a full re-resolve, so without this every DENY would be permanent
+// attrition of the peer set. Never-populated slots (single-IP custom server,
+// short DNS answer) stay ineligible so we don't burn a DNS query per cycle
+// trying to backfill addresses the resolver can't provide.
 static int find_worst_eligible_peer(void) {
     int      worst          = -1;
     uint32_t worst_severity = 0;
     for (int i = 0; i < NTP_MAX_PEERS; i++) {
         ntp_peer_t *p = &g.peers[i];
-        if (!p->active) continue;
+        if (!p->active) {
+            if (p->addr_len != 0 && worst_severity < UINT32_MAX) {
+                worst_severity = UINT32_MAX;
+                worst          = i;
+            }
+            continue;
+        }
         if (p->consecutive_misses < 4 &&
             p->falseticker_runs   < 8 &&
             p->jittery_runs       < 10) continue;
@@ -603,9 +615,14 @@ static bool try_replace_peer(int dead_idx) {
     if (n == 0) return false;
 
     for (int i = 0; i < n; i++) {
+        // Skip any address already recorded in a slot, active or not: an
+        // inactive-but-populated slot is one a DENY/RSTR KoD deactivated,
+        // and reinstalling the same server would ping-pong against an
+        // explicit go-away. (The slot being replaced still holds its old
+        // address at this point, so it's excluded too.)
         bool in_use = false;
         for (int j = 0; j < NTP_MAX_PEERS; j++) {
-            if (g.peers[j].active && sockaddr_matches(&g.peers[j].addr, &fresh[i])) {
+            if (g.peers[j].addr_len != 0 && sockaddr_matches(&g.peers[j].addr, &fresh[i])) {
                 in_use = true;
                 break;
             }
@@ -634,6 +651,34 @@ static bool try_replace_peer(int dead_idx) {
         return true;
     }
     return false;
+}
+
+// Evict the worst currently-eligible peer (see find_worst_eligible_peer), at
+// most once per poll tick even when several look bad. Bouncing several peers
+// at once would fire DNS queries back-to-back and leave us running with one
+// good peer plus fresh unknowns; spacing evictions out also gives us a chance
+// to watch whether the first replacement settles the rest (a noisy selection
+// round often makes decent peers briefly look worse than they are). Remaining
+// eligible peers stay marked and get picked up on subsequent cycles.
+//
+// Thresholds (in find_worst_eligible_peer): falseticker = 8 cycles of
+// "outside Marzullo consensus" (systematic wrong-offset peer); wide-jitter =
+// 10 cycles of "jitter > 4x best truechimer". The wide-jitter threshold
+// deliberately exceeds NTP_FILTER_SIZE (8): a single 100 ms+ outlier sample
+// inflates per-peer jitter for the full 8 cycles it takes to age out of the
+// ring, so any threshold <= 8 would evict a peer for one bad sample. 10
+// requires the condition to persist past the filter's self-healing window.
+//
+// NOTE: try_replace_peer drops and re-takes the NTP lock around its DNS
+// query; callers must not hold peer state across this call.
+static void maybe_evict_worst_peer(void) {
+    if (last_evict_tick_ms == next_global_poll_ms) return;
+    int worst = find_worst_eligible_peer();
+    if (worst < 0) return;
+    if (try_replace_peer(worst)) {
+        last_evict_tick_ms = next_global_poll_ms;
+        if (g.selected_peer == worst) g.selected_peer = -1;
+    }
 }
 
 // ---------- sockets ----------
@@ -1083,6 +1128,8 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
         p->stratum = 16;
         p->reach   = 0;
         if (!memcmp(code, "DENY", 4) || !memcmp(code, "RSTR", 4)) {
+            // Deactivated slots stay eligible for replacement via
+            // find_worst_eligible_peer, so this is not permanent attrition.
             p->active = false;
         } else {
             p->kod_until_ms = mono_ms() + KOD_BACKOFF_MS;
@@ -1686,45 +1733,19 @@ static void handle_socket_readable(int sock, const struct timeval *t4) {
     if (ok) {
         update_peer_filter(p);
         select_system_peer();
-
-        // Eviction for falseticker / wide-jitter peers is event-driven: the
-        // counters we check only move inside select_system_peer, so checking
-        // here means one try_replace_peer attempt per peer per poll cycle -
-        // naturally cycle-aligned. On failure, the counters stay elevated
-        // and we retry at the next cycle's response burst. (consecutive_misses
-        // eviction lives in the timeout handler for the same reason.)
-        //
-        // Thresholds: falseticker = 8 cycles of "outside Marzullo consensus"
-        // (systematic wrong-offset peer); wide-jitter = 10 cycles of "jitter
-        // > 4* best truechimer". The wide-jitter threshold deliberately
-        // exceeds NTP_FILTER_SIZE (8): a single 100 ms+ outlier sample
-        // inflates per-peer jitter for the full 8 cycles it takes to age
-        // out of the ring, so any threshold <= 8 would evict a peer for one
-        // bad sample. 10 requires the high-jitter condition to persist
-        // past the filter's self-healing window, confirming it's a real
-        // noisy peer rather than transient pathology.
-        //
-        // At most one eviction per poll cycle, and when multiple peers are
-        // eligible we kick the *worst* one (highest summed counter) - not
-        // whichever happens to be lowest-index. Bouncing all three at once
-        // would fire three DNS queries back-to-back and leave us running
-        // with one good peer + three fresh unknowns; spacing them out also
-        // gives us a chance to watch whether the first replacement settles
-        // the rest (often a noisy selection round also makes decent peers
-        // briefly look worse than they are). Any remaining eligible peers
-        // stay marked; they'll be picked up on subsequent cycles.
-        if (last_evict_tick_ms != next_global_poll_ms) {
-            int worst = find_worst_eligible_peer();
-            if (worst >= 0 && try_replace_peer(worst)) {
-                last_evict_tick_ms = next_global_poll_ms;
-                if (g.selected_peer == worst) g.selected_peer = -1;
-            }
-        }
-
-        try_discipline(settled_cycle_id);
-    } else {
-        try_discipline(settled_cycle_id);
     }
+
+    // Eviction is event-driven: the falseticker/jittery counters only move
+    // inside select_system_peer, so checking at every settle means one
+    // try_replace_peer attempt per peer per poll cycle - naturally
+    // cycle-aligned. On failure the counters stay elevated and we retry at
+    // the next cycle's response burst. Running on bad responses too lets a
+    // DENY-deactivated slot refill on its own (final) response instead of
+    // waiting for another peer's good one. `p` may be reset/replaced
+    // across this call.
+    maybe_evict_worst_peer();
+
+    try_discipline(settled_cycle_id);
 }
 
 static void ntp_task(void *arg) {
@@ -1814,21 +1835,12 @@ static void ntp_task(void *arg) {
                 p->last_settle_cycle_id  = settled_cycle_id;  // resolved (badly)
                 if (p->consecutive_misses < 255) p->consecutive_misses++;
                 schedule_after_request(p);
-                // Swap out chronically-bad peers. Trigger is event-driven
-                // (this peer just crossed its miss threshold), but the peer
-                // we actually evict is the WORST currently-eligible one - it
-                // might be another peer with higher falseticker/jittery
-                // runs than this one's misses. Gated by last_evict_tick_ms
-                // so we only swap one peer per poll tick (see the same gate
-                // in handle_socket_readable).
-                if (p->consecutive_misses >= 4 &&
-                    last_evict_tick_ms != next_global_poll_ms) {
-                    int worst = find_worst_eligible_peer();
-                    if (worst >= 0 && try_replace_peer(worst)) {
-                        last_evict_tick_ms = next_global_poll_ms;
-                        if (g.selected_peer == worst) g.selected_peer = -1;
-                    }
-                }
+                // Swap out chronically-bad peers. The peer actually evicted
+                // is the WORST currently-eligible one - it might be another
+                // peer with higher falseticker/jittery runs than this one's
+                // misses. `p` may be reset/replaced and `now` is stale
+                // after this call (it can drop the lock for DNS).
+                maybe_evict_worst_peer();
                 // Re-evaluate the discipline gate: this timeout may have
                 // been the last unresolved peer of the wave (the response
                 // path won't fire again for it).
