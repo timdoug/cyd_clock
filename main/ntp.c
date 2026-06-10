@@ -1515,16 +1515,20 @@ static void adaptive_poll_update(void) {
     ntp_peer_t *sp = (g.selected_peer >= 0) ? &g.peers[g.selected_peer] : NULL;
     bool good = sp && (sp->reach & 0x01) && g.system_jitter_us < JITTER_MAX_US;
 
+    // Saturate the counter at the run thresholds: at MAX_POLL_S (or pinned to
+    // MIN_POLL_S during an outage) nothing resets it, and an int8_t would
+    // wrap after 128 cycles - turning a long good streak into a phantom bad
+    // one and letting a single bad poll shrink the interval.
     if (good) {
         if (g.poll_adjust < 0) g.poll_adjust = 0;
-        g.poll_adjust++;
+        if (g.poll_adjust < GOOD_RUN) g.poll_adjust++;
         if (g.poll_adjust >= GOOD_RUN && g.current_poll_s < MAX_POLL_S) {
             g.current_poll_s *= 2;
             g.poll_adjust = 0;
         }
     } else {
         if (g.poll_adjust > 0) g.poll_adjust = 0;
-        g.poll_adjust--;
+        if (g.poll_adjust > -BAD_RUN) g.poll_adjust--;
         if (g.poll_adjust <= -BAD_RUN && g.current_poll_s > MIN_POLL_S) {
             g.current_poll_s /= 2;
             g.poll_adjust = 0;
