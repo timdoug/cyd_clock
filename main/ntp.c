@@ -1218,13 +1218,31 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
     // and PHI*(T4-T1) accounts for frequency uncertainty across the measurement
     // window. Sum is floored to avoid under-reporting when a stratum-1 peer
     // advertises sub-us precision that our transport can't actually deliver.
+    //
+    // On top of the RFC terms, add half the excess RTT over the peer's recent
+    // minimum: any excess could be entirely one-directional, biasing the
+    // offset by up to excess/2. The huff-n-puff shift above only corrects
+    // mid-range excess (1.5x-3x min) and only toward zero, so the residual
+    // asymmetry uncertainty is still ~excess/2 either way. Folding it in here
+    // makes spike samples quadratically less influential in the
+    // inverse-dispersion-squared peer combine and honestly widens the
+    // Marzullo interval -- which matters when same-uplink congestion hits
+    // every peer's sample in the same splay window and the spikes would
+    // otherwise pass consensus at full weight.
     int64_t rtt_us  = tv_diff_us(&t4_local, &t1_local);
     int32_t eps_phi = (rtt_us > 0)
                       ? (int32_t)((uint64_t)PHI_US_PER_SEC * rtt_us / 1000000)
                       : 0;
-    int32_t sample_disp = precision_to_us(LOCAL_PRECISION) +
-                          precision_to_us(pkt->precision) +
-                          eps_phi;
+    int64_t excess_disp = 0;
+    if (min_delay != INT32_MAX && delay > min_delay) {
+        excess_disp = (delay - min_delay) / 2;
+    }
+    int64_t sample_disp64 = (int64_t)precision_to_us(LOCAL_PRECISION) +
+                            precision_to_us(pkt->precision) +
+                            eps_phi +
+                            excess_disp;
+    int32_t sample_disp = sample_disp64 > INT32_MAX ? INT32_MAX
+                                                    : (int32_t)sample_disp64;
     if (sample_disp < SAMPLE_DISP_FLOOR_US) sample_disp = SAMPLE_DISP_FLOOR_US;
 
     p->filter_head = (p->filter_head + 1) % NTP_FILTER_SIZE;
