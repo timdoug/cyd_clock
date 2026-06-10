@@ -604,14 +604,20 @@ static int find_worst_eligible_peer(void) {
             }
             continue;
         }
+        // Counters freeze (neither advance nor decay) while a peer is not
+        // a selection candidate; they resume from where they were when it
+        // returns. Severity is expressed in units of "times the eviction
+        // threshold" (x256 fixed point) so counters with different
+        // thresholds compare fairly - 4 misses and 10 jittery runs are
+        // both exactly at threshold and should look equally bad.
         if (p->consecutive_misses < 4 &&
             p->falseticker_runs   < 8 &&
             p->jittery_runs       < 10 &&
             p->panic_runs         < 8) continue;
-        uint32_t severity = (uint32_t)p->consecutive_misses +
-                            (uint32_t)p->falseticker_runs +
-                            (uint32_t)p->jittery_runs +
-                            (uint32_t)p->panic_runs;
+        uint32_t severity = ((uint32_t)p->consecutive_misses << 8) / 4 +
+                            ((uint32_t)p->falseticker_runs   << 8) / 8 +
+                            ((uint32_t)p->jittery_runs       << 8) / 10 +
+                            ((uint32_t)p->panic_runs         << 8) / 8;
         if (severity > worst_severity) {
             worst_severity = severity;
             worst          = i;
@@ -699,8 +705,12 @@ static void maybe_evict_worst_peer(void) {
     if (last_evict_tick_ms == next_global_poll_ms) return;
     int worst = find_worst_eligible_peer();
     if (worst < 0) return;
+    // Record the ATTEMPT, not just success: a failed replacement (DNS had
+    // nothing fresh to offer) used to retry at every settle event - up to
+    // ~5 DNS queries per wave, forever, with a persistently eligible peer
+    // and a small address pool. One attempt per poll tick is the intent.
+    last_evict_tick_ms = next_global_poll_ms;
     if (try_replace_peer(worst)) {
-        last_evict_tick_ms = next_global_poll_ms;
         if (g.selected_peer == worst) g.selected_peer = -1;
     }
 }
