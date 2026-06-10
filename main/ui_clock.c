@@ -308,7 +308,7 @@ static void draw_ntp_stats(time_t now, int sec) {
     ui_fmt_duration_full(poll_buf, sizeof(poll_buf), sys.current_poll_s);
     ui_fmt_duration_full(ago_buf, sizeof(ago_buf),
                  (uint32_t)(now > sys.last_sync_time ? now - sys.last_sync_time : 0));
-    char line2[56];
+    char line2[80];
     snprintf(line2, sizeof(line2), "%d/%d peers  poll %s  %s ago",
              peers_reach, peers_total, poll_buf, ago_buf);
     draw_line_cached(STATS_LINE2, last_line2, sizeof(last_line2), line2, COLOR_STATS);

@@ -10,5 +10,14 @@ CONFIG_RTC_CLK_CAL_CYCLES=8192
 # FreeRTOS (1kHz tick for smoother timing)
 CONFIG_FREERTOS_HZ=1000
 
+# Performance / display timing: -O2 and 240 MHz shrink compose latency and
+# jitter; the main task (render loop) gets core 1 to itself while WiFi
+# (pinned by default), lwip, and the NTP task stay on core 0, so network
+# bursts can't stretch a display tick mid-draw.
+CONFIG_COMPILER_OPTIMIZATION_PERF=y
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+CONFIG_ESP_MAIN_TASK_AFFINITY_CPU1=y
+CONFIG_LWIP_TCPIP_TASK_AFFINITY_CPU0=y
+
 # Networking
 CONFIG_LWIP_IPV6_AUTOCONFIG=y

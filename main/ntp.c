@@ -33,6 +33,12 @@ static const char *TAG = "ntp";
 // NTP era 1 starts 2036-02-07 when the 32-bit NTP seconds counter wraps.
 // Unix time at that moment: 2^32 - NTP_EPOCH_OFFSET = 2085978496.
 #define NTP_ERA1_UNIX_OFFSET 2085978496UL
+// Plausibility window for server timestamps after era mapping. Earlier than
+// 2025 is impossible for this firmware; later than 2100 means a mangled or
+// hostile timestamp field (the era heuristic can project garbage sec words
+// more than a century out).
+#define SANE_UNIX_MIN        1735689600LL  // 2025-01-01
+#define SANE_UNIX_MAX        4102444800LL  // 2100-01-01
 #define NTP_FILTER_SIZE      8
 
 // Timing
@@ -220,12 +226,16 @@ static void ntp_to_tv(uint32_t sec, uint32_t frac, struct timeval *tv) {
     // value must be interpreted against era 1's Unix offset. Heuristic: any
     // NTP value below NTP_EPOCH_OFFSET (== Unix 0) represents a time before
     // 1970, which is implausible for this device, so treat it as era 1.
-    uint64_t unix_sec;
-    if (sec >= NTP_EPOCH_OFFSET) {
-        unix_sec = (uint64_t)(sec - NTP_EPOCH_OFFSET);       // era 0, post-1970
-    } else {
-        unix_sec = (uint64_t)sec + NTP_ERA1_UNIX_OFFSET;     // era 1 (2036+)
-    }
+    //
+    // Both eras reduce to ONE wrapping 32-bit add: era 0 wants
+    // sec - NTP_EPOCH_OFFSET, era 1 wants sec + NTP_ERA1_UNIX_OFFSET, and
+    // NTP_ERA1_UNIX_OFFSET == 2^32 - NTP_EPOCH_OFFSET, so mod 2^32 they are
+    // the same operation. Do that add EXPLICITLY in uint32 rather than as an
+    // if/else the optimizer must fold: GCC 15.2 at -O2 was observed folding
+    // the branchy form but keeping the 64-bit carry of the unified add,
+    // which projected current-era (2026) server timestamps 2^32 seconds
+    // forward to the year 2162 and stepped the clock there.
+    uint32_t unix_sec = sec + NTP_ERA1_UNIX_OFFSET;   // wraps mod 2^32 by design
     tv->tv_sec  = (time_t)unix_sec;
     tv->tv_usec = (suseconds_t)(((uint64_t)frac * 1000000ULL) >> 32);
 }
@@ -1160,6 +1170,26 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
     ntp_to_tv(ntohl(pkt->recv_ts_sec), ntohl(pkt->recv_ts_frac), &t2);
     ntp_to_tv(ntohl(pkt->xmt_ts_sec),  ntohl(pkt->xmt_ts_frac),  &t3);
 
+    // Plausibility window on the mapped server timestamps. The era heuristic
+    // in ntp_to_tv maps any 32-bit sec word somewhere in 1970-2102, so a
+    // garbage or mangled field still yields a "valid-looking" timeval that
+    // can sit more than a century from reality (a low sec word era-1
+    // projects a current date to ~2162). The cold-boot step and the
+    // majority-panic re-step trust t2/t3 with no other reference to check
+    // against, so an implausible sample must die here - seen once in the
+    // wild as a clock stepped to July 2162. Log the raw words: if this
+    // fires again we want to know exactly what the server sent.
+    if (t2.tv_sec < SANE_UNIX_MIN || t2.tv_sec > SANE_UNIX_MAX ||
+        t3.tv_sec < SANE_UNIX_MIN || t3.tv_sec > SANE_UNIX_MAX) {
+        ESP_LOGW(TAG, "Implausible server time from %s: recv=%08lx.%08lx xmt=%08lx.%08lx",
+                 p->addr_str,
+                 (unsigned long)ntohl(pkt->recv_ts_sec),
+                 (unsigned long)ntohl(pkt->recv_ts_frac),
+                 (unsigned long)ntohl(pkt->xmt_ts_sec),
+                 (unsigned long)ntohl(pkt->xmt_ts_frac));
+        return RESP_BAD;
+    }
+
     // Defensive sanity checks on server-side fields:
     //  * t3 (server transmit) must not precede t2 (server receive) - that
     //    would imply the server processed in negative time.
@@ -2040,7 +2070,9 @@ void ntp_init(const char *server, bool prefer_ipv6) {
     }
 
     g.running = true;
-    if (xTaskCreate(ntp_task, "ntp", 4096, NULL, 5, &g.task) != pdPASS) {
+    // Pinned to core 0 with WiFi and lwip; core 1 is reserved for the render
+    // loop (main task) so network work can't stretch a display tick mid-draw.
+    if (xTaskCreatePinnedToCore(ntp_task, "ntp", 4096, NULL, 5, &g.task, 0) != pdPASS) {
         ESP_LOGE(TAG, "Failed to create NTP task");
         g.running = false;
         g.task = NULL;
