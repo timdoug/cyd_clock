@@ -223,6 +223,13 @@ void app_main(void) {
     if (nvs_config_get_wifi(stored_ssid, stored_password)) {
         try_connect_stored_credentials();
     } else {
+        // First boot (or post-wipe): nothing to connect to, so the setup
+        // wizard would paint over the splash within one loop iteration.
+        // Hold the splash for the classic beat before the wizard. The
+        // stored-credentials path needs no equivalent: its splash stays up
+        // for exactly the real duration of the WiFi handshake, however
+        // short or long that is.
+        vTaskDelay(pdMS_TO_TICKS(1500));
         app_state = APP_STATE_WIFI_SETUP;
         initial_setup = true;
         ui_wifi_setup_init(false);
