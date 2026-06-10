@@ -933,9 +933,15 @@ static void update_peer_filter(ntp_peer_t *p) {
             sum_sq += d * d;
             n++;
         }
-        p->jitter_us = n > 0 ? (int32_t)sqrt(sum_sq / n) : 0;
+        // Saturate: two large-but-subpanic offsets (+/-999 s both pass the
+        // panic check) give an RMS above INT32_MAX, and casting that double
+        // to int32 is UB. 16 s of jitter is as meaningless as 16 s of
+        // anything else here, and the cap keeps downstream sums overflow-free.
+        double rms = n > 0 ? sqrt(sum_sq / n) : 0.0;
+        p->jitter_us = rms > 16000000.0 ? 16000000 : (int32_t)rms;
     } else {
-        p->jitter_us = newest->delay_us / 2;
+        int32_t half_delay = newest->delay_us / 2;
+        p->jitter_us = half_delay > 16000000 ? 16000000 : half_delay;
     }
     p->dispersion_us = newest->dispersion_us + p->jitter_us;
 }
@@ -1425,8 +1431,13 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
                             precision_to_us(pkt->precision) +
                             eps_phi +
                             excess_disp;
-    int32_t sample_disp = sample_disp64 > INT32_MAX ? INT32_MAX
-                                                    : (int32_t)sample_disp64;
+    // Cap at 16 s rather than INT32_MAX: a server advertising a garbage
+    // precision (>= 2^12 s) used to saturate this to INT32_MAX, and the
+    // dispersion + jitter sum in update_peer_filter then overflowed int32
+    // (UB). Anything past 16 s is equally meaningless and already the
+    // rejection bar for root delay/dispersion.
+    int32_t sample_disp = sample_disp64 > 16000000 ? 16000000
+                                                   : (int32_t)sample_disp64;
     if (sample_disp < SAMPLE_DISP_FLOOR_US) sample_disp = SAMPLE_DISP_FLOOR_US;
 
     p->filter_head = (p->filter_head + 1) % NTP_FILTER_SIZE;
