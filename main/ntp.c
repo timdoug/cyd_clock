@@ -197,6 +197,8 @@ static struct {
     uint32_t last_freq_apply_ms;
     int64_t  freq_apply_residual;  // un-applied remainder, ppb*ms (1e6 = 1 us)
     uint32_t last_freq_sample_ms;
+    int32_t  freq_jitter_floor;    // adaptive estimate of the clean-wave system-jitter
+                                   // level; freq learns only from waves at or near it
     uint32_t last_discipline_ms;
     uint32_t last_discipline_poll_s;  // current_poll_s at the moment we last disciplined
     uint32_t last_any_response_ms;  // when we last heard from ANY peer
@@ -1721,16 +1723,44 @@ static void discipline_clock(int32_t offset_us, bool fresh) {
         // fixed 1/32-per-update value, ~1.0 at 32 s polls) chased straight
         // into the estimate. Division, not an arithmetic shift: >> rounds
         // toward -inf and biased negative residuals up to 1 ppb per update.
+        //
+        // Quality gate: a fixed-gain loop perpetually wanders by
+        // input_noise * sqrt(gain/2), so the way to quiet it without
+        // slowing temperature tracking is to shrink input_noise - learn
+        // only from CLEAN waves. system_jitter (spread among the surviving
+        // peers) spikes exactly when one peer's sample is bad, which is the
+        // dominant offset-noise source, so gate on it against an adaptive
+        // "clean floor": an EMA that drops fast toward lower jitter and
+        // rises slowly, tracking the quiet level so spikes can't drag it up
+        // and a genuinely noisier link still re-floors over time. Learn
+        // when this wave is within 1.5x the floor; the hard FREQ_MAX_JITTER
+        // ceiling still bounds the bootstrap wave.
         uint32_t now_ms = mono_ms();
         int32_t freq_step = 0;
         bool learned_freq = false;
-        if (fresh &&
+        bool noisy = false;
+        bool gateable = fresh &&
             g.last_freq_sample_ms != 0 &&
             g.system_jitter_us <= FREQ_MAX_JITTER_US &&
             offset_us < FREQ_MAX_OFFSET_US &&
-            offset_us > -FREQ_MAX_OFFSET_US) {
+            offset_us > -FREQ_MAX_OFFSET_US;
+        if (gateable) {
+            int32_t j = g.system_jitter_us;
+            bool clean;
+            if (g.freq_jitter_floor <= 0) {
+                g.freq_jitter_floor = j > 0 ? j : 1;   // bootstrap
+                clean = true;
+            } else {
+                clean = j <= g.freq_jitter_floor + g.freq_jitter_floor / 2;
+                if (j < g.freq_jitter_floor)
+                    g.freq_jitter_floor -= (g.freq_jitter_floor - j) / 4;  // fast down
+                else
+                    g.freq_jitter_floor += (j - g.freq_jitter_floor) / 16; // slow up
+                if (g.freq_jitter_floor < 1) g.freq_jitter_floor = 1;
+            }
+            noisy = !clean;
             uint32_t elapsed_ms = now_ms - g.last_freq_sample_ms;
-            if (elapsed_ms >= (MIN_POLL_S / 2) * 1000) {
+            if (clean && elapsed_ms >= (MIN_POLL_S / 2) * 1000) {
                 freq_step = (int32_t)(((int64_t)offset_us * 1000) / FREQ_TAU_S);
                 freq_step = clamp_i32(freq_step, -MAX_FREQ_STEP_PPB, MAX_FREQ_STEP_PPB);
                 g.freq_ppm_x1000 += freq_step;
@@ -1741,12 +1771,20 @@ static void discipline_clock(int32_t offset_us, bool fresh) {
                 learned_freq = true;
             }
         }
+        // The step is elapsed-independent (offset is always one poll's
+        // residual, slewed away each wave), so last_freq_sample_ms only
+        // feeds the "enough time passed to bother" gate above - advance it
+        // every discipline regardless of how this wave resolved.
         g.last_freq_sample_ms = now_ms;
 
-        ESP_LOGI(TAG, "Clock slewed %+ld us (freq est %+ld ppb%s%+ld)",
-                 (long)offset_us, (long)g.freq_ppm_x1000,
-                 learned_freq ? " step " : " no freq step ",
-                 (long)freq_step);
+        const char *freq_note = learned_freq ? "step"
+                              : !fresh        ? "skip(forced)"
+                              : noisy         ? "skip(noisy)"
+                                              : "skip(soon)";
+        ESP_LOGI(TAG, "Clock slewed %+ld us (jit %ld/%ld, freq %+ld ppb %s %+ld)",
+                 (long)offset_us, (long)g.system_jitter_us,
+                 (long)g.freq_jitter_floor, (long)g.freq_ppm_x1000,
+                 freq_note, (long)freq_step);
 
         // Persist the freq estimate to NVS so cold boots don't need to
         // re-converge from 0 ppm. Throttled to once per 30 minutes AND only
@@ -2169,6 +2207,7 @@ void ntp_init(const char *server, bool prefer_ipv6) {
     g.last_freq_apply_ms = 0;
     g.freq_apply_residual = 0;
     g.last_freq_sample_ms = 0;
+    g.freq_jitter_floor = 0;
     g.last_discipline_ms = 0;
     g.last_discipline_poll_s = 0;
     g.last_any_response_ms = 0;
