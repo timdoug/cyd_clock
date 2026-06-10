@@ -930,14 +930,35 @@ static bool consume_early(early_ring_t *r, uint32_t sec, uint32_t frac, int64_t 
     return found;
 }
 
-// Shift every live entry by delta_us. Used by the cold-boot first-sync path
-// to drag entries captured pre-step into the post-step frame.
+// Shift every live entry by delta_us, dragging entries captured pre-step
+// into the post-step frame.
 static void shift_early(early_ring_t *r, int64_t delta_us) {
     portENTER_CRITICAL(&r->lock);
     for (int i = 0; i < EARLY_RING_SIZE; i++) {
         if (r->ring[i].valid) r->ring[i].wall_us += delta_us;
     }
     portEXIT_CRITICAL(&r->lock);
+}
+
+// Step the system clock by step_us and drag every timestamp captured in the
+// pre-step frame along with it: outstanding requests' t1 and both early-stamp
+// rings. Without the shift, a response that was in flight across the step
+// (possible whenever a step fires - the force-fire discipline path and
+// freshly-swapped peers both poll off-wave) computes an offset biased by
+// ~step/2 and a wildly inflated delay.
+static void step_clock(int64_t step_us) {
+    for (int i = 0; i < NTP_MAX_PEERS; i++) {
+        ntp_peer_t *q = &g.peers[i];
+        if (!q->request_outstanding) continue;
+        q->t1 = tv_from_us(tv_to_us(&q->t1) + step_us);
+    }
+    shift_early(&s_t1, step_us);
+    shift_early(&s_t4, step_us);
+
+    struct timeval now_pre;
+    gettimeofday(&now_pre, NULL);
+    struct timeval target = tv_from_us(tv_to_us(&now_pre) + step_us);
+    settimeofday(&target, NULL);
 }
 
 static inline uint16_t rd_be16(const uint8_t *p) {
@@ -1116,26 +1137,11 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
     if (!g.first_sync_done) {
         int64_t step_us = (tv_diff_us(&t2, &p->t1) + tv_diff_us(&t3, &t4_local)) / 2;
 
-        // Every peer in this burst has t1 captured in the pre-step clock
-        // frame; shift ALL outstanding ones (including self) forward by
-        // the same step so their offsets compute correctly in the new
-        // frame. Without this, peers 1-3 would hit the panic threshold
-        // and get tossed, and peer 0 (self) would produce a nonsense sample.
-        // Same applies to the early_t1/t4 hook rings - entries stashed
-        // before the step are in the pre-step frame.
-        for (int i = 0; i < NTP_MAX_PEERS; i++) {
-            ntp_peer_t *q = &g.peers[i];
-            if (!q->request_outstanding) continue;
-            q->t1 = tv_from_us(tv_to_us(&q->t1) + step_us);
-        }
-        shift_early(&s_t1, step_us);
-        shift_early(&s_t4, step_us);
-
-        // Step the local clock by step_us: target = now + step_us.
-        struct timeval now_pre, target;
-        gettimeofday(&now_pre, NULL);
-        target = tv_from_us(tv_to_us(&now_pre) + step_us);
-        settimeofday(&target, NULL);
+        // step_clock shifts every outstanding peer's t1 (including self)
+        // and the early-stamp rings into the post-step frame. Without
+        // that, peers 1-3 would hit the panic threshold and get tossed,
+        // and peer 0 (self) would produce a nonsense sample.
+        step_clock(step_us);
         // Preserve the actual response-arrival timestamp. Refreshing this
         // with gettimeofday() after settimeofday() would add parser/logging
         // latency to the first sample; translating the captured t4 keeps all
@@ -1416,10 +1422,7 @@ static void discipline_clock(int32_t offset_us) {
                 offset_us < -STEP_THRESHOLD_US;
 
     if (step) {
-        struct timeval tv;
-        gettimeofday(&tv, NULL);
-        tv = tv_from_us(tv_to_us(&tv) + offset_us);
-        settimeofday(&tv, NULL);
+        step_clock(offset_us);
         // The step is a phase discontinuity: the next residual offset only
         // measures drift accrued SINCE the step, so a freq sample computed
         // against the pre-step timestamp would be diluted by the whole
