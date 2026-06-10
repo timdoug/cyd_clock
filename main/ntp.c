@@ -1027,13 +1027,33 @@ void ntp_install_wifi_rx_hook(void) {
 
 // ---------- response processing ----------
 
-static bool process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
-                             const struct timeval *t4) {
+// Tri-state result so the caller can tell "this datagram doesn't belong to
+// the outstanding request" (stray, duplicate, or spoofed -- ignore it and
+// keep waiting for the real response) apart from "this IS the response but
+// it's unusable" (settle the request, no sample).
+typedef enum {
+    RESP_IGNORE,   // not our response; leave request_outstanding untouched
+    RESP_BAD,      // response consumed, but no usable sample
+    RESP_GOOD,     // response consumed, sample added to the filter
+} ntp_resp_result_t;
+
+static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
+                                          const struct timeval *t4) {
     uint8_t mode = pkt->li_vn_mode & 0x07;
     uint8_t vn   = (pkt->li_vn_mode >> 3) & 0x07;
     uint8_t li   = (pkt->li_vn_mode >> 6) & 0x03;
 
-    if (mode != NTP_MODE_SERVER || vn < 3) return false;
+    if (mode != NTP_MODE_SERVER || vn < 3) return RESP_IGNORE;
+
+    // Match originate timestamp to the one we sent. Checked BEFORE the KoD
+    // handling: per RFC 5905 a KoD is only valid if it echoes our transmit
+    // timestamp, and gating on it means an off-path attacker can't disable
+    // a peer with a blind spoofed DENY.
+    if (pkt->orig_ts_sec != p->xmt_sec_net ||
+        pkt->orig_ts_frac != p->xmt_frac_net) {
+        ESP_LOGW(TAG, "orig-ts mismatch from %s", p->addr_str);
+        return RESP_IGNORE;
+    }
 
     if (pkt->stratum == 0) {
         char code[5] = {0};
@@ -1046,19 +1066,12 @@ static bool process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
         } else {
             p->kod_until_ms = mono_ms() + KOD_BACKOFF_MS;
         }
-        return false;
+        return RESP_BAD;
     }
-    if (li == 3) return false;   // server's clock unsync
-
-    // Match originate timestamp to the one we sent
-    if (pkt->orig_ts_sec != p->xmt_sec_net ||
-        pkt->orig_ts_frac != p->xmt_frac_net) {
-        ESP_LOGW(TAG, "orig-ts mismatch from %s", p->addr_str);
-        return false;
-    }
+    if (li == 3) return RESP_BAD;   // server's clock unsync
 
     // Reject packets with a zero transmit timestamp (server hasn't set clock)
-    if (pkt->xmt_ts_sec == 0) return false;
+    if (pkt->xmt_ts_sec == 0) return RESP_BAD;
 
     struct timeval t2, t3;
     ntp_to_tv(ntohl(pkt->recv_ts_sec), ntohl(pkt->recv_ts_frac), &t2);
@@ -1069,9 +1082,9 @@ static bool process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
     //    would imply the server processed in negative time.
     //  * root_delay and root_dispersion are 16.16 seconds; anything > 16s
     //    is nonsense for a real stratum-N server.
-    if (tv_diff_us(&t3, &t2) < 0) return false;
+    if (tv_diff_us(&t3, &t2) < 0) return RESP_BAD;
     if (fp1616_to_us(ntohl(pkt->root_delay))      > 16000000 ||
-        fp1616_to_us(ntohl(pkt->root_dispersion)) > 16000000) return false;
+        fp1616_to_us(ntohl(pkt->root_dispersion)) > 16000000) return RESP_BAD;
 
     // Prefer the WiFi-hook timestamps (t4 from the RX cb, t1 from the TX-done
     // cb) when present. Skip early_t1 on the cold-boot path: the shift loop
@@ -1157,7 +1170,7 @@ static bool process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
         offset < -(int64_t)PANIC_THRESHOLD_S * 1000000LL) {
         ESP_LOGW(TAG, "Offset %lld us from %s exceeds panic threshold",
                  (long long)offset, p->addr_str);
-        return false;
+        return RESP_BAD;
     }
     if (delay < 0) delay = 0;
     if (delay > 0x7FFFFFFF) delay = 0x7FFFFFFF;
@@ -1228,7 +1241,7 @@ static bool process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
     p->reach |= 1;
     p->consecutive_misses = 0;
     g.last_any_response_ms = mono_ms();
-    return true;
+    return RESP_GOOD;
 }
 
 // ---------- selection (Marzullo intersection + lowest-jitter survivor) ----------
@@ -1627,7 +1640,9 @@ static void handle_socket_readable(int sock) {
 
     ntp_pkt_t pkt;
     memcpy(&pkt, buf, sizeof(pkt));
-    bool ok = process_response(p, &pkt, &t4);
+    ntp_resp_result_t res = process_response(p, &pkt, &t4);
+    if (res == RESP_IGNORE) return;   // stray/dup datagram; request still pending
+    bool ok = (res == RESP_GOOD);
     p->request_outstanding = false;
     p->last_settle_cycle_id = p->cycle_id_when_sent;   // resolved this wave
     uint32_t settled_cycle_id = p->cycle_id_when_sent;
