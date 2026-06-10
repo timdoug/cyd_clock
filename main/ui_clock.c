@@ -55,7 +55,7 @@ static int last_stats_sec = -1;
 static uint8_t led_brightness = BRIGHTNESS_DEFAULT;
 static bool last_time_valid = false;
 static uint8_t last_update_digits = 1;
-static uint32_t last_visible_latency_us = 0;
+static int64_t last_draw_end_us = 0;
 
 // Cached rendered contents for each stats line - skip repaints when unchanged.
 static char last_line1[80] = "";
@@ -72,7 +72,7 @@ static const char *month_names[] = {
 };
 
 static uint8_t digit_change_count(const struct tm *timeinfo) {
-    if (!last_time_valid || last_hour < 0 || last_min < 0 || last_sec < 0) return 6;
+    if (!last_time_valid || last_hour < 0 || last_min < 0 || last_sec < 0) return 7;
 
     int hour = timeinfo->tm_hour;
     int min = timeinfo->tm_min;
@@ -84,7 +84,7 @@ static uint8_t digit_change_count(const struct tm *timeinfo) {
     if (min % 10 != last_min % 10) changes++;
     if (sec / 10 != last_sec / 10) changes++;
     if (sec % 10 != last_sec % 10) changes++;
-    if (timeinfo->tm_yday != last_day) changes = 6;
+    if (timeinfo->tm_yday != last_day) changes = 7;
     if (changes == 0) changes = 1;
     return changes;
 }
@@ -93,12 +93,12 @@ uint8_t ui_clock_last_update_digits(void) {
     return last_update_digits;
 }
 
-uint32_t ui_clock_last_visible_latency_us(void) {
-    return last_visible_latency_us;
+int64_t ui_clock_last_draw_end_us(void) {
+    return last_draw_end_us;
 }
 
 uint8_t ui_clock_predict_next_update_digits(void) {
-    if (!last_time_valid || last_hour < 0) return 6;
+    if (!last_time_valid || last_hour < 0) return 7;
 
     struct timeval tv;
     gettimeofday(&tv, NULL);
@@ -349,7 +349,6 @@ static void draw_ntp_stats(time_t now, int sec) {
 }
 
 void ui_clock_update(void) {
-    int64_t update_start_us = esp_timer_get_time();
     time_t now;
     struct tm timeinfo;
 
@@ -450,9 +449,12 @@ void ui_clock_update(void) {
         }
     }
 
-    int64_t visible_latency = esp_timer_get_time() - update_start_us;
-    last_visible_latency_us = (visible_latency > 0 && visible_latency < UINT32_MAX)
-                              ? (uint32_t)visible_latency : 0;
+    // Absolute stamp of "digit pixels are on the wire": main.c subtracts
+    // the tick ISR's fire stamp to get the full boundary-to-pixels latency
+    // (including the task wake hop) for the fire-early EMA. Stats drawing
+    // below is deliberately outside the measured window - it happens after
+    // the deadline-relevant pixels.
+    last_draw_end_us = esp_timer_get_time();
 
     last_update_digits = update_digits;
     draw_ntp_stats(now, sec);

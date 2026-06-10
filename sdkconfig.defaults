@@ -25,3 +25,8 @@ CONFIG_LWIP_IPV6_AUTOCONFIG=y
 # Reproducible builds: don't embed __DATE__/__TIME__ in the app descriptor
 # (the era anchor in util.h is a hardcoded year for the same reason)
 # CONFIG_APP_COMPILE_TIME_DATE is not set
+
+# Display tick timer fires via ISR dispatch (semaphore give from the timer
+# interrupt) so the esp_timer task - shared with WiFi's timers - is out of
+# the path from second boundary to pixels
+CONFIG_ESP_TIMER_SUPPORTS_ISR_DISPATCH_METHOD=y

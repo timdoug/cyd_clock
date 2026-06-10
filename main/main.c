@@ -3,6 +3,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include "driver/gpio.h"
+#include "esp_attr.h"
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -62,22 +63,36 @@ static esp_timer_handle_t clock_tick_timer;
 // other's estimate, then fire the timer that many us early.
 // Non-static: ui_clock.c reads this to pick the second that will be current
 // when its pixels actually land (see comment in ui_clock_update).
+// Buckets 1-6 are "digits that will repaint"; bucket 7 is the once-a-day
+// date rollover (6 digits plus the date string), which would otherwise
+// pollute the 6-digit bucket with its extra ~4 ms. Bucket 0 is unused.
 // Seeds assume the single-transaction digit renderer: ~1.4 ms per digit
 // (5.7 KB pixel push at 40 MHz + compose) plus ~0.4 ms fixed per tick
 // (timekeeping, colon). The EMA refines them within ~8 ticks.
 volatile uint32_t clock_latency_us = 2000;
-static uint32_t clock_latency_by_digits[7] = {
-    0, 1800, 3200, 4600, 6000, 7400, 8800
+static uint32_t clock_latency_by_digits[8] = {
+    0, 1800, 3200, 4600, 6000, 7400, 8800, 12800
 };
 
-static void clock_tick_cb(void *arg) {
+// Stamped by the tick ISR at fire time; the latency EMA measures from here
+// to pixels-landed, so esp_timer dispatch and the cross-core task wake are
+// inside the compensated window (measuring from ui_clock_update entry left
+// the wake hop as a permanent, uncorrected lateness). Reading this 64-bit
+// value from the main task is safe despite the 32-bit core: the ISR writes
+// it BEFORE giving the semaphore the main task takes before reading.
+static volatile int64_t clock_tick_fire_us;
+
+static void IRAM_ATTR clock_tick_cb(void *arg) {
     (void)arg;
-    xSemaphoreGive(clock_tick_sem);
+    clock_tick_fire_us = esp_timer_get_time();
+    BaseType_t hpw = pdFALSE;
+    xSemaphoreGiveFromISR(clock_tick_sem, &hpw);
+    if (hpw == pdTRUE) portYIELD_FROM_ISR();
 }
 
 static void clock_tick_arm(void) {
     uint8_t predicted_digits = ui_clock_predict_next_update_digits();
-    if (predicted_digits > 6) predicted_digits = 6;
+    if (predicted_digits > 7) predicted_digits = 7;
     clock_latency_us = clock_latency_by_digits[predicted_digits];
 
     struct timeval tv;
@@ -141,8 +156,13 @@ void app_main(void) {
     clock_tick_sem = xSemaphoreCreateBinary();
     ESP_ERROR_CHECK(clock_tick_sem ? ESP_OK : ESP_ERR_NO_MEM);
     const esp_timer_create_args_t tick_args = {
-        .callback = clock_tick_cb,
-        .name     = "clock_tick",
+        .callback        = clock_tick_cb,
+        // ISR dispatch: the default task dispatch routes through the
+        // esp_timer task on core 0, which WiFi's internal timers share -
+        // a running WiFi callback delays our tick by its full duration
+        // (fat-tailed, hundreds of us). The ISR give skips that queue.
+        .dispatch_method = ESP_TIMER_ISR,
+        .name            = "clock_tick",
     };
     ESP_ERROR_CHECK(esp_timer_create(&tick_args, &clock_tick_timer));
 
@@ -300,8 +320,11 @@ void app_main(void) {
                                    pdMS_TO_TICKS(POLL_NORMAL_MS)) == pdTRUE) {
                     // Measure the actual display-update latency and fold into
                     // the EMA used for the next tick's fire-early offset.
+                    // Measured from the ISR fire stamp, not function entry,
+                    // so the task wake hop is part of the compensated window.
                     ui_clock_update();
-                    uint32_t measured = ui_clock_last_visible_latency_us();
+                    int64_t span = ui_clock_last_draw_end_us() - clock_tick_fire_us;
+                    uint32_t measured = (span > 0) ? (uint32_t)span : 0;
                     // Guard against pathological samples. Upper bound is high
                     // enough to keep true rollover samples, but rejects major
                     // scheduler stalls. Lower bound rejects "nothing changed"
@@ -311,7 +334,7 @@ void app_main(void) {
                     if (!skip_next_measurement &&
                         measured >= 500 && measured < 80000) {
                         uint8_t digits = ui_clock_last_update_digits();
-                        if (digits > 6) digits = 6;
+                        if (digits > 7) digits = 7;
                         // EMA with alpha = 1/8: new = (7/8)*old + (1/8)*measured.
                         // Converges in ~8 ticks, smooths cell-count variance.
                         clock_latency_by_digits[digits] =

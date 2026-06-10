@@ -22,7 +22,7 @@ void ui_clock_update(void);
 // rollover ticks separately.
 uint8_t ui_clock_last_update_digits(void);
 uint8_t ui_clock_predict_next_update_digits(void);
-uint32_t ui_clock_last_visible_latency_us(void);
+int64_t ui_clock_last_draw_end_us(void);
 
 // Force full redraw of clock
 void ui_clock_redraw(void);
