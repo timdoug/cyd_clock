@@ -5,8 +5,11 @@
 #include "driver/ledc.h"
 #include "esp_attr.h"
 #include "esp_err.h"
+#include "esp_log.h"
 #include "esp_timer.h"
 #include "config.h"
+
+static const char *TAG = "led";
 
 // Two-timer 1PPS generator on the red status LED. pps_on_timer fires at
 // every wall-clock second boundary and programs the LEDC channel to the
@@ -37,7 +40,12 @@ static esp_timer_handle_t pps_off_timer;
 static volatile uint8_t   pps_brightness;   // user setting; 0 = PPS disabled
 
 // How early to wake before the boundary: EMA of dispatch latency + margin.
-// Everything below runs on the esp_timer task only, so no locking.
+// Normally everything below runs on the esp_timer task; the one exception
+// is led_set_brightness's dead-chain recovery, which calls pps_arm_next
+// from the main task. Safe without locking: esp_timer's API is thread-safe,
+// start_once on an already-armed timer fails as a harmless no-op (so a
+// recovery racing the callback's own re-arm converges to a single arm of
+// the same boundary), and pps_wake_early_us is an aligned 32-bit read.
 #define PPS_EARLY_MARGIN_US 150
 #define PPS_EARLY_MIN_US    200
 #define PPS_EARLY_MAX_US    1500
@@ -162,5 +170,11 @@ void led_set_brightness(uint8_t brightness) {
     if (brightness == 0) {
         esp_timer_stop(pps_off_timer);
         set_led_duty(LED_DUTY_OFF);
+    } else if (!esp_timer_is_active(pps_on_timer)) {
+        ESP_LOGW(TAG, "PPS on-timer inactive while brightness=%u; re-arming",
+                 (unsigned)brightness);
+        set_led_duty(LED_DUTY_OFF);
+        esp_timer_stop(pps_off_timer);
+        pps_arm_next();
     }
 }

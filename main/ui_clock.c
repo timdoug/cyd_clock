@@ -25,7 +25,8 @@ extern volatile uint32_t clock_latency_us;
 
 // Layout constants
 #define TIME_Y      20
-#define DATE_Y      116
+#define FRACTION_Y  98
+#define DATE_Y      124
 #define STATS_Y     168
 #define STATS_LINE2 188
 #define STATS_LINE3 208
@@ -36,6 +37,8 @@ extern volatile uint32_t clock_latency_us;
 #define TIME_DIGIT_STEP     (TIME_DIGIT_WIDTH + TIME_DIGIT_SPACING)
 #define TIME_TOTAL_WIDTH    (6 * TIME_DIGIT_WIDTH + 5 * TIME_DIGIT_SPACING + 2 * COLON_7SEG_WIDTH)
 #define TIME_START_X        ((DISPLAY_WIDTH - TIME_TOTAL_WIDTH) / 2)
+#define FRACTION_WIDTH      (3 * FONT_CHAR_WIDTH)
+#define FRACTION_X          (TIME_START_X + 5 * TIME_DIGIT_STEP + 2 * COLON_7SEG_WIDTH + TIME_DIGIT_WIDTH - FRACTION_WIDTH)
 
 // Colors
 #define COLOR_TIME_FG   COLOR_RED
@@ -52,15 +55,19 @@ static int last_day = -1;
 static bool colon_visible = true;
 static bool last_synced_state = false;
 static int last_stats_sec = -1;
+static int last_centisecond = -1;
+static int last_led_assert_sec = -1;
 static uint8_t led_brightness = BRIGHTNESS_DEFAULT;
 static bool last_time_valid = false;
 static uint8_t last_update_digits = 1;
 static int64_t last_draw_end_us = 0;
+static bool last_draw_had_pixels = false;
 
 // Cached rendered contents for each stats line - skip repaints when unchanged.
 static char last_line1[80] = "";
 static char last_line2[96] = "";
 static char last_line3[96] = "";
+static char last_fraction[4] = "";
 
 static const char *day_names[] = {
     "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
@@ -85,7 +92,6 @@ static uint8_t digit_change_count(const struct tm *timeinfo) {
     if (sec / 10 != last_sec / 10) changes++;
     if (sec % 10 != last_sec % 10) changes++;
     if (timeinfo->tm_yday != last_day) changes = 7;
-    if (changes == 0) changes = 1;
     return changes;
 }
 
@@ -97,6 +103,13 @@ int64_t ui_clock_last_draw_end_us(void) {
     return last_draw_end_us;
 }
 
+bool ui_clock_last_draw_had_pixels(void) {
+    return last_draw_had_pixels;
+}
+
+// May return 0: with the forward display bias the upcoming second is painted
+// by the .99 tick, so the boundary tick that follows sees no digit changes
+// and main.c gives it the fraction-only latency bucket.
 uint8_t ui_clock_predict_next_update_digits(void) {
     if (!last_time_valid || last_hour < 0) return 7;
 
@@ -113,12 +126,15 @@ static void reset_display_state(void) {
     last_min = -1;
     last_sec = -1;
     last_day = -1;
+    last_centisecond = -1;
+    last_led_assert_sec = -1;
     last_synced_state = false;
     last_stats_sec = -1;
     last_time_valid = false;
     last_line1[0] = '\0';
     last_line2[0] = '\0';
     last_line3[0] = '\0';
+    last_fraction[0] = '\0';
 }
 
 void ui_clock_init(void) {
@@ -174,6 +190,36 @@ static void draw_colon(int position, bool visible) {
     } else {
         display_colon_7seg(x, TIME_Y, 2, COLOR_TIME_BG, COLOR_TIME_BG);
     }
+}
+
+static bool draw_fraction(int centisecond) {
+    if (centisecond < 0) centisecond = 0;
+    if (centisecond > 99) centisecond = 99;
+
+    char fraction[4];
+    snprintf(fraction, sizeof(fraction), ".%02d", centisecond);
+    if (strcmp(last_fraction, fraction) == 0) return false;
+
+    if (last_fraction[0] == '\0') {
+        display_string(FRACTION_X, FRACTION_Y, fraction, COLOR_TIME_FG, COLOR_TIME_BG);
+    } else {
+        for (int i = 0; i < 3; i++) {
+            if (last_fraction[i] != fraction[i]) {
+                display_char(FRACTION_X + i * FONT_CHAR_WIDTH, FRACTION_Y,
+                             fraction[i], COLOR_TIME_FG, COLOR_TIME_BG);
+            }
+        }
+    }
+    str_copy(last_fraction, sizeof(last_fraction), fraction);
+    return true;
+}
+
+static bool clear_fraction(void) {
+    if (last_fraction[0] == '\0') return false;
+    display_fill_rect(FRACTION_X, FRACTION_Y, FRACTION_WIDTH, FONT_CHAR_HEIGHT, COLOR_TIME_BG);
+    last_fraction[0] = '\0';
+    last_centisecond = -1;
+    return true;
 }
 
 // Drift in ppm with adaptive precision: 2 decimals under 10, 1 under 100, none above.
@@ -366,20 +412,25 @@ void ui_clock_update(void) {
     time_t now;
     struct tm timeinfo;
 
-    // Pick the second that will be current when the pixels actually land.
+    // Pick the time that should be current when these pixels are likely seen.
     // Two calling contexts:
-    //   (a) Tick-timer fire: timer was armed for (boundary - clock_latency_us),
-    //       so tv_usec is close to 1e6 here and we need to round up to the
-    //       upcoming second so the digit appears in sync with the boundary.
+    //   (a) Tick-timer fire: timer was armed for a 10 ms display tick minus
+    //       the estimated render latency, so add that latency back before
+    //       formatting HH:MM:SS.xx.
     //   (b) ui_clock_redraw after returning from another screen: tv_usec can
-    //       be at any phase. We want to show whatever second will be current
-    //       when the freshly-drawn pixels land, not jump ahead prematurely.
-    // (tv_usec + latency) >= 1e6 correctly captures both: it's true only when
-    // rendering will actually cross the next boundary.
+    //       be at any phase. We still want to show the time that should be
+    //       current after the freshly-drawn pixels land.
+    // DISPLAY_SCAN_BIAS_US (config.h) then pre-advances the result past one
+    // whole tick so each value's VISIBLE flip - after panel scanout - centers
+    // on its true boundary; see the definition for the math.
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    now = tv.tv_sec + ((tv.tv_usec + (suseconds_t)clock_latency_us)
-                       >= 1000000 ? 1 : 0);
+    int64_t display_us = (int64_t)tv.tv_sec * 1000000LL +
+                         (int64_t)tv.tv_usec +
+                         (int64_t)clock_latency_us +
+                         DISPLAY_SCAN_BIAS_US;
+    now = (time_t)(display_us / 1000000LL);
+    int centisecond = (int)((display_us % 1000000LL) / 10000LL);
     localtime_r(&now, &timeinfo);
 
     // Time is valid once NTP has set it: the clock cannot legitimately read
@@ -392,6 +443,7 @@ void ui_clock_update(void) {
         last_min = -1;
         last_sec = -1;
         last_day = -1;
+        last_led_assert_sec = -1;
         led_set_brightness(led_brightness);
     }
     last_time_valid = time_valid;
@@ -400,15 +452,18 @@ void ui_clock_update(void) {
     int min = timeinfo.tm_min;
     int sec = timeinfo.tm_sec;
     uint8_t update_digits = time_valid ? digit_change_count(&timeinfo) : 6;
+    bool drew_pixels = false;
 
     if (time_valid) {
+        if (sec != last_led_assert_sec) {
+            led_set_brightness(led_brightness);
+            last_led_assert_sec = sec;
+        }
+
         // Draw in increasing order of time-criticality. The latency EMA
-        // centers the END of this block on the second boundary, so every
-        // element lands early by however much drawing remains after it -
-        // the LAST element drawn is the boundary-accurate one. That should
-        // be the seconds digit (the pixel that carries the time), not the
-        // cosmetic colon blink: colons first, then the once-a-day date,
-        // then digits hours -> seconds.
+        // centers the END of this block on the tick boundary, so the LAST
+        // element drawn is closest to the predicted visible time. Colons and
+        // date are cosmetic/slow-changing, then HH:MM:SS, then hundredths.
 
         // Blink colons every second. LED is not toggled here anymore - the
         // red LED runs an independent 1PPS pulse driven by a dedicated timer
@@ -419,6 +474,7 @@ void ui_clock_update(void) {
             draw_colon(0, new_colon_visible);
             draw_colon(1, new_colon_visible);
             colon_visible = new_colon_visible;
+            drew_pixels = true;
         }
 
         // Update date only when day changes
@@ -432,31 +488,43 @@ void ui_clock_update(void) {
 
             ui_draw_centered_string(DATE_Y, date_str, COLOR_DATE_FG, COLOR_BLACK, true);
             last_day = timeinfo.tm_yday;
+            drew_pixels = true;
         }
 
         // Update time digits only when they change
         if (hour / 10 != last_hour / 10 || last_hour < 0) {
             draw_time_digit(0, hour / 10);
+            drew_pixels = true;
         }
         if (hour % 10 != last_hour % 10 || last_hour < 0) {
             draw_time_digit(1, hour % 10);
+            drew_pixels = true;
         }
         if (min / 10 != last_min / 10 || last_min < 0) {
             draw_time_digit(2, min / 10);
+            drew_pixels = true;
         }
         if (min % 10 != last_min % 10 || last_min < 0) {
             draw_time_digit(3, min % 10);
+            drew_pixels = true;
         }
         if (sec / 10 != last_sec / 10 || last_sec < 0) {
             draw_time_digit(4, sec / 10);
+            drew_pixels = true;
         }
         if (sec % 10 != last_sec % 10 || last_sec < 0) {
             draw_time_digit(5, sec % 10);
+            drew_pixels = true;
         }
 
         last_hour = hour;
         last_min = min;
         last_sec = sec;
+
+        if (centisecond != last_centisecond || last_centisecond < 0) {
+            drew_pixels |= draw_fraction(centisecond);
+            last_centisecond = centisecond;
+        }
     } else {
         // Time not valid - show dashes, no colons, LED off
         if (last_hour != -2) {
@@ -465,13 +533,15 @@ void ui_clock_update(void) {
             }
             draw_colon(0, false);
             draw_colon(1, false);
+            drew_pixels = true;
+            clear_fraction();
             led_set_brightness(0);
             ui_draw_centered_string(DATE_Y, "Waiting for NTP...", COLOR_DATE_FG, COLOR_BLACK, true);
             last_hour = -2;  // Mark as showing dashes
         }
     }
 
-    // Absolute stamp of "digit pixels are on the wire": main.c subtracts
+    // Absolute stamp of "time pixels are on the wire": main.c subtracts
     // the tick ISR's fire stamp to get the full boundary-to-pixels latency
     // (including the task wake hop) for the fire-early EMA. Stats drawing
     // below is deliberately outside the measured window - it happens after
@@ -479,7 +549,10 @@ void ui_clock_update(void) {
     last_draw_end_us = esp_timer_get_time();
 
     last_update_digits = update_digits;
-    draw_ntp_stats(now, sec);
+    last_draw_had_pixels = drew_pixels;
+    if (sec != last_stats_sec || last_line1[0] == '\0') {
+        draw_ntp_stats(now, sec);
+    }
 }
 
 clock_touch_zone_t ui_clock_check_touch(void) {

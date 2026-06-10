@@ -23,6 +23,7 @@ void ui_clock_update(void);
 uint8_t ui_clock_last_update_digits(void);
 uint8_t ui_clock_predict_next_update_digits(void);
 int64_t ui_clock_last_draw_end_us(void);
+bool ui_clock_last_draw_had_pixels(void);
 
 // Force full redraw of clock
 void ui_clock_redraw(void);

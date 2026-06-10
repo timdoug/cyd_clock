@@ -63,10 +63,27 @@
 #define TOUCH_DEBOUNCE_MS   200
 #define TOUCH_RELEASE_POLL_MS 50
 
-// Clock polling interval (ms) - governs touch responsiveness. The seconds-
-// tick loop sleeps less than this when it's within POLL_NORMAL_MS of the
-// next second boundary so the display ticks right at the boundary.
+// Clock polling interval (ms) - upper bound on the display-tick semaphore
+// wait so touch input stays responsive even if a tick is missed.
 #define POLL_NORMAL_MS      20
+
+// Display tick period for the clock screen: 100 Hz paints the hundredths
+// field once per centisecond.
+#define CLOCK_TICK_PERIOD_US 10000
+
+// Forward bias applied when choosing the time a clock repaint displays.
+// Two stacked delays separate a GRAM write from the value being read off
+// the glass: the ILI9341 scans at ~70 Hz with no TE/VSYNC, so the write
+// becomes visible 0..14 ms later (mean ~7 ms), and the painted value then
+// persists a full tick, so a viewer samples it on average half a tick after
+// it appears. 7 ms + 5 ms crosses one whole tick: every value is painted
+// one tick early, which puts the visible flip ~2.8 ms early on average
+// rather than ~7.2 ms late - as centered as the 10 ms paint quantization
+// allows. (A bias under one tick would be eaten by truncation: ticks are
+// phase-locked to centisecond boundaries, so it would never change the
+// painted value.) main.c adds this when deciding which tick crosses a
+// second; ui_clock.c adds it to the displayed time itself.
+#define DISPLAY_SCAN_BIAS_US (7000 + CLOCK_TICK_PERIOD_US / 2)
 
 // WiFi
 #define WIFI_MAX_RETRY      5

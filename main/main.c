@@ -50,29 +50,30 @@ static char stored_password[MAX_PASSWORD_LEN];
 static char stored_tz[MAX_TIMEZONE_LEN];
 static bool ntp_started = false;
 
-// Hardware-timer-driven second boundary. esp_timer fires a callback at the
-// precise us boundary (aligned to the NTP-disciplined clock), the callback
-// signals this semaphore, and the clock state wakes, updates the display,
-// and re-arms for the next boundary.
+// Hardware-timer-driven clock cadence. esp_timer fires before each display
+// tick boundary (aligned to the NTP-disciplined clock), the callback signals
+// this semaphore, and the clock state wakes, updates the display, and re-arms.
 static SemaphoreHandle_t clock_tick_sem;
 static esp_timer_handle_t clock_tick_timer;
 
 // Adaptive display-pipeline compensation. ui_clock_update takes nonzero time
 // to push pixels over SPI, so firing exactly at the wall-clock boundary makes
-// the visible digit late. Keep separate EMAs by "number of digits that will
-// repaint" so cheap one-second ticks and expensive rollovers don't poison each
-// other's estimate, then fire the timer that many us early.
+// the visible digit late. Keep separate EMAs by "number of HH:MM:SS digits
+// that will repaint" plus a fractional-only bucket so cheap hundredths ticks
+// and expensive rollovers don't poison each other's estimate, then fire the
+// timer that many us early.
 // Non-static: ui_clock.c reads this to pick the second that will be current
 // when its pixels actually land (see comment in ui_clock_update).
-// Buckets 1-6 are "digits that will repaint"; bucket 7 is the once-a-day
-// date rollover (6 digits plus the date string), which would otherwise
-// pollute the 6-digit bucket with its extra ~4 ms. Bucket 0 is unused.
+// Bucket 0 is a fractional-only tick. Buckets 1-6 are "digits that will
+// repaint"; bucket 7 is the once-a-day date rollover (6 digits plus the date
+// string), which would otherwise pollute the 6-digit bucket with its extra
+// ~4 ms.
 // Seeds assume the single-transaction digit renderer: ~1.4 ms per digit
 // (5.7 KB pixel push at 40 MHz + compose) plus ~0.4 ms fixed per tick
 // (timekeeping, colon). The EMA refines them within ~8 ticks.
 volatile uint32_t clock_latency_us = 2000;
 static uint32_t clock_latency_by_digits[8] = {
-    0, 1800, 3200, 4600, 6000, 7400, 8800, 12800
+    900, 1800, 3200, 4600, 6000, 7400, 8800, 12800
 };
 
 // Stamped by the tick ISR at fire time; the latency EMA measures from here
@@ -92,22 +93,32 @@ static void IRAM_ATTR clock_tick_cb(void *arg) {
 }
 
 static void clock_tick_arm(void) {
-    uint8_t predicted_digits = ui_clock_predict_next_update_digits();
-    if (predicted_digits > 7) predicted_digits = 7;
-    clock_latency_us = clock_latency_by_digits[predicted_digits];
-
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    int64_t us_until = (int64_t)(1000000 - (uint32_t)tv.tv_usec) -
-                       (int64_t)clock_latency_us;
+
+    uint32_t usec = (uint32_t)tv.tv_usec;
+    uint32_t phase = usec % CLOCK_TICK_PERIOD_US;
+    uint32_t us_to_tick = CLOCK_TICK_PERIOD_US - phase;
+
+    // Only the tick whose DISPLAYED time crosses into a new second can
+    // repaint HH:MM:SS; with the forward display bias that is the tick one
+    // period before the wall boundary (the .99 tick). The boundary tick
+    // itself then predicts zero changed digits and gets the cheap
+    // fraction-only bucket. Other ticks repaint only the hundredths field.
+    bool next_tick_is_second =
+        ((usec + us_to_tick + DISPLAY_SCAN_BIAS_US) >= 1000000);
+    uint8_t predicted_digits = next_tick_is_second ? ui_clock_predict_next_update_digits() : 0;
+    if (predicted_digits > 7) predicted_digits = 7;
+    uint32_t applied_latency_us = clock_latency_by_digits[predicted_digits];
+    if (applied_latency_us + 500 > us_to_tick) {
+        applied_latency_us = (us_to_tick > 500) ? (us_to_tick - 500) : 0;
+    }
+    clock_latency_us = applied_latency_us;
+
+    int64_t us_until = (int64_t)us_to_tick - (int64_t)clock_latency_us;
     // Too-soon guard: if the compensated fire time has already passed, fire
-    // ASAP rather than pushing to the following second. Pushing a full second
-    // skips the boundary we were aiming for - visible after ui_clock_redraw
-    // when arming lands in the last ~latency us of the second (e.g. :35 jumps
-    // straight to :37, never displaying :36). Firing immediately means the
-    // pixels for the upcoming second land a few ms late but every second is
-    // shown.
-    if (us_until < 1000) us_until = 1000;
+    // once near the target instead of spin-waking until the boundary.
+    if (us_until < 500) us_until = 500;
     esp_timer_stop(clock_tick_timer);
     esp_timer_start_once(clock_tick_timer, (uint64_t)us_until);
 }
@@ -165,7 +176,7 @@ void app_main(void) {
     touch_init();
     led_init();
 
-    // Second-boundary tick machinery
+    // Display tick machinery
     clock_tick_sem = xSemaphoreCreateBinary();
     ESP_ERROR_CHECK(clock_tick_sem ? ESP_OK : ESP_ERR_NO_MEM);
     const esp_timer_create_args_t tick_args = {
@@ -335,7 +346,7 @@ void app_main(void) {
                 if (tick_needs_arm) {
                     // Drain any stale semaphore left over from a previous
                     // CLOCK session (timer may have fired while we were in
-                    // SETTINGS etc), then arm for the next real boundary.
+                    // SETTINGS etc), then arm for the next display tick.
                     xSemaphoreTake(clock_tick_sem, 0);
                     // Wall time may have advanced a whole second past whatever
                     // ui_clock_redraw painted: ui_wait_for_touch_release blocks
@@ -350,9 +361,9 @@ void app_main(void) {
                     skip_next_measurement = true;
                 }
 
-                // Wait for the next second boundary (esp_timer callback) or
+                // Wait for the next display tick (esp_timer callback) or
                 // POLL_NORMAL_MS - whichever comes first. The timeout keeps
-                // touch input responsive during the 1-second wait.
+                // touch input responsive between 100 Hz display ticks.
                 if (xSemaphoreTake(clock_tick_sem,
                                    pdMS_TO_TICKS(POLL_NORMAL_MS)) == pdTRUE) {
                     // Measure the actual display-update latency and fold into
@@ -362,16 +373,17 @@ void app_main(void) {
                     ui_clock_update();
                     int64_t span = ui_clock_last_draw_end_us() - clock_tick_fire_us;
                     uint32_t measured = (span > 0) ? (uint32_t)span : 0;
+                    uint8_t digits = ui_clock_last_update_digits();
+                    if (digits > 7) digits = 7;
                     // Guard against pathological samples. Upper bound is high
                     // enough to keep true rollover samples, but rejects major
-                    // scheduler stalls. Lower bound rejects "nothing changed"
-                    // ticks (~100-200 us of pure timekeeping) that would
-                    // spuriously pull the EMA down; a real single-digit
-                    // update through the one-transaction renderer is ~1.4 ms.
+                    // scheduler stalls. ui_clock_update reports whether the
+                    // time-critical path actually pushed pixels, so no-op
+                    // catch-up/re-fire ticks do not bias the buckets low.
+                    uint32_t min_measured = (digits == 0) ? 100 : 500;
                     if (!skip_next_measurement &&
-                        measured >= 500 && measured < 80000) {
-                        uint8_t digits = ui_clock_last_update_digits();
-                        if (digits > 7) digits = 7;
+                        ui_clock_last_draw_had_pixels() &&
+                        measured >= min_measured && measured < 80000) {
                         // EMA with alpha = 1/8: new = (7/8)*old + (1/8)*measured.
                         // Converges in ~8 ticks, smooths cell-count variance.
                         clock_latency_by_digits[digits] =
