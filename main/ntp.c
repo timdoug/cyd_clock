@@ -156,6 +156,11 @@ typedef struct {
     uint8_t  consecutive_misses;   // polls since last response; trigger swap at threshold
     uint8_t  falseticker_runs;     // consecutive cycles outside Marzullo intersection
     uint8_t  jittery_runs;         // consecutive cycles substantially noisier than best truechimer
+    uint32_t quality_cycle_id;     // wave id of the last falseticker/jittery increment:
+                                   // select_system_peer runs once per RESPONSE (up to
+                                   // 4x per wave), but these counters must move at most
+                                   // once per poll cycle or the eviction thresholds
+                                   // fire ~4x faster than designed
     uint8_t  panic_runs;           // consecutive samples beyond the panic threshold
     int64_t  panic_offset_us;      // most recent panic-rejected offset (for corroboration)
     uint32_t fresh_until_ms;       // mono deadline for the UI-only new-peer highlight
@@ -1435,7 +1440,7 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
 // ---------- selection (Marzullo intersection + lowest-jitter survivor) ----------
 
 static void select_system_peer(void) {
-    struct { int idx; int32_t lo; int32_t hi; } c[NTP_MAX_PEERS];
+    struct { int idx; int64_t lo; int64_t hi; } c[NTP_MAX_PEERS];
     uint32_t now = mono_ms();
     int n = 0;
     for (int i = 0; i < NTP_MAX_PEERS; i++) {
@@ -1446,15 +1451,20 @@ static void select_system_peer(void) {
         // public pool peers: a 60 ms RTT turns every interval into +/-30 ms,
         // which lets stable-but-wrong peers survive. But using zero delay
         // allowance is too tight: honest peers separated by normal path
-        // asymmetry can fail to overlap and selection collapses to whichever
-        // single-peer mask appears first. Use a bounded delay term so consensus
-        // has room for real network uncertainty without letting RTT dominate.
+        // asymmetry can fail to overlap and consensus collapses. Use a
+        // bounded delay term so consensus has room for real network
+        // uncertainty without letting RTT dominate. The peer dispersion
+        // already includes filter jitter (update_peer_filter), so it is NOT
+        // added separately here - that double-counted jitter and widened
+        // every interval beyond the error model.
+        // Intervals are int64: dispersion saturates at INT32_MAX, and
+        // offset +/- unc must not overflow.
         int32_t delay_allowance = p->best_delay_us / 4;
         if (delay_allowance > 10000) delay_allowance = 10000;
-        int32_t unc = delay_allowance + p->jitter_us + aged_peer_dispersion_us(p, now);
+        int64_t unc = (int64_t)delay_allowance + aged_peer_dispersion_us(p, now);
         c[n].idx = i;
-        c[n].lo  = p->best_offset_us - unc;
-        c[n].hi  = p->best_offset_us + unc;
+        c[n].lo  = (int64_t)p->best_offset_us - unc;
+        c[n].hi  = (int64_t)p->best_offset_us + unc;
         n++;
     }
     if (n == 0) {
@@ -1463,20 +1473,34 @@ static void select_system_peer(void) {
         return;
     }
 
-    // Largest subset whose intervals pairwise overlap (max_lo <= min_hi).
-    // n <= 4, so brute-force 2^n - 1 masks.
+    // Largest subset of intervals sharing a common point (max_lo <= min_hi).
+    // n <= 4, so brute-force 2^n - 1 masks. Ties on subset size are broken
+    // by HYSTERESIS: prefer the cluster containing the currently selected
+    // peer. Without it, a 2-2 split resolves by mask enumeration order -
+    // i.e. lowest peer index - and selection can flap between clusters as
+    // jitter nudges the intervals.
+    int sel_bit = -1;
+    for (int i = 0; i < n; i++) {
+        if (c[i].idx == g.selected_peer) { sel_bit = i; break; }
+    }
     int best_count = 0;
     int best_mask  = 0;
     for (int mask = 1; mask < (1 << n); mask++) {
         int count = __builtin_popcount(mask);
         if (count < best_count) continue;
-        int32_t lo = INT32_MIN, hi = INT32_MAX;
+        int64_t lo = INT64_MIN, hi = INT64_MAX;
         for (int i = 0; i < n; i++) {
             if (!(mask & (1 << i))) continue;
             if (c[i].lo > lo) lo = c[i].lo;
             if (c[i].hi < hi) hi = c[i].hi;
         }
-        if (lo <= hi && count > best_count) {
+        if (lo > hi) continue;
+        bool better = count > best_count;
+        if (!better && sel_bit >= 0 &&
+            (mask & (1 << sel_bit)) && !(best_mask & (1 << sel_bit))) {
+            better = true;   // same size, but this cluster keeps the current peer
+        }
+        if (better) {
             best_count = count;
             best_mask  = mask;
         }
@@ -1487,22 +1511,37 @@ static void select_system_peer(void) {
         return;
     }
 
+    // Quality-counter epoch: select_system_peer runs once per good RESPONSE
+    // (up to 4x per wave), so increments are tagged with the wave id and
+    // applied at most once per poll cycle - otherwise the eviction
+    // thresholds fire ~4x faster than their comments claim, and a freshly
+    // swapped-in peer (whose single-sample jitter is delay/2) can be
+    // evicted as "jittery" before its 8-sample filter ever fills.
+    //
+    // Blame also requires a STRICT MAJORITY of candidates in the winning
+    // cluster: a 2-2 split or an everything-disjoint round is evidence of
+    // ambiguity, not of any particular peer lying, so counters stay
+    // untouched (selection still proceeds - the clock needs an answer even
+    // when the vote is ugly).
+    bool majority = (best_count * 2) > n;
+
     int chosen = -1;
     int32_t best_jitter = INT32_MAX;
     for (int i = 0; i < n; i++) {
         ntp_peer_t *pp = &g.peers[c[i].idx];
         if (best_mask & (1 << i)) {
-            // Inside the Marzullo intersection - truechimer this round.
-            pp->falseticker_runs = 0;
+            // Inside the intersection - truechimer this round.
+            if (majority) pp->falseticker_runs = 0;
             if (pp->jitter_us < best_jitter) {
                 best_jitter = pp->jitter_us;
                 chosen = c[i].idx;
             }
-        } else {
-            // Candidate whose interval didn't overlap the consensus.
-            // Count up; the timeout/response path will swap us out if
-            // we're persistently wrong.
+        } else if (majority &&
+                   pp->quality_cycle_id != next_global_poll_cycle_id) {
+            // Outside a majority consensus. Count up (once per cycle); the
+            // eviction path swaps us out if we're persistently wrong.
             if (pp->falseticker_runs < 255) pp->falseticker_runs++;
+            pp->quality_cycle_id = next_global_poll_cycle_id;
         }
     }
     if (chosen < 0) { g.selected_peer = -1; g.stratum = 16; return; }
@@ -1515,16 +1554,22 @@ static void select_system_peer(void) {
     // floor), so this self-calibrates to network conditions: on a crappy
     // WiFi link where every peer runs at 40 ms, nothing churns; on a clean
     // link where the best peer runs at 2 ms, anything above ~8 ms stands
-    // out. Count runs; the dispatch loop swaps at threshold, same path as
-    // falseticker eviction.
+    // out. Count runs (once per cycle, majority rounds only - the shared
+    // quality_cycle_id tag is safe because a peer cannot be both outside
+    // the consensus and a wide insider in the same round); the eviction
+    // path swaps at threshold, same as falsetickers.
     const int32_t JITTER_REL_X = 4;
     for (int i = 0; i < n; i++) {
         ntp_peer_t *pp = &g.peers[c[i].idx];
         bool wide = (best_mask & (1 << i)) &&
                     pp->jitter_us > JITTER_REL_X * best_jitter;
         if (wide) {
-            if (pp->jittery_runs < 255) pp->jittery_runs++;
-        } else {
+            if (majority &&
+                pp->quality_cycle_id != next_global_poll_cycle_id) {
+                if (pp->jittery_runs < 255) pp->jittery_runs++;
+                pp->quality_cycle_id = next_global_poll_cycle_id;
+            }
+        } else if (majority) {
             pp->jittery_runs = 0;
         }
     }
