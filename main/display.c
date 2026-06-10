@@ -334,6 +334,12 @@ void display_init(void) {
     write_command(ILI9341_PIXFMT);
     write_data(0x55);  // 16-bit color
 
+    // NOTE: do not touch FRMCTR1 (0xB1). Raising the refresh to the
+    // datasheet-max ~119 Hz to shrink GRAM-to-glass scan latency was tried
+    // and washed the panel out badly: at 16 clocks/line the source drivers
+    // on this clone panel don't settle, visibly killing contrast. The
+    // default 70 Hz scan is the price of a readable display.
+
     write_command(ILI9341_MADCTL);
     write_data(MADCTL_MV | MADCTL_BGR);  // Landscape mode
 
@@ -531,20 +537,52 @@ void display_string_2x(int16_t x, int16_t y, const char *str, uint16_t fg, uint1
     }
 }
 
-// Draw a single 7-segment element (horizontal or vertical bar)
-static void draw_segment_h(int16_t x, int16_t y, int16_t w, int16_t thick, uint16_t color) {
-    // Horizontal segment with pointed ends
-    for (int t = 0; t < thick; t++) {
-        int inset = (t < thick / 2) ? (thick / 2 - t) : (t - thick / 2);
-        display_hline(x + inset, y + t, w - 2 * inset, color);
+// 7-segment digits are composed into this RAM buffer and pushed to the panel
+// as a single address window + one SPI transaction. The previous path drew
+// each segment as `thick` 1-px hlines/vlines, each a full set_addr_window +
+// data write: ~250 polling transactions per digit at 10-20 us fixed overhead
+// each, ~9.5 ms for a digit whose raw pixel payload is ~1.2 ms at 40 MHz.
+// One transaction recovers that overhead and shrinks the window in which the
+// panel scan can catch a half-drawn digit (tearing) by the same factor.
+// Sized for the size-3 digit: (seg_len + thick) x (2*seg_len + 2*thick - 1).
+static uint8_t digit_buf[(48 + 8) * (2 * 48 + 2 * 8 - 1) * 2];
+
+static void buf_hline(uint8_t *buf, int16_t buf_w, int16_t x, int16_t y,
+                      int16_t w, uint16_t color) {
+    uint8_t hi = color >> 8, lo = color & 0xFF;
+    uint8_t *p = buf + ((size_t)y * buf_w + x) * 2;
+    for (int16_t i = 0; i < w; i++) {
+        *p++ = hi;
+        *p++ = lo;
     }
 }
 
-static void draw_segment_v(int16_t x, int16_t y, int16_t h, int16_t thick, uint16_t color) {
-    // Vertical segment with pointed ends
+static void buf_vline(uint8_t *buf, int16_t buf_w, int16_t x, int16_t y,
+                      int16_t h, uint16_t color) {
+    uint8_t hi = color >> 8, lo = color & 0xFF;
+    uint8_t *p = buf + ((size_t)y * buf_w + x) * 2;
+    for (int16_t i = 0; i < h; i++) {
+        p[0] = hi;
+        p[1] = lo;
+        p += (size_t)buf_w * 2;
+    }
+}
+
+// Segment shapes with pointed ends; geometry identical to the old
+// draw_segment_h/draw_segment_v, just rendered into the compose buffer.
+static void buf_segment_h(uint8_t *buf, int16_t buf_w, int16_t x, int16_t y,
+                          int16_t w, int16_t thick, uint16_t color) {
     for (int t = 0; t < thick; t++) {
         int inset = (t < thick / 2) ? (thick / 2 - t) : (t - thick / 2);
-        display_vline(x + t, y + inset, h - 2 * inset, color);
+        buf_hline(buf, buf_w, x + inset, y + t, w - 2 * inset, color);
+    }
+}
+
+static void buf_segment_v(uint8_t *buf, int16_t buf_w, int16_t x, int16_t y,
+                          int16_t h, int16_t thick, uint16_t color) {
+    for (int t = 0; t < thick; t++) {
+        int inset = (t < thick / 2) ? (thick / 2 - t) : (t - thick / 2);
+        buf_vline(buf, buf_w, x + t, y + inset, h - 2 * inset, color);
     }
 }
 
@@ -560,33 +598,44 @@ void display_digit_7seg(int16_t x, int16_t y, uint8_t digit, uint8_t size, uint1
         default: seg_len = 48; seg_thick = 8; gap = 2; break;
     }
 
+    // Digit bounding box (matches the segment coordinates below).
+    int16_t w = seg_len + seg_thick;
+    int16_t h = 2 * seg_len + 2 * seg_thick - 1;
+    if (x < 0 || y < 0 || x + w > DISPLAY_WIDTH || y + h > DISPLAY_HEIGHT) return;
+
     uint8_t pattern = seg7_patterns[digit];
 
     // All segments shortened by gap and positioned with gaps between them
     int16_t h_len = seg_len - gap * 2;  // Horizontal segments shorter
     int16_t v_len = seg_len - gap;       // Vertical segments shorter
 
-    // Draw all segments - on segments in color, off segments in bg (no flash)
+    // Background-fill the buffer; "off" segments need no explicit erase since
+    // the full bounding box is pushed every time (same no-flash behavior).
+    uint8_t hi = bg >> 8, lo = bg & 0xFF;
+    int32_t total = (int32_t)w * h;
+    for (int32_t i = 0; i < total; i++) {
+        digit_buf[i * 2]     = hi;
+        digit_buf[i * 2 + 1] = lo;
+    }
+
     // Segment 0: top horizontal
-    draw_segment_h(x + seg_thick / 2 + gap, y, h_len, seg_thick, (pattern & 0x01) ? color : bg);
-
+    if (pattern & 0x01) buf_segment_h(digit_buf, w, seg_thick / 2 + gap, 0, h_len, seg_thick, color);
     // Segment 1: top-right vertical
-    draw_segment_v(x + seg_len, y + seg_thick / 2 + gap, v_len, seg_thick, (pattern & 0x02) ? color : bg);
-
+    if (pattern & 0x02) buf_segment_v(digit_buf, w, seg_len, seg_thick / 2 + gap, v_len, seg_thick, color);
     // Segment 2: bottom-right vertical
-    draw_segment_v(x + seg_len, y + seg_len + seg_thick / 2 + gap * 2 + 1, v_len, seg_thick, (pattern & 0x04) ? color : bg);
-
+    if (pattern & 0x04) buf_segment_v(digit_buf, w, seg_len, seg_len + seg_thick / 2 + gap * 2 + 1, v_len, seg_thick, color);
     // Segment 3: bottom horizontal
-    draw_segment_h(x + seg_thick / 2 + gap, y + seg_len * 2 + seg_thick - 1, h_len, seg_thick, (pattern & 0x08) ? color : bg);
-
+    if (pattern & 0x08) buf_segment_h(digit_buf, w, seg_thick / 2 + gap, seg_len * 2 + seg_thick - 1, h_len, seg_thick, color);
     // Segment 4: bottom-left vertical
-    draw_segment_v(x, y + seg_len + seg_thick / 2 + gap * 2 + 1, v_len, seg_thick, (pattern & 0x10) ? color : bg);
-
+    if (pattern & 0x10) buf_segment_v(digit_buf, w, 0, seg_len + seg_thick / 2 + gap * 2 + 1, v_len, seg_thick, color);
     // Segment 5: top-left vertical
-    draw_segment_v(x, y + seg_thick / 2 + gap, v_len, seg_thick, (pattern & 0x20) ? color : bg);
-
+    if (pattern & 0x20) buf_segment_v(digit_buf, w, 0, seg_thick / 2 + gap, v_len, seg_thick, color);
     // Segment 6: middle horizontal
-    draw_segment_h(x + seg_thick / 2 + gap, y + seg_len + seg_thick / 2 - 1, h_len, seg_thick, (pattern & 0x40) ? color : bg);
+    if (pattern & 0x40) buf_segment_h(digit_buf, w, seg_thick / 2 + gap, seg_len + seg_thick / 2 - 1, h_len, seg_thick, color);
+
+    set_addr_window(x, y, w, h);
+    dc_data();
+    spi_write_bytes(digit_buf, (size_t)w * h * 2);
 }
 
 void display_colon_7seg(int16_t x, int16_t y, uint8_t size, uint16_t color, uint16_t bg) {

@@ -397,7 +397,7 @@ void ui_clock_update(void) {
         // Blink colons every second. LED is not toggled here anymore - the
         // red LED runs an independent 1PPS pulse driven by a dedicated timer
         // in led.c, so its edges align to the wall-clock boundary rather
-        // than the display-latency-compensated tick that fires ~12 ms early.
+        // than the display-latency-compensated tick that fires a few ms early.
         bool new_colon_visible = (sec % 2 == 0);
         if (new_colon_visible != colon_visible || last_sec < 0) {
             draw_colon(0, new_colon_visible);

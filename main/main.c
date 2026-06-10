@@ -62,9 +62,12 @@ static esp_timer_handle_t clock_tick_timer;
 // other's estimate, then fire the timer that many us early.
 // Non-static: ui_clock.c reads this to pick the second that will be current
 // when its pixels actually land (see comment in ui_clock_update).
-volatile uint32_t clock_latency_us = 12000;
+// Seeds assume the single-transaction digit renderer: ~1.4 ms per digit
+// (5.7 KB pixel push at 40 MHz + compose) plus ~0.4 ms fixed per tick
+// (timekeeping, colon). The EMA refines them within ~8 ticks.
+volatile uint32_t clock_latency_us = 2000;
 static uint32_t clock_latency_by_digits[7] = {
-    0, 9500, 17000, 24500, 32000, 39500, 47000
+    0, 1800, 3200, 4600, 6000, 7400, 8800
 };
 
 static void clock_tick_cb(void *arg) {
@@ -302,9 +305,11 @@ void app_main(void) {
                     // Guard against pathological samples. Upper bound is high
                     // enough to keep true rollover samples, but rejects major
                     // scheduler stalls. Lower bound rejects "nothing changed"
-                    // ticks that would spuriously pull the EMA down.
+                    // ticks (~100-200 us of pure timekeeping) that would
+                    // spuriously pull the EMA down; a real single-digit
+                    // update through the one-transaction renderer is ~1.4 ms.
                     if (!skip_next_measurement &&
-                        measured >= 3000 && measured < 80000) {
+                        measured >= 500 && measured < 80000) {
                         uint8_t digits = ui_clock_last_update_digits();
                         if (digits > 6) digits = 6;
                         // EMA with alpha = 1/8: new = (7/8)*old + (1/8)*measured.
