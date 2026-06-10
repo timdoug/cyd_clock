@@ -41,6 +41,7 @@ static const char *TAG = "ntp";
 #define RESPONSE_TIMEOUT_MS  2500
 #define STEP_THRESHOLD_US    (128LL * 1000)
 #define PANIC_THRESHOLD_S    1000
+#define PANIC_AGREE_US       500000LL  // panic offsets within 0.5 s corroborate
 #define IDLE_WAKE_MS         5000
 #define NEW_PEER_HIGHLIGHT_MS 10000
 
@@ -151,6 +152,8 @@ typedef struct {
     uint8_t  consecutive_misses;   // polls since last response; trigger swap at threshold
     uint8_t  falseticker_runs;     // consecutive cycles outside Marzullo intersection
     uint8_t  jittery_runs;         // consecutive cycles substantially noisier than best truechimer
+    uint8_t  panic_runs;           // consecutive samples beyond the panic threshold
+    int64_t  panic_offset_us;      // most recent panic-rejected offset (for corroboration)
     uint32_t fresh_until_ms;       // mono deadline for the UI-only new-peer highlight
 } ntp_peer_t;
 
@@ -583,10 +586,12 @@ static int find_worst_eligible_peer(void) {
         }
         if (p->consecutive_misses < 4 &&
             p->falseticker_runs   < 8 &&
-            p->jittery_runs       < 10) continue;
+            p->jittery_runs       < 10 &&
+            p->panic_runs         < 8) continue;
         uint32_t severity = (uint32_t)p->consecutive_misses +
                             (uint32_t)p->falseticker_runs +
-                            (uint32_t)p->jittery_runs;
+                            (uint32_t)p->jittery_runs +
+                            (uint32_t)p->panic_runs;
         if (severity > worst_severity) {
             worst_severity = severity;
             worst          = i;
@@ -1226,9 +1231,76 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
 
     if (offset >  (int64_t)PANIC_THRESHOLD_S * 1000000LL ||
         offset < -(int64_t)PANIC_THRESHOLD_S * 1000000LL) {
-        ESP_LOGW(TAG, "Offset %lld us from %s exceeds panic threshold",
-                 (long long)offset, p->addr_str);
-        return RESP_BAD;
+        // A lone sample this far off is discarded. But if OUR clock is the
+        // falseticker (e.g. the cold-boot step trusted a server that was
+        // wildly wrong), every honest peer panics here forever: their reach
+        // bits never get set, they never enter selection, and the wrong-but-
+        // self-consistent selected peer keeps the staleness watchdog fed -
+        // a sticky lockout with no recovery path. Escape hatch: when this
+        // peer and at least one other have each panicked on consecutive
+        // waves AND their panic offsets agree within PANIC_AGREE_US (honest
+        // peers agree to within network noise; independent liars don't),
+        // conclude we are the falseticker and re-step to the consensus. Two
+        // corroborating peers could in principle be coordinated liars, but
+        // a never-recovers lockout is the worse failure mode.
+        if (p->panic_runs < 255) p->panic_runs++;
+        p->panic_offset_us = offset;
+
+        int agree = 0;
+        for (int i = 0; i < NTP_MAX_PEERS; i++) {
+            ntp_peer_t *q = &g.peers[i];
+            if (!q->active || q->panic_runs < 2) continue;
+            int64_t d = q->panic_offset_us - offset;
+            if (d < 0) d = -d;
+            if (d <= PANIC_AGREE_US) agree++;   // includes self once runs >= 2
+        }
+        if (agree < 2) {
+            ESP_LOGW(TAG, "Offset %lld us from %s exceeds panic threshold",
+                     (long long)offset, p->addr_str);
+            return RESP_BAD;
+        }
+
+        ESP_LOGW(TAG, "%d peers agree we are off by %+lld s; re-stepping",
+                 agree, (long long)(offset / 1000000));
+        step_clock(offset);
+        t1_local = tv_from_us(tv_to_us(&t1_local) + offset);
+        t4_local = tv_from_us(tv_to_us(&t4_local) + offset);
+
+        // Every peer's filter history is in the pre-step frame - invalidate
+        // it all and let the new frame refill. Reach is cleared too: the
+        // formerly-selected peer's full reach register was earned against
+        // the wrong clock.
+        for (int i = 0; i < NTP_MAX_PEERS; i++) {
+            ntp_peer_t *q = &g.peers[i];
+            if (!q->active) continue;
+            memset(q->filter, 0, sizeof(q->filter));
+            q->filter_head      = 0;
+            q->best_offset_us   = 0;
+            q->best_delay_us    = 0;
+            q->jitter_us        = 0;
+            q->dispersion_us    = 16000000;
+            q->reach            = 0;
+            q->falseticker_runs = 0;
+            q->jittery_runs     = 0;
+            q->panic_runs       = 0;
+        }
+        g.selected_peer          = -1;
+        g.stratum                = 16;
+        g.current_poll_s         = MIN_POLL_S;   // fast re-convergence
+        next_global_poll_ms      = 0;            // ...and don't make the settling
+                                                 // peers wait out the old (possibly
+                                                 // 17 min) tick to use it
+        g.poll_adjust            = 0;
+        g.last_freq_sample_ms    = 0;            // don't learn freq across the step
+        g.last_discipline_ms     = mono_ms();    // suppress an immediate discipline
+        g.last_discipline_poll_s = g.current_poll_s;
+        g.sync_count++;
+        g.last_sync_time         = t4_local.tv_sec;
+        g.last_offset_us         = offset;
+
+        // Recompute this sample's offset in the post-step frame (delay is
+        // shift-invariant) and fall through to the normal filter path.
+        offset = (tv_diff_us(&t2, &t1_local) + tv_diff_us(&t3, &t4_local)) / 2;
     }
     if (delay < 0) delay = 0;
     if (delay > 0x7FFFFFFF) delay = 0x7FFFFFFF;
@@ -1316,6 +1388,7 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
     p->last_response_ms = mono_ms();
     p->reach |= 1;
     p->consecutive_misses = 0;
+    p->panic_runs = 0;
     g.last_any_response_ms = mono_ms();
     return RESP_GOOD;
 }
