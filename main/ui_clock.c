@@ -264,7 +264,8 @@ static void draw_line_cached(int y, char *cache, size_t cache_len,
 
 static void draw_ntp_stats(time_t now, int sec) {
     ntp_sys_stats_t sys;
-    ntp_get_sys_stats(&sys);
+    ntp_peer_stats_t peers[NTP_MAX_PEERS];
+    ntp_get_all_stats(&sys, peers);
     const char *server = sys.server[0] ? sys.server : wifi_get_custom_ntp_server();
 
     // Line 1: "Synced: <server>" (green) or "Syncing: <server>" (orange).
@@ -305,10 +306,9 @@ static void draw_ntp_stats(time_t now, int sec) {
     // Line 2: peer reach + adaptive poll + time since last sync
     int peers_reach = 0, peers_total = 0;
     for (int i = 0; i < NTP_MAX_PEERS; i++) {
-        ntp_peer_stats_t p;
-        if (!ntp_get_peer_stats(i, &p)) continue;
+        if (!peers[i].active) continue;
         peers_total++;
-        if (p.reach) peers_reach++;
+        if (peers[i].reach) peers_reach++;
     }
     char poll_buf[16], ago_buf[16];
     ui_fmt_duration_full(poll_buf, sizeof(poll_buf), sys.current_poll_s);

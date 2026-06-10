@@ -278,7 +278,8 @@ static void refresh_dynamic(void) {
     spinner_frame = (spinner_frame + 1) & 3;
 
     ntp_sys_stats_t sys;
-    ntp_get_sys_stats(&sys);
+    ntp_peer_stats_t peers[NTP_MAX_PEERS];
+    ntp_get_all_stats(&sys, peers);
     const char *server = sys.server[0] ? sys.server : "?";
 
     char val[96];
@@ -388,11 +389,10 @@ static void refresh_dynamic(void) {
     // strcmp on addr_str (not numerical IP sort, but stable and identical
     // across reboots when DNS gives back the same set). Inactive slots
     // render as "-" rows below the active peers.
-    ntp_peer_stats_t peers[NTP_MAX_PEERS];
     int active_idx[NTP_MAX_PEERS];
     int n_active = 0;
     for (int i = 0; i < NTP_MAX_PEERS; i++) {
-        if (ntp_get_peer_stats(i, &peers[i]) && peers[i].active) {
+        if (peers[i].active) {
             active_idx[n_active++] = i;
         }
     }

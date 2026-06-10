@@ -2214,12 +2214,9 @@ void ntp_set_prefer_ipv6(bool prefer) {
     if (changed) wake_task();
 }
 
-void ntp_get_sys_stats(ntp_sys_stats_t *out) {
-    if (!out) return;
-    memset(out, 0, sizeof(*out));
-    if (!g.lock) { out->stratum = 16; out->selected_peer = 0xFF; return; }
-
-    lock_take();
+// Lock-held fill helpers shared by the single getters and the combined
+// snapshot below.
+static void fill_sys_stats(ntp_sys_stats_t *out) {
     out->synced         = g.first_sync_done;
     out->last_sync_time = g.last_sync_time;
     out->sync_count     = g.sync_count;
@@ -2241,16 +2238,12 @@ void ntp_get_sys_stats(ntp_sys_stats_t *out) {
     out->stratum        = g.stratum;
     out->selected_peer  = (g.selected_peer < 0) ? 0xFF : (uint8_t)g.selected_peer;
     str_copy(out->server, sizeof(out->server), g.server);
-    lock_give();
 }
 
-bool ntp_get_peer_stats(int idx, ntp_peer_stats_t *out) {
-    if (!out || idx < 0 || idx >= NTP_MAX_PEERS || !g.lock) return false;
-    lock_take();
+static bool fill_peer_stats(int idx, ntp_peer_stats_t *out) {
     ntp_peer_t *p = &g.peers[idx];
-    if (!p->active) { lock_give(); return false; }
+    if (!p->active) return false;
 
-    memset(out, 0, sizeof(*out));
     out->active    = true;
     out->selected  = (g.selected_peer == idx);
     out->stratum   = p->stratum;
@@ -2264,8 +2257,40 @@ bool ntp_get_peer_stats(int idx, ntp_peer_stats_t *out) {
         : UINT32_MAX;
     out->fresh = (int32_t)(mono_ms() - p->fresh_until_ms) < 0;
     str_copy(out->addr_str, sizeof(out->addr_str), p->addr_str);
-    lock_give();
     return true;
+}
+
+void ntp_get_sys_stats(ntp_sys_stats_t *out) {
+    if (!out) return;
+    memset(out, 0, sizeof(*out));
+    if (!g.lock) { out->stratum = 16; out->selected_peer = 0xFF; return; }
+
+    lock_take();
+    fill_sys_stats(out);
+    lock_give();
+}
+
+bool ntp_get_peer_stats(int idx, ntp_peer_stats_t *out) {
+    if (!out || idx < 0 || idx >= NTP_MAX_PEERS || !g.lock) return false;
+    lock_take();
+    memset(out, 0, sizeof(*out));
+    bool ok = fill_peer_stats(idx, out);
+    lock_give();
+    return ok;
+}
+
+void ntp_get_all_stats(ntp_sys_stats_t *sys, ntp_peer_stats_t peers[NTP_MAX_PEERS]) {
+    if (!sys || !peers) return;
+    memset(sys, 0, sizeof(*sys));
+    memset(peers, 0, sizeof(ntp_peer_stats_t) * NTP_MAX_PEERS);
+    if (!g.lock) { sys->stratum = 16; sys->selected_peer = 0xFF; return; }
+
+    lock_take();
+    fill_sys_stats(sys);
+    for (int i = 0; i < NTP_MAX_PEERS; i++) {
+        fill_peer_stats(i, &peers[i]);
+    }
+    lock_give();
 }
 
 void ntp_get_primary_addr_str(char *buf, size_t len) {

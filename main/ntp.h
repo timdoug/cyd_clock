@@ -57,6 +57,11 @@ void ntp_set_prefer_ipv6(bool prefer);
 // Stats
 void ntp_get_sys_stats(ntp_sys_stats_t *out);
 bool ntp_get_peer_stats(int idx, ntp_peer_stats_t *out);
+// One-lock snapshot of system + all peer stats (inactive slots have
+// active == false): the once-a-second UI paths previously took the NTP
+// lock five times per refresh, and a snapshot is also internally
+// consistent rather than five reads of a moving target.
+void ntp_get_all_stats(ntp_sys_stats_t *sys, ntp_peer_stats_t peers[NTP_MAX_PEERS]);
 void ntp_get_primary_addr_str(char *buf, size_t len);
 
 #endif // CYD_NTP_H
