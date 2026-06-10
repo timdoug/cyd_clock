@@ -41,7 +41,6 @@ static const char *TAG = "ntp";
 #define RESPONSE_TIMEOUT_MS  2500
 #define STEP_THRESHOLD_US    (128LL * 1000)
 #define PANIC_THRESHOLD_S    1000
-#define KOD_BACKOFF_MS       (3600UL * 1000)
 #define IDLE_WAKE_MS         5000
 #define NEW_PEER_HIGHLIGHT_MS 10000
 
@@ -1132,7 +1131,13 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
             // find_worst_eligible_peer, so this is not permanent attrition.
             p->active = false;
         } else {
-            p->kod_until_ms = mono_ms() + KOD_BACKOFF_MS;
+            // RATE (or unknown code): per RFC 5905 the KoD's poll field
+            // carries the server's minimum acceptable interval. Honor it,
+            // bounded, instead of going silent for a flat hour.
+            int8_t min_poll = pkt->poll;
+            if (min_poll < 6)  min_poll = 6;    // 64 s floor
+            if (min_poll > 12) min_poll = 12;   // ~68 min cap
+            p->kod_until_ms = mono_ms() + (1000UL << min_poll);
         }
         return RESP_BAD;
     }
