@@ -6,6 +6,7 @@
 #include "esp_attr.h"
 #include "esp_err.h"
 #include "esp_log.h"
+#include "esp_task_wdt.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -223,8 +224,17 @@ void app_main(void) {
         ui_wifi_setup_init(false);
     }
 
+    // Watchdog from here on: every loop path below returns to the top
+    // within tens of milliseconds (the longest block is wifi_connect's
+    // 15 s verdict wait, under the 30 s window), so a trip means the task
+    // is genuinely wedged - reboot and recover rather than displaying a
+    // stale time indefinitely. The press-and-hold wait loops feed it
+    // explicitly.
+    ESP_ERROR_CHECK(esp_task_wdt_add(NULL));
+
     // Main loop
     while (1) {
+        esp_task_wdt_reset();
         switch (app_state) {
             case APP_STATE_INIT:
                 // Should not reach here
@@ -291,6 +301,7 @@ void app_main(void) {
                     tick_needs_arm = true;
                     // Wait for BOOT button release
                     while (gpio_get_level(BOOT_BUTTON_GPIO) == 0) {
+                        esp_task_wdt_reset();
                         vTaskDelay(pdMS_TO_TICKS(TOUCH_RELEASE_POLL_MS));
                     }
                     continue;
@@ -371,6 +382,7 @@ void app_main(void) {
                     ui_clock_init();
                     ui_clock_redraw();
                     while (gpio_get_level(BOOT_BUTTON_GPIO) == 0) {
+                        esp_task_wdt_reset();
                         vTaskDelay(pdMS_TO_TICKS(TOUCH_RELEASE_POLL_MS));
                     }
                     continue;
@@ -459,6 +471,7 @@ void app_main(void) {
                     app_state = APP_STATE_SETTINGS;
                     ui_settings_init();
                     while (gpio_get_level(BOOT_BUTTON_GPIO) == 0) {
+                        esp_task_wdt_reset();
                         vTaskDelay(pdMS_TO_TICKS(TOUCH_RELEASE_POLL_MS));
                     }
                 }

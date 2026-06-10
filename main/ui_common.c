@@ -1,4 +1,5 @@
 #include "ui_common.h"
+#include "esp_task_wdt.h"
 #include <stdio.h>
 #include <string.h>
 #include "freertos/FreeRTOS.h"
@@ -89,7 +90,10 @@ bool ui_back_button_hit(const touch_point_t *touch) {
 }
 
 void ui_wait_for_touch_release(void) {
+    // Feeds the task watchdog: an object resting on the touchscreen must
+    // not look like a wedged main task.
     while (touch_is_pressed()) {
+        esp_task_wdt_reset();
         vTaskDelay(pdMS_TO_TICKS(TOUCH_RELEASE_POLL_MS));
     }
 }
