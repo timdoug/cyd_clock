@@ -337,7 +337,13 @@ static void draw_ntp_stats(time_t now, int sec) {
         snprintf(disp_buf, sizeof(disp_buf), "----");
     } else {
         fmt_offset(off_buf, sizeof(off_buf), sys.last_offset_us);
-        fmt_pm_us(disp_buf, sizeof(disp_buf), sys.root_dispersion_us);
+        // Synchronization distance (root_delay/2 + root_dispersion): the
+        // RFC 5905 worst-case bound on our error vs UTC. Dispersion alone
+        // understated the claim by the path-asymmetry term, delay/2 -
+        // ~10-15 ms against pool servers. The stats drilldown still shows
+        // the components separately.
+        fmt_pm_us(disp_buf, sizeof(disp_buf),
+                  (int64_t)sys.root_delay_us / 2 + sys.root_dispersion_us);
     }
     if (!sys.freq_known) {
         snprintf(drift_buf, sizeof(drift_buf), "----");
