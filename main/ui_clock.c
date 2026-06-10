@@ -402,6 +402,38 @@ void ui_clock_update(void) {
     uint8_t update_digits = time_valid ? digit_change_count(&timeinfo) : 6;
 
     if (time_valid) {
+        // Draw in increasing order of time-criticality. The latency EMA
+        // centers the END of this block on the second boundary, so every
+        // element lands early by however much drawing remains after it -
+        // the LAST element drawn is the boundary-accurate one. That should
+        // be the seconds digit (the pixel that carries the time), not the
+        // cosmetic colon blink: colons first, then the once-a-day date,
+        // then digits hours -> seconds.
+
+        // Blink colons every second. LED is not toggled here anymore - the
+        // red LED runs an independent 1PPS pulse driven by a dedicated timer
+        // in led.c, so its edges align to the wall-clock boundary rather
+        // than the display-latency-compensated tick that fires a few ms early.
+        bool new_colon_visible = (sec % 2 == 0);
+        if (new_colon_visible != colon_visible || last_sec < 0) {
+            draw_colon(0, new_colon_visible);
+            draw_colon(1, new_colon_visible);
+            colon_visible = new_colon_visible;
+        }
+
+        // Update date only when day changes
+        if (timeinfo.tm_yday != last_day || last_day < 0) {
+            char date_str[32];
+            snprintf(date_str, sizeof(date_str), "%s %s %d, %d",
+                     day_names[timeinfo.tm_wday],
+                     month_names[timeinfo.tm_mon],
+                     timeinfo.tm_mday,
+                     timeinfo.tm_year + 1900);
+
+            ui_draw_centered_string(DATE_Y, date_str, COLOR_DATE_FG, COLOR_BLACK, true);
+            last_day = timeinfo.tm_yday;
+        }
+
         // Update time digits only when they change
         if (hour / 10 != last_hour / 10 || last_hour < 0) {
             draw_time_digit(0, hour / 10);
@@ -422,33 +454,9 @@ void ui_clock_update(void) {
             draw_time_digit(5, sec % 10);
         }
 
-        // Blink colons every second. LED is not toggled here anymore - the
-        // red LED runs an independent 1PPS pulse driven by a dedicated timer
-        // in led.c, so its edges align to the wall-clock boundary rather
-        // than the display-latency-compensated tick that fires a few ms early.
-        bool new_colon_visible = (sec % 2 == 0);
-        if (new_colon_visible != colon_visible || last_sec < 0) {
-            draw_colon(0, new_colon_visible);
-            draw_colon(1, new_colon_visible);
-            colon_visible = new_colon_visible;
-        }
-
         last_hour = hour;
         last_min = min;
         last_sec = sec;
-
-        // Update date only when day changes
-        if (timeinfo.tm_yday != last_day || last_day < 0) {
-            char date_str[32];
-            snprintf(date_str, sizeof(date_str), "%s %s %d, %d",
-                     day_names[timeinfo.tm_wday],
-                     month_names[timeinfo.tm_mon],
-                     timeinfo.tm_mday,
-                     timeinfo.tm_year + 1900);
-
-            ui_draw_centered_string(DATE_Y, date_str, COLOR_DATE_FG, COLOR_BLACK, true);
-            last_day = timeinfo.tm_yday;
-        }
     } else {
         // Time not valid - show dashes, no colons, LED off
         if (last_hour != -2) {
