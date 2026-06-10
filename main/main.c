@@ -117,17 +117,21 @@ static void clock_tick_arm(void) {
 // drawn onto it by try_connect_stored_credentials. The old fixed 1.5 s
 // vTaskDelay served branding by delaying time-to-clock by 1.5 s.
 static void show_splash(void) {
+    // Vertically centered as a four-line composition with the connection
+    // status drawn below by try_connect_stored_credentials: lines at
+    // 67/92 + 132/157 with 16 px glyphs span 67..173, centered on y=120.
     display_fill(COLOR_BLACK);
-    ui_draw_centered_string(85, "Domaine Nyquist", COLOR_GRAY, COLOR_BLACK, false);
-    ui_draw_centered_string(110, "The CYD Clock", COLOR_CYAN, COLOR_BLACK, false);
+    ui_draw_centered_string(67, "Domaine Nyquist", COLOR_GRAY, COLOR_BLACK, false);
+    ui_draw_centered_string(92, "The CYD Clock", COLOR_CYAN, COLOR_BLACK, false);
 }
 
 static void try_connect_stored_credentials(void) {
     app_state = APP_STATE_CONNECTING;
 
-    // Drawn onto the splash (still showing) rather than a fresh screen.
-    ui_draw_centered_string(150, "Connecting to", COLOR_WHITE, COLOR_BLACK, false);
-    ui_draw_centered_string(175, stored_ssid, COLOR_CYAN, COLOR_BLACK, false);
+    // Drawn onto the splash (still showing) rather than a fresh screen;
+    // positions complete the centered block (see show_splash).
+    ui_draw_centered_string(132, "Connecting to", COLOR_WHITE, COLOR_BLACK, false);
+    ui_draw_centered_string(157, stored_ssid, COLOR_CYAN, COLOR_BLACK, false);
 
     wifi_init();
     if (wifi_connect(stored_ssid, stored_password)) {
