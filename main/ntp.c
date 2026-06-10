@@ -30,15 +30,13 @@ static const char *TAG = "ntp";
 #define NTP_MODE_SERVER      4
 #define NTP_PKT_SIZE         48
 #define NTP_EPOCH_OFFSET     2208988800UL  // 1900 -> 1970 in seconds
-// NTP era 1 starts 2036-02-07 when the 32-bit NTP seconds counter wraps.
-// Unix time at that moment: 2^32 - NTP_EPOCH_OFFSET = 2085978496.
-#define NTP_ERA1_UNIX_OFFSET 2085978496UL
-// Plausibility window for server timestamps after era mapping. Earlier than
-// 2025 is impossible for this firmware; later than 2100 means a mangled or
-// hostile timestamp field (the era heuristic can project garbage sec words
-// more than a century out).
-#define SANE_UNIX_MIN        1735689600LL  // 2025-01-01
-#define SANE_UNIX_MAX        4102444800LL  // 2100-01-01
+// NTP wire timestamps carry seconds mod 2^32 - one ~136-year "era". This
+// fold constant maps a wire value to Unix seconds mod 2^32 with a single
+// wrapping add: era 0 (1900-2036) wants sec - NTP_EPOCH_OFFSET and era 1+
+// wants sec + (2^32 - NTP_EPOCH_OFFSET), which mod 2^32 are the same
+// operation. ntp_to_tv then resolves the absolute era against the anchor
+// year (util.h).
+#define NTP_UNIX_FOLD        2085978496UL  // 2^32 - NTP_EPOCH_OFFSET
 #define NTP_FILTER_SIZE      8
 
 // Timing
@@ -221,22 +219,25 @@ static uint32_t mono_ms(void) {
 }
 
 static void ntp_to_tv(uint32_t sec, uint32_t frac, struct timeval *tv) {
-    // Handle the 2036 NTP era rollover. Era 0 covers 1900-01-01 through
-    // 2036-02-07; past that, the 32-bit NTP seconds counter wraps and the
-    // value must be interpreted against era 1's Unix offset. Heuristic: any
-    // NTP value below NTP_EPOCH_OFFSET (== Unix 0) represents a time before
-    // 1970, which is implausible for this device, so treat it as era 1.
+    // Map the wire value to Unix seconds mod 2^32 (the add wraps by design;
+    // see NTP_UNIX_FOLD), then resolve the 136-year era ambiguity against
+    // the anchor year (util.h): the device cannot legitimately observe a
+    // time before it, so the unique 64-bit value congruent to `folded`
+    // within [anchor_epoch, anchor_epoch + 2^32) is the right
+    // interpretation - in any era, forever, as long as UTIL_ANCHOR_YEAR is
+    // bumped at least once per ~136 years. (ntpd and chrony anchor the
+    // same ambiguity on "current system time +/- 68 years"; we can't,
+    // because a battery-less cold boot starts at 1970.)
     //
-    // Both eras reduce to ONE wrapping 32-bit add: era 0 wants
-    // sec - NTP_EPOCH_OFFSET, era 1 wants sec + NTP_ERA1_UNIX_OFFSET, and
-    // NTP_ERA1_UNIX_OFFSET == 2^32 - NTP_EPOCH_OFFSET, so mod 2^32 they are
-    // the same operation. Do that add EXPLICITLY in uint32 rather than as an
-    // if/else the optimizer must fold: GCC 15.2 at -O2 was observed folding
-    // the branchy form but keeping the 64-bit carry of the unified add,
-    // which projected current-era (2026) server timestamps 2^32 seconds
-    // forward to the year 2162 and stepped the clock there.
-    uint32_t unix_sec = sec + NTP_ERA1_UNIX_OFFSET;   // wraps mod 2^32 by design
-    tv->tv_sec  = (time_t)unix_sec;
+    // The fold is an EXPLICIT uint32 add rather than a per-era if/else the
+    // optimizer must merge: GCC 15.2 at -O2 was observed folding the branchy
+    // form while keeping the 64-bit carry of the unified add, projecting
+    // current-era timestamps 2^32 seconds into the future.
+    uint32_t folded = sec + NTP_UNIX_FOLD;
+    uint64_t epoch  = (uint64_t)util_anchor_epoch();
+    uint64_t t      = (epoch & ~(uint64_t)0xFFFFFFFF) | folded;
+    if (t < epoch) t += (1ULL << 32);
+    tv->tv_sec  = (time_t)t;
     tv->tv_usec = (suseconds_t)(((uint64_t)frac * 1000000ULL) >> 32);
 }
 
@@ -1170,17 +1171,20 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
     ntp_to_tv(ntohl(pkt->recv_ts_sec), ntohl(pkt->recv_ts_frac), &t2);
     ntp_to_tv(ntohl(pkt->xmt_ts_sec),  ntohl(pkt->xmt_ts_frac),  &t3);
 
-    // Plausibility window on the mapped server timestamps. The era heuristic
-    // in ntp_to_tv maps any 32-bit sec word somewhere in 1970-2102, so a
-    // garbage or mangled field still yields a "valid-looking" timeval that
-    // can sit more than a century from reality (a low sec word era-1
-    // projects a current date to ~2162). The cold-boot step and the
-    // majority-panic re-step trust t2/t3 with no other reference to check
-    // against, so an implausible sample must die here - seen once in the
-    // wild as a clock stepped to July 2162. Log the raw words: if this
-    // fires again we want to know exactly what the server sent.
-    if (t2.tv_sec < SANE_UNIX_MIN || t2.tv_sec > SANE_UNIX_MAX ||
-        t3.tv_sec < SANE_UNIX_MIN || t3.tv_sec > SANE_UNIX_MAX) {
+    // Era-window tripwire on the mapped server timestamps. A correct
+    // ntp_to_tv maps every wire value into [anchor_epoch,
+    // anchor_epoch + 2^32) by construction, so a value outside that window
+    // can only come from a conversion bug - exactly how a GCC 15.2
+    // miscompile that projected timestamps +2^32 s was caught here. The
+    // check costs nothing in device lifetime (the window IS the
+    // representable range); in-window garbage is the job of the panic
+    // threshold and consensus machinery, since the cold-boot step and
+    // majority-panic re-step trust t2/t3 with no other reference. Log the
+    // raw words: if this ever fires we want to know what the server sent.
+    int64_t sane_min = util_anchor_epoch();
+    int64_t sane_max = sane_min + (1LL << 32);
+    if (t2.tv_sec < sane_min || t2.tv_sec >= sane_max ||
+        t3.tv_sec < sane_min || t3.tv_sec >= sane_max) {
         ESP_LOGW(TAG, "Implausible server time from %s: recv=%08lx.%08lx xmt=%08lx.%08lx",
                  p->addr_str,
                  (unsigned long)ntohl(pkt->recv_ts_sec),

@@ -355,8 +355,9 @@ void ui_clock_update(void) {
                        >= 1000000 ? 1 : 0);
     localtime_r(&now, &timeinfo);
 
-    // Check if time is valid (year >= 2025)
-    bool time_valid = (timeinfo.tm_year + 1900 >= 2025);
+    // Time is valid once NTP has set it: the clock cannot legitimately read
+    // earlier than the anchor year (util.h).
+    bool time_valid = (now >= (time_t)util_anchor_epoch());
 
     // If time just became valid, force redraw and enable the 1PPS pulse.
     if (time_valid && !last_time_valid) {
