@@ -21,3 +21,7 @@ CONFIG_LWIP_TCPIP_TASK_AFFINITY_CPU0=y
 
 # Networking
 CONFIG_LWIP_IPV6_AUTOCONFIG=y
+
+# Reproducible builds: don't embed __DATE__/__TIME__ in the app descriptor
+# (the era anchor in util.h is a hardcoded year for the same reason)
+# CONFIG_APP_COMPILE_TIME_DATE is not set
