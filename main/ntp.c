@@ -178,6 +178,7 @@ static struct {
     bool     freq_loaded_from_nvs; // freq_ppm_x1000 was restored at boot - usable before any sync
     bool     freq_learned_this_session;
     uint32_t last_freq_apply_ms;
+    int64_t  freq_apply_residual;  // un-applied remainder, ppb*ms (1e6 = 1 us)
     uint32_t last_freq_sample_ms;
     uint32_t last_discipline_ms;
     uint32_t last_discipline_poll_s;  // current_poll_s at the moment we last disciplined
@@ -1388,6 +1389,11 @@ static void discipline_clock(int32_t offset_us) {
         gettimeofday(&tv, NULL);
         tv = tv_from_us(tv_to_us(&tv) + offset_us);
         settimeofday(&tv, NULL);
+        // The step is a phase discontinuity: the next residual offset only
+        // measures drift accrued SINCE the step, so a freq sample computed
+        // against the pre-step timestamp would be diluted by the whole
+        // spanned window. Skip one learning cycle instead.
+        g.last_freq_sample_ms = 0;
         ESP_LOGI(TAG, "Clock stepped %+ld us", (long)offset_us);
     } else {
         // Merge with any outstanding slew so we don't overwrite it.
@@ -1510,15 +1516,22 @@ static void apply_freq_correction(void) {
 
     // delta_us = (freq_ppm_x1000 / 1000) ppm * (elapsed_ms / 1000) s * 1 us/(ppm*s)
     //          = freq_ppm_x1000 * elapsed_ms / 1_000_000
-    int64_t delta_us = ((int64_t)g.freq_ppm_x1000 * elapsed_ms) / 1000000;
-    if (delta_us == 0) return;   // Keep last_freq_apply_ms; let rounding accumulate
+    // Accumulate in ppb*ms (1e6 ppb*ms = 1 us) and carry the sub-us remainder
+    // forward instead of truncating it away. Discarding the fraction at each
+    // application loses up to ~1 us per apply interval -- an effective
+    // dead-band of up to ~1 ppm pulling toward zero that the PI loop would
+    // otherwise absorb as a biased freq estimate.
+    int64_t accum    = (int64_t)g.freq_ppm_x1000 * elapsed_ms + g.freq_apply_residual;
+    int64_t delta_us = accum / 1000000;   // truncates toward zero; residual keeps accum's sign
+    g.freq_apply_residual = accum - delta_us * 1000000;
+    g.last_freq_apply_ms  = now;
+    if (delta_us == 0) return;
 
     // Merge with any outstanding slew so we don't overwrite it.
     struct timeval outstanding = {0};
     adjtime(NULL, &outstanding);
     struct timeval merged_tv = tv_from_us(tv_to_us(&outstanding) + delta_us);
     adjtime(&merged_tv, NULL);
-    g.last_freq_apply_ms = now;
 }
 
 // ---------- main task ----------
@@ -1857,6 +1870,7 @@ void ntp_init(const char *server, bool prefer_ipv6) {
     g.root_dispersion_us = 0;
     g.combined_offset_us = 0;
     g.last_freq_apply_ms = 0;
+    g.freq_apply_residual = 0;
     g.last_freq_sample_ms = 0;
     g.last_discipline_ms = 0;
     g.last_discipline_poll_s = 0;
