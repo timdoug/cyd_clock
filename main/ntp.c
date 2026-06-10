@@ -1628,7 +1628,12 @@ static bool try_discipline(uint32_t settled_cycle_id) {
     return true;
 }
 
-static void handle_socket_readable(int sock) {
+static void handle_socket_readable(int sock, const struct timeval *t4) {
+    // t4 is stamped by the caller immediately after select() returns, before
+    // taking the NTP lock -- closer to actual packet arrival than stamping
+    // here would be (skips lock contention + recvfrom latency). The WiFi RX
+    // hook timestamp still overrides this when it matches.
+    //
     // RFC 5905 header is 48 bytes, followed by optional RFC 7822 extension
     // fields and a trailing MAC (for authenticated / NTS packets). We don't
     // validate extensions or MAC, but the buffer is sized generously so a
@@ -1639,8 +1644,6 @@ static void handle_socket_readable(int sock) {
     socklen_t fromlen = sizeof(from);
     ssize_t n = recvfrom(sock, buf, sizeof(buf), MSG_DONTWAIT,
                         (struct sockaddr *)&from, &fromlen);
-    struct timeval t4;
-    gettimeofday(&t4, NULL);
     if (n < (ssize_t)sizeof(ntp_pkt_t)) return;
 
     ntp_peer_t *p = NULL;
@@ -1658,7 +1661,7 @@ static void handle_socket_readable(int sock) {
 
     ntp_pkt_t pkt;
     memcpy(&pkt, buf, sizeof(pkt));
-    ntp_resp_result_t res = process_response(p, &pkt, &t4);
+    ntp_resp_result_t res = process_response(p, &pkt, t4);
     if (res == RESP_IGNORE) return;   // stray/dup datagram; request still pending
     bool ok = (res == RESP_GOOD);
     p->request_outstanding = false;
@@ -1867,9 +1870,14 @@ static void ntp_task(void *arg) {
         int sr = select(maxfd + 1, &rfds, NULL, NULL, &tv);
 
         if (sr > 0) {
+            // Stamp t4 before taking the lock: any datagram select() flagged
+            // arrived no later than this, and lock acquisition can add real
+            // latency (UI stats getters hold it briefly).
+            struct timeval t4_sel;
+            gettimeofday(&t4_sel, NULL);
             lock_take();
-            if (g.sock4 >= 0     && FD_ISSET(g.sock4, &rfds))     handle_socket_readable(g.sock4);
-            if (g.sock6 >= 0     && FD_ISSET(g.sock6, &rfds))     handle_socket_readable(g.sock6);
+            if (g.sock4 >= 0     && FD_ISSET(g.sock4, &rfds))     handle_socket_readable(g.sock4, &t4_sel);
+            if (g.sock6 >= 0     && FD_ISSET(g.sock6, &rfds))     handle_socket_readable(g.sock6, &t4_sel);
             if (g.wake_sock >= 0 && FD_ISSET(g.wake_sock, &rfds)) drain_wake_sock();
             lock_give();
         }
