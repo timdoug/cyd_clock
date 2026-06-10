@@ -111,20 +111,22 @@ static void clock_tick_arm(void) {
     esp_timer_start_once(clock_tick_timer, (uint64_t)us_until);
 }
 
+// No fixed delay: the splash stays on screen for the real work that
+// follows (WiFi bring-up and connect, ~3-5 s), with the connection status
+// drawn onto it by try_connect_stored_credentials. The old fixed 1.5 s
+// vTaskDelay served branding by delaying time-to-clock by 1.5 s.
 static void show_splash(void) {
     display_fill(COLOR_BLACK);
     ui_draw_centered_string(85, "Domaine Nyquist", COLOR_GRAY, COLOR_BLACK, false);
     ui_draw_centered_string(110, "The CYD Clock", COLOR_CYAN, COLOR_BLACK, false);
-    ui_draw_centered_string(140, "Initializing...", COLOR_GRAY, COLOR_BLACK, false);
-    vTaskDelay(pdMS_TO_TICKS(1500));
 }
 
 static void try_connect_stored_credentials(void) {
     app_state = APP_STATE_CONNECTING;
 
-    display_fill(COLOR_BLACK);
-    ui_draw_centered_string(100, "Connecting to", COLOR_WHITE, COLOR_BLACK, false);
-    ui_draw_centered_string(130, stored_ssid, COLOR_CYAN, COLOR_BLACK, false);
+    // Drawn onto the splash (still showing) rather than a fresh screen.
+    ui_draw_centered_string(150, "Connecting to", COLOR_WHITE, COLOR_BLACK, false);
+    ui_draw_centered_string(175, stored_ssid, COLOR_CYAN, COLOR_BLACK, false);
 
     wifi_init();
     if (wifi_connect(stored_ssid, stored_password)) {
