@@ -214,11 +214,6 @@ static uint32_t mono_ms(void) {
     return pdTICKS_TO_MS(xTaskGetTickCount());
 }
 
-static void tv_to_ntp(const struct timeval *tv, uint32_t *sec, uint32_t *frac) {
-    *sec  = (uint32_t)(tv->tv_sec + NTP_EPOCH_OFFSET);
-    *frac = (uint32_t)(((uint64_t)tv->tv_usec << 32) / 1000000ULL);
-}
-
 static void ntp_to_tv(uint32_t sec, uint32_t frac, struct timeval *tv) {
     // Handle the 2036 NTP era rollover. Era 0 covers 1900-01-01 through
     // 2036-02-07; past that, the 32-bit NTP seconds counter wraps and the
@@ -823,21 +818,23 @@ static bool send_request(ntp_peer_t *p) {
         return false;
     }
 
-    // Stamp xmt as close to sendto as we can - compose the packet with a
-    // placeholder first, then take t1_pre / sendto / t1_post around the
-    // call itself. We use the MIDPOINT of pre and post as the real t1 for
-    // offset computation, which halves the stack-transit bias vs capturing
-    // only before sendto. The packet's xmt field is composed with t1_pre
-    // (for correlation via orig-ts), which is fine since the server just
-    // echoes whatever we put there - it has no timing semantics.
+    // Fully random transmit timestamp. The server echoes xmt verbatim as
+    // orig and nothing on our side reads it back as a time - it's purely
+    // the correlation key for response matching and the early-stamp rings -
+    // so a 64-bit random nonce works unchanged. Versus stamping the real
+    // clock: an off-path spoofer must guess 64 random bits instead of 32,
+    // and we don't leak clock state (a pre-sync device would otherwise
+    // advertise "clock at epoch" in every request). Same data minimization
+    // chrony applies.
+    pkt.xmt_ts_sec  = esp_random();
+    pkt.xmt_ts_frac = esp_random();
+
+    // Take t1_pre / sendto / t1_post around the call itself; the MIDPOINT
+    // of pre and post is the real t1 for offset computation, which halves
+    // the stack-transit bias vs capturing only before sendto. (The WiFi
+    // TX-done hook usually overrides this t1 anyway.)
     struct timeval t1_pre, t1_post;
     gettimeofday(&t1_pre, NULL);
-    uint32_t sec, frac;
-    tv_to_ntp(&t1_pre, &sec, &frac);
-    frac ^= esp_random();
-    pkt.xmt_ts_sec  = htonl(sec);
-    pkt.xmt_ts_frac = htonl(frac);
-
     ssize_t n = sendto(sock, &pkt, sizeof(pkt), 0,
                        (struct sockaddr *)&p->addr, p->addr_len);
     gettimeofday(&t1_post, NULL);
