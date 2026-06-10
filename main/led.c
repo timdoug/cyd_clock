@@ -15,7 +15,7 @@
 //
 // The RISING edge is what matters for a 1PPS signal, and that's the edge we
 // want precise. LEDC starts driving at the requested duty on the next PWM
-// cycle boundary, so there's up to one PWM period (at 5 kHz, ~200 us) of
+// cycle boundary, so there's up to one PWM period (at 20 kHz, ~50 us) of
 // jitter between our timer callback and the observable rising edge. That's
 // way under the display pipeline's ms-scale error and still a very good
 // 1PPS for a hobby setup. The falling edge lands ~100 ms later +/- another

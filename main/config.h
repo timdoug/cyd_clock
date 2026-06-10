@@ -26,7 +26,13 @@
 // Hardware configuration
 #define SPI_CLOCK_HZ        (40 * 1000 * 1000)  // 40 MHz display SPI
 #define TOUCH_SPI_CLOCK_HZ  (1 * 1000 * 1000)   // 1 MHz touch SPI
-#define PWM_FREQUENCY_HZ    5000                 // Backlight PWM frequency
+// Backlight + status LED PWM frequency (shared LEDC timer). 20 kHz keeps
+// 8-bit duty resolution (LEDC ceiling at 8 bits is 312.5 kHz) while sitting
+// above the audible range - 5 kHz was right at peak hearing sensitivity and
+// could make the backlight supply sing. LEDC latches duty changes at the
+// period boundary, so this also bounds the 1PPS LED edge jitter to one
+// period: 50 us at 20 kHz vs 200 us at 5 kHz.
+#define PWM_FREQUENCY_HZ    20000
 #define BOOT_BUTTON_GPIO    0                    // BOOT button (active low)
 
 // Touch calibration (hardware-specific, adjust for your display)
