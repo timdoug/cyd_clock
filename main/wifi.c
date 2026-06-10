@@ -110,6 +110,14 @@ void wifi_init(void) {
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_start());
 
+    // IDF defaults to WIFI_PS_MIN_MODEM, where the radio sleeps between DTIM
+    // beacons and the AP buffers inbound unicast until the next wake - up to
+    // ~100 ms (AP-dependent) of INBOUND-ONLY delay on NTP responses. That
+    // one-directional delay is exactly the path asymmetry that biases the
+    // NTP offset by half the buffering time. We're wall-powered; keep the
+    // receiver on.
+    ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
+
     // RX hook install moved to the IP_EVENT_STA_GOT_IP handler - wifi-netif
     // registers its own STA rxcb on the connect event, which would clobber
     // ours if we installed here. TX-done cb is global and unaffected, but
