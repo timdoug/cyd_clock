@@ -17,7 +17,7 @@ typedef struct {
     int32_t  offset_us;        // Best-sample offset in microseconds
     int32_t  delay_us;         // Best-sample round-trip delay
     int32_t  jitter_us;        // RMS deviation across recent samples
-    int32_t  dispersion_us;    // Root dispersion estimate
+    int32_t  dispersion_us;    // Peer dispersion (newest sample + jitter, aged)
     uint32_t last_response_ms; // ms since last valid response (UINT32_MAX if never)
     bool     fresh;            // slot was installed recently; UI highlight only
 } ntp_peer_stats_t;

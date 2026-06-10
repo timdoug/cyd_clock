@@ -801,6 +801,18 @@ static void schedule_after_request(ntp_peer_t *p) {
     p->next_poll_cycle_id = next_global_poll_cycle_id;
 }
 
+// Settle a request that could not be sent as a miss and advance the schedule
+// so we don't spin-loop retrying the same unroutable peer every tick. After
+// enough misses the per-peer swap logic will rotate it out.
+static void settle_send_miss(ntp_peer_t *p, uint32_t request_cycle_id) {
+    if (p->consecutive_misses < 255) p->consecutive_misses++;
+    p->reach <<= 1;
+    p->cycle_id_when_sent   = request_cycle_id;
+    p->last_settle_cycle_id = request_cycle_id;
+    schedule_after_request(p);
+    try_discipline(request_cycle_id);
+}
+
 static bool send_request(ntp_peer_t *p) {
     ntp_pkt_t pkt = {0};
     pkt.li_vn_mode = (0 << 6) | (NTP_VERSION << 3) | NTP_MODE_CLIENT;
@@ -818,12 +830,7 @@ static bool send_request(ntp_peer_t *p) {
     int sock = (p->addr.ss_family == AF_INET6) ? g.sock6 : g.sock4;
     if (sock < 0) {
         ESP_LOGW(TAG, "No socket for peer=%s family=%d", p->addr_str, p->addr.ss_family);
-        if (p->consecutive_misses < 255) p->consecutive_misses++;
-        p->reach <<= 1;
-        p->cycle_id_when_sent  = request_cycle_id;
-        p->last_settle_cycle_id = request_cycle_id;
-        schedule_after_request(p);
-        try_discipline(request_cycle_id);
+        settle_send_miss(p, request_cycle_id);
         return false;
     }
 
@@ -849,15 +856,7 @@ static bool send_request(ntp_peer_t *p) {
     gettimeofday(&t1_post, NULL);
     if (n != sizeof(pkt)) {
         ESP_LOGW(TAG, "sendto %s failed (errno=%d)", p->addr_str, errno);
-        // Treat as a miss and advance the schedule so we don't spin-loop
-        // retrying the same unroutable peer every tick. After enough misses
-        // the per-peer swap logic will rotate it out.
-        if (p->consecutive_misses < 255) p->consecutive_misses++;
-        p->reach <<= 1;
-        p->cycle_id_when_sent  = request_cycle_id;
-        p->last_settle_cycle_id = request_cycle_id;
-        schedule_after_request(p);
-        try_discipline(request_cycle_id);
+        settle_send_miss(p, request_cycle_id);
         return false;
     }
 
