@@ -257,6 +257,7 @@ void app_main(void) {
     // Main loop
     while (1) {
         esp_task_wdt_reset();
+        wifi_poll_reconnect();
         switch (app_state) {
             case APP_STATE_INIT:
                 // Should not reach here

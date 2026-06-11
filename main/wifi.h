@@ -29,6 +29,9 @@ bool wifi_connect(const char *ssid, const char *password);
 // Check if connected to WiFi
 bool wifi_is_connected(void);
 
+// Fire any due background reconnect attempt; call from the main loop
+void wifi_poll_reconnect(void);
+
 
 // Start NTP time sync
 void wifi_start_ntp(void);
