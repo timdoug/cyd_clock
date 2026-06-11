@@ -1688,6 +1688,7 @@ static void discipline_clock(int32_t offset_us, bool fresh) {
     bool step = !g.first_sync_done ||
                 offset_us >  STEP_THRESHOLD_US ||
                 offset_us < -STEP_THRESHOLD_US;
+    int32_t applied_us = offset_us;
 
     if (step) {
         step_clock(offset_us);
@@ -1698,10 +1699,27 @@ static void discipline_clock(int32_t offset_us, bool fresh) {
         g.last_freq_sample_ms = 0;
         ESP_LOGI(TAG, "Clock stepped %+ld us", (long)offset_us);
     } else {
+        // Phase gain. An offset inside the clean-wave noise band is more
+        // likely measurement noise than true phase error - between waves
+        // the freq-disciplined crystal is the better authority - so slew
+        // only 1/4 of it and let anything real integrate across waves
+        // (time constant ~4 polls; the freq loop absorbs what persists).
+        // Soft knee keeps the response continuous: the portion of |offset|
+        // within 2x the clean-jitter floor is damped 4x, any excess is
+        // applied in full, so genuine excursions still correct promptly.
+        // floor == 0 (nothing learned yet) means knee 0: full gain during
+        // initial convergence.
+        int32_t knee = 2 * g.freq_jitter_floor;
+        if (knee > FREQ_MAX_OFFSET_US) knee = FREQ_MAX_OFFSET_US;
+        int32_t mag  = offset_us < 0 ? -offset_us : offset_us;
+        int32_t band = mag < knee ? mag : knee;
+        int32_t applied_mag = mag - band + band / 4;
+        applied_us = offset_us < 0 ? -applied_mag : applied_mag;
+
         // Merge with any outstanding slew so we don't overwrite it.
         struct timeval outstanding = {0};
         adjtime(NULL, &outstanding);
-        struct timeval delta = tv_from_us(tv_to_us(&outstanding) + offset_us);
+        struct timeval delta = tv_from_us(tv_to_us(&outstanding) + applied_us);
         adjtime(&delta, NULL);
         // (The slew is applied by the kernel over the next fraction of a
         // second; re-framing the filters below treats it as immediate,
@@ -1781,8 +1799,8 @@ static void discipline_clock(int32_t offset_us, bool fresh) {
                               : !fresh        ? "skip(forced)"
                               : noisy         ? "skip(noisy)"
                                               : "skip(soon)";
-        ESP_LOGI(TAG, "Clock slewed %+ld us (jit %ld/%ld, freq %+ld ppb %s %+ld)",
-                 (long)offset_us, (long)g.system_jitter_us,
+        ESP_LOGI(TAG, "Clock slewed %+ld of %+ld us (jit %ld/%ld, freq %+ld ppb %s %+ld)",
+                 (long)applied_us, (long)offset_us, (long)g.system_jitter_us,
                  (long)g.freq_jitter_floor, (long)g.freq_ppm_x1000,
                  freq_note, (long)freq_step);
 
@@ -1808,9 +1826,10 @@ static void discipline_clock(int32_t offset_us, bool fresh) {
         }
     }
 
-    // Both paths corrected the clock by offset_us; bring every peer's
-    // stored samples into the post-correction frame.
-    shift_filters(offset_us);
+    // Bring every peer's stored samples into the post-correction frame.
+    // The slew path may have applied less than the measured offset; the
+    // leftover stays real in the filters so the next wave sees it.
+    shift_filters(applied_us);
 
     g.first_sync_done = true;
     g.last_offset_us  = offset_us;
