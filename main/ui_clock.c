@@ -56,7 +56,6 @@ static bool colon_visible = true;
 static bool last_synced_state = false;
 static int last_stats_sec = -1;
 static int last_centisecond = -1;
-static int last_led_assert_sec = -1;
 static uint8_t led_brightness = BRIGHTNESS_DEFAULT;
 static bool last_time_valid = false;
 static uint8_t last_update_digits = 1;
@@ -127,7 +126,6 @@ static void reset_display_state(void) {
     last_sec = -1;
     last_day = -1;
     last_centisecond = -1;
-    last_led_assert_sec = -1;
     last_synced_state = false;
     last_stats_sec = -1;
     last_time_valid = false;
@@ -443,7 +441,6 @@ void ui_clock_update(void) {
         last_min = -1;
         last_sec = -1;
         last_day = -1;
-        last_led_assert_sec = -1;
         led_set_brightness(led_brightness);
     }
     last_time_valid = time_valid;
@@ -455,18 +452,13 @@ void ui_clock_update(void) {
     bool drew_pixels = false;
 
     if (time_valid) {
-        if (sec != last_led_assert_sec) {
-            led_set_brightness(led_brightness);
-            last_led_assert_sec = sec;
-        }
-
         // Draw in increasing order of time-criticality. The latency EMA
         // centers the END of this block on the tick boundary, so the LAST
         // element drawn is closest to the predicted visible time. Colons and
         // date are cosmetic/slow-changing, then HH:MM:SS, then hundredths.
 
         // Blink colons every second. LED is not toggled here anymore - the
-        // red LED runs an independent 1PPS pulse driven by a dedicated timer
+        // red LED runs an independent 1PPS pulse driven by a dedicated task
         // in led.c, so its edges align to the wall-clock boundary rather
         // than the display-latency-compensated tick that fires a few ms early.
         bool new_colon_visible = (sec % 2 == 0);

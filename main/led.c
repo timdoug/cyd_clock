@@ -7,124 +7,124 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+#include "freertos/task.h"
 #include "config.h"
 
 static const char *TAG = "led";
 
-// Two-timer 1PPS generator on the red status LED. pps_on_timer fires at
-// every wall-clock second boundary and programs the LEDC channel to the
-// user-configured brightness; pps_off_timer fires 100 ms later and programs
-// duty=off. Between pulses, duty is 0% (LED dark).
+// 1PPS on the red LED: rising edge on each second boundary of the
+// NTP-disciplined clock, ~100 ms pulse, dark between. Only the rising edge
+// needs accuracy.
 //
-// The RISING edge is what matters for a 1PPS signal, and that's the edge we
-// want precise. Two error sources, two countermeasures:
+// A dedicated task re-derives each pulse from gettimeofday, so no state can
+// go stale and any missed wake costs one beat at most. The predecessor - a
+// self-re-arming chain of task-dispatch esp_timers - died permanently when
+// esp_timer task dispatch stalled (timers stayed armed but never fired,
+// which also defeated an is_active-based recovery check).
 //
-//   * esp_timer dispatch latency: pps_on_cb runs in the esp_timer task on
-//     core 0, which WiFi's internal timers share, so the callback starts a
-//     fat-tailed 100-300+ us after the armed deadline. Countermeasure: arm
-//     the wake EARLY by an EMA of the observed dispatch latency plus a
-//     margin, then spin out the remainder on the lock-free monotonic clock
-//     so the duty write lands on the boundary itself.
-//   * LEDC duty latch: the new duty takes effect at the next PWM period
-//     boundary, up to one period (at 20 kHz, ~50 us) after the write. Not
-//     compensated; this is the residual error floor.
-//
-// The falling edge lands ~100 ms later +/- the same effects; pulse width is
-// visibly constant but not sample-accurate, which is fine because pulse
-// width isn't what 1PPS conveys.
-//
-// PWM lets us keep brightness control (gamma-corrected, active-low inverted
-// just like display_set_backlight). brightness = 0 disables the pulse.
-static esp_timer_handle_t pps_on_timer;
-static esp_timer_handle_t pps_off_timer;
-static volatile uint8_t   pps_brightness;   // user setting; 0 = PPS disabled
-
-// How early to wake before the boundary: EMA of dispatch latency + margin.
-// Normally everything below runs on the esp_timer task; the one exception
-// is led_set_brightness's dead-chain recovery, which calls pps_arm_next
-// from the main task. Safe without locking: esp_timer's API is thread-safe,
-// start_once on an already-armed timer fails as a harmless no-op (so a
-// recovery racing the callback's own re-arm converges to a single arm of
-// the same boundary), and pps_wake_early_us is an aligned 32-bit read.
-#define PPS_EARLY_MARGIN_US 150
-#define PPS_EARLY_MIN_US    200
-#define PPS_EARLY_MAX_US    1500
-static uint32_t pps_wake_early_us = 400;
+// Residual rising-edge error: the LEDC duty latches at the next PWM period,
+// up to ~50 us at 20 kHz; everything software-side is ~1 us.
 
 #define PPS_LED_PIN LED_PIN_R
 
-// LEDC 8-bit: 0 = always LOW (= LED fully ON with active-low wiring),
-// 256 = always HIGH (= LED fully OFF). duty = 255 - gamma(brightness) gives
-// a mostly-dark "fully off" state when brightness == 0, though we also
-// explicitly disable the pulse in that case.
+#define PPS_PULSE_MS 100
+
+// Coarse wake leads the boundary by this much; the task spins out the
+// remainder, so the edge carries no semaphore wake jitter.
+#define PPS_WAKE_EARLY_US 700
+
+// Interrupts are masked for this final stretch of the spin so nothing can
+// land between the spin exit and the duty latch trigger. Short enough that
+// a delayed core-1 tick doesn't matter.
+#define PPS_MASKED_SPIN_US 50
+
+// Post-wake clock reread bounds: spin at most this far to the boundary...
+#define PPS_SPIN_MAX_US 5000
+// ...and fire at most this far past it; otherwise the wall clock moved
+// underneath the sleep (NTP step), so skip the beat and reschedule.
+#define PPS_LATE_FIRE_US 50000
+
+// LEDC 8-bit, active-low: duty 256 = always HIGH = LED off.
 #define LED_DUTY_OFF 256
+
+static SemaphoreHandle_t  pps_wake_sem;
+static esp_timer_handle_t pps_wake_timer;
+static volatile uint8_t   pps_brightness;   // user setting; 0 = PPS disabled
+static portMUX_TYPE       pps_spin_lock = portMUX_INITIALIZER_UNLOCKED;
 
 static void set_led_duty(uint32_t duty) {
     ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, duty);
     ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
 }
 
-static void pps_off_cb(void *arg) {
+static void IRAM_ATTR pps_wake_cb(void *arg) {
     (void)arg;
-    set_led_duty(LED_DUTY_OFF);
+    BaseType_t hpw = pdFALSE;
+    xSemaphoreGiveFromISR(pps_wake_sem, &hpw);
+    if (hpw == pdTRUE) portYIELD_FROM_ISR();
 }
 
-// Arm pps_on_timer for (next boundary - pps_wake_early_us), reading
-// gettimeofday fresh so NTP slews move the boundary with the disciplined
-// clock - no drift accumulated across pulses. The < 1000 guard handles the
-// pre-boundary wake position (and the disabled-pulse path): a target inside
-// the next millisecond means we're aiming at the boundary we just serviced,
-// so push to the following one.
-static void pps_arm_next(void) {
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    int32_t us_until = (int32_t)(1000000 - (uint32_t)tv.tv_usec) -
-                       (int32_t)pps_wake_early_us;
-    if (us_until < 1000) us_until += 1000000;
-    esp_timer_start_once(pps_on_timer, (uint32_t)us_until);
+// False on a missed wake; the caller recomputes from the clock either way.
+static bool pps_sleep_us(uint32_t sleep_us) {
+    esp_timer_stop(pps_wake_timer);
+    xSemaphoreTake(pps_wake_sem, 0);             // drain a stale give
+    esp_timer_start_once(pps_wake_timer, sleep_us);
+    return xSemaphoreTake(pps_wake_sem,
+                          pdMS_TO_TICKS(sleep_us / 1000 + 1000)) == pdTRUE;
 }
 
-static void pps_on_cb(void *arg) {
+static void pps_task(void *arg) {
     (void)arg;
-    uint8_t b = pps_brightness;
-
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    uint32_t usec = (uint32_t)tv.tv_usec;
-
-    // Dispatch latency sample: how far past the armed target
-    // (boundary - pps_wake_early_us) did this callback actually start?
-    // usec in the pre-boundary window means we woke as planned; usec just
-    // past the boundary means dispatch ate the whole margin. Anything else
-    // means the wall clock moved underneath us (NTP step) - no sample.
-    uint32_t target = 1000000 - pps_wake_early_us;
-    uint32_t late   = UINT32_MAX;
-    if (usec >= target)                  late = usec - target;
-    else if (usec < PPS_EARLY_MAX_US)    late = usec + pps_wake_early_us;
-    if (late != UINT32_MAX && late < 10000) {
-        static uint32_t dispatch_ema_us = 250;
-        dispatch_ema_us = dispatch_ema_us - dispatch_ema_us / 8 + late / 8;
-        uint32_t early = dispatch_ema_us + PPS_EARLY_MARGIN_US;
-        if (early < PPS_EARLY_MIN_US) early = PPS_EARLY_MIN_US;
-        if (early > PPS_EARLY_MAX_US) early = PPS_EARLY_MAX_US;
-        pps_wake_early_us = early;
-    }
-
-    if (b != 0) {
-        // Spin out the remainder to the boundary on the monotonic clock
-        // (lock-free, immune to a wall step mid-spin), bounded by the early
-        // window, then write the duty. The rising edge then carries only
-        // the LEDC period latch (~50 us at 20 kHz), not dispatch latency.
-        if (usec >= 1000000 - PPS_EARLY_MAX_US) {
-            int64_t boundary = esp_timer_get_time() + (int64_t)(1000000 - usec);
-            while (esp_timer_get_time() < boundary) { }
+    for (;;) {
+        uint8_t b = pps_brightness;
+        if (b == 0) {
+            set_led_duty(LED_DUTY_OFF);
+            vTaskDelay(pdMS_TO_TICKS(250));
+            continue;
         }
-        uint8_t corrected = gamma_correct(b);
-        set_led_duty(255 - corrected);
-        esp_timer_start_once(pps_off_timer, 100 * 1000);   // 100 ms pulse
-    }
 
-    pps_arm_next();
+        struct timeval tv;
+        gettimeofday(&tv, NULL);
+        uint32_t us_to_boundary = 1000000 - (uint32_t)tv.tv_usec;
+        if (us_to_boundary > PPS_WAKE_EARLY_US) {
+            if (!pps_sleep_us(us_to_boundary - PPS_WAKE_EARLY_US)) {
+                ESP_LOGW(TAG, "PPS wake missed; rescheduling");
+                continue;
+            }
+        }
+
+        // Reread the clock (NTP may have moved the boundary during the
+        // sleep) and pin the edge to the monotonic clock, immune to a wall
+        // step mid-spin. Sandwiching gettimeofday between two monotonic
+        // reads removes the pairing skew.
+        int64_t m0 = esp_timer_get_time();
+        gettimeofday(&tv, NULL);
+        int64_t mono = (m0 + esp_timer_get_time()) / 2;
+        uint32_t usec = (uint32_t)tv.tv_usec;
+        uint32_t duty_on = 255 - gamma_correct(b);
+        if (usec >= 1000000 - PPS_SPIN_MAX_US) {
+            int64_t edge = mono + (int64_t)(1000000 - usec);
+            // Pre-stage the duty so only the cheap latch trigger remains
+            // after the spin.
+            ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, duty_on);
+            while (esp_timer_get_time() < edge - PPS_MASKED_SPIN_US) { }
+            portENTER_CRITICAL(&pps_spin_lock);
+            while (esp_timer_get_time() < edge) { }
+            ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
+            portEXIT_CRITICAL(&pps_spin_lock);
+        } else if (usec >= PPS_LATE_FIRE_US) {
+            continue;
+        } else {
+            set_led_duty(duty_on);
+        }
+
+        // Falling edge needs no precision. Always write OFF, even if
+        // brightness changed mid-pulse, so no path leaves the LED latched.
+        vTaskDelay(pdMS_TO_TICKS(PPS_PULSE_MS));
+        set_led_duty(LED_DUTY_OFF);
+    }
 }
 
 void led_init(void) {
@@ -154,27 +154,30 @@ void led_init(void) {
     };
     ledc_channel_config(&ch);
 
-    esp_timer_create_args_t on_args  = { .callback = pps_on_cb,  .name = "pps_on"  };
-    esp_timer_create_args_t off_args = { .callback = pps_off_cb, .name = "pps_off" };
-    ESP_ERROR_CHECK(esp_timer_create(&on_args,  &pps_on_timer));
-    ESP_ERROR_CHECK(esp_timer_create(&off_args, &pps_off_timer));
+    pps_wake_sem = xSemaphoreCreateBinary();
+    ESP_ERROR_CHECK(pps_wake_sem ? ESP_OK : ESP_ERR_NO_MEM);
 
-    // Arm for the first boundary; the callback keeps re-arming itself.
-    pps_arm_next();
+    // ISR dispatch bypasses the esp_timer task (shared with WiFi's timers,
+    // and observed to stall), like main.c's display tick.
+    const esp_timer_create_args_t wake_args = {
+        .callback        = pps_wake_cb,
+        .dispatch_method = ESP_TIMER_ISR,
+        .name            = "pps_wake",
+    };
+    ESP_ERROR_CHECK(esp_timer_create(&wake_args, &pps_wake_timer));
+
+    // Core 1 with the UI task, which it must outrank so the pre-boundary
+    // spin isn't preempted; core 0 has the WiFi/NTP latency tails.
+    BaseType_t ok = xTaskCreatePinnedToCore(pps_task, "pps", 2560, NULL,
+                                            10, NULL, 1);
+    ESP_ERROR_CHECK(ok == pdPASS ? ESP_OK : ESP_ERR_NO_MEM);
 }
 
 void led_set_brightness(uint8_t brightness) {
     pps_brightness = brightness;
     // Immediate response when the user zeros the slider - don't wait up to
-    // 100 ms for the in-flight pulse to end.
+    // a pulse width for the task to notice.
     if (brightness == 0) {
-        esp_timer_stop(pps_off_timer);
         set_led_duty(LED_DUTY_OFF);
-    } else if (!esp_timer_is_active(pps_on_timer)) {
-        ESP_LOGW(TAG, "PPS on-timer inactive while brightness=%u; re-arming",
-                 (unsigned)brightness);
-        set_led_duty(LED_DUTY_OFF);
-        esp_timer_stop(pps_off_timer);
-        pps_arm_next();
     }
 }
