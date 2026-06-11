@@ -14,9 +14,10 @@
 
 static const char *TAG = "led";
 
-// 1PPS on the red LED: rising edge on each second boundary of the
-// NTP-disciplined clock, ~100 ms pulse, dark between. Only the rising edge
-// needs accuracy.
+// 1PPS on the red LED and on the PPS_OUT_PIN header pin: rising edge on
+// each second boundary of the NTP-disciplined clock, ~100 ms pulse, dark/low
+// between. Only the rising edge needs accuracy. The generator runs whenever
+// the clock is valid; LED brightness 0 darkens only the LED.
 //
 // A dedicated task re-derives each pulse from gettimeofday, so no state can
 // go stale and any missed wake costs one beat at most. The predecessor - a
@@ -51,7 +52,8 @@ static const char *TAG = "led";
 
 static SemaphoreHandle_t  pps_wake_sem;
 static esp_timer_handle_t pps_wake_timer;
-static volatile uint8_t   pps_brightness;   // user setting; 0 = PPS disabled
+static volatile bool      pps_enabled;      // clock valid; gates all pulses
+static volatile uint8_t   pps_brightness;   // user setting; 0 = LED dark
 static portMUX_TYPE       pps_spin_lock = portMUX_INITIALIZER_UNLOCKED;
 
 static void set_led_duty(uint32_t duty) {
@@ -78,12 +80,13 @@ static bool pps_sleep_us(uint32_t sleep_us) {
 static void pps_task(void *arg) {
     (void)arg;
     for (;;) {
-        uint8_t b = pps_brightness;
-        if (b == 0) {
+        if (!pps_enabled) {
+            gpio_set_level(PPS_OUT_PIN, 0);
             set_led_duty(LED_DUTY_OFF);
             vTaskDelay(pdMS_TO_TICKS(250));
             continue;
         }
+        uint8_t b = pps_brightness;
 
         struct timeval tv;
         gettimeofday(&tv, NULL);
@@ -103,26 +106,29 @@ static void pps_task(void *arg) {
         gettimeofday(&tv, NULL);
         int64_t mono = (m0 + esp_timer_get_time()) / 2;
         uint32_t usec = (uint32_t)tv.tv_usec;
-        uint32_t duty_on = 255 - gamma_correct(b);
         if (usec >= 1000000 - PPS_SPIN_MAX_US) {
             int64_t edge = mono + (int64_t)(1000000 - usec);
             // Pre-stage the duty so only the cheap latch trigger remains
             // after the spin.
-            ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, duty_on);
+            if (b) ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1,
+                                 255 - gamma_correct(b));
             while (esp_timer_get_time() < edge - PPS_MASKED_SPIN_US) { }
             portENTER_CRITICAL(&pps_spin_lock);
             while (esp_timer_get_time() < edge) { }
-            ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
+            gpio_set_level(PPS_OUT_PIN, 1);   // the unlatched edge goes first
+            if (b) ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
             portEXIT_CRITICAL(&pps_spin_lock);
         } else if (usec >= PPS_LATE_FIRE_US) {
             continue;
         } else {
-            set_led_duty(duty_on);
+            gpio_set_level(PPS_OUT_PIN, 1);
+            if (b) set_led_duty(255 - gamma_correct(b));
         }
 
         // Falling edge needs no precision. Always write OFF, even if
         // brightness changed mid-pulse, so no path leaves the LED latched.
         vTaskDelay(pdMS_TO_TICKS(PPS_PULSE_MS));
+        gpio_set_level(PPS_OUT_PIN, 0);
         set_led_duty(LED_DUTY_OFF);
     }
 }
@@ -131,7 +137,8 @@ void led_init(void) {
     // Green/blue stay plain GPIO, held off. Red is driven by LEDC so we get
     // gamma-corrected PWM brightness while the 1PPS pulse is active.
     gpio_config_t io_conf = {
-        .pin_bit_mask = (1ULL << LED_PIN_G) | (1ULL << LED_PIN_B),
+        .pin_bit_mask = (1ULL << LED_PIN_G) | (1ULL << LED_PIN_B) |
+                        (1ULL << PPS_OUT_PIN),
         .mode         = GPIO_MODE_OUTPUT,
         .pull_up_en   = GPIO_PULLUP_DISABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
@@ -140,6 +147,7 @@ void led_init(void) {
     gpio_config(&io_conf);
     gpio_set_level(LED_PIN_G, 1);
     gpio_set_level(LED_PIN_B, 1);
+    gpio_set_level(PPS_OUT_PIN, 0);   // active high, idle low
 
     // Red on LEDC channel 1; timer 0 is shared with the backlight (see
     // display.c), both running at PWM_FREQUENCY_HZ / 8-bit.
@@ -173,10 +181,19 @@ void led_init(void) {
     ESP_ERROR_CHECK(ok == pdPASS ? ESP_OK : ESP_ERR_NO_MEM);
 }
 
+void led_set_pps_enabled(bool enabled) {
+    pps_enabled = enabled;
+    if (!enabled) {
+        gpio_set_level(PPS_OUT_PIN, 0);
+        set_led_duty(LED_DUTY_OFF);
+    }
+}
+
 void led_set_brightness(uint8_t brightness) {
     pps_brightness = brightness;
     // Immediate response when the user zeros the slider - don't wait up to
-    // a pulse width for the task to notice.
+    // a pulse width for the task to notice. LED only; the header pin keeps
+    // pulsing.
     if (brightness == 0) {
         set_led_duty(LED_DUTY_OFF);
     }

@@ -23,6 +23,11 @@
 #define LED_PIN_G  16
 #define LED_PIN_B  17
 
+// Bare-GPIO 1PPS output on the CN1 header (GND/IO22/IO27/3V3), active high.
+// A direct register write has no PWM period latch, so this edge is ~1 us
+// from the local clock boundary vs up to ~50 us for the LED.
+#define PPS_OUT_PIN 27
+
 // Hardware configuration
 #define SPI_CLOCK_HZ        (40 * 1000 * 1000)  // 40 MHz display SPI
 #define TOUCH_SPI_CLOCK_HZ  (1 * 1000 * 1000)   // 1 MHz touch SPI

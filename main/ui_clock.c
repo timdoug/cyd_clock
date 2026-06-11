@@ -442,6 +442,7 @@ void ui_clock_update(void) {
         last_sec = -1;
         last_day = -1;
         led_set_brightness(led_brightness);
+        led_set_pps_enabled(true);
     }
     last_time_valid = time_valid;
 
@@ -527,7 +528,7 @@ void ui_clock_update(void) {
             draw_colon(1, false);
             drew_pixels = true;
             clear_fraction();
-            led_set_brightness(0);
+            led_set_pps_enabled(false);
             ui_draw_centered_string(DATE_Y, "Waiting for NTP...", COLOR_DATE_FG, COLOR_BLACK, true);
             last_hour = -2;  // Mark as showing dashes
         }
