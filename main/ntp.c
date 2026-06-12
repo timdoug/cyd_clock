@@ -1821,14 +1821,15 @@ static void discipline_clock(int32_t offset_us, bool fresh) {
                  freq_note, (long)freq_step);
 
         // Persist the freq estimate to NVS so cold boots don't need to
-        // re-converge from 0 ppm. Throttled to once per 30 minutes AND only
-        // if the estimate has shifted by >= 0.1 ppm since the last write -
-        // keeps flash wear trivial (a handful of writes per day at most)
-        // while still tracking slow temperature drift.
+        // re-converge from 0 ppm. The 30-minute interval gate alone bounds
+        // flash wear (<= 48 log-entry writes/day against a ~100k-cycle
+        // budget), so the delta gate only needs to suppress pointless
+        // rewrites of estimator noise: 10 ppb is ~10 us per 1024 s window,
+        // well under what a freshly booted loop can resolve anyway.
         static uint32_t last_freq_save_ms;
         static int32_t  last_saved_freq    = INT32_MIN;
         const  uint32_t SAVE_INTERVAL_MS   = 30 * 60 * 1000;
-        const  int32_t  SAVE_DELTA_PPB     = 100;     // 0.1 ppm
+        const  int32_t  SAVE_DELTA_PPB     = 10;      // 0.01 ppm
         int32_t  freq_delta = g.freq_ppm_x1000 - last_saved_freq;
         if (freq_delta < 0) freq_delta = -freq_delta;
         bool freq_known = g.freq_loaded_from_nvs || g.freq_learned_this_session;
