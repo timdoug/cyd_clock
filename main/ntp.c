@@ -1709,8 +1709,25 @@ static void discipline_clock(int32_t offset_us, bool fresh) {
         // applied in full, so genuine excursions still correct promptly.
         // floor == 0 (nothing learned yet) means knee 0: full gain during
         // initial convergence.
+        //
+        // The band only makes sense while a wave's offset is noise-
+        // dominated. As wave spacing grows, accumulated crystal drift
+        // dominates instead (1 ppm tracking error = ~1 ms per 1024 s
+        // window), and damping a real sawtooth at 1/4 per wave lets it
+        // build multi-ms excursions - so the knee shrinks as 64/span
+        // toward full gain at long polls. span comes from the actual
+        // inter-wave gap, robust to forced or missed waves; zero
+        // last_freq_sample_ms (first wave, or just stepped) means full
+        // gain to reconverge fast.
+        uint32_t now_ms = mono_ms();
         int32_t knee = 2 * g.freq_jitter_floor;
         if (knee > FREQ_MAX_OFFSET_US) knee = FREQ_MAX_OFFSET_US;
+        if (g.last_freq_sample_ms != 0) {
+            uint32_t span_s = (now_ms - g.last_freq_sample_ms) / 1000;
+            if (span_s > 64) knee = (int32_t)(((int64_t)knee * 64) / span_s);
+        } else {
+            knee = 0;
+        }
         int32_t mag  = offset_us < 0 ? -offset_us : offset_us;
         int32_t band = mag < knee ? mag : knee;
         int32_t applied_mag = mag - band + band / 4;
@@ -1753,7 +1770,6 @@ static void discipline_clock(int32_t offset_us, bool fresh) {
         // and a genuinely noisier link still re-floors over time. Learn
         // when this wave is within 1.5x the floor; the hard FREQ_MAX_JITTER
         // ceiling still bounds the bootstrap wave.
-        uint32_t now_ms = mono_ms();
         int32_t freq_step = 0;
         bool learned_freq = false;
         bool noisy = false;
@@ -1858,6 +1874,18 @@ static void adaptive_poll_update(void) {
 
     ntp_peer_t *sp = (g.selected_peer >= 0) ? &g.peers[g.selected_peer] : NULL;
     bool good = sp && (sp->reach & 0x01) && g.system_jitter_us < JITTER_MAX_US;
+
+    // Offset-aware: growing the poll is only safe while wave offsets stay
+    // inside the noise band. A residual beyond 2x the clean-jitter floor
+    // means phase is accruing faster than the freq loop tracks at this
+    // spacing - a longer window would accumulate more error between
+    // corrections, so count it against the run instead. Floor == 0
+    // (unlearned) skips the check.
+    int64_t off = g.last_offset_us;
+    if (off < 0) off = -off;
+    if (g.freq_jitter_floor > 0 && off > 2 * (int64_t)g.freq_jitter_floor) {
+        good = false;
+    }
 
     // Saturate the counter at the run thresholds: at MAX_POLL_S (or pinned to
     // MIN_POLL_S during an outage) nothing resets it, and an int8_t would
