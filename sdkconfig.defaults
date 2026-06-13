@@ -21,6 +21,7 @@ CONFIG_LWIP_TCPIP_TASK_AFFINITY_CPU0=y
 
 # Networking
 CONFIG_LWIP_IPV6_AUTOCONFIG=y
+CONFIG_LWIP_DNS_MAX_HOST_IP=4
 
 # Reproducible builds: don't embed __DATE__/__TIME__ in the app descriptor
 # (the era anchor in util.h is a hardcoded year for the same reason)

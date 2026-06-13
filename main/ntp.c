@@ -15,7 +15,6 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
-#include "lwip/dns.h"
 #include "lwip/netdb.h"
 #include "lwip/sockets.h"
 #include "nvs_config.h"
@@ -312,96 +311,50 @@ static bool sockaddr_matches(const struct sockaddr_storage *a,
 
 // ---------- DNS (multi-record) ----------
 
-// LWIP's getaddrinfo only surfaces the first A/AAAA record, even though
-// pool.ntp.org typically returns several. Talk to the system resolver directly
-// so we can harvest all records and use them as distinct NTP peers.
+// CONFIG_LWIP_DNS_MAX_HOST_IP controls how many addresses lwIP keeps per DNS
+// answer. With it set to NTP_MAX_PEERS, getaddrinfo() gives us the peer list
+// without a packet-level DNS parser here.
 
-#define DNS_PORT           53
-#define DNS_TYPE_A         1
-#define DNS_TYPE_AAAA      28
-#define DNS_CLASS_IN       1
-#define DNS_RECV_TIMEOUT_S 2
+static int resolve_numeric_host(const char *host, struct sockaddr_storage *out, int max) {
+    if (!host || max <= 0) return 0;
 
-// Advance past a DNS name. Returns new offset, or -1 on malformed input.
-static int dns_skip_name(const uint8_t *buf, int len, int pos) {
-    while (pos < len) {
-        uint8_t x = buf[pos];
-        if (x == 0) return pos + 1;
-        if ((x & 0xC0) == 0xC0) return pos + 2;  // compression pointer
-        if (x > 63) return -1;
-        pos += 1 + x;
+    struct sockaddr_in *sin = (struct sockaddr_in *)&out[0];
+    memset(sin, 0, sizeof(*sin));
+    if (inet_pton(AF_INET, host, &sin->sin_addr) == 1) {
+        sin->sin_family = AF_INET;
+        sin->sin_port   = htons(NTP_PORT);
+        return 1;
     }
-    return -1;
+
+    struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)&out[0];
+    memset(sin6, 0, sizeof(*sin6));
+    if (inet_pton(AF_INET6, host, &sin6->sin6_addr) == 1) {
+        sin6->sin6_family = AF_INET6;
+        sin6->sin6_port   = htons(NTP_PORT);
+        return 1;
+    }
+
+    return 0;
 }
 
-static int dns_build_query(uint8_t *buf, size_t buflen, uint16_t id,
-                           const char *name, uint16_t qtype) {
-    if (buflen < 12) return -1;
-    buf[0] = id >> 8; buf[1] = id & 0xFF;
-    buf[2] = 0x01;    buf[3] = 0x00;       // flags: RD
-    buf[4] = 0x00;    buf[5] = 0x01;       // QDCOUNT
-    buf[6] = buf[7] = buf[8] = buf[9] = buf[10] = buf[11] = 0;
-    int pos = 12;
+static int append_getaddrinfo_results(const char *host, int family,
+                                      struct sockaddr_storage *out,
+                                      int count, int max) {
+    struct addrinfo hints = {
+        .ai_family   = family,
+        .ai_socktype = SOCK_DGRAM,
+        .ai_protocol = IPPROTO_UDP,
+    };
+    struct addrinfo *res = NULL;
+    if (getaddrinfo(host, "123", &hints, &res) != 0) return count;
 
-    const char *s = name;
-    while (*s) {
-        const char *dot = strchr(s, '.');
-        size_t label_len = dot ? (size_t)(dot - s) : strlen(s);
-        if (label_len == 0 || label_len > 63) return -1;
-        if ((size_t)(pos + 1 + label_len + 1 + 4) > buflen) return -1;
-        buf[pos++] = (uint8_t)label_len;
-        memcpy(&buf[pos], s, label_len);
-        pos += (int)label_len;
-        s += label_len;
-        if (*s == '.') s++;
-    }
-    buf[pos++] = 0;
-    buf[pos++] = qtype >> 8; buf[pos++] = qtype & 0xFF;
-    buf[pos++] = 0;          buf[pos++] = DNS_CLASS_IN;
-    return pos;
-}
-
-// Append A/AAAA answers into out[] starting at index `count`, up to `max`.
-static int dns_parse_answers(const uint8_t *buf, int len,
-                             struct sockaddr_storage *out, int count, int max) {
-    if (len < 12) return count;
-    uint16_t flags   = (buf[2] << 8) | buf[3];
-    if ((flags & 0x000F) != 0) return count;   // rcode != NOERROR
-    uint16_t qdcount = (buf[4] << 8) | buf[5];
-    uint16_t ancount = (buf[6] << 8) | buf[7];
-    int pos = 12;
-
-    for (int i = 0; i < qdcount; i++) {
-        pos = dns_skip_name(buf, len, pos);
-        if (pos < 0 || pos + 4 > len) return count;
-        pos += 4;
-    }
-    for (int i = 0; i < ancount && count < max; i++) {
-        pos = dns_skip_name(buf, len, pos);
-        if (pos < 0 || pos + 10 > len) return count;
-        uint16_t type  = (buf[pos] << 8) | buf[pos + 1];
-        uint16_t rdlen = (buf[pos + 8] << 8) | buf[pos + 9];
-        pos += 10;
-        if (pos + rdlen > len) return count;
+    for (struct addrinfo *ai = res; ai && count < max; ai = ai->ai_next) {
+        if (ai->ai_addrlen > sizeof(out[0])) continue;
+        if (ai->ai_family != AF_INET && ai->ai_family != AF_INET6) continue;
 
         struct sockaddr_storage cand;
         memset(&cand, 0, sizeof(cand));
-        bool have = false;
-        if (type == DNS_TYPE_A && rdlen == 4) {
-            struct sockaddr_in *sin = (struct sockaddr_in *)&cand;
-            sin->sin_family = AF_INET;
-            sin->sin_port   = htons(NTP_PORT);
-            memcpy(&sin->sin_addr, &buf[pos], 4);
-            have = true;
-        } else if (type == DNS_TYPE_AAAA && rdlen == 16) {
-            struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)&cand;
-            sin6->sin6_family = AF_INET6;
-            sin6->sin6_port   = htons(NTP_PORT);
-            memcpy(&sin6->sin6_addr, &buf[pos], 16);
-            have = true;
-        }
-        pos += rdlen;
-        if (!have) continue;
+        memcpy(&cand, ai->ai_addr, ai->ai_addrlen);
 
         bool dup = false;
         for (int j = 0; j < count; j++) {
@@ -409,70 +362,24 @@ static int dns_parse_answers(const uint8_t *buf, int len,
         }
         if (!dup) out[count++] = cand;
     }
-    return count;
-}
 
-static int dns_query_one(int sock, const char *host,
-                         uint16_t qtype, struct sockaddr_storage *out,
-                         int count, int max) {
-    uint8_t qbuf[256], rbuf[512];
-    uint16_t id = esp_random() & 0xFFFF;
-    int qlen = dns_build_query(qbuf, sizeof(qbuf), id, host, qtype);
-    if (qlen <= 0) return count;
-    if (send(sock, qbuf, qlen, 0) != qlen) {
-        return count;
-    }
-    for (int tries = 0; tries < 4; tries++) {
-        ssize_t n = recv(sock, rbuf, sizeof(rbuf), 0);
-        if (n < 0) return count;     // timeout or socket error
-        if (n < 12) continue;        // runt datagram; keep waiting for the answer
-        uint16_t resp_id = ((uint16_t)rbuf[0] << 8) | rbuf[1];
-        uint16_t flags   = ((uint16_t)rbuf[2] << 8) | rbuf[3];
-        if (resp_id != id || (flags & 0x8000) == 0) {
-            continue;   // stale response from a previous query on this socket
-        }
-        return dns_parse_answers(rbuf, (int)n, out, count, max);
-    }
+    freeaddrinfo(res);
     return count;
 }
 
 static int dns_resolve_all(const char *host, bool prefer_ipv6,
                            struct sockaddr_storage *out, int max) {
-    const ip_addr_t *server = dns_getserver(0);
-    if (!server || ip_addr_isany(server)) return 0;
-    if (!IP_IS_V4(server)) return 0;   // only v4 DNS servers supported
+    int count = resolve_numeric_host(host, out, max);
+    if (count > 0) return count;
 
-    int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (sock < 0) return 0;
-
-    struct timeval tv = { .tv_sec = DNS_RECV_TIMEOUT_S, .tv_usec = 0 };
-    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
-
-    struct sockaddr_in dst = {
-        .sin_family = AF_INET,
-        .sin_port   = htons(DNS_PORT),
-    };
-    dst.sin_addr.s_addr = ip_addr_get_ip4_u32(server);
-
-    // connect() so the stack only delivers datagrams from the resolver;
-    // otherwise recv() accepts any source and the 16-bit query ID is the
-    // only protection against off-path spoofed answers.
-    if (connect(sock, (const struct sockaddr *)&dst, sizeof(dst)) != 0) {
-        close(sock);
-        return 0;
-    }
-
-    // With the toggle off ("IPv6: Off"), skip AAAA entirely - the user wants
-    // A-records only. With it on, prefer AAAA and fall back to A so dual-stack
-    // still works when the v6 path is broken.
-    int count = 0;
     if (prefer_ipv6) {
-        count = dns_query_one(sock, host, DNS_TYPE_AAAA, out, count, max);
+        count = append_getaddrinfo_results(host, AF_INET6, out, count, max);
+        if (count < max) {
+            count = append_getaddrinfo_results(host, AF_INET, out, count, max);
+        }
+    } else {
+        count = append_getaddrinfo_results(host, AF_INET, out, count, max);
     }
-    if (count < max) {
-        count = dns_query_one(sock, host, DNS_TYPE_A, out, count, max);
-    }
-    close(sock);
     return count;
 }
 
@@ -521,24 +428,6 @@ static int resolve_peers(void) {
 
     struct sockaddr_storage addrs[NTP_MAX_PEERS];
     int n = dns_resolve_all(server_copy, prefer_ipv6_copy, addrs, NTP_MAX_PEERS);
-
-    // Fallback to LWIP getaddrinfo if direct DNS failed (e.g. v6-only resolver).
-    if (n == 0) {
-        struct addrinfo hints = {
-            .ai_family   = prefer_ipv6_copy ? AF_UNSPEC : AF_INET,
-            .ai_socktype = SOCK_DGRAM,
-            .ai_protocol = IPPROTO_UDP,
-        };
-        struct addrinfo *res = NULL;
-        if (getaddrinfo(server_copy, "123", &hints, &res) == 0) {
-            for (struct addrinfo *ai = res; ai && n < NTP_MAX_PEERS; ai = ai->ai_next) {
-                if (ai->ai_addrlen > sizeof(addrs[0])) continue;
-                memcpy(&addrs[n], ai->ai_addr, ai->ai_addrlen);
-                n++;
-            }
-            if (res) freeaddrinfo(res);
-        }
-    }
 
     lock_take();
 
