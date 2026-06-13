@@ -312,13 +312,10 @@ static void draw_ntp_stats(time_t now, int sec) {
     ntp_get_all_stats(&sys, peers);
     const char *server = sys.server[0] ? sys.server : wifi_get_custom_ntp_server();
 
-    // Line 1: "Synced: <server>" (green) or "Syncing: <server>" (orange).
-    // Green requires the CURRENT peer set to have disciplined the clock at
-    // least once (sync_count > 0), not just first_sync_done: changing the
-    // server (or a staleness re-resolve) resets sync accounting while the
-    // clock keeps running on the old discipline, and an unreachable new
-    // server used to sit there claiming "Synced" indefinitely.
-    bool synced_here = sys.synced && sys.sync_count > 0;
+    // Line 1 reports clock validity, not whether the current peer set has
+    // completed its first wave. After changing servers the clock is still
+    // synced; line 2 carries the "no sync yet" detail for the new peer set.
+    bool synced_here = sys.synced;
     char line1[80];
     uint16_t line1_fg;
     if (synced_here) {
