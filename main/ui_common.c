@@ -229,8 +229,7 @@ void ui_draw_slider(int y, const char *label, uint8_t value, uint8_t max_value, 
     int bar_y = y + UI_TEXT_Y_OFFSET;
     display_fill_rect(UI_SLIDER_BAR_X, bar_y, UI_SLIDER_BAR_W, UI_SLIDER_BAR_H, COLOR_BLACK);
     display_rect(UI_SLIDER_BAR_X, bar_y, UI_SLIDER_BAR_W, UI_SLIDER_BAR_H, COLOR_GRAY);
-    int fill_w = (value * (UI_SLIDER_BAR_W - 4)) / max_value;
-    display_fill_rect(UI_SLIDER_BAR_X + 2, bar_y + 2, fill_w, UI_SLIDER_BAR_H - 4, fill_color);
+    ui_draw_slider_value(y, value, max_value, fill_color);
 
     // Minus button
     display_fill_rect(UI_SLIDER_BTN_X1, y + 3, UI_SLIDER_BTN_W, UI_SLIDER_BTN_H, COLOR_GRAY);
@@ -239,6 +238,41 @@ void ui_draw_slider(int y, const char *label, uint8_t value, uint8_t max_value, 
     // Plus button
     display_fill_rect(UI_SLIDER_BTN_X2, y + 3, UI_SLIDER_BTN_W, UI_SLIDER_BTN_H, COLOR_GRAY);
     display_string(UI_SLIDER_BTN_X2 + 6, y + 4, "+", COLOR_WHITE, COLOR_GRAY);
+}
+
+void ui_draw_slider_value(int y, uint8_t value, uint8_t max_value, uint16_t fill_color) {
+    int bar_y = y + UI_TEXT_Y_OFFSET;
+    int inner_x = UI_SLIDER_BAR_X + 2;
+    int inner_y = bar_y + 2;
+    int inner_w = UI_SLIDER_BAR_W - 4;
+    int inner_h = UI_SLIDER_BAR_H - 4;
+    int fill_w = max_value ? (value * inner_w) / max_value : 0;
+
+    display_fill_rect(inner_x, inner_y, inner_w, inner_h, COLOR_BLACK);
+    if (fill_w > 0) {
+        display_fill_rect(inner_x, inner_y, fill_w, inner_h, fill_color);
+    }
+}
+
+void ui_draw_slider_value_delta(int y, uint8_t old_value, uint8_t new_value,
+                                uint8_t max_value, uint16_t fill_color) {
+    if (old_value == new_value) return;
+
+    int bar_y = y + UI_TEXT_Y_OFFSET;
+    int inner_x = UI_SLIDER_BAR_X + 2;
+    int inner_y = bar_y + 2;
+    int inner_w = UI_SLIDER_BAR_W - 4;
+    int inner_h = UI_SLIDER_BAR_H - 4;
+    int old_fill = max_value ? (old_value * inner_w) / max_value : 0;
+    int new_fill = max_value ? (new_value * inner_w) / max_value : 0;
+
+    if (new_fill > old_fill) {
+        display_fill_rect(inner_x + old_fill, inner_y,
+                          new_fill - old_fill, inner_h, fill_color);
+    } else if (new_fill < old_fill) {
+        display_fill_rect(inner_x + new_fill, inner_y,
+                          old_fill - new_fill, inner_h, COLOR_BLACK);
+    }
 }
 
 void ui_fmt_duration(char *buf, size_t len, uint32_t seconds) {

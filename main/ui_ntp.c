@@ -85,6 +85,17 @@ static void draw_server_input(void) {
     }
 }
 
+static void draw_ipv6_toggle(void) {
+    bool ipv6 = wifi_get_ntp_prefer_ipv6();
+    uint16_t ipv6_bg = ipv6 ? COLOR_CYAN : COLOR_DARKGRAY;
+    uint16_t ipv6_fg = ipv6 ? COLOR_BLACK : COLOR_WHITE;
+    const char *ipv6_label = ipv6 ? "IPv6: On" : "IPv6: Off";
+    display_fill_rect(IPV6_TOGGLE_X, IPV6_TOGGLE_Y, IPV6_TOGGLE_W, IPV6_TOGGLE_H, ipv6_bg);
+    int label_x = IPV6_TOGGLE_X +
+        (IPV6_TOGGLE_W - (int)strlen(ipv6_label) * FONT_CHAR_WIDTH) / 2;
+    display_string(label_x, IPV6_TOGGLE_Y + 7, ipv6_label, ipv6_fg, ipv6_bg);
+}
+
 static char get_key_at(int16_t x, int16_t y) {
     // Check character keys
     char key = ui_keyboard_get_key(keyboard_rows, 4, KEYBOARD_Y, x, y);
@@ -116,15 +127,7 @@ static void draw_main_screen(void) {
     display_string(15, SERVER_BOX_Y + 7, display_server, COLOR_WHITE, COLOR_DARKGRAY);
     display_string(DISPLAY_WIDTH - 30, SERVER_BOX_Y + 7, ">", COLOR_WHITE, COLOR_DARKGRAY);
 
-    // IPv6 toggle
-    bool ipv6 = wifi_get_ntp_prefer_ipv6();
-    uint16_t ipv6_bg = ipv6 ? COLOR_CYAN : COLOR_DARKGRAY;
-    uint16_t ipv6_fg = ipv6 ? COLOR_BLACK : COLOR_WHITE;
-    const char *ipv6_label = ipv6 ? "IPv6: On" : "IPv6: Off";
-    display_fill_rect(IPV6_TOGGLE_X, IPV6_TOGGLE_Y, IPV6_TOGGLE_W, IPV6_TOGGLE_H, ipv6_bg);
-    int label_x = IPV6_TOGGLE_X +
-        (IPV6_TOGGLE_W - (int)strlen(ipv6_label) * FONT_CHAR_WIDTH) / 2;
-    display_string(label_x, IPV6_TOGGLE_Y + 7, ipv6_label, ipv6_fg, ipv6_bg);
+    draw_ipv6_toggle();
 }
 
 static void draw_keyboard_screen(void) {
@@ -171,7 +174,7 @@ ntp_result_t ui_ntp_update(void) {
                 bool ipv6 = !wifi_get_ntp_prefer_ipv6();
                 wifi_set_ntp_prefer_ipv6(ipv6);
                 nvs_config_set_ntp_ipv6(ipv6);
-                draw_main_screen();
+                draw_ipv6_toggle();
             }
         } else if (ui_state == NTP_STATE_KEYBOARD) {
             char key = get_key_at(touch.x, touch.y);

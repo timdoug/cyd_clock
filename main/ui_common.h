@@ -71,6 +71,9 @@ void ui_draw_menu_item(int y, const char *label);
 
 // Draw a labeled slider with +/- buttons
 void ui_draw_slider(int y, const char *label, uint8_t value, uint8_t max_value, uint16_t fill_color);
+void ui_draw_slider_value(int y, uint8_t value, uint8_t max_value, uint16_t fill_color);
+void ui_draw_slider_value_delta(int y, uint8_t old_value, uint8_t new_value,
+                                uint8_t max_value, uint16_t fill_color);
 
 // Draw a centered string with full-width background (no pre-clear needed)
 // height: 16 for 1x scale, 32 for 2x scale

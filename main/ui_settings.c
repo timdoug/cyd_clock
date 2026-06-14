@@ -17,6 +17,15 @@ static const char *TAG = "ui_settings";
 #define ROTATION_TOGGLE_X   260
 #define ROTATION_TOGGLE_W   50
 
+#define TZ_ROW_Y            (ITEM_START_Y)
+#define WIFI_ROW_Y          (TZ_ROW_Y + UI_ITEM_HEIGHT)
+#define NTP_ROW_Y           (WIFI_ROW_Y + UI_ITEM_HEIGHT)
+#define BRIGHTNESS_ROW_Y    (NTP_ROW_Y + UI_ITEM_HEIGHT)
+#define LED_ROW_Y           (BRIGHTNESS_ROW_Y + UI_ITEM_HEIGHT)
+#define ROTATION_ROW_Y      (LED_ROW_Y + UI_ITEM_HEIGHT)
+#define ABOUT_ROW_Y         (ROTATION_ROW_Y + UI_ITEM_HEIGHT)
+#define DONE_ROW_Y          (ABOUT_ROW_Y + UI_ITEM_HEIGHT)
+
 
 static uint8_t brightness = BRIGHTNESS_DEFAULT;
 static uint8_t led_brightness = BRIGHTNESS_DEFAULT;
@@ -50,41 +59,29 @@ static bool handle_slider_touch(int touch_x, uint8_t *value, uint8_t min_val) {
 }
 
 static void draw_menu(void) {
-    int y = ITEM_START_Y;
-
-    ui_draw_menu_item(y, "Time zone");
-    y += UI_ITEM_HEIGHT;
-
-    ui_draw_menu_item(y, "WiFi");
-    y += UI_ITEM_HEIGHT;
-
-    ui_draw_menu_item(y, "NTP");
-    y += UI_ITEM_HEIGHT;
-
-    ui_draw_slider(y, "Brightness", brightness, BRIGHTNESS_MAX, UI_COLOR_SELECTED);
-    y += UI_ITEM_HEIGHT;
-
-    ui_draw_slider(y, "LED Blink", led_brightness, BRIGHTNESS_MAX, COLOR_RED);
-    y += UI_ITEM_HEIGHT;
+    ui_draw_menu_item(TZ_ROW_Y, "Time zone");
+    ui_draw_menu_item(WIFI_ROW_Y, "WiFi");
+    ui_draw_menu_item(NTP_ROW_Y, "NTP");
+    ui_draw_slider(BRIGHTNESS_ROW_Y, "Brightness", brightness, BRIGHTNESS_MAX, UI_COLOR_SELECTED);
+    ui_draw_slider(LED_ROW_Y, "LED Blink", led_brightness, BRIGHTNESS_MAX, COLOR_RED);
 
     // Rotation toggle
-    display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, UI_COLOR_ITEM_BG);
-    display_string(10, y + UI_TEXT_Y_OFFSET, "Rotate 180\x7F", UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
+    display_fill_rect(0, ROTATION_ROW_Y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, UI_COLOR_ITEM_BG);
+    display_string(10, ROTATION_ROW_Y + UI_TEXT_Y_OFFSET, "Rotate 180\x7F", UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
     uint16_t rot_bg = rotation ? COLOR_GREEN : COLOR_GRAY;
-    display_fill_rect(ROTATION_TOGGLE_X, y + 3, ROTATION_TOGGLE_W, 18, rot_bg);
+    display_fill_rect(ROTATION_TOGGLE_X, ROTATION_ROW_Y + 3, ROTATION_TOGGLE_W, 18, rot_bg);
     const char *rot_label = rotation ? "On" : "Off";
     int rot_text_x = ROTATION_TOGGLE_X + (ROTATION_TOGGLE_W - strlen(rot_label) * FONT_CHAR_WIDTH) / 2;
-    display_string(rot_text_x, y + 4, rot_label, rotation ? COLOR_BLACK : COLOR_WHITE, rot_bg);
-    y += UI_ITEM_HEIGHT;
+    display_string(rot_text_x, ROTATION_ROW_Y + 4, rot_label, rotation ? COLOR_BLACK : COLOR_WHITE, rot_bg);
 
-    ui_draw_menu_item(y, "About");
-    y += UI_ITEM_HEIGHT;
+    ui_draw_menu_item(ABOUT_ROW_Y, "About");
 
     // Done button (1/3 width, centered)
     int btn_w = DISPLAY_WIDTH / 3;
     int btn_x = (DISPLAY_WIDTH - btn_w) / 2;
-    display_fill_rect(btn_x, y, btn_w, UI_ITEM_HEIGHT - 3, COLOR_GREEN);
-    display_string(btn_x + (btn_w - 4 * FONT_CHAR_WIDTH) / 2, y + UI_TEXT_Y_OFFSET, "Done", COLOR_BLACK, COLOR_GREEN);
+    display_fill_rect(btn_x, DONE_ROW_Y, btn_w, UI_ITEM_HEIGHT - 3, COLOR_GREEN);
+    display_string(btn_x + (btn_w - 4 * FONT_CHAR_WIDTH) / 2,
+                   DONE_ROW_Y + UI_TEXT_Y_OFFSET, "Done", COLOR_BLACK, COLOR_GREEN);
 }
 
 void ui_settings_init(void) {
@@ -116,48 +113,45 @@ settings_result_t ui_settings_update(void) {
         return SETTINGS_RESULT_NONE;
     }
 
-    int y = ITEM_START_Y;
-
     // Timezone
-    if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT) {
+    if (touch.y >= TZ_ROW_Y && touch.y < TZ_ROW_Y + UI_ITEM_HEIGHT) {
         return SETTINGS_RESULT_TIMEZONE;
     }
-    y += UI_ITEM_HEIGHT;
 
     // WiFi
-    if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT) {
+    if (touch.y >= WIFI_ROW_Y && touch.y < WIFI_ROW_Y + UI_ITEM_HEIGHT) {
         return SETTINGS_RESULT_WIFI;
     }
-    y += UI_ITEM_HEIGHT;
 
     // NTP
-    if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT) {
+    if (touch.y >= NTP_ROW_Y && touch.y < NTP_ROW_Y + UI_ITEM_HEIGHT) {
         return SETTINGS_RESULT_NTP;
     }
-    y += UI_ITEM_HEIGHT;
 
     // Brightness controls
-    if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT) {
+    if (touch.y >= BRIGHTNESS_ROW_Y && touch.y < BRIGHTNESS_ROW_Y + UI_ITEM_HEIGHT) {
+        uint8_t old_brightness = brightness;
         if (handle_slider_touch(touch.x, &brightness, BRIGHTNESS_MIN)) {
             display_set_backlight(brightness);
             nvs_config_set_brightness(brightness);
-            draw_menu();
+            ui_draw_slider_value_delta(BRIGHTNESS_ROW_Y, old_brightness, brightness,
+                                       BRIGHTNESS_MAX, UI_COLOR_SELECTED);
         }
     }
-    y += UI_ITEM_HEIGHT;
 
     // LED brightness controls
-    if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT) {
+    if (touch.y >= LED_ROW_Y && touch.y < LED_ROW_Y + UI_ITEM_HEIGHT) {
+        uint8_t old_led_brightness = led_brightness;
         if (handle_slider_touch(touch.x, &led_brightness, 0)) {
             led_set_brightness(led_brightness);
             nvs_config_set_led_brightness(led_brightness);
-            draw_menu();
+            ui_draw_slider_value_delta(LED_ROW_Y, old_led_brightness, led_brightness,
+                                       BRIGHTNESS_MAX, COLOR_RED);
         }
     }
-    y += UI_ITEM_HEIGHT;
 
     // Rotation toggle
-    if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT &&
+    if (touch.y >= ROTATION_ROW_Y && touch.y < ROTATION_ROW_Y + UI_ITEM_HEIGHT &&
         touch.x >= ROTATION_TOGGLE_X && touch.x < ROTATION_TOGGLE_X + ROTATION_TOGGLE_W) {
         rotation = !rotation;
         display_set_rotation(rotation);
@@ -167,18 +161,16 @@ settings_result_t ui_settings_update(void) {
         ui_draw_header("Settings", false);
         draw_menu();
     }
-    y += UI_ITEM_HEIGHT;
 
     // About
-    if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT) {
+    if (touch.y >= ABOUT_ROW_Y && touch.y < ABOUT_ROW_Y + UI_ITEM_HEIGHT) {
         return SETTINGS_RESULT_ABOUT;
     }
-    y += UI_ITEM_HEIGHT;
 
     // Done button (1/3 width, centered)
     int btn_w = DISPLAY_WIDTH / 3;
     int btn_x = (DISPLAY_WIDTH - btn_w) / 2;
-    if (touch.y >= y && touch.y < y + UI_ITEM_HEIGHT &&
+    if (touch.y >= DONE_ROW_Y && touch.y < DONE_ROW_Y + UI_ITEM_HEIGHT &&
         touch.x >= btn_x && touch.x < btn_x + btn_w) {
         return SETTINGS_RESULT_DONE;
     }
