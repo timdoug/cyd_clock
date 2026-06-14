@@ -70,9 +70,8 @@ void ui_draw_centered_string(int16_t y, const char *str, uint16_t fg, uint16_t b
 }
 
 void ui_draw_list(const char **labels, int count, int scroll_offset, int selected) {
-    display_fill_rect(0, UI_LIST_START_Y, DISPLAY_WIDTH, DISPLAY_HEIGHT - UI_LIST_START_Y, COLOR_BLACK);
-
-    for (int i = 0; i < UI_LIST_VISIBLE && (i + scroll_offset) < count; i++) {
+    int rows = 0;
+    for (int i = 0; i < UI_LIST_VISIBLE && (i + scroll_offset) < count; i++, rows++) {
         int idx = i + scroll_offset;
         int y = UI_LIST_START_Y + i * UI_LIST_ITEM_H;
 
@@ -94,6 +93,15 @@ void ui_draw_list(const char **labels, int count, int scroll_offset, int selecte
                             UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H - 7,
                             false, COLOR_GRAY);
     }
+
+    int list_bottom = UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H;
+    if (rows < UI_LIST_VISIBLE) {
+        int clear_y = UI_LIST_START_Y + rows * UI_LIST_ITEM_H;
+        display_fill_rect(0, clear_y, DISPLAY_WIDTH, list_bottom - clear_y, COLOR_BLACK);
+    }
+    if (list_bottom < DISPLAY_HEIGHT) {
+        display_fill_rect(0, list_bottom, DISPLAY_WIDTH, DISPLAY_HEIGHT - list_bottom, COLOR_BLACK);
+    }
 }
 
 int ui_list_clamp_scroll(int scroll, int count) {
@@ -114,6 +122,8 @@ void ui_list_touch_reset(ui_list_touch_t *state) {
     state->was_pressed = false;
     state->drag_tracking = false;
     state->drag_moved = false;
+    state->redraw_pending = false;
+    state->last_redraw_ticks = 0;
 }
 
 static int list_drag_scroll_delta(int delta_y) {
@@ -133,6 +143,7 @@ ui_list_touch_result_t ui_list_touch_update(ui_list_touch_t *state,
         state->drag_tracking = touch && touch->y >= UI_LIST_START_Y
                                && touch->y < UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H;
         state->drag_moved = false;
+        state->redraw_pending = false;
         state->drag_start_y = touch ? touch->y : 0;
         state->drag_start_scroll = *scroll_offset;
         if (touch) state->tap_start = *touch;
@@ -151,7 +162,15 @@ ui_list_touch_result_t ui_list_touch_update(ui_list_touch_t *state,
         new_scroll = ui_list_clamp_scroll(new_scroll, count);
         if (new_scroll != *scroll_offset) {
             *scroll_offset = new_scroll;
-            return UI_LIST_TOUCH_SCROLLED;
+            state->redraw_pending = true;
+
+            uint32_t now = xTaskGetTickCount();
+            if (state->last_redraw_ticks == 0
+                || now - state->last_redraw_ticks >= pdMS_TO_TICKS(UI_LIST_SCROLL_REDRAW_MS)) {
+                state->last_redraw_ticks = now;
+                state->redraw_pending = false;
+                return UI_LIST_TOUCH_SCROLLED;
+            }
         }
         return UI_LIST_TOUCH_PRESSED;
     }
@@ -160,7 +179,12 @@ ui_list_touch_result_t ui_list_touch_update(ui_list_touch_t *state,
 
     state->was_pressed = false;
     state->drag_tracking = false;
-    return state->drag_moved ? UI_LIST_TOUCH_SCROLLED : UI_LIST_TOUCH_TAPPED;
+    if (state->drag_moved) {
+        bool needs_redraw = state->redraw_pending;
+        state->redraw_pending = false;
+        return needs_redraw ? UI_LIST_TOUCH_SCROLLED : UI_LIST_TOUCH_NONE;
+    }
+    return UI_LIST_TOUCH_TAPPED;
 }
 
 bool ui_back_button_hit(const touch_point_t *touch) {

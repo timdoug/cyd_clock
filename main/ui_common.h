@@ -20,6 +20,7 @@
 #define UI_LIST_ITEM_H      28
 #define UI_LIST_START_Y     35
 #define UI_LIST_VISIBLE     7
+#define UI_LIST_SCROLL_REDRAW_MS 60
 
 // Common UI colors
 #define UI_COLOR_HEADER     0x001F  // COLOR_BLUE
@@ -38,8 +39,10 @@ typedef struct {
     bool was_pressed;
     bool drag_tracking;
     bool drag_moved;
+    bool redraw_pending;
     int drag_start_y;
     int drag_start_scroll;
+    uint32_t last_redraw_ticks;
     touch_point_t tap_start;
 } ui_list_touch_t;
 
