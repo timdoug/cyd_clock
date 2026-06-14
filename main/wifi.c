@@ -6,8 +6,13 @@
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_netif.h"
+#include "esp_netif_net_stack.h"
 #include "esp_timer.h"
 #include "esp_wifi.h"
+#if CONFIG_LWIP_IPV6_DHCP6
+#include "lwip/dhcp6.h"
+#include "lwip/netif.h"
+#endif
 #include "lwip/ip_addr.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
@@ -136,6 +141,15 @@ void wifi_init(void) {
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     esp_netif_t *netif = esp_netif_create_default_wifi_sta();
     esp_netif_create_ip6_linklocal(netif);
+#if CONFIG_LWIP_IPV6_DHCP6
+    struct netif *lwip_netif = esp_netif_get_netif_impl(netif);
+    if (lwip_netif) {
+        err_t err = dhcp6_enable_stateless(lwip_netif);
+        if (err != ERR_OK) {
+            ESP_LOGW(TAG, "DHCPv6 stateless start failed: %d", err);
+        }
+    }
+#endif
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
