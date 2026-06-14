@@ -1,4 +1,6 @@
-# Generate version.h from git info (runs at build time)
+if(NOT DEFINED OUTPUT_DIR)
+    message(FATAL_ERROR "OUTPUT_DIR is required")
+endif()
 
 execute_process(
     COMMAND git log -1 --format=%cs
@@ -31,12 +33,11 @@ endif()
 set(VERSION_HEADER "${OUTPUT_DIR}/version.h")
 set(VERSION_CONTENT "#define VERSION_STRING \"${VERSION_STRING}\"\n")
 
-# Only write if content changed (avoid unnecessary rebuilds)
-if(EXISTS ${VERSION_HEADER})
-    file(READ ${VERSION_HEADER} OLD_CONTENT)
-    if(NOT "${OLD_CONTENT}" STREQUAL "${VERSION_CONTENT}")
-        file(WRITE ${VERSION_HEADER} "${VERSION_CONTENT}")
-    endif()
-else()
-    file(WRITE ${VERSION_HEADER} "${VERSION_CONTENT}")
+set(OLD_CONTENT "")
+if(EXISTS "${VERSION_HEADER}")
+    file(READ "${VERSION_HEADER}" OLD_CONTENT)
+endif()
+
+if(NOT "${OLD_CONTENT}" STREQUAL "${VERSION_CONTENT}")
+    file(WRITE "${VERSION_HEADER}" "${VERSION_CONTENT}")
 endif()

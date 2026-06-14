@@ -1,4 +1,3 @@
-# Version header generated at build time
 set(VERSION_HEADER "${CMAKE_CURRENT_BINARY_DIR}/version.h")
 
 idf_component_register(
@@ -19,17 +18,32 @@ idf_component_register(
         "ui_about.c"
         "ui_ntp.c"
         "ui_ntp_stats.c"
-    INCLUDE_DIRS "." "${CMAKE_CURRENT_BINARY_DIR}"
-    REQUIRES esp_driver_gpio esp_driver_spi esp_driver_ledc esp_timer esp_wifi esp_netif nvs_flash
+    INCLUDE_DIRS
+        "."
+        "${CMAKE_CURRENT_BINARY_DIR}"
+    PRIV_REQUIRES
+        esp_event
+        esp_driver_gpio
+        esp_driver_ledc
+        esp_driver_spi
+        esp_hw_support
+        esp_netif
+        esp_system
+        esp_timer
+        esp_wifi
+        lwip
+        nvs_flash
 )
 
-# Generate version.h at build time (always runs)
 add_custom_target(version_header ALL
-    COMMAND ${CMAKE_COMMAND} -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR} -P ${CMAKE_CURRENT_SOURCE_DIR}/version.cmake
+    COMMAND
+        ${CMAKE_COMMAND}
+        -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/version.cmake
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     BYPRODUCTS ${VERSION_HEADER}
     COMMENT "Generating version.h"
+    VERBATIM
 )
 
-# Make sure main depends on version header
 add_dependencies(${COMPONENT_LIB} version_header)
