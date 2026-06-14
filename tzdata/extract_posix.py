@@ -11,11 +11,16 @@ Deduplicates zones in two passes:
    - keep largest city
 """
 
+import argparse
+import io
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
+import urllib.request
 
 # tzdata source region files to compile
 REGION_FILES = [
@@ -23,10 +28,63 @@ REGION_FILES = [
     "africa", "antarctica", "australasia", "etcetera", "backward",
 ]
 
-ZIC = "/usr/sbin/zic"
+DEFAULT_ZIC = "/usr/sbin/zic"
+IANA_RELEASE_URL = "https://data.iana.org/time-zones/releases"
+
+REQUIRED_SOURCE_FILES = ["zone1970.tab"] + REGION_FILES
 
 
-def compile_tzdata(srcdir, destdir):
+def normalize_release_name(version):
+    """Return a full tzdata release filename stem, e.g. tzdata2026b."""
+    if version.startswith("tzdata"):
+        return version.removesuffix(".tar.gz")
+    return f"tzdata{version}"
+
+
+def latest_tzdata_release():
+    """Return the newest tzdata release listed by IANA."""
+    with urllib.request.urlopen(f"{IANA_RELEASE_URL}/") as response:
+        index = response.read().decode("utf-8", errors="replace")
+
+    releases = re.findall(r"tzdata(\d{4}[a-z])\.tar\.gz", index)
+    if not releases:
+        raise RuntimeError("Could not find any tzdata releases in IANA index")
+
+    return normalize_release_name(max(releases, key=lambda r: (int(r[:4]), r[4:])))
+
+
+def fetch_tzdata(version):
+    """Download and extract an IANA tzdata release into a temporary directory."""
+    release = latest_tzdata_release() if version == "latest" else normalize_release_name(version)
+    url = f"{IANA_RELEASE_URL}/{release}.tar.gz"
+    print(f"Downloading {url}", file=sys.stderr)
+
+    with urllib.request.urlopen(url) as response:
+        archive = response.read()
+
+    tempdir = tempfile.TemporaryDirectory()
+    destdir = tempdir.name
+    with tarfile.open(fileobj=io.BytesIO(archive), mode="r:gz") as tar:
+        for member in tar.getmembers():
+            target = os.path.abspath(os.path.join(destdir, member.name))
+            if not target.startswith(os.path.abspath(destdir) + os.sep):
+                tempdir.cleanup()
+                raise RuntimeError(f"Refusing unsafe archive path: {member.name}")
+        tar.extractall(destdir)
+
+    print(f"Extracted {release} into temporary directory", file=sys.stderr)
+    return tempdir
+
+
+def check_tzdata_sources(srcdir):
+    """Return required source filenames that are missing from srcdir."""
+    return [
+        name for name in REQUIRED_SOURCE_FILES
+        if not os.path.exists(os.path.join(srcdir, name))
+    ]
+
+
+def compile_tzdata(srcdir, destdir, zic):
     """Compile tzdata source files into TZif binaries using zic."""
     for region in REGION_FILES:
         path = os.path.join(srcdir, region)
@@ -34,7 +92,7 @@ def compile_tzdata(srcdir, destdir):
             print(f"Warning: {path} not found, skipping", file=sys.stderr)
             continue
         subprocess.run(
-            [ZIC, "-d", destdir, path],
+            [zic, "-d", destdir, path],
             check=True,
             capture_output=True,
         )
@@ -258,21 +316,21 @@ def normalize_posix_tz(posix_tz):
     return "".join(result)
 
 
-def main():
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    zone1970_path = os.path.join(script_dir, "zone1970.tab")
+def generate_timezone_block(srcdir, zic):
+    """Generate the C timezone arrays from extracted IANA tzdata sources."""
+    zone1970_path = os.path.join(srcdir, "zone1970.tab")
 
     zone_ids = read_zone1970_tab(zone1970_path)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         print("Compiling tzdata...", file=sys.stderr)
-        compile_tzdata(script_dir, tmpdir)
+        compile_tzdata(srcdir, tmpdir, zic)
 
         # Also compile Etc/UTC (not in zone1970.tab)
-        etcetera_path = os.path.join(script_dir, "etcetera")
+        etcetera_path = os.path.join(srcdir, "etcetera")
         if os.path.exists(etcetera_path):
             subprocess.run(
-                [ZIC, "-d", tmpdir, etcetera_path],
+                [zic, "-d", tmpdir, etcetera_path],
                 check=True,
                 capture_output=True,
             )
@@ -360,30 +418,131 @@ def main():
             if region not in seen_regions:
                 seen_regions.append(region)
 
-        # Print C code
-        print(f"// Generated from zone1970.tab ({len(labeled)} zones)")
-        print(f"// Regions: {', '.join(seen_regions)}")
-        print()
+        out = []
+        out.append("// Generated from zone1970.tab - deduplicated within each region by")
+        out.append("// functional POSIX equivalence, largest city by population as representative.")
+        out.append("")
 
-        print("static const char *regions[] = {")
+        out.append("static const char *regions[] = {")
         for r in seen_regions:
-            print(f'    "{r}",')
-        print("};")
-        print(f"#define NUM_REGIONS {len(seen_regions)}")
-        print()
+            out.append(f'    "{r}",')
+        out.append("};")
+        out.append(f"#define NUM_REGIONS {len(seen_regions)}")
+        out.append("")
 
-        print("static const timezone_entry_t timezones[] = {")
+        out.append("static const timezone_entry_t timezones[] = {")
         for region, city, posix_tz in labeled:
             r_field = f'"{region}"'
             c_field = f'"{city}"'
             t_field = f'"{posix_tz}"'
-            print(f"    {{{r_field + ',':<16s}{c_field + ',':<40s}{t_field}}},")
-        print("};")
-        print(f"#define NUM_TIMEZONES {len(labeled)}")
+            out.append(f"    {{{r_field + ',':<16s}{c_field + ',':<40s}{t_field}}},")
+        out.append("};")
+        out.append("#define NUM_TIMEZONES ((int)(sizeof(timezones) / sizeof(timezones[0])))")
 
         print(f"\n// {len(labeled)} zones, {len(seen_regions)} regions",
               file=sys.stderr)
 
+        return "\n".join(out) + "\n\n"
+
+
+def update_ui_timezone(path, generated_block):
+    """Replace the generated timezone block in main/ui_timezone.c."""
+    with open(path) as f:
+        source = f.read()
+
+    pattern = (
+        r"// Generated from zone1970\.tab.*?"
+        r"#define NUM_TIMEZONES [^\n]*\n(?:\n)?"
+    )
+    updated, count = re.subn(pattern, generated_block, source, count=1, flags=re.S)
+    if count != 1:
+        raise RuntimeError(f"Could not find generated timezone block in {path}")
+
+    with open(path, "w") as f:
+        f.write(updated)
+
+    print(f"Updated {path}", file=sys.stderr)
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Generate POSIX TZ tables from IANA tzdata sources.",
+    )
+    parser.add_argument(
+        "--download",
+        nargs="?",
+        const="latest",
+        metavar="VERSION",
+        help=(
+            "download and extract an IANA tzdata release first "
+            "(default: latest)"
+        ),
+    )
+    parser.add_argument(
+        "--srcdir",
+        default=os.path.dirname(os.path.abspath(__file__)),
+        help="directory containing extracted IANA tzdata source files",
+    )
+    parser.add_argument(
+        "--update-ui",
+        metavar="PATH",
+        help="replace the generated timezone block in main/ui_timezone.c",
+    )
+    parser.add_argument(
+        "--output",
+        metavar="PATH",
+        help="write generated C block to PATH instead of stdout",
+    )
+    parser.add_argument(
+        "--zic",
+        default=DEFAULT_ZIC,
+        help=f"path to zic compiler (default: {DEFAULT_ZIC})",
+    )
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    srcdir = os.path.abspath(args.srcdir)
+    source_tempdir = None
+
+    if args.download:
+        source_tempdir = fetch_tzdata(args.download)
+        srcdir = source_tempdir.name
+
+    try:
+        missing = check_tzdata_sources(srcdir)
+        if missing:
+            print("Missing tzdata source files:", file=sys.stderr)
+            for name in missing:
+                print(f"  {name}", file=sys.stderr)
+            print(
+                f"\nRun: {sys.argv[0]} --download",
+                file=sys.stderr,
+            )
+            return 1
+
+        if not shutil.which(args.zic) and not os.path.exists(args.zic):
+            print(f"zic not found: {args.zic}", file=sys.stderr)
+            return 1
+
+        generated_block = generate_timezone_block(srcdir, args.zic)
+
+        if args.output:
+            with open(args.output, "w") as f:
+                f.write(generated_block)
+            print(f"Wrote {args.output}", file=sys.stderr)
+        elif not args.update_ui:
+            print(generated_block, end="")
+
+        if args.update_ui:
+            update_ui_timezone(args.update_ui, generated_block)
+
+        return 0
+    finally:
+        if source_tempdir:
+            source_tempdir.cleanup()
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

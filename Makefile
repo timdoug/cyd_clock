@@ -4,6 +4,7 @@
 # Auto-detect serial port (macOS)
 PORT ?= $(firstword $(wildcard /dev/cu.usbserial-* /dev/cu.wchusbserial*))
 BAUD ?= 2000000
+TZDATA_VERSION ?=
 
 IDF = idf.py
 IDF_PORT = $(IDF) -p $(PORT)
@@ -13,7 +14,7 @@ define check-port
 	@if [ -z "$(PORT)" ]; then echo "Error: No serial port found. Set PORT=/dev/..."; exit 1; fi
 endef
 
-.PHONY: all build flash app-flash monitor run app-run clean fullclean menuconfig setup help
+.PHONY: all build flash app-flash monitor run app-run clean fullclean menuconfig setup update-tzdata help
 
 all: build
 build:                ; $(IDF) build
@@ -26,6 +27,7 @@ clean:                ; $(IDF) clean
 fullclean:            ; $(IDF) fullclean && rm -rf build sdkconfig
 menuconfig:           ; $(IDF) menuconfig
 setup:                ; $(IDF) set-target esp32
+update-tzdata:        ; python3 tzdata/extract_posix.py $(if $(TZDATA_VERSION),--download $(TZDATA_VERSION),--download) --update-ui main/ui_timezone.c
 
 help:
 	@echo "Usage: make [target]"
@@ -41,6 +43,8 @@ help:
 	@echo "  clean      - Clean build artifacts"
 	@echo "  fullclean  - Full clean (removes sdkconfig)"
 	@echo "  menuconfig - Open ESP-IDF configuration menu"
+	@echo "  update-tzdata - Download tzdata and update timezone table"
 	@echo ""
 	@echo "Serial port: $(or $(PORT),<not found>)"
 	@echo "Override with: make flash PORT=/dev/cu.usbserial-XXX"
+	@echo "Pin tzdata: make update-tzdata TZDATA_VERSION=2026c"
