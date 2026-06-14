@@ -22,6 +22,12 @@ void wifi_init(void);
 // Returns number of networks found (up to MAX_SCAN_RESULTS)
 int wifi_scan(wifi_network_t *networks, int max_networks);
 
+// Non-blocking WiFi scan. Start returns true if the scan was accepted; poll
+// returns true only once results are ready and writes the network count.
+bool wifi_scan_start_async(void);
+bool wifi_scan_poll(wifi_network_t *networks, int max_networks, int *count);
+void wifi_scan_cancel(void);
+
 // Connect to a network
 // Returns true if connection initiated successfully
 bool wifi_connect(const char *ssid, const char *password);

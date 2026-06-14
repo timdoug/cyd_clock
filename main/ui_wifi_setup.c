@@ -17,6 +17,7 @@ static const char *TAG = "ui_wifi_setup";
 // UI States
 typedef enum {
     STATE_SCANNING,
+    STATE_SCAN_EMPTY,
     STATE_NETWORK_LIST,
     STATE_PASSWORD_ENTRY,
     STATE_CONNECTING,
@@ -60,6 +61,7 @@ static char connected_ssid[WIFI_SSID_BUF_LEN] = {0};
 static char connected_password[MAX_PASSWORD_LEN] = {0};
 static uint32_t last_touch_time = 0;
 static bool show_back_button = false;
+static bool scan_started = false;
 
 
 static void draw_network_list(void) {
@@ -207,6 +209,7 @@ void ui_wifi_setup_init(bool show_back) {
     keyboard_mode = 0;
     shift_active = false;
     show_back_button = show_back;
+    scan_started = false;
 }
 
 wifi_setup_result_t ui_wifi_setup_update(void) {
@@ -215,29 +218,52 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
 
     switch (state) {
         case STATE_SCANNING:
-            display_fill(COLOR_BLACK);
-            ui_draw_header("WiFi Setup", show_back_button);
-            ui_draw_centered_string(120, "Scanning...", COLOR_WHITE, COLOR_BLACK, false);
+            if (!scan_started) {
+                display_fill(COLOR_BLACK);
+                ui_draw_header("WiFi Setup", show_back_button);
+                ui_draw_centered_string(120, "Scanning...", COLOR_WHITE, COLOR_BLACK, false);
 
-            wifi_init();
-            network_count = wifi_scan(networks, MAX_SCAN_RESULTS);
+                scan_started = true;
+                wifi_init();
+                if (!wifi_scan_start_async()) {
+                    scan_started = false;
+                    state = STATE_SCAN_EMPTY;
+                    display_fill_rect(0, 100, DISPLAY_WIDTH, 60, COLOR_BLACK);
+                    ui_draw_centered_string(120, "Scan failed", COLOR_RED, COLOR_BLACK, false);
+                    ui_draw_centered_string(150, "Tap to retry", COLOR_GRAY, COLOR_BLACK, false);
+                    break;
+                }
+            }
 
+            if (touched && show_back_button && ui_back_button_hit(&touch)) {
+                wifi_scan_cancel();
+                scan_started = false;
+                return WIFI_SETUP_CANCELLED;
+            }
+
+            if (!wifi_scan_poll(networks, MAX_SCAN_RESULTS, &network_count)) {
+                break;
+            }
+
+            scan_started = false;
             if (network_count > 0) {
                 state = STATE_NETWORK_LIST;
                 ui_draw_header("Select Network", show_back_button);
                 draw_network_list();
             } else {
+                state = STATE_SCAN_EMPTY;
                 display_fill_rect(0, 100, DISPLAY_WIDTH, 40, COLOR_BLACK);
                 ui_draw_centered_string(120, "No networks found", COLOR_RED, COLOR_BLACK, false);
                 ui_draw_centered_string(150, "Tap to retry", COLOR_GRAY, COLOR_BLACK, false);
+            }
+            break;
 
-                if (touched) {
-                    // Back button
-                    if (show_back_button && ui_back_button_hit(&touch)) {
-                        return WIFI_SETUP_CANCELLED;
-                    }
-                    state = STATE_SCANNING;
+        case STATE_SCAN_EMPTY:
+            if (touched) {
+                if (show_back_button && ui_back_button_hit(&touch)) {
+                    return WIFI_SETUP_CANCELLED;
                 }
+                state = STATE_SCANNING;
             }
             break;
 

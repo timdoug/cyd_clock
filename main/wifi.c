@@ -27,10 +27,13 @@ static const char *TAG = "wifi";
 static EventGroupHandle_t wifi_event_group;
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT      BIT1
+#define WIFI_SCAN_DONE_BIT BIT2
 
 static bool wifi_initialized = false;
 static int retry_count = 0;
 static bool ignore_next_disconnect = false;
+static bool scan_running = false;
+static bool scan_resume_reconnect = false;
 
 // Background reconnect: a wall clock must never stop trying. The blocking
 // wifi_connect() stops WAITING after WIFI_MAX_RETRY fast retries so the
@@ -106,6 +109,10 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                     // ...but never actually give up.
                     schedule_reconnect();
                 }
+                break;
+            case WIFI_EVENT_SCAN_DONE:
+                scan_running = false;
+                xEventGroupSetBits(wifi_event_group, WIFI_SCAN_DONE_BIT);
                 break;
             default:
                 break;
@@ -187,37 +194,11 @@ void wifi_init(void) {
     ESP_LOGI(TAG, "WiFi initialized");
 }
 
-int wifi_scan(wifi_network_t *networks, int max_networks) {
+static int wifi_scan_collect(wifi_network_t *networks, int max_networks) {
     if (!networks || max_networks <= 0) return 0;
-    if (!wifi_initialized) {
-        wifi_init();
-    }
-
-    ESP_LOGI(TAG, "Starting WiFi scan");
-
-    // Pause any pending background reconnect for the scan window - a
-    // connect attempt in flight makes esp_wifi_scan_start fail.
-    bool resume_reconnect = reconnect_pending;
-    reconnect_pending = false;
-
-    wifi_scan_config_t scan_config = {
-        .ssid = NULL,
-        .bssid = NULL,
-        .channel = 0,
-        .show_hidden = false,
-        .scan_type = WIFI_SCAN_TYPE_ACTIVE,
-        .scan_time.active.min = 100,
-        .scan_time.active.max = 300,
-    };
-
-    esp_err_t err = esp_wifi_scan_start(&scan_config, true);
-    if (err != ESP_OK) {
-        ESP_LOGW(TAG, "WiFi scan failed to start: %s", esp_err_to_name(err));
-        return 0;
-    }
 
     uint16_t ap_count = 0;
-    err = esp_wifi_scan_get_ap_num(&ap_count);
+    esp_err_t err = esp_wifi_scan_get_ap_num(&ap_count);
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "WiFi scan count failed: %s", esp_err_to_name(err));
         return 0;
@@ -264,7 +245,87 @@ int wifi_scan(wifi_network_t *networks, int max_networks) {
 
     free(ap_records);
     ESP_LOGI(TAG, "Found %d networks", count);
-    if (resume_reconnect && !wifi_is_connected()) schedule_reconnect();
+    return count;
+}
+
+static void wifi_scan_finish(void) {
+    scan_running = false;
+    if (scan_resume_reconnect && !wifi_is_connected()) schedule_reconnect();
+    scan_resume_reconnect = false;
+}
+
+bool wifi_scan_start_async(void) {
+    if (!wifi_initialized) {
+        wifi_init();
+    }
+    if (scan_running) return true;
+
+    ESP_LOGI(TAG, "Starting WiFi scan");
+
+    // Pause any pending background reconnect for the scan window - a
+    // connect attempt in flight makes esp_wifi_scan_start fail.
+    scan_resume_reconnect = reconnect_pending;
+    reconnect_pending = false;
+    xEventGroupClearBits(wifi_event_group, WIFI_SCAN_DONE_BIT);
+
+    wifi_scan_config_t scan_config = {
+        .ssid = NULL,
+        .bssid = NULL,
+        .channel = 0,
+        .show_hidden = false,
+        .scan_type = WIFI_SCAN_TYPE_ACTIVE,
+        .scan_time.active.min = 100,
+        .scan_time.active.max = 300,
+    };
+
+    scan_running = true;
+    esp_err_t err = esp_wifi_scan_start(&scan_config, false);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "WiFi scan failed to start: %s", esp_err_to_name(err));
+        wifi_scan_finish();
+        return false;
+    }
+
+    return true;
+}
+
+bool wifi_scan_poll(wifi_network_t *networks, int max_networks, int *count) {
+    if (count) *count = 0;
+    if (!wifi_event_group) return false;
+    if ((xEventGroupGetBits(wifi_event_group) & WIFI_SCAN_DONE_BIT) == 0) {
+        return false;
+    }
+
+    xEventGroupClearBits(wifi_event_group, WIFI_SCAN_DONE_BIT);
+    int found = wifi_scan_collect(networks, max_networks);
+    if (count) *count = found;
+    wifi_scan_finish();
+    return true;
+}
+
+void wifi_scan_cancel(void) {
+    EventBits_t bits = wifi_event_group ? xEventGroupGetBits(wifi_event_group) : 0;
+    if (!scan_running && !scan_resume_reconnect && !(bits & WIFI_SCAN_DONE_BIT)) {
+        return;
+    }
+
+    if (scan_running) {
+        ESP_LOGI(TAG, "Cancelling WiFi scan");
+        esp_err_t err = esp_wifi_scan_stop();
+        if (err != ESP_OK) {
+            ESP_LOGW(TAG, "WiFi scan stop failed: %s", esp_err_to_name(err));
+        }
+    }
+    xEventGroupClearBits(wifi_event_group, WIFI_SCAN_DONE_BIT);
+    wifi_scan_finish();
+}
+
+int wifi_scan(wifi_network_t *networks, int max_networks) {
+    if (!networks || max_networks <= 0) return 0;
+    if (!wifi_scan_start_async()) return 0;
+    xEventGroupWaitBits(wifi_event_group, WIFI_SCAN_DONE_BIT, pdFALSE, pdFALSE, portMAX_DELAY);
+    int count = 0;
+    wifi_scan_poll(networks, max_networks, &count);
     return count;
 }
 
