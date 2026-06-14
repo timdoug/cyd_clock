@@ -52,6 +52,7 @@ static setup_state_t state = STATE_SCANNING;
 static wifi_network_t networks[MAX_SCAN_RESULTS];
 static int network_count = 0;
 static int selected_network = -1;
+static int highlighted_network = -1;
 static int list_scroll = 0;
 static char password[MAX_PASSWORD_LEN] = {0};
 static int password_len = 0;
@@ -59,25 +60,49 @@ static int keyboard_mode = 0;  // 0=lower, 1=upper, 2=symbols
 static bool shift_active = false;
 static char connected_ssid[WIFI_SSID_BUF_LEN] = {0};
 static char connected_password[MAX_PASSWORD_LEN] = {0};
+static char saved_ssid[WIFI_SSID_BUF_LEN] = {0};
+static bool saved_ssid_known = false;
 static uint32_t last_touch_time = 0;
 static bool show_back_button = false;
 static bool scan_started = false;
+static ui_list_touch_t list_touch;
 
+
+static void reset_list_touch(void) {
+    ui_list_touch_reset(&list_touch);
+}
+
+static void refresh_highlighted_network(void) {
+    highlighted_network = -1;
+    if (!saved_ssid_known) return;
+
+    for (int i = 0; i < network_count; i++) {
+        if (strcmp(networks[i].ssid, saved_ssid) == 0) {
+            highlighted_network = i;
+            return;
+        }
+    }
+}
+
+static void scroll_to_highlighted_network(void) {
+    if (highlighted_network < 0) return;
+    list_scroll = ui_list_scroll_to_item(highlighted_network, network_count);
+}
 
 static void draw_network_list(void) {
     const char *labels[MAX_SCAN_RESULTS];
     for (int i = 0; i < network_count; i++) {
         labels[i] = networks[i].ssid;
     }
-    ui_draw_list(labels, network_count, list_scroll, selected_network);
+    ui_draw_list(labels, network_count, list_scroll, highlighted_network);
 
     // Wifi-specific decorations: signal bars and lock icon
     for (int i = 0; i < UI_LIST_VISIBLE && (i + list_scroll) < network_count; i++) {
         int idx = i + list_scroll;
         int y = UI_LIST_START_Y + i * UI_LIST_ITEM_H;
 
-        uint16_t bg = (idx == selected_network) ? UI_COLOR_SELECTED : COLOR_BLACK;
-        uint16_t fg = (idx == selected_network) ? COLOR_BLACK : COLOR_WHITE;
+        uint16_t bg = (idx == highlighted_network) ? UI_COLOR_SELECTED : COLOR_BLACK;
+        uint16_t fg = (idx == highlighted_network) ? COLOR_BLACK : COLOR_WHITE;
 
         // Signal strength indicator
         int bars = 0;
@@ -203,6 +228,7 @@ void ui_wifi_setup_init(bool show_back) {
     state = STATE_SCANNING;
     network_count = 0;
     selected_network = -1;
+    highlighted_network = -1;
     list_scroll = 0;
     password_len = 0;
     password[0] = '\0';
@@ -210,11 +236,23 @@ void ui_wifi_setup_init(bool show_back) {
     shift_active = false;
     show_back_button = show_back;
     scan_started = false;
+    reset_list_touch();
+
+    char saved_password[MAX_PASSWORD_LEN];
+    saved_ssid_known = nvs_config_get_wifi(saved_ssid, saved_password);
+    if (!saved_ssid_known) {
+        saved_ssid[0] = '\0';
+    }
 }
 
 wifi_setup_result_t ui_wifi_setup_update(void) {
     touch_point_t touch;
-    bool touched = ui_read_touch(&touch, &last_touch_time);
+    bool pressed = touch_read(&touch);
+    bool touched = false;
+    if (pressed && !ui_should_debounce(last_touch_time)) {
+        last_touch_time = xTaskGetTickCount();
+        touched = true;
+    }
 
     switch (state) {
         case STATE_SCANNING:
@@ -248,6 +286,9 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
             scan_started = false;
             if (network_count > 0) {
                 state = STATE_NETWORK_LIST;
+                refresh_highlighted_network();
+                scroll_to_highlighted_network();
+                reset_list_touch();
                 ui_draw_header("Select Network", show_back_button);
                 draw_network_list();
             } else {
@@ -268,45 +309,45 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
             break;
 
         case STATE_NETWORK_LIST:
-            if (touched) {
-                // Back button
-                if (show_back_button && ui_back_button_hit(&touch)) {
-                    return WIFI_SETUP_CANCELLED;
-                }
+            ui_list_touch_result_t touch_result =
+                ui_list_touch_update(&list_touch, &touch, pressed, network_count, &list_scroll);
+            if (touch_result == UI_LIST_TOUCH_SCROLLED) {
+                draw_network_list();
+                break;
+            }
 
-                // Check for list item touch - single tap to select
-                if (touch.y >= UI_LIST_START_Y && touch.y < UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H) {
-                    int item = (touch.y - UI_LIST_START_Y) / UI_LIST_ITEM_H + list_scroll;
-                    if (item < network_count) {
-                        selected_network = item;
-                        password_len = 0;
-                        password[0] = '\0';
-                        if (networks[selected_network].authmode == 0) {
-                            state = STATE_CONNECTING;
-                            display_fill(COLOR_BLACK);
-                            ui_draw_header("Connecting", false);
-                            ui_draw_centered_string(100, "Connecting to", COLOR_WHITE, COLOR_BLACK, false);
-                            ui_draw_centered_string(130, networks[selected_network].ssid, COLOR_CYAN, COLOR_BLACK, false);
-                        } else {
-                            state = STATE_PASSWORD_ENTRY;
-                            display_fill(COLOR_BLACK);
-                            ui_draw_header("Enter Password", true);
-                            draw_password_input();
-                            draw_keyboard();
-                        }
+            if (touch_result != UI_LIST_TOUCH_TAPPED) {
+                break;
+            }
+
+            // Back button
+            const touch_point_t *tap_start = &list_touch.tap_start;
+            if (show_back_button && ui_back_button_hit(tap_start)) {
+                return WIFI_SETUP_CANCELLED;
+            }
+
+            // Check for list item tap
+            if (tap_start->y >= UI_LIST_START_Y
+                && tap_start->y < UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H) {
+                int item = (tap_start->y - UI_LIST_START_Y) / UI_LIST_ITEM_H + list_scroll;
+                if (item < network_count) {
+                    selected_network = item;
+                    password_len = 0;
+                    password[0] = '\0';
+                    reset_list_touch();
+                    if (networks[selected_network].authmode == 0) {
+                        state = STATE_CONNECTING;
+                        display_fill(COLOR_BLACK);
+                        ui_draw_header("Connecting", false);
+                        ui_draw_centered_string(100, "Connecting to", COLOR_WHITE, COLOR_BLACK, false);
+                        ui_draw_centered_string(130, networks[selected_network].ssid, COLOR_CYAN, COLOR_BLACK, false);
+                    } else {
+                        state = STATE_PASSWORD_ENTRY;
+                        display_fill(COLOR_BLACK);
+                        ui_draw_header("Enter Password", true);
+                        draw_password_input();
+                        draw_keyboard();
                     }
-                }
-
-                // Scroll up
-                if (touch.y < UI_LIST_START_Y && list_scroll > 0) {
-                    list_scroll--;
-                    draw_network_list();
-                }
-
-                // Scroll down
-                if (touch.y > UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H && list_scroll + UI_LIST_VISIBLE < network_count) {
-                    list_scroll++;
-                    draw_network_list();
                 }
             }
             break;
@@ -317,6 +358,7 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
                 if (ui_back_button_hit(&touch)) {
                     state = STATE_NETWORK_LIST;
                     selected_network = -1;
+                    reset_list_touch();
                     display_fill(COLOR_BLACK);
                     ui_draw_header("Select Network", show_back_button);
                     draw_network_list();

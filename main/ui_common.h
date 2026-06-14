@@ -19,13 +19,29 @@
 // Common list layout
 #define UI_LIST_ITEM_H      28
 #define UI_LIST_START_Y     35
-#define UI_LIST_VISIBLE     6
+#define UI_LIST_VISIBLE     7
 
 // Common UI colors
 #define UI_COLOR_HEADER     0x001F  // COLOR_BLUE
 #define UI_COLOR_ITEM_BG    0x4208  // COLOR_DARKGRAY
 #define UI_COLOR_ITEM_FG    0xFFFF  // COLOR_WHITE
 #define UI_COLOR_SELECTED   0x07FF  // COLOR_CYAN
+
+typedef enum {
+    UI_LIST_TOUCH_NONE,
+    UI_LIST_TOUCH_PRESSED,
+    UI_LIST_TOUCH_SCROLLED,
+    UI_LIST_TOUCH_TAPPED,
+} ui_list_touch_result_t;
+
+typedef struct {
+    bool was_pressed;
+    bool drag_tracking;
+    bool drag_moved;
+    int drag_start_y;
+    int drag_start_scroll;
+    touch_point_t tap_start;
+} ui_list_touch_t;
 
 // Virtual key codes for on-screen keyboards
 #define VKEY_SHIFT      '\x01'
@@ -59,6 +75,16 @@ void ui_draw_centered_string(int16_t y, const char *str, uint16_t fg, uint16_t b
 
 // Draw a scrollable list with selection highlight and scroll indicators
 void ui_draw_list(const char **labels, int count, int scroll_offset, int selected);
+
+// Shared scroll helpers for list UIs
+int ui_list_clamp_scroll(int scroll, int count);
+int ui_list_scroll_to_item(int item, int count);
+void ui_list_touch_reset(ui_list_touch_t *state);
+ui_list_touch_result_t ui_list_touch_update(ui_list_touch_t *state,
+                                            const touch_point_t *touch,
+                                            bool pressed,
+                                            int count,
+                                            int *scroll_offset);
 
 // Hit-test the "Back" button drawn by ui_draw_header
 bool ui_back_button_hit(const touch_point_t *touch);

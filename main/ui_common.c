@@ -8,6 +8,13 @@
 #include "display.h"
 #include "touch.h"
 
+static void draw_scroll_chevron(int cx, int y, bool up, uint16_t color) {
+    for (int i = 0; i < 5; i++) {
+        int row = up ? y + i : y + 4 - i;
+        display_hline(cx - i, row, i * 2 + 1, color);
+    }
+}
+
 void ui_draw_header(const char *title, bool show_back) {
     display_fill_rect(0, 0, DISPLAY_WIDTH, UI_HEADER_HEIGHT, UI_COLOR_HEADER);
 
@@ -76,13 +83,84 @@ void ui_draw_list(const char **labels, int count, int scroll_offset, int selecte
         display_string(10, y + 6, labels[idx], fg, bg);
     }
 
-    // Scroll indicators
+    // Scroll indicators: keep them inside the list gutter so they never
+    // paint over the header or into the tap zones above/below the list.
+    const int arrow_x = DISPLAY_WIDTH - 9;
     if (scroll_offset > 0) {
-        display_string(DISPLAY_WIDTH / 2 - 4, UI_LIST_START_Y - 8, "^", COLOR_GRAY, COLOR_BLACK);
+        draw_scroll_chevron(arrow_x, UI_LIST_START_Y + 2, true, COLOR_GRAY);
     }
     if (scroll_offset + UI_LIST_VISIBLE < count) {
-        display_string(DISPLAY_WIDTH / 2 - 4, UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H, "v", COLOR_GRAY, COLOR_BLACK);
+        draw_scroll_chevron(arrow_x,
+                            UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H - 7,
+                            false, COLOR_GRAY);
     }
+}
+
+int ui_list_clamp_scroll(int scroll, int count) {
+    int max_scroll = count - UI_LIST_VISIBLE;
+    if (max_scroll < 0) max_scroll = 0;
+    if (scroll < 0) return 0;
+    if (scroll > max_scroll) return max_scroll;
+    return scroll;
+}
+
+int ui_list_scroll_to_item(int item, int count) {
+    if (item < 0) return 0;
+    return ui_list_clamp_scroll(item - UI_LIST_VISIBLE / 2, count);
+}
+
+void ui_list_touch_reset(ui_list_touch_t *state) {
+    if (!state) return;
+    state->was_pressed = false;
+    state->drag_tracking = false;
+    state->drag_moved = false;
+}
+
+static int list_drag_scroll_delta(int delta_y) {
+    if (delta_y >= 0) return delta_y / UI_LIST_ITEM_H;
+    return -((-delta_y) / UI_LIST_ITEM_H);
+}
+
+ui_list_touch_result_t ui_list_touch_update(ui_list_touch_t *state,
+                                            const touch_point_t *touch,
+                                            bool pressed,
+                                            int count,
+                                            int *scroll_offset) {
+    if (!state || !scroll_offset) return UI_LIST_TOUCH_NONE;
+
+    if (pressed && !state->was_pressed) {
+        state->was_pressed = true;
+        state->drag_tracking = touch && touch->y >= UI_LIST_START_Y
+                               && touch->y < UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H;
+        state->drag_moved = false;
+        state->drag_start_y = touch ? touch->y : 0;
+        state->drag_start_scroll = *scroll_offset;
+        if (touch) state->tap_start = *touch;
+        return UI_LIST_TOUCH_PRESSED;
+    }
+
+    if (pressed) {
+        if (!touch || !state->drag_tracking) return UI_LIST_TOUCH_PRESSED;
+
+        int delta_y = touch->y - state->drag_start_y;
+        if (delta_y < -8 || delta_y > 8) {
+            state->drag_moved = true;
+        }
+
+        int new_scroll = state->drag_start_scroll - list_drag_scroll_delta(delta_y);
+        new_scroll = ui_list_clamp_scroll(new_scroll, count);
+        if (new_scroll != *scroll_offset) {
+            *scroll_offset = new_scroll;
+            return UI_LIST_TOUCH_SCROLLED;
+        }
+        return UI_LIST_TOUCH_PRESSED;
+    }
+
+    if (!state->was_pressed) return UI_LIST_TOUCH_NONE;
+
+    state->was_pressed = false;
+    state->drag_tracking = false;
+    return state->drag_moved ? UI_LIST_TOUCH_SCROLLED : UI_LIST_TOUCH_TAPPED;
 }
 
 bool ui_back_button_hit(const touch_point_t *touch) {

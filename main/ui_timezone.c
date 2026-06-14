@@ -138,12 +138,15 @@ static int selected_region = 0;
 static int selected_tz = 0;
 static int list_scroll = 0;
 static bool selection_made = false;
-static uint32_t last_touch_time = 0;
 static bool show_back_button = false;
+static ui_list_touch_t list_touch;
 
 // City list for current region (indices into timezones[])
 static int city_indices[30];  // max cities in a region (America has ~20)
 static int city_count = 0;
+
+static void draw_region_list(void);
+static void draw_city_list(void);
 
 static void build_city_list(int region_idx) {
     const char *region = regions[region_idx];
@@ -156,6 +159,15 @@ static void build_city_list(int region_idx) {
     }
 }
 
+static int list_count(void) {
+    return (ui_state == TZ_STATE_REGION) ? NUM_REGIONS : city_count;
+}
+
+static void draw_current_list(void) {
+    if (ui_state == TZ_STATE_REGION) draw_region_list();
+    else draw_city_list();
+}
+
 static void draw_region_list(void) {
     const char *labels[NUM_REGIONS];
     for (int i = 0; i < NUM_REGIONS; i++) {
@@ -166,20 +178,19 @@ static void draw_region_list(void) {
 
 static void draw_city_list(void) {
     const char *labels[city_count];
+    int selected_city = -1;
     for (int i = 0; i < city_count; i++) {
         labels[i] = timezones[city_indices[i]].city;
+        if (city_indices[i] == selected_tz) {
+            selected_city = i;
+        }
     }
-    ui_draw_list(labels, city_count, list_scroll, -1);
+    ui_draw_list(labels, city_count, list_scroll, selected_city);
 }
 
 static void enter_region_view(void) {
     ui_state = TZ_STATE_REGION;
-    list_scroll = selected_region - UI_LIST_VISIBLE / 2;
-    if (list_scroll < 0) list_scroll = 0;
-    if (list_scroll > NUM_REGIONS - UI_LIST_VISIBLE) {
-        list_scroll = NUM_REGIONS - UI_LIST_VISIBLE;
-    }
-    if (list_scroll < 0) list_scroll = 0;
+    list_scroll = ui_list_scroll_to_item(selected_region, NUM_REGIONS);
     display_fill(COLOR_BLACK);
     ui_draw_header("Select Region", show_back_button);
     draw_region_list();
@@ -193,14 +204,11 @@ static void enter_city_view(void) {
     // Try to scroll to current selection if it's in this region
     for (int i = 0; i < city_count; i++) {
         if (city_indices[i] == selected_tz) {
-            list_scroll = i - UI_LIST_VISIBLE / 2;
+            list_scroll = ui_list_scroll_to_item(i, city_count);
             break;
         }
     }
-    if (list_scroll < 0) list_scroll = 0;
-    if (city_count > UI_LIST_VISIBLE && list_scroll > city_count - UI_LIST_VISIBLE) {
-        list_scroll = city_count - UI_LIST_VISIBLE;
-    }
+    list_scroll = ui_list_clamp_scroll(list_scroll, city_count);
 
     display_fill(COLOR_BLACK);
     ui_draw_header(regions[selected_region], true);
@@ -211,6 +219,7 @@ void ui_timezone_init(const char *current_tz, bool show_back) {
     ESP_LOGI(TAG, "Initializing timezone selector");
     selection_made = false;
     show_back_button = show_back;
+    ui_list_touch_reset(&list_touch);
 
     // Find current timezone in list
     selected_tz = 0;
@@ -240,14 +249,23 @@ tz_select_result_t ui_timezone_update(void) {
     }
 
     touch_point_t touch;
-    bool touched = ui_read_touch(&touch, &last_touch_time);
+    bool pressed = touch_read(&touch);
+    ui_list_touch_result_t touch_result =
+        ui_list_touch_update(&list_touch, &touch, pressed, list_count(), &list_scroll);
 
-    if (!touched) {
+    if (touch_result == UI_LIST_TOUCH_SCROLLED) {
+        draw_current_list();
         return TZ_SELECT_CONTINUE;
     }
 
+    if (touch_result != UI_LIST_TOUCH_TAPPED) {
+        return TZ_SELECT_CONTINUE;
+    }
+
+    const touch_point_t *tap_start = &list_touch.tap_start;
+
     // Back button
-    if (ui_back_button_hit(&touch)) {
+    if (ui_back_button_hit(tap_start)) {
         if (ui_state == TZ_STATE_CITY) {
             enter_region_view();
             return TZ_SELECT_CONTINUE;
@@ -256,12 +274,12 @@ tz_select_result_t ui_timezone_update(void) {
         }
     }
 
-    int list_count = (ui_state == TZ_STATE_REGION) ? NUM_REGIONS : city_count;
+    int count = list_count();
 
     // List item touch
-    if (touch.y >= UI_LIST_START_Y && touch.y < UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H) {
-        int item = (touch.y - UI_LIST_START_Y) / UI_LIST_ITEM_H + list_scroll;
-        if (item < list_count) {
+    if (tap_start->y >= UI_LIST_START_Y && tap_start->y < UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H) {
+        int item = (tap_start->y - UI_LIST_START_Y) / UI_LIST_ITEM_H + list_scroll;
+        if (item < count) {
             if (ui_state == TZ_STATE_REGION) {
                 selected_region = item;
                 enter_city_view();
@@ -270,22 +288,6 @@ tz_select_result_t ui_timezone_update(void) {
                 selection_made = true;
                 return TZ_SELECT_DONE;
             }
-        }
-    }
-
-    // Scroll up
-    if (touch.y < UI_LIST_START_Y && list_scroll > 0) {
-        list_scroll--;
-        if (ui_state == TZ_STATE_REGION) draw_region_list();
-        else draw_city_list();
-    }
-
-    // Scroll down
-    if (touch.y >= UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H) {
-        if (list_scroll + UI_LIST_VISIBLE < list_count) {
-            list_scroll++;
-            if (ui_state == TZ_STATE_REGION) draw_region_list();
-            else draw_city_list();
         }
     }
 
