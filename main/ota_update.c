@@ -2,8 +2,11 @@
 #include <string.h>
 #include "esp_crt_bundle.h"
 #include "esp_err.h"
+#include "esp_http_client.h"
 #include "esp_https_ota.h"
 #include "esp_log.h"
+#include "esp_ota_ops.h"
+#include "esp_partition.h"
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -21,12 +24,65 @@ static ota_update_status_t current_status = {
 };
 static char pending_url[MAX_OTA_URL_LEN];
 
+typedef struct {
+    int last_status_code;
+    int redirects;
+    int64_t content_length;
+} ota_http_debug_t;
+
 static void status_set(ota_update_state_t state, const char *message, uint32_t bytes_read) {
     if (status_mutex) xSemaphoreTake(status_mutex, portMAX_DELAY);
     current_status.state = state;
     str_copy(current_status.message, sizeof(current_status.message), message);
     current_status.bytes_read = bytes_read;
     if (status_mutex) xSemaphoreGive(status_mutex);
+}
+
+static void status_set_err(ota_update_state_t state,
+                           const char *phase,
+                           esp_err_t err,
+                           uint32_t bytes_read) {
+    char message[64];
+    snprintf(message, sizeof(message), "%s: %s", phase, esp_err_to_name(err));
+    status_set(state, message, bytes_read);
+}
+
+static esp_err_t http_event_handler(esp_http_client_event_t *evt) {
+    ota_http_debug_t *debug = (ota_http_debug_t *)evt->user_data;
+
+    switch (evt->event_id) {
+        case HTTP_EVENT_ON_CONNECTED:
+            ESP_LOGI(TAG, "HTTP connected");
+            break;
+        case HTTP_EVENT_ON_STATUS_CODE:
+            if (evt->data && evt->data_len == sizeof(int)) {
+                int status = *(int *)evt->data;
+                if (debug) debug->last_status_code = status;
+                ESP_LOGI(TAG, "HTTP status %d", status);
+            }
+            break;
+        case HTTP_EVENT_REDIRECT:
+            if (debug) debug->redirects++;
+            ESP_LOGI(TAG, "HTTP redirect");
+            break;
+        case HTTP_EVENT_ON_HEADERS_COMPLETE:
+            if (debug && evt->client) {
+                debug->content_length = esp_http_client_get_content_length(evt->client);
+                ESP_LOGI(TAG, "HTTP content length: %lld",
+                         (long long)debug->content_length);
+            }
+            break;
+        case HTTP_EVENT_ERROR:
+            ESP_LOGE(TAG, "HTTP client error event");
+            break;
+        case HTTP_EVENT_DISCONNECTED:
+            ESP_LOGI(TAG, "HTTP disconnected");
+            break;
+        default:
+            break;
+    }
+
+    return ESP_OK;
 }
 
 static void ota_task(void *arg) {
@@ -38,12 +94,34 @@ static void ota_task(void *arg) {
     ESP_LOGI(TAG, "Starting OTA from %s", url);
     status_set(OTA_UPDATE_RUNNING, "Connecting", 0);
 
+    const esp_partition_t *running = esp_ota_get_running_partition();
+    const esp_partition_t *next = esp_ota_get_next_update_partition(NULL);
+    if (running) {
+        ESP_LOGI(TAG, "Running partition: %s @ 0x%" PRIx32,
+                 running->label, running->address);
+    }
+    if (next) {
+        ESP_LOGI(TAG, "Next OTA partition: %s @ 0x%" PRIx32,
+                 next->label, next->address);
+    } else {
+        ESP_LOGE(TAG, "No next OTA partition available");
+    }
+
+    ota_http_debug_t http_debug = {
+        .last_status_code = 0,
+        .redirects = 0,
+        .content_length = -1,
+    };
     esp_http_client_config_t http_config = {
         .url = url,
         .timeout_ms = 15000,
+        .buffer_size = 4096,
+        .buffer_size_tx = 1024,
         .max_redirection_count = 5,
         .keep_alive_enable = true,
         .crt_bundle_attach = esp_crt_bundle_attach,
+        .event_handler = http_event_handler,
+        .user_data = &http_debug,
     };
     esp_https_ota_config_t ota_config = {
         .http_config = &http_config,
@@ -52,8 +130,10 @@ static void ota_task(void *arg) {
     esp_https_ota_handle_t handle = NULL;
     esp_err_t err = esp_https_ota_begin(&ota_config, &handle);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "esp_https_ota_begin failed: %s", esp_err_to_name(err));
-        status_set(OTA_UPDATE_FAILED, esp_err_to_name(err), 0);
+        ESP_LOGE(TAG, "esp_https_ota_begin failed: %s status=%d redirects=%d len=%lld",
+                 esp_err_to_name(err), http_debug.last_status_code,
+                 http_debug.redirects, (long long)http_debug.content_length);
+        status_set_err(OTA_UPDATE_FAILED, "Begin", err, 0);
         vTaskDelete(NULL);
     }
 
@@ -66,17 +146,23 @@ static void ota_task(void *arg) {
 
     uint32_t bytes_read = (uint32_t)esp_https_ota_get_image_len_read(handle);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "esp_https_ota_perform failed: %s", esp_err_to_name(err));
+        ESP_LOGE(TAG, "esp_https_ota_perform failed: %s bytes=%lu status=%d redirects=%d len=%lld",
+                 esp_err_to_name(err), (unsigned long)bytes_read,
+                 http_debug.last_status_code, http_debug.redirects,
+                 (long long)http_debug.content_length);
         esp_https_ota_abort(handle);
-        status_set(OTA_UPDATE_FAILED, esp_err_to_name(err), bytes_read);
+        status_set_err(OTA_UPDATE_FAILED, "Download", err, bytes_read);
         vTaskDelete(NULL);
     }
 
     status_set(OTA_UPDATE_RUNNING, "Verifying", bytes_read);
     err = esp_https_ota_finish(handle);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "esp_https_ota_finish failed: %s", esp_err_to_name(err));
-        status_set(OTA_UPDATE_FAILED, esp_err_to_name(err), bytes_read);
+        ESP_LOGE(TAG, "esp_https_ota_finish failed: %s bytes=%lu status=%d redirects=%d len=%lld",
+                 esp_err_to_name(err), (unsigned long)bytes_read,
+                 http_debug.last_status_code, http_debug.redirects,
+                 (long long)http_debug.content_length);
+        status_set_err(OTA_UPDATE_FAILED, "Finish", err, bytes_read);
         vTaskDelete(NULL);
     }
 
