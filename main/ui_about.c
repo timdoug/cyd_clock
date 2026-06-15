@@ -39,8 +39,10 @@ typedef enum {
 
 static about_ui_state_t ui_state = ABOUT_STATE_MAIN;
 static ota_update_status_t last_status;
-static bool last_update_button_running = false;
+static ota_update_state_t last_update_button_state = OTA_UPDATE_IDLE;
 static bool update_button_drawn = false;
+static bool ota_header_drawn = false;
+static bool ota_header_back_drawn = true;
 static bool ota_status_frame_drawn = false;
 static char ota_status_message_drawn[sizeof(last_status.message)] = {0};
 static uint32_t ota_status_read_bucket_drawn = UINT32_MAX;
@@ -82,6 +84,27 @@ static const char *url_keyboard_rows[] = {
 static void draw_ota_header_button(void) {
     display_fill_rect(OTA_BTN_X, OTA_BTN_Y, OTA_BTN_W, OTA_BTN_H, UI_COLOR_ITEM_BG);
     display_string(OTA_BTN_X + 15, OTA_BTN_Y + 3, "OTA", COLOR_WHITE, UI_COLOR_ITEM_BG);
+}
+
+static bool ota_status_is_busy(const ota_update_status_t *status) {
+    return status->state == OTA_UPDATE_RUNNING || status->state == OTA_UPDATE_SUCCESS;
+}
+
+static bool ota_status_allows_back(const ota_update_status_t *status) {
+    return status->state != OTA_UPDATE_SUCCESS;
+}
+
+static bool ota_status_shows_progress(const ota_update_status_t *status) {
+    return status->state == OTA_UPDATE_RUNNING || status->state == OTA_UPDATE_SUCCESS;
+}
+
+static void draw_ota_header(bool force, bool show_back) {
+    if (!force && ota_header_drawn && show_back == ota_header_back_drawn) {
+        return;
+    }
+    ui_draw_header("OTA Update", show_back);
+    ota_header_drawn = true;
+    ota_header_back_drawn = show_back;
 }
 
 static void draw_screen(void) {
@@ -154,23 +177,37 @@ static void draw_url_box(void) {
         display_string(15, OTA_URL_BOX_Y + 6 + line_no * FONT_CHAR_HEIGHT,
                        line, COLOR_WHITE, COLOR_DARKGRAY);
     }
-    display_string(DISPLAY_WIDTH - 30, OTA_URL_BOX_Y + 6, ">", COLOR_WHITE, COLOR_DARKGRAY);
 }
 
 static void draw_update_button(void) {
-    bool running = ota_update_is_running();
-    if (update_button_drawn && running == last_update_button_running) {
+    ota_update_status_t status;
+    ota_update_get_status(&status);
+    bool busy = ota_status_is_busy(&status);
+    if (update_button_drawn && status.state == last_update_button_state) {
         return;
     }
-    last_update_button_running = running;
+    last_update_button_state = status.state;
     update_button_drawn = true;
 
-    uint16_t bg = running ? COLOR_GRAY : COLOR_GREEN;
-    uint16_t fg = running ? COLOR_WHITE : COLOR_BLACK;
-    const char *label = running ? "Running" : "Update";
+    uint16_t bg = busy ? COLOR_GRAY : COLOR_GREEN;
+    uint16_t fg = busy ? COLOR_WHITE : COLOR_BLACK;
+    const char *label = "Update";
+    if (status.state == OTA_UPDATE_RUNNING) {
+        label = "Running";
+    } else if (status.state == OTA_UPDATE_SUCCESS) {
+        label = "Restarting";
+    }
     display_fill_rect(10, OTA_UPDATE_BTN_Y, 100, OTA_UPDATE_BTN_H, bg);
     int x = 10 + (100 - (int)strlen(label) * FONT_CHAR_WIDTH) / 2;
     display_string(x, OTA_UPDATE_BTN_Y + 7, label, fg, bg);
+}
+
+static void draw_ota_controls(void) {
+    ota_update_status_t status;
+    ota_update_get_status(&status);
+
+    draw_ota_header(false, ota_status_allows_back(&status));
+    draw_update_button();
 }
 
 static void draw_ota_status(bool force) {
@@ -211,7 +248,7 @@ static void draw_ota_status(bool force) {
     }
 
     if (force || progress_bucket != ota_status_read_bucket_drawn) {
-        if (status.bytes_read > 0) {
+        if (ota_status_shows_progress(&status) && status.bytes_read > 0) {
             if (force || !ota_status_read_label_drawn) {
                 display_string(10, 198, "Read:", COLOR_GRAY, COLOR_BLACK);
                 display_rect(10, 218, 222, 8, COLOR_GRAY);
@@ -280,7 +317,11 @@ static void reset_ota_status_draw_state(void) {
 
 static void draw_ota_screen(void) {
     display_fill(COLOR_BLACK);
-    ui_draw_header("OTA Update", true);
+    ota_update_status_t status;
+    ota_update_get_status(&status);
+
+    ota_header_drawn = false;
+    draw_ota_header(true, ota_status_allows_back(&status));
     update_button_drawn = false;
     reset_ota_status_draw_state();
     draw_url_box();
@@ -372,13 +413,23 @@ about_result_t ui_about_update(void) {
                 draw_ota_screen();
             }
         } else if (ui_state == ABOUT_STATE_OTA) {
-            if (ui_back_button_hit(&touch)) {
+            ota_update_status_t status;
+            ota_update_get_status(&status);
+            bool busy = ota_status_is_busy(&status);
+
+            if (ui_back_button_hit(&touch) && status.state == OTA_UPDATE_RUNNING) {
+                ota_update_cancel();
                 ui_state = ABOUT_STATE_MAIN;
                 draw_screen();
-            } else if (touch.y >= OTA_URL_BOX_Y && touch.y < OTA_URL_BOX_Y + OTA_URL_BOX_H) {
+            } else if (!busy && ui_back_button_hit(&touch)) {
+                ui_state = ABOUT_STATE_MAIN;
+                draw_screen();
+            } else if (!busy &&
+                       touch.y >= OTA_URL_BOX_Y && touch.y < OTA_URL_BOX_Y + OTA_URL_BOX_H) {
                 ui_state = ABOUT_STATE_OTA_KEYBOARD;
                 draw_keyboard();
-            } else if (touch.x >= 10 && touch.x < 110 &&
+            } else if (!busy &&
+                       touch.x >= 10 && touch.x < 110 &&
                        touch.y >= OTA_UPDATE_BTN_Y &&
                        touch.y < OTA_UPDATE_BTN_Y + OTA_UPDATE_BTN_H) {
                 char err[64];
@@ -423,7 +474,7 @@ about_result_t ui_about_update(void) {
     }
 
     if (ui_state == ABOUT_STATE_OTA) {
-        draw_update_button();
+        draw_ota_controls();
         draw_ota_status(false);
     }
 

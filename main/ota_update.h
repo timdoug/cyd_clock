@@ -12,6 +12,7 @@ typedef enum {
     OTA_UPDATE_RUNNING,
     OTA_UPDATE_SUCCESS,
     OTA_UPDATE_FAILED,
+    OTA_UPDATE_CANCELLED,
 } ota_update_state_t;
 
 typedef struct {
@@ -23,6 +24,7 @@ typedef struct {
 
 void ota_update_init(void);
 bool ota_update_start(const char *url, char *err_buf, size_t err_len);
+bool ota_update_cancel(void);
 void ota_update_get_status(ota_update_status_t *status);
 bool ota_update_is_running(void);
 

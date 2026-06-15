@@ -23,6 +23,7 @@ static ota_update_status_t current_status = {
     .message = "Idle",
 };
 static char pending_url[MAX_OTA_URL_LEN];
+static bool cancel_requested = false;
 
 typedef struct {
     int last_status_code;
@@ -40,6 +41,19 @@ static void status_set(ota_update_state_t state,
     current_status.bytes_read = bytes_read;
     current_status.total_bytes = total_bytes;
     if (status_mutex) xSemaphoreGive(status_mutex);
+}
+
+static bool cancel_is_requested(void) {
+    bool requested = false;
+    if (status_mutex) xSemaphoreTake(status_mutex, portMAX_DELAY);
+    requested = cancel_requested;
+    if (status_mutex) xSemaphoreGive(status_mutex);
+    return requested;
+}
+
+static uint32_t ota_bytes_read(esp_https_ota_handle_t handle) {
+    int len = esp_https_ota_get_image_len_read(handle);
+    return len > 0 ? (uint32_t)len : 0;
 }
 
 static void status_set_err(ota_update_state_t state,
@@ -142,6 +156,15 @@ static void ota_task(void *arg) {
         vTaskDelete(NULL);
     }
 
+    if (cancel_is_requested()) {
+        uint32_t bytes_read = ota_bytes_read(handle);
+        ESP_LOGI(TAG, "OTA cancelled after begin bytes=%lu",
+                 (unsigned long)bytes_read);
+        esp_https_ota_abort(handle);
+        status_set(OTA_UPDATE_CANCELLED, "Cancelled", 0, 0);
+        vTaskDelete(NULL);
+    }
+
     uint32_t total_bytes = 0;
     if (http_debug.content_length > 0 && http_debug.content_length <= UINT32_MAX) {
         total_bytes = (uint32_t)http_debug.content_length;
@@ -149,13 +172,27 @@ static void ota_task(void *arg) {
 
     status_set(OTA_UPDATE_RUNNING, "Downloading", 0, total_bytes);
     while ((err = esp_https_ota_perform(handle)) == ESP_ERR_HTTPS_OTA_IN_PROGRESS) {
-        status_set(OTA_UPDATE_RUNNING, "Downloading",
-                   (uint32_t)esp_https_ota_get_image_len_read(handle),
-                   total_bytes);
+        uint32_t bytes_read = ota_bytes_read(handle);
+        if (cancel_is_requested()) {
+            ESP_LOGI(TAG, "OTA cancelled during download bytes=%lu",
+                     (unsigned long)bytes_read);
+            esp_https_ota_abort(handle);
+            status_set(OTA_UPDATE_CANCELLED, "Cancelled", 0, 0);
+            vTaskDelete(NULL);
+        }
+        status_set(OTA_UPDATE_RUNNING, "Downloading", bytes_read, total_bytes);
         vTaskDelay(pdMS_TO_TICKS(1));
     }
 
-    uint32_t bytes_read = (uint32_t)esp_https_ota_get_image_len_read(handle);
+    uint32_t bytes_read = ota_bytes_read(handle);
+    if (cancel_is_requested()) {
+        ESP_LOGI(TAG, "OTA cancelled before finish bytes=%lu",
+                 (unsigned long)bytes_read);
+        esp_https_ota_abort(handle);
+        status_set(OTA_UPDATE_CANCELLED, "Cancelled", 0, 0);
+        vTaskDelete(NULL);
+    }
+
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "esp_https_ota_perform failed: %s bytes=%lu status=%d redirects=%d len=%lld",
                  esp_err_to_name(err), (unsigned long)bytes_read,
@@ -207,8 +244,12 @@ bool ota_update_start(const char *url, char *err_buf, size_t err_len) {
     }
 
     str_copy(pending_url, sizeof(pending_url), url);
+    if (status_mutex) xSemaphoreTake(status_mutex, portMAX_DELAY);
+    cancel_requested = false;
+    if (status_mutex) xSemaphoreGive(status_mutex);
     status_set(OTA_UPDATE_RUNNING, "Queued", 0, 0);
-    BaseType_t ok = xTaskCreate(ota_task, "ota_update", 8192, NULL, 5, NULL);
+    BaseType_t ok = xTaskCreate(ota_task, "ota_update", 8192, NULL,
+                                tskIDLE_PRIORITY + 1, NULL);
     if (ok != pdPASS) {
         status_set(OTA_UPDATE_FAILED, "No memory", 0, 0);
         str_copy(err_buf, err_len, "No memory");
@@ -216,6 +257,17 @@ bool ota_update_start(const char *url, char *err_buf, size_t err_len) {
     }
     str_copy(err_buf, err_len, "");
     return true;
+}
+
+bool ota_update_cancel(void) {
+    if (status_mutex) xSemaphoreTake(status_mutex, portMAX_DELAY);
+    bool running = current_status.state == OTA_UPDATE_RUNNING;
+    if (running) {
+        cancel_requested = true;
+        str_copy(current_status.message, sizeof(current_status.message), "Cancelling");
+    }
+    if (status_mutex) xSemaphoreGive(status_mutex);
+    return running;
 }
 
 void ota_update_get_status(ota_update_status_t *status) {
