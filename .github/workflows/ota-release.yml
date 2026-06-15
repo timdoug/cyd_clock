@@ -1,0 +1,79 @@
+name: OTA release binary
+
+on:
+  push:
+    tags:
+      - "r*"
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to upload to, for example r2026.06.15"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Build firmware
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: release-v6.0
+          target: esp32
+          path: "."
+
+      - name: Prepare release assets
+        run: |
+          set -eu
+          test -s build/cyd_clock.bin
+          cp build/cyd_clock.bin cyd_clock.bin
+          cp build/bootloader/bootloader.bin bootloader.bin
+          cp build/partition_table/partition-table.bin partition-table.bin
+          cp build/ota_data_initial.bin ota_data_initial.bin
+
+      - name: Resolve release tag
+        id: release
+        run: |
+          set -eu
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            tag="${{ github.event.inputs.tag }}"
+          elif [ "${{ github.event_name }}" = "release" ]; then
+            tag="${{ github.event.release.tag_name }}"
+          else
+            tag="${GITHUB_REF_NAME}"
+          fi
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+
+      - name: Create release if needed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -eu
+          gh release view "${TAG}" >/dev/null 2>&1 || \
+            gh release create "${TAG}" --title "${TAG}" --notes "CYD Clock ${TAG}" --latest
+
+      - name: Upload firmware assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -eu
+          gh release upload "${TAG}" \
+            cyd_clock.bin \
+            bootloader.bin \
+            partition-table.bin \
+            ota_data_initial.bin \
+            --clobber
+          gh release edit "${TAG}" --latest
