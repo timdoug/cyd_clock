@@ -1,6 +1,9 @@
 # Flash (CYD has 4MB Boya chip)
 CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
 CONFIG_SPI_FLASH_SUPPORT_BOYA_CHIP=y
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions_ota.csv"
+CONFIG_PARTITION_TABLE_FILENAME="partitions_ota.csv"
 
 # RTC clock: use internal 8.5MHz oscillator / 256 (more accurate than RC)
 # 8x default calibration cycles for more accurate RTC tick measurement
@@ -27,6 +30,8 @@ CONFIG_LWIP_IPV6_AUTOCONFIG=y
 CONFIG_LWIP_IPV6_RDNSS_MAX_DNS_SERVERS=3
 CONFIG_LWIP_IPV6_DHCP6=y
 CONFIG_LWIP_IPV6_ND6_ROUTE_INFO_OPTION_SUPPORT=y
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL=y
 
 # Reproducible builds: don't embed __DATE__/__TIME__ in the app descriptor
 # (the era anchor in util.h is a hardcoded year for the same reason)

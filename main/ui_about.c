@@ -5,19 +5,60 @@
 #include "esp_log.h"
 #include "config.h"
 #include "display.h"
+#include "nvs_config.h"
+#include "ota_update.h"
 #include "touch.h"
 #include "ui_common.h"
+#include "ui_keyboard.h"
+#include "util.h"
 #include "version.h"
 #include "wifi.h"
 
 static const char *TAG = "ui_about";
 
 #define URL "github.com/timdoug/cyd_clock"
+#define OTA_BTN_X 260
+#define OTA_BTN_Y 5
+#define OTA_BTN_W 55
+#define OTA_BTN_H 20
+#define OTA_URL_BOX_Y 58
+#define OTA_URL_BOX_H 60
+#define OTA_UPDATE_BTN_Y 134
+#define OTA_UPDATE_BTN_H 28
+#define OTA_KEYBOARD_Y 84
 
 static uint32_t last_touch_time = 0;
+static char ota_url[MAX_OTA_URL_LEN];
+static int ota_url_len = 0;
+
+typedef enum {
+    ABOUT_STATE_MAIN,
+    ABOUT_STATE_OTA,
+    ABOUT_STATE_OTA_KEYBOARD,
+} about_ui_state_t;
+
+static about_ui_state_t ui_state = ABOUT_STATE_MAIN;
+static ota_update_status_t last_status;
+static bool last_update_button_running = false;
+static bool update_button_drawn = false;
+
+static const char *url_keyboard_rows[] = {
+    "1234567890",
+    "qwertyuiop",
+    "asdfghjkl.",
+    "zxcvbnm-_/",
+    ":?&=%+#~",
+};
+
+static void draw_ota_header_button(void) {
+    display_fill_rect(OTA_BTN_X, OTA_BTN_Y, OTA_BTN_W, OTA_BTN_H, UI_COLOR_ITEM_BG);
+    display_string(OTA_BTN_X + 15, OTA_BTN_Y + 3, "OTA", COLOR_WHITE, UI_COLOR_ITEM_BG);
+}
 
 static void draw_screen(void) {
+    display_fill(COLOR_BLACK);
     ui_draw_header("About", true);
+    draw_ota_header_button();
 
     // Content
     int y = 48;
@@ -62,9 +103,143 @@ static void draw_screen(void) {
     display_string(90, y, mac_str, COLOR_WHITE, COLOR_BLACK);
 }
 
+static void draw_url_box(void) {
+    display_string(10, 40, "Firmware URL:", COLOR_GRAY, COLOR_BLACK);
+    display_fill_rect(10, OTA_URL_BOX_Y, DISPLAY_WIDTH - 20, OTA_URL_BOX_H, COLOR_DARKGRAY);
+
+    const int chars_per_line = 36;
+    const int max_lines = 3;
+    for (int line_no = 0; line_no < max_lines; line_no++) {
+        int offset = line_no * chars_per_line;
+        if (offset >= ota_url_len) break;
+
+        char line[chars_per_line + 1];
+        int copy_len = ota_url_len - offset;
+        if (copy_len > chars_per_line) copy_len = chars_per_line;
+        memcpy(line, ota_url + offset, copy_len);
+        line[copy_len] = '\0';
+
+        if (line_no == max_lines - 1 && offset + copy_len < ota_url_len && copy_len > 3) {
+            memcpy(line + copy_len - 3, "...", 3);
+        }
+        display_string(15, OTA_URL_BOX_Y + 6 + line_no * FONT_CHAR_HEIGHT,
+                       line, COLOR_WHITE, COLOR_DARKGRAY);
+    }
+    display_string(DISPLAY_WIDTH - 30, OTA_URL_BOX_Y + 6, ">", COLOR_WHITE, COLOR_DARKGRAY);
+}
+
+static void draw_update_button(void) {
+    bool running = ota_update_is_running();
+    if (update_button_drawn && running == last_update_button_running) {
+        return;
+    }
+    last_update_button_running = running;
+    update_button_drawn = true;
+
+    uint16_t bg = running ? COLOR_GRAY : COLOR_GREEN;
+    uint16_t fg = running ? COLOR_WHITE : COLOR_BLACK;
+    const char *label = running ? "Running" : "Update";
+    display_fill_rect(10, OTA_UPDATE_BTN_Y, 100, OTA_UPDATE_BTN_H, bg);
+    int x = 10 + (100 - (int)strlen(label) * FONT_CHAR_WIDTH) / 2;
+    display_string(x, OTA_UPDATE_BTN_Y + 7, label, fg, bg);
+}
+
+static void draw_ota_status(bool force) {
+    ota_update_status_t status;
+    ota_update_get_status(&status);
+    if (!force &&
+        status.state == last_status.state &&
+        status.bytes_read == last_status.bytes_read &&
+        strcmp(status.message, last_status.message) == 0) {
+        return;
+    }
+    last_status = status;
+
+    display_fill_rect(0, 174, DISPLAY_WIDTH, 55, COLOR_BLACK);
+    display_string(10, 176, "Status:", COLOR_GRAY, COLOR_BLACK);
+    display_string(75, 176, status.message, COLOR_WHITE, COLOR_BLACK);
+
+    if (status.bytes_read > 0) {
+        char bytes[32];
+        snprintf(bytes, sizeof(bytes), "%lu KB", (unsigned long)(status.bytes_read / 1024));
+        display_string(10, 198, "Read:", COLOR_GRAY, COLOR_BLACK);
+        display_string(75, 198, bytes, COLOR_WHITE, COLOR_BLACK);
+    }
+}
+
+static void draw_ota_screen(void) {
+    display_fill(COLOR_BLACK);
+    ui_draw_header("OTA Update", true);
+    update_button_drawn = false;
+    draw_url_box();
+    draw_update_button();
+    draw_ota_status(true);
+}
+
+static void draw_keyboard_input(void) {
+    display_fill_rect(0, 35, DISPLAY_WIDTH, 45, COLOR_BLACK);
+    display_string(10, 38, "Firmware URL:", COLOR_GRAY, COLOR_BLACK);
+    display_fill_rect(10, 55, DISPLAY_WIDTH - 20, 22, COLOR_DARKGRAY);
+
+    const int max_chars = 35;
+    const char *display_url = ota_url;
+    if (ota_url_len > max_chars) {
+        display_url = ota_url + ota_url_len - max_chars;
+    }
+    display_string(15, 59, display_url, COLOR_WHITE, COLOR_DARKGRAY);
+
+    int cursor_x = 15 + (ota_url_len > max_chars ? max_chars : ota_url_len) * FONT_CHAR_WIDTH;
+    if (cursor_x < DISPLAY_WIDTH - 20) {
+        display_string(cursor_x, 59, "_", COLOR_CYAN, COLOR_DARKGRAY);
+    }
+}
+
+static void draw_keyboard(void) {
+    display_fill(COLOR_BLACK);
+    ui_draw_header("OTA URL", false);
+    draw_keyboard_input();
+    ui_keyboard_draw_keys(url_keyboard_rows, 5, OTA_KEYBOARD_Y,
+                          COLOR_DARKGRAY, COLOR_WHITE, COLOR_GRAY);
+
+    int y = ui_keyboard_bottom_y(5, OTA_KEYBOARD_Y);
+    int btn_h = KB_KEY_HEIGHT - 2;
+
+    display_fill_rect(10, y, 80, btn_h, COLOR_RED);
+    display_string(26, y + 3, "Cancel", COLOR_WHITE, COLOR_RED);
+
+    display_fill_rect(120, y, 80, btn_h, COLOR_GRAY);
+    display_string(144, y + 3, "Del", COLOR_WHITE, COLOR_GRAY);
+
+    display_fill_rect(230, y, 80, btn_h, COLOR_GREEN);
+    display_string(254, y + 3, "Done", COLOR_BLACK, COLOR_GREEN);
+}
+
+static char get_keyboard_key(int16_t x, int16_t y) {
+    char key = ui_keyboard_get_key(url_keyboard_rows, 5, OTA_KEYBOARD_Y, x, y);
+    if (key) return key;
+
+    int btn_y = ui_keyboard_bottom_y(5, OTA_KEYBOARD_Y);
+    if (y >= btn_y && y < btn_y + KB_KEY_HEIGHT) {
+        if (x >= 10 && x < 90) return VKEY_ESCAPE;
+        if (x >= 120 && x < 200) return VKEY_BACKSPACE;
+        if (x >= 230 && x < 310) return VKEY_ENTER;
+    }
+    return 0;
+}
+
+static void load_ota_url(void) {
+    if (!nvs_config_get_ota_url(ota_url) || ota_url[0] == '\0') {
+        str_copy(ota_url, sizeof(ota_url), DEFAULT_OTA_URL);
+    }
+    ota_url_len = strlen(ota_url);
+}
+
 void ui_about_init(void) {
     ESP_LOGI(TAG, "Initializing about screen");
     last_touch_time = 0;
+    ui_state = ABOUT_STATE_MAIN;
+    load_ota_url();
+    memset(&last_status, 0, sizeof(last_status));
 
     display_fill(COLOR_BLACK);
     draw_screen();
@@ -75,10 +250,71 @@ about_result_t ui_about_update(void) {
     bool touched = ui_read_touch(&touch, &last_touch_time);
 
     if (touched) {
-        // Back button
-        if (ui_back_button_hit(&touch)) {
-            return ABOUT_RESULT_BACK;
+        if (ui_state == ABOUT_STATE_MAIN) {
+            if (ui_back_button_hit(&touch)) {
+                return ABOUT_RESULT_BACK;
+            }
+            if (touch.x >= OTA_BTN_X && touch.x < OTA_BTN_X + OTA_BTN_W &&
+                touch.y >= OTA_BTN_Y && touch.y < OTA_BTN_Y + OTA_BTN_H) {
+                ui_state = ABOUT_STATE_OTA;
+                draw_ota_screen();
+            }
+        } else if (ui_state == ABOUT_STATE_OTA) {
+            if (ui_back_button_hit(&touch)) {
+                ui_state = ABOUT_STATE_MAIN;
+                draw_screen();
+            } else if (touch.y >= OTA_URL_BOX_Y && touch.y < OTA_URL_BOX_Y + OTA_URL_BOX_H) {
+                ui_state = ABOUT_STATE_OTA_KEYBOARD;
+                draw_keyboard();
+            } else if (touch.x >= 10 && touch.x < 110 &&
+                       touch.y >= OTA_UPDATE_BTN_Y &&
+                       touch.y < OTA_UPDATE_BTN_Y + OTA_UPDATE_BTN_H) {
+                char err[64];
+                if (!ota_update_start(ota_url, err, sizeof(err))) {
+                    ota_update_status_t status = {
+                        .state = OTA_UPDATE_FAILED,
+                        .bytes_read = 0,
+                    };
+                    str_copy(status.message, sizeof(status.message), err);
+                    last_status = status;
+                    display_fill_rect(0, 174, DISPLAY_WIDTH, 55, COLOR_BLACK);
+                    display_string(10, 176, "Status:", COLOR_GRAY, COLOR_BLACK);
+                    display_string(75, 176, err, COLOR_RED, COLOR_BLACK);
+                }
+                update_button_drawn = false;
+                draw_update_button();
+                draw_ota_status(true);
+            }
+        } else if (ui_state == ABOUT_STATE_OTA_KEYBOARD) {
+            char key = get_keyboard_key(touch.x, touch.y);
+            if (key == VKEY_ESCAPE) {
+                load_ota_url();
+                ui_state = ABOUT_STATE_OTA;
+                draw_ota_screen();
+            } else if (key == VKEY_ENTER) {
+                if (ota_url_len == 0) {
+                    str_copy(ota_url, sizeof(ota_url), DEFAULT_OTA_URL);
+                    ota_url_len = strlen(ota_url);
+                }
+                nvs_config_set_ota_url(ota_url);
+                ui_state = ABOUT_STATE_OTA;
+                draw_ota_screen();
+            } else if (key == VKEY_BACKSPACE) {
+                if (ota_url_len > 0) {
+                    ota_url[--ota_url_len] = '\0';
+                    draw_keyboard_input();
+                }
+            } else if (key >= ' ' && key <= '~' && ota_url_len < (int)(sizeof(ota_url) - 1)) {
+                ota_url[ota_url_len++] = key;
+                ota_url[ota_url_len] = '\0';
+                draw_keyboard_input();
+            }
         }
+    }
+
+    if (ui_state == ABOUT_STATE_OTA) {
+        draw_update_button();
+        draw_ota_status(false);
     }
 
     return ABOUT_RESULT_NONE;

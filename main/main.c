@@ -15,6 +15,7 @@
 #include "display.h"
 #include "led.h"
 #include "nvs_config.h"
+#include "ota_update.h"
 #include "touch.h"
 #include "ui_about.h"
 #include "ui_clock.h"
@@ -172,6 +173,7 @@ void app_main(void) {
 
     // Initialize hardware
     nvs_config_init();
+    ota_update_init();
     display_init();
     touch_init();
     led_init();

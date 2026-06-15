@@ -8,6 +8,7 @@ idf_component_register(
         "touch.c"
         "wifi.c"
         "ntp.c"
+        "ota_update.c"
         "nvs_config.c"
         "ui_common.c"
         "ui_keyboard.c"
@@ -22,11 +23,15 @@ idf_component_register(
         "."
         "${CMAKE_CURRENT_BINARY_DIR}"
     PRIV_REQUIRES
+        bootloader_support
         esp_event
         esp_driver_gpio
         esp_driver_ledc
         esp_driver_spi
+        esp_https_ota
+        esp_http_client
         esp_hw_support
+        esp-tls
         esp_netif
         esp_system
         esp_timer

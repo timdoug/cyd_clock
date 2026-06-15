@@ -29,6 +29,11 @@ void nvs_config_set_brightness(uint8_t brightness);
 bool nvs_config_get_custom_ntp_server(char *server);
 void nvs_config_set_custom_ntp_server(const char *server);
 
+// OTA update URL
+#define MAX_OTA_URL_LEN 256
+bool nvs_config_get_ota_url(char *url);
+void nvs_config_set_ota_url(const char *url);
+
 // NTP IPv6 preference
 bool nvs_config_get_ntp_ipv6(bool *prefer);
 void nvs_config_set_ntp_ipv6(bool prefer);

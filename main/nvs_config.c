@@ -162,6 +162,29 @@ void nvs_config_set_custom_ntp_server(const char *server) {
     }
 }
 
+bool nvs_config_get_ota_url(char *url) {
+    nvs_handle_t handle;
+    if (!nvs_open_read(&handle)) {
+        return false;
+    }
+
+    size_t len = MAX_OTA_URL_LEN;
+    esp_err_t err = nvs_get_str(handle, "ota_url", url, &len);
+    nvs_close(handle);
+    return err == ESP_OK;
+}
+
+void nvs_config_set_ota_url(const char *url) {
+    nvs_handle_t handle;
+    if (!nvs_open_write(&handle)) return;
+
+    if (nvs_set_ok(nvs_set_str(handle, "ota_url", url ? url : ""), "ota_url")) {
+        nvs_commit_and_close(handle);
+    } else {
+        nvs_close(handle);
+    }
+}
+
 bool nvs_config_get_ntp_ipv6(bool *prefer) {
     nvs_handle_t handle;
     if (!nvs_open_read(&handle)) {
