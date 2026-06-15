@@ -38,6 +38,14 @@ static const char *TAG = "ntp";
 #define NTP_UNIX_FOLD        2085978496UL  // 2^32 - NTP_EPOCH_OFFSET
 #define NTP_FILTER_SIZE      8
 
+// Optimize for the common case: public NTP over WiFi, where route/server
+// bias and queueing noise dominate. Quiet LAN references still benefit from
+// the same low-delay sample selection and conservative drift learning.
+#define ROBUST_SAMPLE_MAX_AGE_S 3600
+#define ROBUST_COMBINE_SPREAD_US 2000
+#define ROBUST_FREQ_MAX_JITTER_US 2500
+#define ROBUST_FREQ_MAX_OFFSET_US 8000
+
 // Timing
 #define MIN_POLL_S           32
 #define MAX_POLL_S           1024    // hard ceiling on adaptive poll growth
@@ -59,7 +67,6 @@ static const char *TAG = "ntp";
                                           // wave offset spike can't yank the estimate.
 #define MAX_FREQ_STEP_PPB    1000         // one NTP sample may move drift estimate by <= 1 ppm
 #define FREQ_MAX_OFFSET_US   25000        // larger residuals are usually path asymmetry / spikes
-#define FREQ_MAX_JITTER_US   20000        // don't learn crystal drift from very noisy peer sets
 
 // Per RFC 5905: each sample's dispersion grows linearly with time at this rate.
 // Makes root_dispersion honestly track uncertainty between polls.
@@ -116,6 +123,7 @@ typedef struct {
     int32_t  offset_us;
     int32_t  delay_us;
     int32_t  dispersion_us;
+    uint32_t received_ms;
     bool     valid;
 } ntp_sample_t;
 
@@ -137,6 +145,7 @@ typedef struct {
     int32_t  best_delay_us;
     int32_t  jitter_us;
     int32_t  dispersion_us;
+    uint32_t best_sample_ms;
     uint32_t last_response_ms;
 
     // Outstanding request state (for match / timeout)
@@ -810,22 +819,38 @@ static void update_peer_filter(ntp_peer_t *p) {
         p->best_delay_us  = 0;
         p->jitter_us      = 0;
         p->dispersion_us  = 16000000;
+        p->best_sample_ms = 0;
         return;
     }
 
-    // Discipline from the newest sample. Using lowest-delay across the filter
-    // window can freeze the correction on an old sample (since newer samples
-    // rarely beat an earlier low-delay slot), causing repeated over-correction.
-    const ntp_sample_t *newest = &p->filter[p->filter_head];
-    p->best_offset_us = newest->offset_us;
-    p->best_delay_us  = newest->delay_us;
+    int best_idx = p->filter_head;
+    if (valid > 1) {
+        uint32_t now = mono_ms();
+        uint32_t max_age_ms = ROBUST_SAMPLE_MAX_AGE_S * 1000UL;
+        for (int i = 0; i < NTP_FILTER_SIZE; i++) {
+            if (!p->filter[i].valid) continue;
+            uint32_t age_ms = now - p->filter[i].received_ms;
+            if (age_ms > max_age_ms) continue;
+            if (p->filter[i].delay_us < p->filter[best_idx].delay_us) {
+                best_idx = i;
+            }
+        }
+    }
+
+    // Queueing and route asymmetry show up as higher RTT. Use the
+    // lowest-delay recent sample, but age its dispersion from when that
+    // sample was actually received so stale wins do not look fresh.
+    const ntp_sample_t *best = &p->filter[best_idx];
+    p->best_offset_us = best->offset_us;
+    p->best_delay_us  = best->delay_us;
+    p->best_sample_ms = best->received_ms;
 
     if (valid > 1) {
-        // Jitter: RMS difference of other samples from the newest offset.
+        // Jitter: RMS difference of other samples from the chosen offset.
         double sum_sq = 0.0;
         int n = 0;
         for (int i = 0; i < NTP_FILTER_SIZE; i++) {
-            if (!p->filter[i].valid || i == p->filter_head) continue;
+            if (!p->filter[i].valid || i == best_idx) continue;
             double d = (double)(p->filter[i].offset_us - p->best_offset_us);
             sum_sq += d * d;
             n++;
@@ -837,16 +862,16 @@ static void update_peer_filter(ntp_peer_t *p) {
         double rms = n > 0 ? sqrt(sum_sq / n) : 0.0;
         p->jitter_us = rms > 16000000.0 ? 16000000 : (int32_t)rms;
     } else {
-        int32_t half_delay = newest->delay_us / 2;
+        int32_t half_delay = best->delay_us / 2;
         p->jitter_us = half_delay > 16000000 ? 16000000 : half_delay;
     }
-    p->dispersion_us = newest->dispersion_us + p->jitter_us;
+    p->dispersion_us = best->dispersion_us + p->jitter_us;
 }
 
 static int32_t aged_peer_dispersion_us(const ntp_peer_t *p, uint32_t now_ms) {
     int64_t disp = p->dispersion_us;
-    if (p->last_response_ms != 0) {
-        uint32_t age_ms = now_ms - p->last_response_ms;
+    if (p->best_sample_ms != 0) {
+        uint32_t age_ms = now_ms - p->best_sample_ms;
         disp += (int64_t)PHI_US_PER_SEC * age_ms / 1000;
     } else {
         disp += 16000000LL;
@@ -1262,6 +1287,7 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
             q->best_delay_us    = 0;
             q->jitter_us        = 0;
             q->dispersion_us    = 16000000;
+            q->best_sample_ms   = 0;
             q->reach            = 0;
             q->falseticker_runs = 0;
             q->jittery_runs     = 0;
@@ -1367,6 +1393,7 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
     p->filter[p->filter_head].offset_us     = (int32_t)offset;
     p->filter[p->filter_head].delay_us      = (int32_t)delay;
     p->filter[p->filter_head].dispersion_us = sample_disp;
+    p->filter[p->filter_head].received_ms   = mono_ms();
     p->filter[p->filter_head].valid         = true;
 
     p->stratum         = pkt->stratum;
@@ -1528,7 +1555,10 @@ static void select_system_peer(void) {
     // average via its small dispersion; noisier survivors contribute
     // proportionally less. Gives ~1/sqrt(N) noise reduction when peers have
     // comparable quality and degrades gracefully when one peer is clearly
-    // better.
+    // better. Exception: different servers/routes can carry different fixed
+    // ms-scale biases, so if the survivor spread is already wider than the
+    // useful accuracy target, trust the selected lowest-jitter survivor
+    // instead of averaging biased estimates.
     //
     // Weights are 1/dispersion^2 (not 1/dispersion). This is the textbook
     // minimum-variance unbiased combination of independent estimates: with
@@ -1545,16 +1575,29 @@ static void select_system_peer(void) {
     //   sigma_combined    = sqrt(sum(w^2*sigma^2)) / sumw
     // Doubles throughout so w^2*sigma^2 can't overflow with small dispersion.
     {
-        double num_off = 0.0, num_jit_var = 0.0, denom = 0.0;
+        int32_t min_off = INT32_MAX;
+        int32_t max_off = INT32_MIN;
         for (int i = 0; i < n; i++) {
             if (!(best_mask & (1 << i))) continue;
             ntp_peer_t *pp = &g.peers[c[i].idx];
-            int32_t aged_disp_us = aged_peer_dispersion_us(pp, now);
-            double disp = aged_disp_us > 1 ? aged_disp_us : 1;
-            double w    = 1.0 / (disp * disp);
-            num_off     += (double)pp->best_offset_us * w;
-            num_jit_var += w * w * (double)pp->jitter_us * pp->jitter_us;
-            denom       += w;
+            if (pp->best_offset_us < min_off) min_off = pp->best_offset_us;
+            if (pp->best_offset_us > max_off) max_off = pp->best_offset_us;
+        }
+        bool survivor_spread_wide = min_off != INT32_MAX &&
+            (int64_t)max_off - min_off > ROBUST_COMBINE_SPREAD_US;
+
+        double num_off = 0.0, num_jit_var = 0.0, denom = 0.0;
+        if (!survivor_spread_wide) {
+            for (int i = 0; i < n; i++) {
+                if (!(best_mask & (1 << i))) continue;
+                ntp_peer_t *pp = &g.peers[c[i].idx];
+                int32_t aged_disp_us = aged_peer_dispersion_us(pp, now);
+                double disp = aged_disp_us > 1 ? aged_disp_us : 1;
+                double w    = 1.0 / (disp * disp);
+                num_off     += (double)pp->best_offset_us * w;
+                num_jit_var += w * w * (double)pp->jitter_us * pp->jitter_us;
+                denom       += w;
+            }
         }
         if (denom > 0) {
             g.combined_offset_us = (int32_t)(num_off / denom);
@@ -1591,35 +1634,26 @@ static void discipline_clock(int32_t offset_us, bool fresh) {
         // Phase gain. An offset inside the clean-wave noise band is more
         // likely measurement noise than true phase error - between waves
         // the freq-disciplined crystal is the better authority - so slew
-        // only 1/4 of it and let anything real integrate across waves
-        // (time constant ~4 polls; the freq loop absorbs what persists).
+        // only 1/8 of it and let anything real integrate across waves
+        // (time constant ~8 polls; the freq loop absorbs what persists).
         // Soft knee keeps the response continuous: the portion of |offset|
-        // within 2x the clean-jitter floor is damped 4x, any excess is
-        // applied in full, so genuine excursions still correct promptly.
+        // within 3x the clean-jitter floor is damped, any excess is applied
+        // in full, so genuine excursions still correct promptly.
         // floor == 0 (nothing learned yet) means knee 0: full gain during
         // initial convergence.
         //
         // The band only makes sense while a wave's offset is noise-
-        // dominated. As wave spacing grows, accumulated crystal drift
-        // dominates instead (1 ppm tracking error = ~1 ms per 1024 s
-        // window), and damping a real sawtooth at 1/4 per wave lets it
-        // build multi-ms excursions - so the knee shrinks as 64/span
-        // toward full gain at long polls. span comes from the actual
-        // inter-wave gap, robust to forced or missed waves; zero
-        // last_freq_sample_ms (first wave, or just stepped) means full
-        // gain to reconverge fast.
+        // dominated. Public NTP over WiFi remains measurement-noise
+        // dominated even at long polls, so keep the full knee and fly
+        // through ms-scale path noise. zero last_freq_sample_ms (first wave,
+        // or just stepped) means full gain to reconverge fast.
         uint32_t now_ms = mono_ms();
-        int32_t knee = 2 * g.freq_jitter_floor;
+        int32_t knee = 3 * g.freq_jitter_floor;
         if (knee > FREQ_MAX_OFFSET_US) knee = FREQ_MAX_OFFSET_US;
-        if (g.last_freq_sample_ms != 0) {
-            uint32_t span_s = (now_ms - g.last_freq_sample_ms) / 1000;
-            if (span_s > 64) knee = (int32_t)(((int64_t)knee * 64) / span_s);
-        } else {
-            knee = 0;
-        }
+        if (g.last_freq_sample_ms == 0) knee = 0;
         int32_t mag  = offset_us < 0 ? -offset_us : offset_us;
         int32_t band = mag < knee ? mag : knee;
-        int32_t applied_mag = mag - band + band / 4;
+        int32_t applied_mag = mag - band + band / 8;
         applied_us = offset_us < 0 ? -applied_mag : applied_mag;
 
         // Merge with any outstanding slew so we don't overwrite it.
@@ -1657,16 +1691,21 @@ static void discipline_clock(int32_t offset_us, bool fresh) {
         // "clean floor": an EMA that drops fast toward lower jitter and
         // rises slowly, tracking the quiet level so spikes can't drag it up
         // and a genuinely noisier link still re-floors over time. Learn
-        // when this wave is within 1.5x the floor; the hard FREQ_MAX_JITTER
+        // when this wave is within 1.25x the floor; the hard robust jitter
         // ceiling still bounds the bootstrap wave.
         int32_t freq_step = 0;
         bool learned_freq = false;
         bool noisy = false;
         bool gateable = fresh &&
             g.last_freq_sample_ms != 0 &&
-            g.system_jitter_us <= FREQ_MAX_JITTER_US &&
-            offset_us < FREQ_MAX_OFFSET_US &&
-            offset_us > -FREQ_MAX_OFFSET_US;
+            g.system_jitter_us <= ROBUST_FREQ_MAX_JITTER_US &&
+            offset_us < ROBUST_FREQ_MAX_OFFSET_US &&
+            offset_us > -ROBUST_FREQ_MAX_OFFSET_US;
+        noisy = fresh &&
+            g.last_freq_sample_ms != 0 &&
+            (g.system_jitter_us > ROBUST_FREQ_MAX_JITTER_US ||
+             offset_us >= ROBUST_FREQ_MAX_OFFSET_US ||
+             offset_us <= -ROBUST_FREQ_MAX_OFFSET_US);
         if (gateable) {
             int32_t j = g.system_jitter_us;
             bool clean;
@@ -1674,7 +1713,8 @@ static void discipline_clock(int32_t offset_us, bool fresh) {
                 g.freq_jitter_floor = j > 0 ? j : 1;   // bootstrap
                 clean = true;
             } else {
-                clean = j <= g.freq_jitter_floor + g.freq_jitter_floor / 2;
+                int32_t clean_allowance = g.freq_jitter_floor / 4;
+                clean = j <= g.freq_jitter_floor + clean_allowance;
                 if (j < g.freq_jitter_floor)
                     g.freq_jitter_floor -= (g.freq_jitter_floor - j) / 4;  // fast down
                 else
