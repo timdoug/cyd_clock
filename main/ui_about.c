@@ -41,6 +41,35 @@ static about_ui_state_t ui_state = ABOUT_STATE_MAIN;
 static ota_update_status_t last_status;
 static bool last_update_button_running = false;
 static bool update_button_drawn = false;
+static bool ota_status_frame_drawn = false;
+static char ota_status_message_drawn[sizeof(last_status.message)] = {0};
+static uint32_t ota_status_read_bucket_drawn = UINT32_MAX;
+static bool ota_status_read_label_drawn = false;
+static char ota_status_progress_drawn[40] = {0};
+static int ota_status_bar_fill_drawn = -1;
+
+static void draw_changed_text(int x,
+                              int y,
+                              const char *text,
+                              char *drawn,
+                              size_t drawn_len,
+                              uint16_t fg,
+                              uint16_t bg) {
+    size_t text_len = strlen(text);
+    size_t old_len = strlen(drawn);
+    size_t max_len = text_len > old_len ? text_len : old_len;
+    if (max_len >= drawn_len) max_len = drawn_len - 1;
+
+    for (size_t i = 0; i < max_len; i++) {
+        char next = i < text_len ? text[i] : ' ';
+        char prev = i < old_len ? drawn[i] : ' ';
+        if (next != prev) {
+            display_char(x + (int)i * FONT_CHAR_WIDTH, y, next, fg, bg);
+        }
+    }
+
+    str_copy(drawn, drawn_len, text);
+}
 
 static const char *url_keyboard_rows[] = {
     "1234567890",
@@ -147,30 +176,113 @@ static void draw_update_button(void) {
 static void draw_ota_status(bool force) {
     ota_update_status_t status;
     ota_update_get_status(&status);
-    if (!force &&
-        status.state == last_status.state &&
-        status.bytes_read == last_status.bytes_read &&
-        strcmp(status.message, last_status.message) == 0) {
-        return;
-    }
-    last_status = status;
+    uint32_t progress_bucket = UINT32_MAX;
+    int bar_fill = 0;
 
+    if (status.total_bytes > 0) {
+        if (status.bytes_read >= status.total_bytes) {
+            progress_bucket = 100;
+        } else {
+            progress_bucket = (uint32_t)(((uint64_t)status.bytes_read * 100) /
+                                         status.total_bytes);
+        }
+        bar_fill = (int)(((uint64_t)status.bytes_read * 220) /
+                         status.total_bytes);
+        if (bar_fill > 220) bar_fill = 220;
+    } else if (status.bytes_read > 0) {
+        progress_bucket = status.bytes_read / (32 * 1024);
+    }
+
+    if (force || !ota_status_frame_drawn) {
+        display_fill_rect(0, 174, DISPLAY_WIDTH, 65, COLOR_BLACK);
+        display_string(10, 176, "Status:", COLOR_GRAY, COLOR_BLACK);
+        ota_status_frame_drawn = true;
+        ota_status_message_drawn[0] = '\0';
+        ota_status_read_bucket_drawn = UINT32_MAX;
+        ota_status_read_label_drawn = false;
+        ota_status_progress_drawn[0] = '\0';
+        ota_status_bar_fill_drawn = -1;
+    }
+
+    if (force || strcmp(status.message, ota_status_message_drawn) != 0) {
+        display_fill_rect(75, 176, DISPLAY_WIDTH - 75, FONT_CHAR_HEIGHT, COLOR_BLACK);
+        display_string(75, 176, status.message, COLOR_WHITE, COLOR_BLACK);
+        str_copy(ota_status_message_drawn, sizeof(ota_status_message_drawn), status.message);
+    }
+
+    if (force || progress_bucket != ota_status_read_bucket_drawn) {
+        if (status.bytes_read > 0) {
+            if (force || !ota_status_read_label_drawn) {
+                display_string(10, 198, "Read:", COLOR_GRAY, COLOR_BLACK);
+                display_rect(10, 218, 222, 8, COLOR_GRAY);
+                ota_status_read_label_drawn = true;
+            }
+            char progress[sizeof(ota_status_progress_drawn)];
+            if (status.total_bytes > 0) {
+                snprintf(progress, sizeof(progress), "%lu / %lu KB %lu%%",
+                         (unsigned long)(status.bytes_read / 1024),
+                         (unsigned long)(status.total_bytes / 1024),
+                         (unsigned long)progress_bucket);
+            } else {
+                snprintf(progress, sizeof(progress), "%lu KB",
+                         (unsigned long)(status.bytes_read / 1024));
+            }
+
+            if (force || strcmp(progress, ota_status_progress_drawn) != 0) {
+                draw_changed_text(75, 198, progress, ota_status_progress_drawn,
+                                  sizeof(ota_status_progress_drawn),
+                                  COLOR_WHITE, COLOR_BLACK);
+            }
+            if (force || bar_fill != ota_status_bar_fill_drawn) {
+                if (force || bar_fill < ota_status_bar_fill_drawn ||
+                    ota_status_bar_fill_drawn < 0) {
+                    display_fill_rect(11, 219, 220, 6, COLOR_BLACK);
+                    display_fill_rect(11, 219, bar_fill, 6, COLOR_CYAN);
+                } else if (bar_fill > ota_status_bar_fill_drawn) {
+                    display_fill_rect(11 + ota_status_bar_fill_drawn, 219,
+                                      bar_fill - ota_status_bar_fill_drawn,
+                                      6, COLOR_CYAN);
+                }
+                ota_status_bar_fill_drawn = bar_fill;
+            }
+        } else if (ota_status_read_label_drawn) {
+            display_fill_rect(10, 198, DISPLAY_WIDTH - 10, 31, COLOR_BLACK);
+            ota_status_read_label_drawn = false;
+            ota_status_progress_drawn[0] = '\0';
+            ota_status_bar_fill_drawn = -1;
+        }
+        ota_status_read_bucket_drawn = progress_bucket;
+    }
+
+    last_status = status;
+}
+
+static void draw_ota_error(const char *err) {
     display_fill_rect(0, 174, DISPLAY_WIDTH, 55, COLOR_BLACK);
     display_string(10, 176, "Status:", COLOR_GRAY, COLOR_BLACK);
-    display_string(75, 176, status.message, COLOR_WHITE, COLOR_BLACK);
+    display_string(75, 176, err, COLOR_RED, COLOR_BLACK);
+    ota_status_frame_drawn = true;
+    str_copy(ota_status_message_drawn, sizeof(ota_status_message_drawn), err);
+    ota_status_read_bucket_drawn = UINT32_MAX;
+    ota_status_read_label_drawn = false;
+    ota_status_progress_drawn[0] = '\0';
+    ota_status_bar_fill_drawn = -1;
+}
 
-    if (status.bytes_read > 0) {
-        char bytes[32];
-        snprintf(bytes, sizeof(bytes), "%lu KB", (unsigned long)(status.bytes_read / 1024));
-        display_string(10, 198, "Read:", COLOR_GRAY, COLOR_BLACK);
-        display_string(75, 198, bytes, COLOR_WHITE, COLOR_BLACK);
-    }
+static void reset_ota_status_draw_state(void) {
+    ota_status_frame_drawn = false;
+    ota_status_message_drawn[0] = '\0';
+    ota_status_read_bucket_drawn = UINT32_MAX;
+    ota_status_read_label_drawn = false;
+    ota_status_progress_drawn[0] = '\0';
+    ota_status_bar_fill_drawn = -1;
 }
 
 static void draw_ota_screen(void) {
     display_fill(COLOR_BLACK);
     ui_draw_header("OTA Update", true);
     update_button_drawn = false;
+    reset_ota_status_draw_state();
     draw_url_box();
     draw_update_button();
     draw_ota_status(true);
@@ -277,9 +389,7 @@ about_result_t ui_about_update(void) {
                     };
                     str_copy(status.message, sizeof(status.message), err);
                     last_status = status;
-                    display_fill_rect(0, 174, DISPLAY_WIDTH, 55, COLOR_BLACK);
-                    display_string(10, 176, "Status:", COLOR_GRAY, COLOR_BLACK);
-                    display_string(75, 176, err, COLOR_RED, COLOR_BLACK);
+                    draw_ota_error(err);
                 }
                 update_button_drawn = false;
                 draw_update_button();

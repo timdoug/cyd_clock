@@ -30,21 +30,26 @@ typedef struct {
     int64_t content_length;
 } ota_http_debug_t;
 
-static void status_set(ota_update_state_t state, const char *message, uint32_t bytes_read) {
+static void status_set(ota_update_state_t state,
+                       const char *message,
+                       uint32_t bytes_read,
+                       uint32_t total_bytes) {
     if (status_mutex) xSemaphoreTake(status_mutex, portMAX_DELAY);
     current_status.state = state;
     str_copy(current_status.message, sizeof(current_status.message), message);
     current_status.bytes_read = bytes_read;
+    current_status.total_bytes = total_bytes;
     if (status_mutex) xSemaphoreGive(status_mutex);
 }
 
 static void status_set_err(ota_update_state_t state,
                            const char *phase,
                            esp_err_t err,
-                           uint32_t bytes_read) {
+                           uint32_t bytes_read,
+                           uint32_t total_bytes) {
     char message[64];
     snprintf(message, sizeof(message), "%s: %s", phase, esp_err_to_name(err));
-    status_set(state, message, bytes_read);
+    status_set(state, message, bytes_read, total_bytes);
 }
 
 static esp_err_t http_event_handler(esp_http_client_event_t *evt) {
@@ -92,7 +97,7 @@ static void ota_task(void *arg) {
     str_copy(url, sizeof(url), pending_url);
 
     ESP_LOGI(TAG, "Starting OTA from %s", url);
-    status_set(OTA_UPDATE_RUNNING, "Connecting", 0);
+    status_set(OTA_UPDATE_RUNNING, "Connecting", 0, 0);
 
     const esp_partition_t *running = esp_ota_get_running_partition();
     const esp_partition_t *next = esp_ota_get_next_update_partition(NULL);
@@ -133,14 +138,20 @@ static void ota_task(void *arg) {
         ESP_LOGE(TAG, "esp_https_ota_begin failed: %s status=%d redirects=%d len=%lld",
                  esp_err_to_name(err), http_debug.last_status_code,
                  http_debug.redirects, (long long)http_debug.content_length);
-        status_set_err(OTA_UPDATE_FAILED, "Begin", err, 0);
+        status_set_err(OTA_UPDATE_FAILED, "Begin", err, 0, 0);
         vTaskDelete(NULL);
     }
 
-    status_set(OTA_UPDATE_RUNNING, "Downloading", 0);
+    uint32_t total_bytes = 0;
+    if (http_debug.content_length > 0 && http_debug.content_length <= UINT32_MAX) {
+        total_bytes = (uint32_t)http_debug.content_length;
+    }
+
+    status_set(OTA_UPDATE_RUNNING, "Downloading", 0, total_bytes);
     while ((err = esp_https_ota_perform(handle)) == ESP_ERR_HTTPS_OTA_IN_PROGRESS) {
         status_set(OTA_UPDATE_RUNNING, "Downloading",
-                   (uint32_t)esp_https_ota_get_image_len_read(handle));
+                   (uint32_t)esp_https_ota_get_image_len_read(handle),
+                   total_bytes);
         vTaskDelay(pdMS_TO_TICKS(1));
     }
 
@@ -151,23 +162,23 @@ static void ota_task(void *arg) {
                  http_debug.last_status_code, http_debug.redirects,
                  (long long)http_debug.content_length);
         esp_https_ota_abort(handle);
-        status_set_err(OTA_UPDATE_FAILED, "Download", err, bytes_read);
+        status_set_err(OTA_UPDATE_FAILED, "Download", err, bytes_read, total_bytes);
         vTaskDelete(NULL);
     }
 
-    status_set(OTA_UPDATE_RUNNING, "Verifying", bytes_read);
+    status_set(OTA_UPDATE_RUNNING, "Verifying", bytes_read, total_bytes);
     err = esp_https_ota_finish(handle);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "esp_https_ota_finish failed: %s bytes=%lu status=%d redirects=%d len=%lld",
                  esp_err_to_name(err), (unsigned long)bytes_read,
                  http_debug.last_status_code, http_debug.redirects,
                  (long long)http_debug.content_length);
-        status_set_err(OTA_UPDATE_FAILED, "Finish", err, bytes_read);
+        status_set_err(OTA_UPDATE_FAILED, "Finish", err, bytes_read, total_bytes);
         vTaskDelete(NULL);
     }
 
     ESP_LOGI(TAG, "OTA complete; restarting");
-    status_set(OTA_UPDATE_SUCCESS, "Restarting", bytes_read);
+    status_set(OTA_UPDATE_SUCCESS, "Restarting", bytes_read, total_bytes);
     vTaskDelay(pdMS_TO_TICKS(2000));
     esp_restart();
 }
@@ -181,25 +192,25 @@ void ota_update_init(void) {
 bool ota_update_start(const char *url, char *err_buf, size_t err_len) {
     if (!url || url[0] == '\0') {
         str_copy(err_buf, err_len, "Missing URL");
-        status_set(OTA_UPDATE_FAILED, "Missing URL", 0);
+        status_set(OTA_UPDATE_FAILED, "Missing URL", 0, 0);
         return false;
     }
     if (!wifi_is_connected()) {
         str_copy(err_buf, err_len, "WiFi offline");
-        status_set(OTA_UPDATE_FAILED, "WiFi offline", 0);
+        status_set(OTA_UPDATE_FAILED, "WiFi offline", 0, 0);
         return false;
     }
     if (ota_update_is_running()) {
         str_copy(err_buf, err_len, "Already running");
-        status_set(OTA_UPDATE_FAILED, "Already running", 0);
+        status_set(OTA_UPDATE_FAILED, "Already running", 0, 0);
         return false;
     }
 
     str_copy(pending_url, sizeof(pending_url), url);
-    status_set(OTA_UPDATE_RUNNING, "Queued", 0);
+    status_set(OTA_UPDATE_RUNNING, "Queued", 0, 0);
     BaseType_t ok = xTaskCreate(ota_task, "ota_update", 8192, NULL, 5, NULL);
     if (ok != pdPASS) {
-        status_set(OTA_UPDATE_FAILED, "No memory", 0);
+        status_set(OTA_UPDATE_FAILED, "No memory", 0, 0);
         str_copy(err_buf, err_len, "No memory");
         return false;
     }

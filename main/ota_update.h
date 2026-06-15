@@ -18,6 +18,7 @@ typedef struct {
     ota_update_state_t state;
     char message[64];
     uint32_t bytes_read;
+    uint32_t total_bytes;
 } ota_update_status_t;
 
 void ota_update_init(void);
