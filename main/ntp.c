@@ -15,14 +15,6 @@ uint32_t next_global_poll_cycle_id = 1;
 uint32_t last_poll_adjust_cycle_id;
 uint32_t last_evict_tick_ms = UINT32_MAX;
 
-uint32_t mono_ms(void) {
-    return pdTICKS_TO_MS(xTaskGetTickCount());
-}
-
-void lock_take(void)  { xSemaphoreTake(g.lock, portMAX_DELAY); }
-void lock_give(void)  { xSemaphoreGive(g.lock); }
-
-
 static void ntp_task(void *arg) {
     (void)arg;
     g.sync_start_ms = mono_ms();
