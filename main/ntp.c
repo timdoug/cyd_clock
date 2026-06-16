@@ -48,7 +48,7 @@ static const char *TAG = "ntp";
 
 // Timing
 #define MIN_POLL_S           32
-#define MAX_POLL_S           1024    // hard ceiling on adaptive poll growth
+#define MAX_POLL_S           512     // hard ceiling on adaptive poll growth
 #define RESPONSE_TIMEOUT_MS  2500
 #define STEP_THRESHOLD_US    (128LL * 1000)
 #define PANIC_THRESHOLD_S    1000
@@ -212,6 +212,7 @@ static struct {
     uint32_t last_discipline_poll_s;  // current_poll_s at the moment we last disciplined
     uint32_t last_any_response_ms;  // when we last heard from ANY peer
     int8_t   poll_adjust;   // counter: +N grows poll, -N shrinks
+    int8_t   poll_bad_sign; // shrink requires repeated same-direction phase error
 
     int      sock4;
     int      sock6;
@@ -1800,26 +1801,33 @@ static void adaptive_poll_update(void) {
     }
     if (g.current_poll_s == 0) g.current_poll_s = MIN_POLL_S;
 
-    // Count consecutive good polls. "Good" = got a response (reach bit 0 set)
-    // from the selected peer with bounded jitter. Grow after GOOD_RUN good
-    // polls, shrink after BAD_RUN bad ones.
-    const int8_t GOOD_RUN = 6;
+    const int8_t GOOD_RUN = 4;
     const int8_t BAD_RUN  = 2;
-    const int32_t JITTER_MAX_US = 100 * 1000;   // 100 ms upper sanity bound
 
     ntp_peer_t *sp = (g.selected_peer >= 0) ? &g.peers[g.selected_peer] : NULL;
-    bool good = sp && (sp->reach & 0x01) && g.system_jitter_us < JITTER_MAX_US;
+    bool responded = sp && (sp->reach & 0x01);
 
-    // Offset-aware: growing the poll is only safe while wave offsets stay
-    // inside the noise band. A residual beyond 2x the clean-jitter floor
-    // means phase is accruing faster than the freq loop tracks at this
-    // spacing - a longer window would accumulate more error between
-    // corrections, so count it against the run instead. Floor == 0
-    // (unlearned) skips the check.
-    int64_t off = g.last_offset_us;
+    int64_t signed_off = g.last_offset_us;
+    int64_t off = signed_off;
     if (off < 0) off = -off;
-    if (g.freq_jitter_floor > 0 && off > 2 * (int64_t)g.freq_jitter_floor) {
-        good = false;
+
+    int32_t grow_offset_max = ROBUST_COMBINE_SPREAD_US;
+    if (g.freq_jitter_floor > 0 && 4 * g.freq_jitter_floor > grow_offset_max) {
+        grow_offset_max = 4 * g.freq_jitter_floor;
+    }
+    if (grow_offset_max > ROBUST_FREQ_MAX_OFFSET_US) {
+        grow_offset_max = ROBUST_FREQ_MAX_OFFSET_US;
+    }
+    const int32_t shrink_offset_max = ROBUST_FREQ_MAX_OFFSET_US;
+
+    bool good = responded &&
+                g.system_jitter_us <= ROBUST_FREQ_MAX_JITTER_US &&
+                off <= grow_offset_max;
+    bool bad = !responded ||
+               off > shrink_offset_max;
+    int8_t bad_sign = 0;
+    if (bad && responded && off > shrink_offset_max) {
+        bad_sign = (signed_off > 0) ? 1 : (signed_off < 0) ? -1 : 0;
     }
 
     // Saturate the counter at the run thresholds: at MAX_POLL_S (or pinned to
@@ -1828,18 +1836,27 @@ static void adaptive_poll_update(void) {
     // one and letting a single bad poll shrink the interval.
     if (good) {
         if (g.poll_adjust < 0) g.poll_adjust = 0;
+        g.poll_bad_sign = 0;
         if (g.poll_adjust < GOOD_RUN) g.poll_adjust++;
         if (g.poll_adjust >= GOOD_RUN && g.current_poll_s < MAX_POLL_S) {
             g.current_poll_s *= 2;
             g.poll_adjust = 0;
         }
-    } else {
+    } else if (bad) {
         if (g.poll_adjust > 0) g.poll_adjust = 0;
+        if (bad_sign != 0 && g.poll_bad_sign != 0 &&
+            g.poll_bad_sign != bad_sign && g.poll_adjust < 0) {
+            g.poll_adjust = 0;
+        }
+        g.poll_bad_sign = bad_sign;
         if (g.poll_adjust > -BAD_RUN) g.poll_adjust--;
         if (g.poll_adjust <= -BAD_RUN && g.current_poll_s > MIN_POLL_S) {
             g.current_poll_s /= 2;
             g.poll_adjust = 0;
         }
+    } else {
+        g.poll_adjust = 0;
+        g.poll_bad_sign = 0;
     }
 
     if (g.current_poll_s < MIN_POLL_S) g.current_poll_s = MIN_POLL_S;
