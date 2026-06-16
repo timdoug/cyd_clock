@@ -48,25 +48,25 @@ static uint16_t last_peer_color[NTP_MAX_PEERS];
 static void fmt_offset_us(char *buf, size_t len, int64_t us) {
     int64_t av = us < 0 ? -us : us;
     char sign = (us < 0) ? '-' : '+';
-    if (av < 1000) {                        // "+0.XXms" - round to 10us
-        int64_t r = (av + 5) / 10;          // 0..100 after carry
-        snprintf(buf, len, "%c%lld.%02lldms", sign,
-                 (long long)(r / 100), (long long)(r % 100));
-    } else if (av < 10000) {                // "+X.XXms" - round to 10us
+    if (av < 1000) {
         int64_t r = (av + 5) / 10;
         snprintf(buf, len, "%c%lld.%02lldms", sign,
                  (long long)(r / 100), (long long)(r % 100));
-    } else if (av < 100000) {               // "+XX.Xms" - round to 100us
+    } else if (av < 10000) {
+        int64_t r = (av + 5) / 10;
+        snprintf(buf, len, "%c%lld.%02lldms", sign,
+                 (long long)(r / 100), (long long)(r % 100));
+    } else if (av < 100000) {
         int64_t r = (av + 50) / 100;
         snprintf(buf, len, "%c%lld.%lldms", sign,
                  (long long)(r / 10), (long long)(r % 10));
-    } else if (av < 10000000LL) {           // "+XXXms" / "+XXXXms" - round to 1ms
+    } else if (av < 10000000LL) {
         snprintf(buf, len, "%c%lldms", sign, (long long)((av + 500) / 1000));
-    } else if (av < 100000000LL) {          // "+XX.Xs" - round to 100ms
+    } else if (av < 100000000LL) {
         int64_t r = (av + 50000) / 100000;
         snprintf(buf, len, "%c%lld.%llds", sign,
                  (long long)(r / 10), (long long)(r % 10));
-    } else {                                // round to 1s
+    } else {
         snprintf(buf, len, "%c%llds", sign, (long long)((av + 500000) / 1000000));
     }
 }
@@ -74,21 +74,21 @@ static void fmt_offset_us(char *buf, size_t len, int64_t us) {
 // Compact unsigned us -> string (fits in 5 chars). Used for per-peer delay and
 // jitter where the sign is always non-negative and horizontal space is tight.
 static void fmt_unsigned_compact(char *buf, size_t len, uint32_t us) {
-    if (us < 1000) {                                // "0.Xms" - round to 100us
-        uint32_t r = (us + 50) / 100;               // 0..10 after carry
-        snprintf(buf, len, "%lu.%lums",
-                 (unsigned long)(r / 10), (unsigned long)(r % 10));
-    } else if (us < 10000) {                        // "X.Xms" - round to 100us
+    if (us < 1000) {
         uint32_t r = (us + 50) / 100;
         snprintf(buf, len, "%lu.%lums",
                  (unsigned long)(r / 10), (unsigned long)(r % 10));
-    } else if (us < 1000000) {                      // "XXms" - round to 1ms
+    } else if (us < 10000) {
+        uint32_t r = (us + 50) / 100;
+        snprintf(buf, len, "%lu.%lums",
+                 (unsigned long)(r / 10), (unsigned long)(r % 10));
+    } else if (us < 1000000) {
         snprintf(buf, len, "%lums", (unsigned long)((us + 500) / 1000));
-    } else if (us < 10000000) {                     // "X.Xs" - round to 100ms
+    } else if (us < 10000000) {
         uint32_t r = (us + 50000) / 100000;
         snprintf(buf, len, "%lu.%lus",
                  (unsigned long)(r / 10), (unsigned long)(r % 10));
-    } else {                                        // "XXs" - round to 1s
+    } else {
         snprintf(buf, len, "%lus", (unsigned long)((us + 500000) / 1000000));
     }
 }
@@ -96,7 +96,7 @@ static void fmt_unsigned_compact(char *buf, size_t len, uint32_t us) {
 static void fmt_ppm_x1000(char *buf, size_t len, int32_t val) {
     char sign = (val < 0) ? '-' : '+';
     uint32_t av = val < 0 ? (uint32_t)-val : (uint32_t)val;
-    uint32_t r = (av + 5) / 10;     // round to 10 (= 0.01 ppm)
+    uint32_t r = (av + 5) / 10;
     snprintf(buf, len, "%c%lu.%02luppm", sign,
              (unsigned long)(r / 100),
              (unsigned long)(r % 100));
@@ -171,7 +171,7 @@ static void draw_segmented_field_cached(int x, int y, int row_idx,
     diff_paint(vx, y, cache, text, 0, colors, COLOR_BLACK, first_time);
 
     str_copy(cache, sizeof(last_sys_row[row_idx]), text);
-    last_sys_color[row_idx] = 0;   // unused for segmented rows
+    last_sys_color[row_idx] = 0;
 }
 
 // Draw "label: value" at (x, y) with per-row caching + char-level diff so
@@ -220,11 +220,10 @@ static void draw_peer_row(int slot, const ntp_peer_stats_t *p) {
         snprintf(line, sizeof(line), "-");
         row_fg = COLOR_DARKGRAY;
     } else {
-        // fresh is a short UI-only marker for newly-installed peer slots.
         row_fg = p->selected ? COLOR_CYAN
                : p->fresh    ? COLOR_GREEN
                              : COLOR_WHITE;
-        char addr[16];  // room for a full "255.255.255.255" IPv4 dotted-quad
+        char addr[16];
         str_copy(addr, sizeof(addr), p->addr_str);
 
         char off_buf[10], delay_buf[8], jitter_buf[8], reach_buf[3];
@@ -234,7 +233,7 @@ static void draw_peer_row(int slot, const ntp_peer_stats_t *p) {
         // filter was deliberately left empty (pre-step t1 would have produced
         // a garbage sample). Show "---" until its next poll produces a real
         // measurement.
-        bool has_sample = p->reach && p->jitter_us < 1000000;  // < 1 s
+        bool has_sample = p->reach && p->jitter_us < 1000000;
         if (has_sample) {
             fmt_offset_us(off_buf, sizeof(off_buf), p->offset_us);
             fmt_unsigned_compact(delay_buf,  sizeof(delay_buf),  (uint32_t)p->delay_us);
@@ -284,7 +283,6 @@ static void refresh_dynamic(void) {
 
     char val[96];
 
-    // Row 0: Server
     {
         int y = SYS_Y_START;
         snprintf(val, sizeof(val), "%s", server);
@@ -292,7 +290,6 @@ static void refresh_dynamic(void) {
                           sys.synced ? COLOR_GREEN : COLOR_ORANGE);
     }
 
-    // Row 1: Stratum / sync count / poll
     {
         int y = SYS_Y_START + SYS_LINE_H;
         char poll_buf[16], syncs_buf[16], strat_buf[16];
@@ -367,7 +364,6 @@ static void refresh_dynamic(void) {
                                     sizeof(segs) / sizeof(segs[0]));
     }
 
-    // Row 4: Root delay / dispersion
     {
         int y = SYS_Y_START + 4 * SYS_LINE_H;
         // Valid from the FIRST sync: root delay/dispersion come from the
@@ -379,7 +375,6 @@ static void refresh_dynamic(void) {
             char rd_buf[16], disp_buf[16];
             fmt_offset_us(rd_buf, sizeof(rd_buf), sys.root_delay_us);
             fmt_offset_us(disp_buf, sizeof(disp_buf), sys.root_dispersion_us);
-            // Strip leading "+" from unsigned quantities
             const char *rd = rd_buf[0] == '+' ? rd_buf + 1 : rd_buf;
             const char *dp = disp_buf[0] == '+' ? disp_buf + 1 : disp_buf;
             snprintf(val, sizeof(val), "%s delay, %s disp", rd, dp);
@@ -399,7 +394,6 @@ static void refresh_dynamic(void) {
             active_idx[n_active++] = i;
         }
     }
-    // Insertion sort by addr_str (n <= 4, so a simple O(n^2) is fine).
     for (int i = 1; i < n_active; i++) {
         int cur = active_idx[i];
         int j = i - 1;
@@ -436,7 +430,6 @@ void ui_ntp_stats_init(void) {
 }
 
 ntp_stats_result_t ui_ntp_stats_update(void) {
-    // BOOT button opens settings (same behavior as from the clock screen)
     if (gpio_get_level(BOOT_BUTTON_GPIO) == 0) {
         return NTP_STATS_RESULT_SETTINGS;
     }

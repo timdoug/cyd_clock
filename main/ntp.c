@@ -22,7 +22,6 @@
 
 static const char *TAG = "ntp";
 
-// Protocol
 #define NTP_PORT             123
 #define NTP_VERSION          4
 #define NTP_MODE_CLIENT      3
@@ -46,9 +45,8 @@ static const char *TAG = "ntp";
 #define ROBUST_FREQ_MAX_JITTER_US 2500
 #define ROBUST_FREQ_MAX_OFFSET_US 8000
 
-// Timing
 #define MIN_POLL_S           32
-#define MAX_POLL_S           512     // hard ceiling on adaptive poll growth
+#define MAX_POLL_S           512
 #define RESPONSE_TIMEOUT_MS  2500
 #define STEP_THRESHOLD_US    (128LL * 1000)
 #define PANIC_THRESHOLD_S    1000
@@ -56,21 +54,16 @@ static const char *TAG = "ntp";
 #define IDLE_WAKE_MS         5000
 #define NEW_PEER_HIGHLIGHT_MS 10000
 
-// Discipline gains / guards
-#define MAX_FREQ_PPM_X1000   500000       // clamp +/-500 ppm
-#define FREQ_TAU_S           4096         // crystal-drift integrator time constant
-                                          // (seconds): each discipline corrects a
-                                          // fraction poll/TAU of the frequency error,
-                                          // so the loop has a ~TAU time constant at
-                                          // ANY poll interval. ~0.24 gain even at the
-                                          // 1024 s cap, heavily damped so a single-
-                                          // wave offset spike can't yank the estimate.
-#define MAX_FREQ_STEP_PPB    1000         // one NTP sample may move drift estimate by <= 1 ppm
-#define FREQ_MAX_OFFSET_US   25000        // larger residuals are usually path asymmetry / spikes
+#define MAX_FREQ_PPM_X1000   500000
+// Each discipline corrects a fraction poll/TAU of the frequency error, so the
+// loop has a ~TAU time constant at any poll interval.
+#define FREQ_TAU_S           4096
+#define MAX_FREQ_STEP_PPB    1000
+#define FREQ_MAX_OFFSET_US   25000
 
 // Per RFC 5905: each sample's dispersion grows linearly with time at this rate.
 // Makes root_dispersion honestly track uncertainty between polls.
-#define PHI_US_PER_SEC       15            // 15 us/s growth
+#define PHI_US_PER_SEC       15
 
 // Our local clock precision as the NTP log2(seconds) field. -18 ~ 4 us, which
 // is conservative for the ESP32's microsecond-granular gettimeofday. We both
@@ -85,19 +78,14 @@ static const char *TAG = "ntp";
 // WiFi + LAN + ESP32 capture jitter can actually deliver in the best case.
 #define SAMPLE_DISP_FLOOR_US 100
 
-// Convert an NTP precision field (log2(seconds), typically negative) to the
-// corresponding wall-clock uncertainty in us. Clamps at 1 us on the low end
-// (anything finer gets rounded up) and at INT32_MAX on the high end (a broken
-// server that sends precision=0 would mean 1 s / >= our filter cap).
 static int32_t precision_to_us(int8_t precision) {
     if (precision >= 0) {
-        // 2^p seconds = 2^p * 10^6 us
         if (precision >= 12) return INT32_MAX;
         int64_t us = 1000000LL << precision;
         return us > INT32_MAX ? INT32_MAX : (int32_t)us;
     }
     int shift = -(int)precision;
-    if (shift >= 20) return 1;   // sub-us rounded up to 1 us
+    if (shift >= 20) return 1;
     return 1000000 >> shift;
 }
 
@@ -106,7 +94,7 @@ typedef struct __attribute__((packed)) {
     uint8_t  stratum;
     int8_t   poll;
     int8_t   precision;
-    uint32_t root_delay;       // 16.16 seconds, net order
+    uint32_t root_delay;
     uint32_t root_dispersion;
     uint32_t ref_id;
     uint32_t ref_ts_sec;
@@ -135,7 +123,7 @@ typedef struct {
     uint8_t  stratum;
     uint8_t  reach;
     int8_t   precision;
-    uint32_t root_delay_raw;    // 16.16 sec (as received)
+    uint32_t root_delay_raw;
     uint32_t root_dispersion_raw;
 
     ntp_sample_t filter[NTP_FILTER_SIZE];
@@ -148,9 +136,8 @@ typedef struct {
     uint32_t best_sample_ms;
     uint32_t last_response_ms;
 
-    // Outstanding request state (for match / timeout)
     struct timeval t1;
-    uint32_t xmt_sec_net;       // network-order copy of transmit timestamp we sent
+    uint32_t xmt_sec_net;
     uint32_t xmt_frac_net;
     bool     request_outstanding;
     uint32_t request_sent_ms;
@@ -167,17 +154,17 @@ typedef struct {
 
     uint32_t next_poll_ms;
     uint32_t kod_until_ms;
-    uint8_t  consecutive_misses;   // polls since last response; trigger swap at threshold
-    uint8_t  falseticker_runs;     // consecutive cycles outside Marzullo intersection
-    uint8_t  jittery_runs;         // consecutive cycles substantially noisier than best truechimer
+    uint8_t  consecutive_misses;
+    uint8_t  falseticker_runs;
+    uint8_t  jittery_runs;
     uint32_t quality_cycle_id;     // wave id of the last falseticker/jittery increment:
                                    // select_system_peer runs once per RESPONSE (up to
                                    // 4x per wave), but these counters must move at most
                                    // once per poll cycle or the eviction thresholds
                                    // fire ~4x faster than designed
-    uint8_t  panic_runs;           // consecutive samples beyond the panic threshold
-    int64_t  panic_offset_us;      // most recent panic-rejected offset (for corroboration)
-    uint32_t fresh_until_ms;       // mono deadline for the UI-only new-peer highlight
+    uint8_t  panic_runs;
+    int64_t  panic_offset_us;
+    uint32_t fresh_until_ms;
 } ntp_peer_t;
 
 static struct {
@@ -198,21 +185,21 @@ static struct {
     int32_t  system_jitter_us;
     int32_t  root_delay_us;
     int32_t  root_dispersion_us;
-    int32_t  combined_offset_us;   // dispersion-weighted avg across survivors
+    int32_t  combined_offset_us;
     bool     select_spread_wide;
     int32_t  freq_ppm_x1000;
-    bool     freq_loaded_from_nvs; // freq_ppm_x1000 was restored at boot - usable before any sync
+    bool     freq_loaded_from_nvs;
     bool     freq_learned_this_session;
     uint32_t last_freq_apply_ms;
-    int64_t  freq_apply_residual;  // un-applied remainder, ppb*ms (1e6 = 1 us)
+    int64_t  freq_apply_residual;
     uint32_t last_freq_sample_ms;
     int32_t  freq_jitter_floor;    // adaptive estimate of the clean-wave system-jitter
                                    // level; freq learns only from waves at or near it
     uint32_t last_discipline_ms;
-    uint32_t last_discipline_poll_s;  // current_poll_s at the moment we last disciplined
-    uint32_t last_any_response_ms;  // when we last heard from ANY peer
-    int8_t   poll_adjust;   // counter: +N grows poll, -N shrinks
-    int8_t   poll_bad_sign; // shrink requires repeated same-direction phase error
+    uint32_t last_discipline_poll_s;
+    uint32_t last_any_response_ms;
+    int8_t   poll_adjust;
+    int8_t   poll_bad_sign;
 
     int      sock4;
     int      sock6;
@@ -234,8 +221,6 @@ static struct {
     .sock4 = -1,
     .sock6 = -1,
 };
-
-// ---------- helpers ----------
 
 static uint32_t mono_ms(void) {
     return pdTICKS_TO_MS(xTaskGetTickCount());
@@ -290,7 +275,6 @@ static int32_t clamp_i32(int32_t v, int32_t lo, int32_t hi) {
     return v;
 }
 
-// ntpfp 16.16 seconds -> microseconds (saturating)
 static int32_t fp1616_to_us(uint32_t raw) {
     uint64_t us = ((uint64_t)raw * 1000000ULL) >> 16;
     if (us > 0x7FFFFFFFULL) us = 0x7FFFFFFFULL;
@@ -319,8 +303,6 @@ static bool sockaddr_matches(const struct sockaddr_storage *a,
     }
     return false;
 }
-
-// ---------- DNS (multi-record) ----------
 
 // CONFIG_LWIP_DNS_MAX_HOST_IP controls how many addresses lwIP keeps per DNS
 // answer. With it set to NTP_MAX_PEERS, getaddrinfo() gives us the peer list
@@ -393,8 +375,6 @@ static int dns_resolve_all(const char *host, bool prefer_ipv6,
     }
     return count;
 }
-
-// ---------- peer management ----------
 
 static uint32_t next_global_poll_ms;
 static uint32_t next_global_poll_cycle_id = 1;
@@ -623,8 +603,6 @@ static void maybe_evict_worst_peer(void) {
     }
 }
 
-// ---------- sockets ----------
-
 static bool open_sockets(void) {
     if (g.sock4 < 0) {
         g.sock4 = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -663,8 +641,6 @@ static void close_wake_sock(void) {
     }
 }
 
-// ---------- task wake (self-pipe over loopback UDP) ----------
-
 static void open_wake_sock(void) {
     if (g.wake_sock >= 0) return;
     int s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -702,8 +678,6 @@ static void drain_wake_sock(void) {
     uint8_t buf[16];
     while (recv(g.wake_sock, buf, sizeof(buf), MSG_DONTWAIT) > 0) {}
 }
-
-// ---------- send ----------
 
 // Shared "next poll tick" all peers align to. Without this, each peer scheduled
 // independently from its own response time, and RTT / timeout / swap events
@@ -802,14 +776,12 @@ static bool send_request(ntp_peer_t *p) {
     p->t1.tv_usec = (suseconds_t)(t1_mid_us % 1000000);
     p->xmt_sec_net  = pkt.xmt_ts_sec;
     p->xmt_frac_net = pkt.xmt_ts_frac;
-    p->reach <<= 1;        // new poll starts with bit 0 = 0 until response
+    p->reach <<= 1;
     p->request_outstanding = true;
     p->request_sent_ms     = mono_ms();
-    p->cycle_id_when_sent  = request_cycle_id;      // wave tag, see ntp_peer_t
+    p->cycle_id_when_sent  = request_cycle_id;
     return true;
 }
-
-// ---------- filter ----------
 
 static void update_peer_filter(ntp_peer_t *p) {
     int valid = 0;
@@ -908,8 +880,6 @@ static void shift_filters(int32_t offset_us) {
     }
 }
 
-// ---------- early t1/t4 capture (WiFi hooks) ----------
-//
 // Stamp t4 at the WiFi RX cb (saves lwIP + scheduler latency between radio
 // and recvfrom - typically 1-2 ms) and t1 at the WiFi TX-done cb (the radio
 // has actually transmitted by then, including DCF backoff + ACK + retries
@@ -927,7 +897,7 @@ static void shift_filters(int32_t offset_us) {
 #define EARLY_RING_SIZE 8
 
 typedef struct {
-    uint32_t      ts_sec, ts_frac;     // wire order, matches ntp_pkt_t fields
+    uint32_t      ts_sec, ts_frac;
     int64_t       wall_us;
     bool          valid;
 } early_entry_t;
@@ -1009,12 +979,12 @@ static bool parse_ip_udp_ntp(const uint8_t *ip, size_t rem, uint16_t et,
                              int port_off, int ntp_field_off,
                              uint32_t *sec, uint32_t *frac) {
     const uint8_t *udp;
-    if (et == 0x0800) {                                       // IPv4
+    if (et == 0x0800) {
         if (rem < 20u + 8u + 48u) return false;
         uint8_t ihl = (ip[0] & 0x0f) * 4;
         if (ihl < 20u || rem < (size_t)ihl + 8u + 48u || ip[9] != 17) return false;
         udp = ip + ihl;
-    } else if (et == 0x86DD) {                                // IPv6, no ext headers
+    } else if (et == 0x86DD) {
         if (rem < 40u + 8u + 48u || ip[6] != 17) return false;
         udp = ip + 40;
     } else {
@@ -1029,7 +999,7 @@ static bool parse_ip_udp_ntp(const uint8_t *ip, size_t rem, uint16_t et,
 
 static esp_err_t ntp_wifi_rxcb(void *buffer, uint16_t len, void *eb) {
     struct timeval tv;
-    gettimeofday(&tv, NULL);                                  // capture asap
+    gettimeofday(&tv, NULL);
 
     const uint8_t *buf = buffer;
     uint32_t sec, frac;
@@ -1052,13 +1022,13 @@ static void ntp_wifi_tx_done_cb(uint8_t ifidx, uint8_t *data,
     gettimeofday(&tv, NULL);
 
     uint8_t fc0 = data[0], fc1 = data[1];
-    if ((fc0 & 0x0c) != 0x08) return;                         // type != Data
+    if ((fc0 & 0x0c) != 0x08) return;
     uint8_t subtype = (fc0 & 0xf0) >> 4;
-    if (subtype != 0 && subtype != 8) return;                 // Data / QoS Data only
+    if (subtype != 0 && subtype != 8) return;
     size_t hdr_len    = 24
-                      + (subtype == 8           ? 2 : 0)      // QoS Control
-                      + ((fc1 & 0x03) == 0x03   ? 6 : 0);     // 4-address (rare)
-    size_t cipher_hdr = (fc1 & 0x40) ? 8 : 0;                 // CCMP/TKIP if Protected
+                      + (subtype == 8           ? 2 : 0)
+                      + ((fc1 & 0x03) == 0x03   ? 6 : 0);
+    size_t cipher_hdr = (fc1 & 0x40) ? 8 : 0;
     if ((size_t)len < cipher_hdr + 8u + 20u + 8u + 48u) return;
 
     static const uint8_t llc_snap[6] = {0xaa, 0xaa, 0x03, 0x00, 0x00, 0x00};
@@ -1082,16 +1052,14 @@ void ntp_install_wifi_rx_hook(void) {
     if (err != ESP_OK) ESP_LOGW(TAG, "tx_done_cb reg failed: %d", err);
 }
 
-// ---------- response processing ----------
-
 // Tri-state result so the caller can tell "this datagram doesn't belong to
 // the outstanding request" (stray, duplicate, or spoofed -- ignore it and
 // keep waiting for the real response) apart from "this IS the response but
 // it's unusable" (settle the request, no sample).
 typedef enum {
-    RESP_IGNORE,   // not our response; leave request_outstanding untouched
-    RESP_BAD,      // response consumed, but no usable sample
-    RESP_GOOD,     // response consumed, sample added to the filter
+    RESP_IGNORE,
+    RESP_BAD,
+    RESP_GOOD,
 } ntp_resp_result_t;
 
 static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
@@ -1127,15 +1095,14 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
             // carries the server's minimum acceptable interval. Honor it,
             // bounded, instead of going silent for a flat hour.
             int8_t min_poll = pkt->poll;
-            if (min_poll < 6)  min_poll = 6;    // 64 s floor
-            if (min_poll > 12) min_poll = 12;   // ~68 min cap
+            if (min_poll < 6)  min_poll = 6;
+            if (min_poll > 12) min_poll = 12;
             p->kod_until_ms = mono_ms() + (1000UL << min_poll);
         }
         return RESP_BAD;
     }
-    if (li == 3) return RESP_BAD;   // server's clock unsync
+    if (li == 3) return RESP_BAD;
 
-    // Reject packets with a zero transmit timestamp (server hasn't set clock)
     if (pkt->xmt_ts_sec == 0) return RESP_BAD;
 
     struct timeval t2, t3;
@@ -1262,7 +1229,7 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
             if (!q->active || q->panic_runs < 2) continue;
             int64_t d = q->panic_offset_us - offset;
             if (d < 0) d = -d;
-            if (d <= PANIC_AGREE_US) agree++;   // includes self once runs >= 2
+            if (d <= PANIC_AGREE_US) agree++;
         }
         if (agree < 2) {
             ESP_LOGW(TAG, "Offset %lld us from %s exceeds panic threshold",
@@ -1297,13 +1264,11 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
         }
         g.selected_peer          = -1;
         g.stratum                = 16;
-        g.current_poll_s         = MIN_POLL_S;   // fast re-convergence
-        next_global_poll_ms      = 0;            // ...and don't make the settling
-                                                 // peers wait out the old (possibly
-                                                 // 17 min) tick to use it
+        g.current_poll_s         = MIN_POLL_S;
+        next_global_poll_ms      = 0;
         g.poll_adjust            = 0;
-        g.last_freq_sample_ms    = 0;            // don't learn freq across the step
-        g.last_discipline_ms     = mono_ms();    // suppress an immediate discipline
+        g.last_freq_sample_ms    = 0;
+        g.last_discipline_ms     = mono_ms();
         g.last_discipline_poll_s = g.current_poll_s;
         g.sync_count++;
         g.last_sync_time         = t4_local.tv_sec;
@@ -1410,8 +1375,6 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
     return RESP_GOOD;
 }
 
-// ---------- selection (Marzullo intersection + lowest-jitter survivor) ----------
-
 static void select_system_peer(void) {
     struct { int idx; int64_t lo; int64_t hi; } c[NTP_MAX_PEERS];
     uint32_t now = mono_ms();
@@ -1421,18 +1384,9 @@ static void select_system_peer(void) {
         ntp_peer_t *p = &g.peers[i];
         if (!p->active || p->reach == 0) continue;
         if (p->stratum == 0 || p->stratum >= 16) continue;
-        // Marzullo half-width. Full textbook delay/2 is too wide for WiFi +
-        // public pool peers: a 60 ms RTT turns every interval into +/-30 ms,
-        // which lets stable-but-wrong peers survive. But using zero delay
-        // allowance is too tight: honest peers separated by normal path
-        // asymmetry can fail to overlap and consensus collapses. Use a
-        // bounded delay term so consensus has room for real network
-        // uncertainty without letting RTT dominate. The peer dispersion
-        // already includes filter jitter (update_peer_filter), so it is NOT
-        // added separately here - that double-counted jitter and widened
-        // every interval beyond the error model.
-        // Intervals are int64: dispersion saturates at INT32_MAX, and
-        // offset +/- unc must not overflow.
+        // Bounded delay allowance leaves room for real path asymmetry without
+        // letting RTT dominate consensus; peer dispersion already includes
+        // filter jitter.
         int32_t delay_allowance = p->best_delay_us / 4;
         if (delay_allowance > 10000) delay_allowance = 10000;
         int64_t unc = (int64_t)delay_allowance + aged_peer_dispersion_us(p, now);
@@ -1472,7 +1426,7 @@ static void select_system_peer(void) {
         bool better = count > best_count;
         if (!better && sel_bit >= 0 &&
             (mask & (1 << sel_bit)) && !(best_mask & (1 << sel_bit))) {
-            better = true;   // same size, but this cluster keeps the current peer
+            better = true;
         }
         if (better) {
             best_count = count;
@@ -1504,7 +1458,6 @@ static void select_system_peer(void) {
     for (int i = 0; i < n; i++) {
         ntp_peer_t *pp = &g.peers[c[i].idx];
         if (best_mask & (1 << i)) {
-            // Inside the intersection - truechimer this round.
             if (majority) pp->falseticker_runs = 0;
             if (pp->jitter_us < best_jitter) {
                 best_jitter = pp->jitter_us;
@@ -1512,26 +1465,15 @@ static void select_system_peer(void) {
             }
         } else if (majority &&
                    pp->quality_cycle_id != next_global_poll_cycle_id) {
-            // Outside a majority consensus. Count up (once per cycle); the
-            // eviction path swaps us out if we're persistently wrong.
             if (pp->falseticker_runs < 255) pp->falseticker_runs++;
             pp->quality_cycle_id = next_global_poll_cycle_id;
         }
     }
     if (chosen < 0) { g.selected_peer = -1; g.stratum = 16; return; }
 
-    // Wide-jitter gate: a truechimer whose filter noise is substantially
-    // worse than the cleanest truechimer's is clogging the survivor set -
-    // its Marzullo interval is wide enough to keep it inside consensus, but
-    // it drags up the combined variance and the noise level of the
-    // discipline input. The reference is best_jitter (not a hardcoded
-    // floor), so this self-calibrates to network conditions: on a crappy
-    // WiFi link where every peer runs at 40 ms, nothing churns; on a clean
-    // link where the best peer runs at 2 ms, anything above ~8 ms stands
-    // out. Count runs (once per cycle, majority rounds only - the shared
-    // quality_cycle_id tag is safe because a peer cannot be both outside
-    // the consensus and a wide insider in the same round); the eviction
-    // path swaps at threshold, same as falsetickers.
+    // Wide truechimers raise combined variance even while staying inside
+    // Marzullo consensus. Compare against the cleanest survivor so this
+    // adapts to link quality instead of using an absolute jitter floor.
     const int32_t JITTER_REL_X = 4;
     for (int i = 0; i < n; i++) {
         ntp_peer_t *pp = &g.peers[c[i].idx];
@@ -1553,30 +1495,10 @@ static void select_system_peer(void) {
     g.stratum           = (sp->stratum < 15) ? sp->stratum + 1 : 15;
     g.root_delay_us     = fp1616_to_us(sp->root_delay_raw) + sp->best_delay_us;
 
-    // Peer combining: inverse-variance-weighted average of all Marzullo
-    // survivors, not just the lowest-jitter one. A clean peer dominates the
-    // average via its small dispersion; noisier survivors contribute
-    // proportionally less. Gives ~1/sqrt(N) noise reduction when peers have
-    // comparable quality and degrades gracefully when one peer is clearly
-    // better. Exception: different servers/routes can carry different fixed
-    // ms-scale biases, so if the survivor spread is already wider than the
-    // useful accuracy target, trust the selected lowest-jitter survivor
-    // instead of averaging biased estimates.
-    //
-    // Weights are 1/dispersion^2 (not 1/dispersion). This is the textbook
-    // minimum-variance unbiased combination of independent estimates: with
-    // sigma_i ~ dispersion_i, the optimal weight is 1/sigma_i^2. Cleaner peers get
-    // *quadratically* more weight than noisier ones, so a single good peer
-    // can dominate a survivor set that includes wider-jitter peers - which
-    // is exactly what we want.
-    //
-    // System jitter uses the variance-of-weighted-mean formula so it
-    // reflects the actual uncertainty of the combined estimate (which is
-    // reduced by the combining), not just the typical peer's jitter.
-    //   combined      = sum(w*x) / sumw            with w = 1/dispersion^2
-    //   Var(combined) = sum(w^2*sigma^2) / (sumw)^2
-    //   sigma_combined    = sqrt(sum(w^2*sigma^2)) / sumw
-    // Doubles throughout so w^2*sigma^2 can't overflow with small dispersion.
+    // Combine survivors only while their spread is within the useful
+    // accuracy target; wider spreads are probably fixed route/server bias.
+    // Weights use 1/dispersion^2 and system jitter uses the weighted-mean
+    // variance, so clean peers dominate and comparable peers average down.
     {
         int32_t min_off = INT32_MAX;
         int32_t max_off = INT32_MIN;
@@ -1614,7 +1536,6 @@ static void select_system_peer(void) {
     g.root_dispersion_us = fp1616_to_us(sp->root_dispersion_raw) + sp->dispersion_us;
 }
 
-// ---------- discipline ----------
 
 // `fresh` is false when the wave was force-fired before fully settling:
 // the combined offset then includes stale samples, still worth slewing by
@@ -1635,22 +1556,9 @@ static void discipline_clock(int32_t offset_us, bool fresh) {
         g.last_freq_sample_ms = 0;
         ESP_LOGI(TAG, "Clock stepped %+ld us", (long)offset_us);
     } else {
-        // Phase gain. An offset inside the clean-wave noise band is more
-        // likely measurement noise than true phase error - between waves
-        // the freq-disciplined crystal is the better authority - so slew
-        // only 1/8 of it and let anything real integrate across waves
-        // (time constant ~8 polls; the freq loop absorbs what persists).
-        // Soft knee keeps the response continuous: the portion of |offset|
-        // within 3x the clean-jitter floor is damped, any excess is applied
-        // in full, so genuine excursions still correct promptly.
-        // floor == 0 (nothing learned yet) means knee 0: full gain during
-        // initial convergence.
-        //
-        // The band only makes sense while a wave's offset is noise-
-        // dominated. Public NTP over WiFi remains measurement-noise
-        // dominated even at long polls, so keep the full knee and fly
-        // through ms-scale path noise. zero last_freq_sample_ms (first wave,
-        // or just stepped) means full gain to reconverge fast.
+        // Dampen offsets inside the clean-wave noise band and apply excess
+        // in full. Before the jitter floor exists, use full phase gain so
+        // startup and post-step recovery converge quickly.
         uint32_t now_ms = mono_ms();
         int32_t knee = 3 * g.freq_jitter_floor;
         if (knee > FREQ_MAX_OFFSET_US) knee = FREQ_MAX_OFFSET_US;
@@ -1660,7 +1568,6 @@ static void discipline_clock(int32_t offset_us, bool fresh) {
         int32_t applied_mag = mag - band + band / 8;
         applied_us = offset_us < 0 ? -applied_mag : applied_mag;
 
-        // Merge with any outstanding slew so we don't overwrite it.
         struct timeval outstanding = {0};
         adjtime(NULL, &outstanding);
         struct timeval delta = tv_from_us(tv_to_us(&outstanding) + applied_us);
@@ -1669,34 +1576,10 @@ static void discipline_clock(int32_t offset_us, bool fresh) {
         // second; re-framing the filters below treats it as immediate,
         // which is within the noise for the few-ms slews discipline emits.)
 
-        // Integrate crystal frequency slowly from the residual phase error.
-        // The residual contains both real oscillator drift and network path
-        // asymmetry, so treat it as a noisy measurement and cap each update
-        // so one WiFi / pool-server outlier cannot move the displayed
-        // "Drift" by 10-20 ppm.
-        //
-        // Classic PLL phase-to-frequency form: step = offset/TAU, an
-        // integrator that corrects a fraction poll/TAU of the frequency
-        // error per discipline (the elapsed factors cancel), giving a ~TAU
-        // time constant at any poll interval. TAU is sized so the gain stays
-        // well under 1 even at the 1024 s poll cap - a heavily damped loop
-        // that tracks the slow crystal-vs-temperature drift while rejecting
-        // per-wave network offset spikes, which a near-unity gain (the old
-        // fixed 1/32-per-update value, ~1.0 at 32 s polls) chased straight
-        // into the estimate. Division, not an arithmetic shift: >> rounds
-        // toward -inf and biased negative residuals up to 1 ppb per update.
-        //
-        // Quality gate: a fixed-gain loop perpetually wanders by
-        // input_noise * sqrt(gain/2), so the way to quiet it without
-        // slowing temperature tracking is to shrink input_noise - learn
-        // only from CLEAN waves. system_jitter (spread among the surviving
-        // peers) spikes exactly when one peer's sample is bad, which is the
-        // dominant offset-noise source, so gate on it against an adaptive
-        // "clean floor": an EMA that drops fast toward lower jitter and
-        // rises slowly, tracking the quiet level so spikes can't drag it up
-        // and a genuinely noisier link still re-floors over time. Learn
-        // when this wave is within 1.25x the floor; the hard robust jitter
-        // ceiling still bounds the bootstrap wave.
+        // Learn drift only from clean residual phase error. The PLL form is
+        // step = offset/TAU, so the frequency loop has a ~TAU time constant
+        // at any poll interval; the adaptive jitter floor keeps public-NTP
+        // path noise out of the crystal estimate.
         int32_t freq_step = 0;
         bool learned_freq = false;
         bool noisy = false;
@@ -1716,15 +1599,15 @@ static void discipline_clock(int32_t offset_us, bool fresh) {
             int32_t j = g.system_jitter_us;
             bool clean;
             if (g.freq_jitter_floor <= 0) {
-                g.freq_jitter_floor = j > 0 ? j : 1;   // bootstrap
+                g.freq_jitter_floor = j > 0 ? j : 1;
                 clean = true;
             } else {
                 int32_t clean_allowance = g.freq_jitter_floor / 4;
                 clean = j <= g.freq_jitter_floor + clean_allowance;
                 if (j < g.freq_jitter_floor)
-                    g.freq_jitter_floor -= (g.freq_jitter_floor - j) / 4;  // fast down
+                    g.freq_jitter_floor -= (g.freq_jitter_floor - j) / 4;
                 else
-                    g.freq_jitter_floor += (j - g.freq_jitter_floor) / 16; // slow up
+                    g.freq_jitter_floor += (j - g.freq_jitter_floor) / 16;
                 if (g.freq_jitter_floor < 1) g.freq_jitter_floor = 1;
             }
             noisy = !clean;
@@ -1740,10 +1623,8 @@ static void discipline_clock(int32_t offset_us, bool fresh) {
                 learned_freq = true;
             }
         }
-        // The step is elapsed-independent (offset is always one poll's
-        // residual, slewed away each wave), so last_freq_sample_ms only
-        // feeds the "enough time passed to bother" gate above - advance it
-        // every discipline regardless of how this wave resolved.
+        // Advance this every discipline; it only gates whether enough time
+        // has passed to bother with a frequency update.
         g.last_freq_sample_ms = now_ms;
 
         const char *freq_note = learned_freq ? "step"
@@ -1755,16 +1636,12 @@ static void discipline_clock(int32_t offset_us, bool fresh) {
                  (long)g.freq_jitter_floor, (long)g.freq_ppm_x1000,
                  freq_note, (long)freq_step);
 
-        // Persist the freq estimate to NVS so cold boots don't need to
-        // re-converge from 0 ppm. The 30-minute interval gate alone bounds
-        // flash wear (<= 48 log-entry writes/day against a ~100k-cycle
-        // budget), so the delta gate only needs to suppress pointless
-        // rewrites of estimator noise: 10 ppb is ~10 us per 1024 s window,
-        // well under what a freshly booted loop can resolve anyway.
+        // Persist slowly enough for NVS wear; the delta gate just suppresses
+        // rewrites below what a fresh boot can resolve.
         static uint32_t last_freq_save_ms;
         static int32_t  last_saved_freq    = INT32_MIN;
         const  uint32_t SAVE_INTERVAL_MS   = 30 * 60 * 1000;
-        const  int32_t  SAVE_DELTA_PPB     = 10;      // 0.01 ppm
+        const  int32_t  SAVE_DELTA_PPB     = 10;
         int32_t  freq_delta = g.freq_ppm_x1000 - last_saved_freq;
         if (freq_delta < 0) freq_delta = -freq_delta;
         bool freq_known = g.freq_loaded_from_nvs || g.freq_learned_this_session;
@@ -1778,9 +1655,6 @@ static void discipline_clock(int32_t offset_us, bool fresh) {
         }
     }
 
-    // Bring every peer's stored samples into the post-correction frame.
-    // The slew path may have applied less than the measured offset; the
-    // leftover stays real in the filters so the next wave sees it.
     shift_filters(applied_us);
 
     g.first_sync_done = true;
@@ -1791,7 +1665,6 @@ static void discipline_clock(int32_t offset_us, bool fresh) {
     g.sync_count++;
 }
 
-// ---------- adaptive poll ----------
 
 static void adaptive_poll_update(void) {
     if (!g.first_sync_done) {
@@ -1863,15 +1736,11 @@ static void adaptive_poll_update(void) {
     if (g.current_poll_s > MAX_POLL_S) g.current_poll_s = MAX_POLL_S;
 }
 
-// ---------- frequency correction ----------
-
-// Apply accumulated frequency error as a continuous adjtime slew so the clock
-// stays close to truth between polls. Called once per main task iteration.
 static void apply_freq_correction(void) {
     uint32_t now = mono_ms();
     if (g.last_freq_apply_ms == 0) { g.last_freq_apply_ms = now; return; }
     uint32_t elapsed_ms = now - g.last_freq_apply_ms;
-    if (elapsed_ms < 1000) return;   // Apply at most once per second
+    if (elapsed_ms < 1000) return;
 
     // delta_us = (freq_ppm_x1000 / 1000) ppm * (elapsed_ms / 1000) s * 1 us/(ppm*s)
     //          = freq_ppm_x1000 * elapsed_ms / 1_000_000
@@ -1881,19 +1750,16 @@ static void apply_freq_correction(void) {
     // dead-band of up to ~1 ppm pulling toward zero that the PI loop would
     // otherwise absorb as a biased freq estimate.
     int64_t accum    = (int64_t)g.freq_ppm_x1000 * elapsed_ms + g.freq_apply_residual;
-    int64_t delta_us = accum / 1000000;   // truncates toward zero; residual keeps accum's sign
+    int64_t delta_us = accum / 1000000;
     g.freq_apply_residual = accum - delta_us * 1000000;
     g.last_freq_apply_ms  = now;
     if (delta_us == 0) return;
 
-    // Merge with any outstanding slew so we don't overwrite it.
     struct timeval outstanding = {0};
     adjtime(NULL, &outstanding);
     struct timeval merged_tv = tv_from_us(tv_to_us(&outstanding) + delta_us);
     adjtime(&merged_tv, NULL);
 }
-
-// ---------- main task ----------
 
 // Discipline gate. Fires when:
 //   1. The basic poll interval has elapsed since the last discipline.
@@ -1930,11 +1796,11 @@ static bool try_discipline(uint32_t settled_cycle_id) {
     for (int i = 0; i < NTP_MAX_PEERS; i++) {
         ntp_peer_t *q = &g.peers[i];
         if (!q->active) continue;
-        if (q->stratum == 0 || q->stratum >= 16) continue;       // KoD or unsynced
+        if (q->stratum == 0 || q->stratum >= 16) continue;
         if (q->kod_until_ms && (int32_t)(now - q->kod_until_ms) < 0) continue;
-        if (q->consecutive_misses >= 2) continue;                 // chronically silent
+        if (q->consecutive_misses >= 2) continue;
         if (q->cycle_id_when_sent != settled_cycle_id &&
-            q->next_poll_cycle_id != settled_cycle_id) continue;  // not part of this wave
+            q->next_poll_cycle_id != settled_cycle_id) continue;
         reachable++;
         if (q->cycle_id_when_sent != settled_cycle_id ||
             q->last_settle_cycle_id != settled_cycle_id) {
@@ -1950,7 +1816,7 @@ static bool try_discipline(uint32_t settled_cycle_id) {
     if (!good && !force) return false;
 
     g.last_discipline_ms     = now;
-    g.last_discipline_poll_s = g.current_poll_s;   // captures pre-adaptive value
+    g.last_discipline_poll_s = g.current_poll_s;
     discipline_clock(g.combined_offset_us, good);
     adaptive_poll_update_once(settled_cycle_id);
     return true;
@@ -1990,10 +1856,10 @@ static void handle_socket_readable(int sock, const struct timeval *t4) {
     ntp_pkt_t pkt;
     memcpy(&pkt, buf, sizeof(pkt));
     ntp_resp_result_t res = process_response(p, &pkt, t4);
-    if (res == RESP_IGNORE) return;   // stray/dup datagram; request still pending
+    if (res == RESP_IGNORE) return;
     bool ok = (res == RESP_GOOD);
     p->request_outstanding = false;
-    p->last_settle_cycle_id = p->cycle_id_when_sent;   // resolved this wave
+    p->last_settle_cycle_id = p->cycle_id_when_sent;
     uint32_t settled_cycle_id = p->cycle_id_when_sent;
     if (g.selected_peer == peer_idx &&
         (!p->active || p->stratum == 0 || p->stratum >= 16)) {
@@ -2047,10 +1913,10 @@ static void ntp_task(void *arg) {
                          (unsigned long)g.current_poll_s, MIN_POLL_S);
                 g.dirty_config    = true;
                 g.current_poll_s  = MIN_POLL_S;
-                g.last_discipline_poll_s = 0;  // fall back to current_poll_s next check
-                g.last_freq_sample_ms = 0;      // don't learn drift across a no-response gap
+                g.last_discipline_poll_s = 0;
+                g.last_freq_sample_ms = 0;
                 g.poll_adjust     = 0;
-                g.last_any_response_ms = mono_ms();  // avoid immediate retrigger
+                g.last_any_response_ms = mono_ms();
             }
         }
 
@@ -2066,12 +1932,10 @@ static void ntp_task(void *arg) {
             // any peer responds, we'll retrigger after threshold_ms if the new
             // set of IPs is also silent (e.g. DNS gave stale results).
             g.last_any_response_ms = mono_ms();
-            // Reset adaptive poll so the new peer set gets a fresh ramp.
-            // Crystal drift estimate (freq_ppm_x1000) is hardware-intrinsic
-            // and stays, so we don't lose inter-poll accuracy during re-sync.
+            // Keep the learned crystal drift across peer-set changes.
             g.current_poll_s         = MIN_POLL_S;
             g.last_discipline_poll_s = 0;
-            g.last_freq_sample_ms    = 0;       // skip first freq update on the new peer set
+            g.last_freq_sample_ms    = 0;
             g.poll_adjust            = 0;
             // Reset sync accounting so the drilldown doesn't display a stale
             // Syncs count / Age value tied to the previous server. Keep
@@ -2089,24 +1953,21 @@ static void ntp_task(void *arg) {
         uint32_t now = mono_ms();
         uint32_t next_wake = now + IDLE_WAKE_MS;
 
-        // Dispatch due requests; compute soonest deadline.
         for (int i = 0; i < NTP_MAX_PEERS; i++) {
             ntp_peer_t *p = &g.peers[i];
             if (!p->active) continue;
 
-            // Honor KoD cooldown
             if (p->kod_until_ms && (int32_t)(now - p->kod_until_ms) < 0) {
                 if ((int32_t)(p->kod_until_ms - next_wake) < 0) next_wake = p->kod_until_ms;
                 continue;
             }
 
-            // Timeout outstanding requests
             if (p->request_outstanding &&
                 (int32_t)(now - p->request_sent_ms) >= RESPONSE_TIMEOUT_MS) {
                 ESP_LOGW(TAG, "TIMEOUT peer=%s reach=%02x", p->addr_str, p->reach);
                 uint32_t settled_cycle_id = p->cycle_id_when_sent;
                 p->request_outstanding   = false;
-                p->last_settle_cycle_id  = settled_cycle_id;  // resolved (badly)
+                p->last_settle_cycle_id  = settled_cycle_id;
                 if (p->consecutive_misses < 255) p->consecutive_misses++;
                 schedule_after_request(p);
                 // Swap out chronically-bad peers. The peer actually evicted
@@ -2143,7 +2004,6 @@ static void ntp_task(void *arg) {
         }
         g.force_sync = false;
 
-        // Wait for responses up to next_wake.
         fd_set rfds;
         FD_ZERO(&rfds);
         int maxfd = -1;
@@ -2181,8 +2041,6 @@ static void ntp_task(void *arg) {
     g.task = NULL;
     vTaskDelete(NULL);
 }
-
-// ---------- public API ----------
 
 void ntp_init(const char *server, bool prefer_ipv6) {
     if (g.running) ntp_stop();
@@ -2273,8 +2131,6 @@ void ntp_set_prefer_ipv6(bool prefer) {
     if (changed) wake_task();
 }
 
-// Lock-held fill helpers shared by the single getters and the combined
-// snapshot below.
 static void fill_sys_stats(ntp_sys_stats_t *out) {
     out->synced         = g.first_sync_done;
     out->last_sync_time = g.last_sync_time;

@@ -9,4 +9,4 @@ typedef enum {
 void ui_about_init(void);
 about_result_t ui_about_update(void);
 
-#endif // UI_ABOUT_H
+#endif

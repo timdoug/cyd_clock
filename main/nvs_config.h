@@ -9,40 +9,31 @@
 #define MAX_PASSWORD_LEN 64
 #define MAX_TIMEZONE_LEN 48
 
-// Initialize NVS storage
 void nvs_config_init(void);
 
-// WiFi credentials
 bool nvs_config_get_wifi(char *ssid, char *password);
 void nvs_config_set_wifi(const char *ssid, const char *password);
 
-// Timezone
 bool nvs_config_get_timezone(char *tz);
 void nvs_config_set_timezone(const char *tz);
 
-// Brightness
 bool nvs_config_get_brightness(uint8_t *brightness);
 void nvs_config_set_brightness(uint8_t brightness);
 
-// NTP settings
 #define MAX_NTP_SERVER_LEN 64
 bool nvs_config_get_custom_ntp_server(char *server);
 void nvs_config_set_custom_ntp_server(const char *server);
 
-// OTA update URL
 #define MAX_OTA_URL_LEN 256
 bool nvs_config_get_ota_url(char *url);
 void nvs_config_set_ota_url(const char *url);
 
-// NTP IPv6 preference
 bool nvs_config_get_ntp_ipv6(bool *prefer);
 void nvs_config_set_ntp_ipv6(bool prefer);
 
-// Display rotation
 bool nvs_config_get_rotation(bool *rotated);
 void nvs_config_set_rotation(bool rotated);
 
-// LED brightness (0 = off, 255 = max)
 bool nvs_config_get_led_brightness(uint8_t *brightness);
 void nvs_config_set_led_brightness(uint8_t brightness);
 
@@ -51,4 +42,4 @@ void nvs_config_set_led_brightness(uint8_t brightness);
 bool nvs_config_get_freq_ppm_x1000(int32_t *value);
 void nvs_config_set_freq_ppm_x1000(int32_t value);
 
-#endif // NVS_CONFIG_H
+#endif

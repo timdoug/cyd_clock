@@ -23,7 +23,6 @@
 
 static const char *TAG = "wifi";
 
-// Event group for WiFi events
 static EventGroupHandle_t wifi_event_group;
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT      BIT1
@@ -65,7 +64,6 @@ static void schedule_reconnect(void) {
 
 void wifi_poll_reconnect(void) {
     if (!reconnect_pending) return;
-    // Signed difference handles the ~49-day mono_ms wrap.
     if ((int32_t)(mono_ms() - reconnect_at_ms) < 0) return;
     reconnect_pending = false;
     ESP_LOGI(TAG, "Background reconnect attempt");
@@ -74,7 +72,6 @@ void wifi_poll_reconnect(void) {
     if (esp_wifi_connect() != ESP_OK) schedule_reconnect();
 }
 
-// Config tracked here; runtime NTP state lives in ntp.c
 static struct {
     char custom_server[64];
     bool prefer_ipv6;
@@ -104,9 +101,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                     retry_count++;
                     ESP_LOGI(TAG, "Retrying connection (%d/%d)", retry_count, WIFI_MAX_RETRY);
                 } else {
-                    // Unblock any wifi_connect() waiting on a verdict...
                     xEventGroupSetBits(wifi_event_group, WIFI_FAIL_BIT);
-                    // ...but never actually give up.
                     schedule_reconnect();
                 }
                 break;
@@ -224,10 +219,8 @@ static int wifi_scan_collect(wifi_network_t *networks, int max_networks) {
 
     int count = 0;
     for (int i = 0; i < ap_count && count < max_networks; i++) {
-        // Skip empty SSIDs
         if (ap_records[i].ssid[0] == '\0') continue;
 
-        // Skip duplicates
         bool duplicate = false;
         for (int j = 0; j < count; j++) {
             if (strcmp(networks[j].ssid, (char *)ap_records[i].ssid) == 0) {
@@ -361,7 +354,6 @@ bool wifi_connect(const char *ssid, const char *password) {
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_connect());
 
-    // Wait for connection or failure
     EventBits_t bits = xEventGroupWaitBits(wifi_event_group,
                                            WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
                                            pdFALSE, pdFALSE,
@@ -457,13 +449,11 @@ void wifi_get_ip6_str(char *buf, size_t len) {
         esp_ip6_addr_t ip6_addrs[CONFIG_LWIP_IPV6_NUM_ADDRESSES];
         int count = esp_netif_get_all_ip6(netif, ip6_addrs);
         for (int i = 0; i < count; i++) {
-            // Skip link-local (fe80::) addresses, prefer global
             if (!ip6_addr_islinklocal(&ip6_addrs[i])) {
                 snprintf(buf, len, IPV6STR, IPV62STR(ip6_addrs[i]));
                 return;
             }
         }
-        // Fall back to link-local if no global address
         if (count > 0) {
             snprintf(buf, len, IPV6STR, IPV62STR(ip6_addrs[0]));
             return;

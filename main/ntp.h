@@ -7,40 +7,37 @@
 
 #define NTP_MAX_PEERS 4
 
-// Per-peer statistics (snapshot)
 typedef struct {
-    bool     active;           // Peer slot in use
-    bool     selected;         // Chosen as system peer
-    char     addr_str[46];     // Printable address
-    uint8_t  stratum;          // 1-15 = synced peer, 16 = unsynced/unreachable
-    uint8_t  reach;            // 8-bit reach register (LSB = most recent)
-    int32_t  offset_us;        // Best-sample offset in microseconds
-    int32_t  delay_us;         // Best-sample round-trip delay
-    int32_t  jitter_us;        // RMS deviation across recent samples
-    int32_t  dispersion_us;    // Peer dispersion (newest sample + jitter, aged)
-    uint32_t last_response_ms; // ms since last valid response (UINT32_MAX if never)
-    bool     fresh;            // slot was installed recently; UI highlight only
+    bool     active;
+    bool     selected;
+    char     addr_str[46];
+    uint8_t  stratum;
+    uint8_t  reach;
+    int32_t  offset_us;
+    int32_t  delay_us;
+    int32_t  jitter_us;
+    int32_t  dispersion_us;
+    uint32_t last_response_ms;
+    bool     fresh;
 } ntp_peer_stats_t;
 
-// System-wide NTP statistics
 typedef struct {
     bool     synced;
     time_t   last_sync_time;
     uint32_t sync_count;
-    uint32_t current_poll_s;   // Currently active adaptive poll interval
-    uint32_t sync_elapsed_ms;  // ms since sync attempt started (pre-first-sync)
-    int64_t  last_offset_us;   // Offset applied at last discipline step (combined across survivors)
+    uint32_t current_poll_s;
+    uint32_t sync_elapsed_ms;
+    int64_t  last_offset_us;
     int32_t  system_jitter_us;
     int32_t  root_delay_us;
     int32_t  root_dispersion_us;
-    int32_t  freq_ppm_x1000;   // Estimated crystal freq error, ppm * 1000 (for 1 ppb resolution)
-    bool     freq_known;       // true iff we have a real estimate (current session or restored from NVS)
-    uint8_t  stratum;          // Our stratum (selected peer's + 1, or 16 if unsynced)
-    uint8_t  selected_peer;    // Index into peer table, 0xFF if none
-    char     server[64];       // Configured hostname
+    int32_t  freq_ppm_x1000;
+    bool     freq_known;
+    uint8_t  stratum;
+    uint8_t  selected_peer;
+    char     server[64];
 } ntp_sys_stats_t;
 
-// Lifecycle
 void ntp_init(const char *server, bool prefer_ipv6);
 void ntp_stop(void);
 
@@ -50,11 +47,9 @@ void ntp_stop(void);
 // connection - the cb just isn't exercised until packets arrive.
 void ntp_install_wifi_rx_hook(void);
 
-// Configuration (takes effect on next poll cycle; triggers a re-sync internally)
 void ntp_set_server(const char *server);
 void ntp_set_prefer_ipv6(bool prefer);
 
-// Stats
 void ntp_get_sys_stats(ntp_sys_stats_t *out);
 bool ntp_get_peer_stats(int idx, ntp_peer_stats_t *out);
 // One-lock snapshot of system + all peer stats (inactive slots have
@@ -64,4 +59,4 @@ bool ntp_get_peer_stats(int idx, ntp_peer_stats_t *out);
 void ntp_get_all_stats(ntp_sys_stats_t *sys, ntp_peer_stats_t peers[NTP_MAX_PEERS]);
 void ntp_get_primary_addr_str(char *buf, size_t len);
 
-#endif // CYD_NTP_H
+#endif

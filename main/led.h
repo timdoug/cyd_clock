@@ -17,4 +17,4 @@ void led_set_pps_enabled(bool enabled);
 // during each pulse.
 void led_set_brightness(uint8_t brightness);
 
-#endif // LED_H
+#endif

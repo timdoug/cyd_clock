@@ -28,4 +28,4 @@ bool ota_update_cancel(void);
 void ota_update_get_status(ota_update_status_t *status);
 bool ota_update_is_running(void);
 
-#endif // OTA_UPDATE_H
+#endif

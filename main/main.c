@@ -30,7 +30,6 @@
 
 static const char *TAG = "main";
 
-// Application states
 typedef enum {
     APP_STATE_INIT,
     APP_STATE_WIFI_SETUP,
@@ -152,7 +151,6 @@ static void try_connect_stored_credentials(void) {
         ui_clock_init();
         ui_clock_redraw();
 
-        // Start NTP
         wifi_start_ntp();
         ntp_started = true;
     } else {
@@ -171,14 +169,12 @@ static void try_connect_stored_credentials(void) {
 void app_main(void) {
     ESP_LOGI(TAG, "CYD Clock starting");
 
-    // Initialize hardware
     nvs_config_init();
     ota_update_init();
     display_init();
     touch_init();
     led_init();
 
-    // Display tick machinery
     clock_tick_sem = xSemaphoreCreateBinary();
     ESP_ERROR_CHECK(clock_tick_sem ? ESP_OK : ESP_ERR_NO_MEM);
     const esp_timer_create_args_t tick_args = {
@@ -192,7 +188,6 @@ void app_main(void) {
     };
     ESP_ERROR_CHECK(esp_timer_create(&tick_args, &clock_tick_timer));
 
-    // Configure BOOT button as input with pull-up
     gpio_config_t boot_btn_cfg = {
         .pin_bit_mask = (1ULL << BOOT_BUTTON_GPIO),
         .mode = GPIO_MODE_INPUT,
@@ -202,13 +197,11 @@ void app_main(void) {
     };
     gpio_config(&boot_btn_cfg);
 
-    // Load and apply saved brightness (minimum 32)
     uint8_t brightness;
     if (nvs_config_get_brightness(&brightness) && brightness >= BRIGHTNESS_MIN) {
         display_set_backlight(brightness);
     }
 
-    // Load and apply saved rotation
     bool rotated;
     if (nvs_config_get_rotation(&rotated)) {
         display_set_rotation(rotated);
@@ -216,13 +209,11 @@ void app_main(void) {
 
     show_splash();
 
-    // Load timezone (default to UTC)
     if (!nvs_config_get_timezone(stored_tz)) {
         str_copy(stored_tz, sizeof(stored_tz), "UTC0");
     }
     wifi_set_timezone(stored_tz);
 
-    // Load NTP settings
     char custom_ntp[MAX_NTP_SERVER_LEN];
     if (nvs_config_get_custom_ntp_server(custom_ntp)) {
         wifi_set_custom_ntp_server(custom_ntp);
@@ -232,7 +223,6 @@ void app_main(void) {
         wifi_set_ntp_prefer_ipv6(ntp_ipv6);
     }
 
-    // Check for stored WiFi credentials
     if (nvs_config_get_wifi(stored_ssid, stored_password)) {
         try_connect_stored_credentials();
     } else {
@@ -256,35 +246,29 @@ void app_main(void) {
     // explicitly.
     ESP_ERROR_CHECK(esp_task_wdt_add(NULL));
 
-    // Main loop
     while (1) {
         esp_task_wdt_reset();
         wifi_poll_reconnect();
         switch (app_state) {
             case APP_STATE_INIT:
-                // Should not reach here
                 break;
 
             case APP_STATE_WIFI_SETUP: {
                 wifi_setup_result_t result = ui_wifi_setup_update();
                 if (result == WIFI_SETUP_CONNECTED) {
-                    // Save credentials
                     char ssid[WIFI_SSID_BUF_LEN], password[MAX_PASSWORD_LEN];
                     ui_wifi_setup_get_credentials(ssid, password);
                     nvs_config_set_wifi(ssid, password);
 
-                    // Start NTP if not already started
                     if (!ntp_started) {
                         wifi_start_ntp();
                         ntp_started = true;
                     }
 
                     if (initial_setup) {
-                        // First boot: prompt for timezone before showing clock
                         app_state = APP_STATE_TIMEZONE;
                         ui_timezone_init(stored_tz, false);
                     } else {
-                        // From settings: go straight to clock
                         app_state = APP_STATE_CLOCK;
                         ui_clock_init();
                         ui_clock_redraw();
@@ -292,19 +276,16 @@ void app_main(void) {
                     wifi_setup_from_settings = false;
                 } else if (result == WIFI_SETUP_CANCELLED) {
                     if (wifi_setup_from_settings) {
-                        // Return to settings
                         app_state = APP_STATE_SETTINGS;
                         wifi_setup_from_settings = false;
                         ui_settings_init();
                         ui_wait_for_touch_release();
                     }
-                    // If not from settings, stay in WiFi setup (no stored credentials)
                 }
                 break;
             }
 
             case APP_STATE_CONNECTING:
-                // Handled in try_connect_stored_credentials()
                 break;
 
             case APP_STATE_CLOCK: {
@@ -324,7 +305,6 @@ void app_main(void) {
                     app_state = APP_STATE_SETTINGS;
                     ui_settings_init();
                     tick_needs_arm = true;
-                    // Wait for BOOT button release
                     while (gpio_get_level(BOOT_BUTTON_GPIO) == 0) {
                         esp_task_wdt_reset();
                         vTaskDelay(pdMS_TO_TICKS(TOUCH_RELEASE_POLL_MS));
@@ -347,9 +327,6 @@ void app_main(void) {
                 // leave every subsequent tick's pixels landing visibly late.
                 static bool skip_next_measurement = true;
                 if (tick_needs_arm) {
-                    // Drain any stale semaphore left over from a previous
-                    // CLOCK session (timer may have fired while we were in
-                    // SETTINGS etc), then arm for the next display tick.
                     xSemaphoreTake(clock_tick_sem, 0);
                     // Wall time may have advanced a whole second past whatever
                     // ui_clock_redraw painted: ui_wait_for_touch_release blocks
@@ -387,8 +364,6 @@ void app_main(void) {
                     if (!skip_next_measurement &&
                         ui_clock_last_draw_had_pixels() &&
                         measured >= min_measured && measured < 80000) {
-                        // EMA with alpha = 1/8: new = (7/8)*old + (1/8)*measured.
-                        // Converges in ~8 ticks, smooths cell-count variance.
                         clock_latency_by_digits[digits] =
                             clock_latency_by_digits[digits]
                             - (clock_latency_by_digits[digits] / 8)
@@ -443,7 +418,6 @@ void app_main(void) {
             case APP_STATE_TIMEZONE: {
                 tz_select_result_t result = ui_timezone_update();
                 if (result == TZ_SELECT_DONE) {
-                    // Save and apply new timezone
                     const char *tz = ui_timezone_get_selected();
                     str_copy(stored_tz, sizeof(stored_tz), tz);
                     nvs_config_set_timezone(tz);
@@ -452,13 +426,11 @@ void app_main(void) {
                 }
                 if (result == TZ_SELECT_DONE || result == TZ_SELECT_CANCELLED) {
                     if (initial_setup) {
-                        // First boot: go to clock
                         initial_setup = false;
                         app_state = APP_STATE_CLOCK;
                         ui_clock_init();
                         ui_clock_redraw();
                     } else {
-                        // From settings: return to settings
                         app_state = APP_STATE_SETTINGS;
                         ui_settings_init();
                     }
@@ -505,7 +477,6 @@ void app_main(void) {
             }
         }
 
-        // Small delay to prevent tight loop
         vTaskDelay(pdMS_TO_TICKS(TOUCH_RELEASE_POLL_MS));
     }
 }

@@ -36,4 +36,4 @@ static inline void str_copy(char *dst, size_t dst_size, const char *src) {
     dst[n] = '\0';
 }
 
-#endif // CYD_UTIL_H
+#endif

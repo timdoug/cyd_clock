@@ -13,4 +13,4 @@ typedef enum {
 void ui_settings_init(void);
 settings_result_t ui_settings_update(void);
 
-#endif // UI_SETTINGS_H
+#endif

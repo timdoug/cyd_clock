@@ -65,7 +65,6 @@ static void draw_menu(void) {
     ui_draw_slider(BRIGHTNESS_ROW_Y, "Brightness", brightness, BRIGHTNESS_MAX, UI_COLOR_SELECTED);
     ui_draw_slider(LED_ROW_Y, "LED Blink", led_brightness, BRIGHTNESS_MAX, COLOR_RED);
 
-    // Rotation toggle
     display_fill_rect(0, ROTATION_ROW_Y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, UI_COLOR_ITEM_BG);
     display_string(10, ROTATION_ROW_Y + UI_TEXT_Y_OFFSET, "Rotate 180\x7F", UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
     uint16_t rot_bg = rotation ? COLOR_GREEN : COLOR_GRAY;
@@ -76,7 +75,6 @@ static void draw_menu(void) {
 
     ui_draw_menu_item(ABOUT_ROW_Y, "About");
 
-    // Done button (1/3 width, centered)
     int btn_w = DISPLAY_WIDTH / 3;
     int btn_x = (DISPLAY_WIDTH - btn_w) / 2;
     display_fill_rect(btn_x, DONE_ROW_Y, btn_w, UI_ITEM_HEIGHT - 3, COLOR_GREEN);
@@ -87,15 +85,12 @@ static void draw_menu(void) {
 void ui_settings_init(void) {
     ESP_LOGI(TAG, "Initializing settings UI");
 
-    // Load saved brightness or default
     if (!nvs_config_get_brightness(&brightness) || brightness < BRIGHTNESS_MIN) {
         brightness = BRIGHTNESS_DEFAULT;
     }
 
-    // Load saved rotation
     rotation = display_is_rotated();
 
-    // Load saved LED brightness (default to BRIGHTNESS_DEFAULT if not set)
     if (!nvs_config_get_led_brightness(&led_brightness)) {
         led_brightness = BRIGHTNESS_DEFAULT;
     }
@@ -113,22 +108,18 @@ settings_result_t ui_settings_update(void) {
         return SETTINGS_RESULT_NONE;
     }
 
-    // Timezone
     if (touch.y >= TZ_ROW_Y && touch.y < TZ_ROW_Y + UI_ITEM_HEIGHT) {
         return SETTINGS_RESULT_TIMEZONE;
     }
 
-    // WiFi
     if (touch.y >= WIFI_ROW_Y && touch.y < WIFI_ROW_Y + UI_ITEM_HEIGHT) {
         return SETTINGS_RESULT_WIFI;
     }
 
-    // NTP
     if (touch.y >= NTP_ROW_Y && touch.y < NTP_ROW_Y + UI_ITEM_HEIGHT) {
         return SETTINGS_RESULT_NTP;
     }
 
-    // Brightness controls
     if (touch.y >= BRIGHTNESS_ROW_Y && touch.y < BRIGHTNESS_ROW_Y + UI_ITEM_HEIGHT) {
         uint8_t old_brightness = brightness;
         if (handle_slider_touch(touch.x, &brightness, BRIGHTNESS_MIN)) {
@@ -139,7 +130,6 @@ settings_result_t ui_settings_update(void) {
         }
     }
 
-    // LED brightness controls
     if (touch.y >= LED_ROW_Y && touch.y < LED_ROW_Y + UI_ITEM_HEIGHT) {
         uint8_t old_led_brightness = led_brightness;
         if (handle_slider_touch(touch.x, &led_brightness, 0)) {
@@ -150,24 +140,20 @@ settings_result_t ui_settings_update(void) {
         }
     }
 
-    // Rotation toggle
     if (touch.y >= ROTATION_ROW_Y && touch.y < ROTATION_ROW_Y + UI_ITEM_HEIGHT &&
         touch.x >= ROTATION_TOGGLE_X && touch.x < ROTATION_TOGGLE_X + ROTATION_TOGGLE_W) {
         rotation = !rotation;
         display_set_rotation(rotation);
         nvs_config_set_rotation(rotation);
-        // Redraw everything after rotation change
         display_fill(COLOR_BLACK);
         ui_draw_header("Settings", false);
         draw_menu();
     }
 
-    // About
     if (touch.y >= ABOUT_ROW_Y && touch.y < ABOUT_ROW_Y + UI_ITEM_HEIGHT) {
         return SETTINGS_RESULT_ABOUT;
     }
 
-    // Done button (1/3 width, centered)
     int btn_w = DISPLAY_WIDTH / 3;
     int btn_x = (DISPLAY_WIDTH - btn_w) / 2;
     if (touch.y >= DONE_ROW_Y && touch.y < DONE_ROW_Y + UI_ITEM_HEIGHT &&

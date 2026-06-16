@@ -14,7 +14,6 @@
 
 static const char *TAG = "ui_wifi_setup";
 
-// UI States
 typedef enum {
     STATE_SCANNING,
     STATE_SCAN_EMPTY,
@@ -25,7 +24,6 @@ typedef enum {
     STATE_FAILED,
 } setup_state_t;
 
-// Keyboard layouts
 static const char *keyboard_lower[] = {
     "1234567890",
     "qwertyuiop",
@@ -47,7 +45,6 @@ static const char *keyboard_symbols[] = {
     "`~?/",
 };
 
-// State variables
 static setup_state_t state = STATE_SCANNING;
 static wifi_network_t networks[MAX_SCAN_RESULTS];
 static int network_count = 0;
@@ -56,7 +53,7 @@ static int highlighted_network = -1;
 static int list_scroll = 0;
 static char password[MAX_PASSWORD_LEN] = {0};
 static int password_len = 0;
-static int keyboard_mode = 0;  // 0=lower, 1=upper, 2=symbols
+static int keyboard_mode = 0;
 static bool shift_active = false;
 static char connected_ssid[WIFI_SSID_BUF_LEN] = {0};
 static char connected_password[MAX_PASSWORD_LEN] = {0};
@@ -96,7 +93,6 @@ static void draw_network_list(void) {
     }
     ui_draw_list(labels, network_count, list_scroll, highlighted_network);
 
-    // Wifi-specific decorations: signal bars and lock icon
     for (int i = 0; i < UI_LIST_VISIBLE && (i + list_scroll) < network_count; i++) {
         int idx = i + list_scroll;
         int y = UI_LIST_START_Y + i * UI_LIST_ITEM_H;
@@ -104,7 +100,6 @@ static void draw_network_list(void) {
         uint16_t bg = (idx == highlighted_network) ? UI_COLOR_SELECTED : COLOR_BLACK;
         uint16_t fg = (idx == highlighted_network) ? COLOR_BLACK : COLOR_WHITE;
 
-        // Signal strength indicator
         int bars = 0;
         if (networks[idx].rssi > -50) bars = 4;
         else if (networks[idx].rssi > -60) bars = 3;
@@ -116,7 +111,6 @@ static void draw_network_list(void) {
             display_fill_rect(DISPLAY_WIDTH - 30 + b * 6, y + UI_LIST_ITEM_H - 4 - bh, 4, bh, fg);
         }
 
-        // Lock icon for secured networks
         if (networks[idx].authmode) {
             display_char(DISPLAY_WIDTH - 50, y + 6, '*', fg, bg);
         }
@@ -125,14 +119,11 @@ static void draw_network_list(void) {
 
 
 static void draw_password_input(void) {
-    // Clear password area
     display_fill_rect(0, UI_LIST_START_Y, DISPLAY_WIDTH, KEYBOARD_Y - UI_LIST_START_Y, COLOR_BLACK);
 
-    // Show selected network
     display_string(5, UI_LIST_START_Y + 5, "Network:", COLOR_GRAY, COLOR_BLACK);
     display_string(80, UI_LIST_START_Y + 5, networks[selected_network].ssid, COLOR_WHITE, COLOR_BLACK);
 
-    // Password input field
     display_fill_rect(5, UI_LIST_START_Y + 30, DISPLAY_WIDTH - 10, 24, COLOR_DARKGRAY);
     display_rect(5, UI_LIST_START_Y + 30, DISPLAY_WIDTH - 10, 24, COLOR_WHITE);
 
@@ -145,7 +136,7 @@ static void draw_password_input(void) {
     char display_pwd[MAX_PASSWORD_LEN];
     for (int i = 0; i < shown; i++) {
         if (start + i == password_len - 1) {
-            display_pwd[i] = password[start + i];  // Show last character briefly
+            display_pwd[i] = password[start + i];
         } else {
             display_pwd[i] = '*';
         }
@@ -153,7 +144,6 @@ static void draw_password_input(void) {
     display_pwd[shown] = '\0';
     display_string(10, UI_LIST_START_Y + 35, display_pwd, COLOR_GREEN, COLOR_DARKGRAY);
 
-    // Cursor
     display_char(10 + shown * FONT_CHAR_WIDTH, UI_LIST_START_Y + 35, '_', COLOR_GREEN, COLOR_DARKGRAY);
 }
 
@@ -163,39 +153,31 @@ static void draw_keyboard(void) {
     else if (keyboard_mode == 1 || shift_active) layout = keyboard_upper;
     else layout = keyboard_lower;
 
-    // Clear keyboard area
     display_fill_rect(0, KEYBOARD_Y, DISPLAY_WIDTH, DISPLAY_HEIGHT - KEYBOARD_Y, COLOR_BLACK);
 
-    // Character keys
     ui_keyboard_draw_keys(layout, 4, KEYBOARD_Y, COLOR_DARKGRAY, COLOR_WHITE, COLOR_GRAY);
 
-    // Special keys row
     int y = ui_keyboard_bottom_y(4, KEYBOARD_Y);
     int x = 5;
 
-    // Shift key
     display_fill_rect(x, y, 40, KB_KEY_HEIGHT, shift_active ? UI_COLOR_SELECTED : COLOR_DARKGRAY);
     display_string(x + 8, y + 3, "Shf", shift_active ? COLOR_BLACK : COLOR_WHITE,
                    shift_active ? UI_COLOR_SELECTED : COLOR_DARKGRAY);
     x += 45;
 
-    // Mode key
     display_fill_rect(x, y, 40, KB_KEY_HEIGHT, COLOR_DARKGRAY);
     const char *mode_label = (keyboard_mode == 0) ? "?#@" : "abc";
     display_string(x + 8, y + 3, mode_label, COLOR_WHITE, COLOR_DARKGRAY);
     x += 45;
 
-    // Space bar
     display_fill_rect(x, y, 100, KB_KEY_HEIGHT, COLOR_DARKGRAY);
     display_string(x + 30, y + 3, "Space", COLOR_WHITE, COLOR_DARKGRAY);
     x += 105;
 
-    // Backspace
     display_fill_rect(x, y, 40, KB_KEY_HEIGHT, COLOR_DARKGRAY);
     display_string(x + 8, y + 3, "Del", COLOR_WHITE, COLOR_DARKGRAY);
     x += 45;
 
-    // Connect button
     display_fill_rect(x, y, 60, KB_KEY_HEIGHT, COLOR_GREEN);
     display_string(x + 18, y + 3, "Go", COLOR_BLACK, COLOR_GREEN);
 }
@@ -206,16 +188,14 @@ static char get_key_at(int tx, int ty) {
     else if (keyboard_mode == 1 || shift_active) layout = keyboard_upper;
     else layout = keyboard_lower;
 
-    // Check character keys
     char key = ui_keyboard_get_key(layout, 4, KEYBOARD_Y, tx, ty);
     if (key) return key;
 
-    // Special keys row
     int y = ui_keyboard_bottom_y(4, KEYBOARD_Y);
     if (ty >= y && ty < y + KB_KEY_HEIGHT) {
         if (tx >= 5   && tx < 45)  return VKEY_SHIFT;
         if (tx >= 50  && tx < 90)  return VKEY_MODE;
-        if (tx >= 95  && tx < 195) return ' ';    // Space
+        if (tx >= 95  && tx < 195) return ' ';
         if (tx >= 200 && tx < 240) return VKEY_BACKSPACE;
         if (tx >= 245 && tx < 305) return VKEY_ENTER;
     }
@@ -320,13 +300,11 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
                 break;
             }
 
-            // Back button
             const touch_point_t *tap_start = &list_touch.tap_start;
             if (show_back_button && ui_back_button_hit(tap_start)) {
                 return WIFI_SETUP_CANCELLED;
             }
 
-            // Check for list item tap
             if (tap_start->y >= UI_LIST_START_Y
                 && tap_start->y < UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H) {
                 int item = (tap_start->y - UI_LIST_START_Y) / UI_LIST_ITEM_H + list_scroll;
@@ -354,7 +332,6 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
 
         case STATE_PASSWORD_ENTRY:
             if (touched) {
-                // Header Back button - return to network list
                 if (ui_back_button_hit(&touch)) {
                     state = STATE_NETWORK_LIST;
                     selected_network = -1;
@@ -367,20 +344,20 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
 
                 char key = get_key_at(touch.x, touch.y);
 
-                if (key == VKEY_SHIFT) {  // Shift
+                if (key == VKEY_SHIFT) {
                     shift_active = !shift_active;
                     draw_keyboard();
-                } else if (key == VKEY_MODE) {  // Mode - toggle between letters and symbols
+                } else if (key == VKEY_MODE) {
                     keyboard_mode = (keyboard_mode == 0) ? 2 : 0;
                     shift_active = false;
                     draw_keyboard();
-                } else if (key == VKEY_BACKSPACE) {  // Backspace
+                } else if (key == VKEY_BACKSPACE) {
                     if (password_len > 0) {
                         password_len--;
                         password[password_len] = '\0';
                         draw_password_input();
                     }
-                } else if (key == VKEY_ENTER) {  // Connect
+                } else if (key == VKEY_ENTER) {
                     state = STATE_CONNECTING;
                     display_fill(COLOR_BLACK);
                     ui_draw_header("Connecting", false);

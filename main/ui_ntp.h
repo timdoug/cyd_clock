@@ -9,4 +9,4 @@ typedef enum {
 void ui_ntp_init(void);
 ntp_result_t ui_ntp_update(void);
 
-#endif // UI_NTP_H
+#endif

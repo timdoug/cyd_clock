@@ -23,7 +23,6 @@ static const char *TAG = "ui_clock";
 // here to pick the second that will be current when the pixels actually land.
 extern volatile uint32_t clock_latency_us;
 
-// Layout constants
 #define TIME_Y      20
 #define FRACTION_Y  98
 #define DATE_Y      124
@@ -31,7 +30,6 @@ extern volatile uint32_t clock_latency_us;
 #define STATS_LINE2 188
 #define STATS_LINE3 208
 
-// 7-segment layout for time display (size 2)
 #define TIME_DIGIT_WIDTH    38
 #define TIME_DIGIT_SPACING  6
 #define TIME_DIGIT_STEP     (TIME_DIGIT_WIDTH + TIME_DIGIT_SPACING)
@@ -40,7 +38,6 @@ extern volatile uint32_t clock_latency_us;
 #define FRACTION_WIDTH      (3 * FONT_CHAR_WIDTH)
 #define FRACTION_X          (TIME_START_X + 5 * TIME_DIGIT_STEP + 2 * COLON_7SEG_WIDTH + TIME_DIGIT_WIDTH - FRACTION_WIDTH)
 
-// Colors
 #define COLOR_TIME_FG   COLOR_RED
 #define COLOR_TIME_BG   COLOR_BLACK
 #define COLOR_DATE_FG   COLOR_WHITE
@@ -62,7 +59,6 @@ static uint8_t last_update_digits = 1;
 static int64_t last_draw_end_us = 0;
 static bool last_draw_had_pixels = false;
 
-// Cached rendered contents for each stats line - skip repaints when unchanged.
 static char last_line1[80] = "";
 static char last_line2[96] = "";
 static char last_line3[96] = "";
@@ -156,9 +152,6 @@ void ui_clock_redraw(void) {
 }
 
 static void draw_time_digit(int position, int digit) {
-    // Calculate x position based on digit position
-    // Format: HH:MM:SS
-    // Positions: 0,1 = hours, 2,3 = minutes, 4,5 = seconds
     int x;
 
     switch (position) {
@@ -220,64 +213,60 @@ static bool clear_fraction(void) {
     return true;
 }
 
-// Drift in ppm with adaptive precision: 2 decimals under 10, 1 under 100, none above.
 static void fmt_signed_fixed(char *buf, size_t len, int32_t val_x1000, const char *unit) {
     char sign = (val_x1000 < 0) ? '-' : '+';
     uint32_t av = val_x1000 < 0 ? (uint32_t)-val_x1000 : (uint32_t)val_x1000;
-    if (av < 10000) {           // |x| < 10 ppm: "X.XX"
+    if (av < 10000) {
         uint32_t r = (av + 5) / 10;
         snprintf(buf, len, "%c%lu.%02lu%s", sign,
                  (unsigned long)(r / 100),
                  (unsigned long)(r % 100), unit);
-    } else if (av < 100000) {   // 10 - 99 ppm: "XX.X"
+    } else if (av < 100000) {
         uint32_t r = (av + 50) / 100;
         snprintf(buf, len, "%c%lu.%lu%s", sign,
                  (unsigned long)(r / 10),
                  (unsigned long)(r % 10), unit);
-    } else {                    // >= 100 ppm: "XXX"
+    } else {
         snprintf(buf, len, "%c%lu%s", sign,
                  (unsigned long)((av + 500) / 1000), unit);
     }
 }
 
-// Signed microseconds with adaptive precision. Always in ms (or s for large
-// values); no "us" unit - sub-ms renders as "0.XXXms".
 static void fmt_offset(char *buf, size_t len, int64_t us) {
     int64_t av = us < 0 ? -us : us;
     char sign = (us < 0) ? '-' : '+';
-    if (av < 1000) {                    // "0.XXXms" - exact at us precision
+    if (av < 1000) {
         snprintf(buf, len, "%c0.%03lldms", sign, (long long)av);
-    } else if (av < 10000) {            // "X.XXms" - round to 10us
+    } else if (av < 10000) {
         int64_t r = (av + 5) / 10;
         snprintf(buf, len, "%c%lld.%02lldms", sign,
                  (long long)(r / 100), (long long)(r % 100));
-    } else if (av < 100000) {           // "XX.Xms" - round to 100us
+    } else if (av < 100000) {
         int64_t r = (av + 50) / 100;
         snprintf(buf, len, "%c%lld.%lldms", sign,
                  (long long)(r / 10), (long long)(r % 10));
-    } else if (av < 10000000LL) {       // "XXXms" / "XXXXms" - round to 1ms
+    } else if (av < 10000000LL) {
         snprintf(buf, len, "%c%lldms", sign, (long long)((av + 500) / 1000));
-    } else if (av < 100000000LL) {      // "XX.Xs" - round to 100ms
+    } else if (av < 100000000LL) {
         int64_t r = (av + 50000) / 100000;
         snprintf(buf, len, "%c%lld.%llds", sign,
                  (long long)(r / 10), (long long)(r % 10));
-    } else {                            // "XXXs" - round to 1s
+    } else {
         snprintf(buf, len, "%c%llds", sign, (long long)((av + 500000) / 1000000));
     }
 }
 
-// Unsigned magnitude with "+/-" prefix - used for uncertainty bounds.
 static void fmt_pm_us(char *buf, size_t len, int64_t us) {
     if (us < 0) us = -us;
-    if (us < 1000) {                    // "0.XXXms" - exact at us precision
+    if (us < 1000) {
         snprintf(buf, len, "+/-0.%03lldms", (long long)us);
-    } else if (us < 10000) {            // "X.Xms" - round to 100us
+    } else if (us < 10000) {
         int64_t r = (us + 50) / 100;
         snprintf(buf, len, "+/-%lld.%lldms",
                  (long long)(r / 10), (long long)(r % 10));
-    } else if (us < 10000000LL) {       // "XXms" ... "XXXXms" - round to 1ms
+    } else if (us < 10000000LL) {
         snprintf(buf, len, "+/-%lldms", (long long)((us + 500) / 1000));
-    } else {                            // "XXs" ... - round to 1s
+    } else {
         snprintf(buf, len, "+/-%llds", (long long)((us + 500000) / 1000000));
     }
 }
@@ -290,7 +279,6 @@ static void draw_line_cached(int y, char *cache, size_t cache_len,
     size_t new_len = strlen(line);
 
     if (old_len == new_len && old_len > 0) {
-        // Same centered position; redraw only the characters that differ.
         int x0 = (DISPLAY_WIDTH - (int)new_len * FONT_CHAR_WIDTH) / 2;
         for (size_t i = 0; i < new_len; i++) {
             if (cache[i] != line[i]) {
@@ -299,7 +287,6 @@ static void draw_line_cached(int y, char *cache, size_t cache_len,
             }
         }
     } else {
-        // Length change = every char shifts, so full redraw + padding reset.
         ui_draw_centered_string(y, line, fg, COLOR_BLACK, false);
     }
 
@@ -325,7 +312,6 @@ static void draw_ntp_stats(time_t now, int sec) {
         snprintf(line1, sizeof(line1), "Syncing: %s", server);
         line1_fg = COLOR_SYNC_WAIT;
     }
-    // Recolor forces a redraw when sync state flips (same text, different color)
     if (synced_here != last_synced_state) {
         last_line1[0] = '\0';
         last_synced_state = synced_here;
@@ -344,7 +330,6 @@ static void draw_ntp_stats(time_t now, int sec) {
         return;
     }
 
-    // Line 2: peer reach + adaptive poll + time since last sync
     int peers_reach = 0, peers_total = 0;
     for (int i = 0; i < NTP_MAX_PEERS; i++) {
         if (!peers[i].active) continue;
@@ -368,14 +353,6 @@ static void draw_ntp_stats(time_t now, int sec) {
     }
     draw_line_cached(STATS_LINE2, last_line2, sizeof(last_line2), line2, COLOR_STATS);
 
-    // Line 3: offset + root dispersion + drift. Gated independently - drift
-    // can come from NVS (valid before any sync), offset/dispersion need a
-    // current-session discipline (sync_count >= 2) to be meaningful.
-    // Gates by what each value IS. The offset is a MEASUREMENT - the
-    // residual found by a discipline pass - and the cold-boot step is not
-    // one (last_offset_us is a hardwired 0 there), so it needs the second
-    // sync. The +/- bound is real from the FIRST sync: it bounds the cold
-    // step itself. Drift can predate both, restored from NVS.
     char line3[96];
     char off_buf[20], disp_buf[20], drift_buf[16];
     if (sys.sync_count < 2) {
@@ -386,11 +363,6 @@ static void draw_ntp_stats(time_t now, int sec) {
     if (sys.sync_count < 1) {
         snprintf(disp_buf, sizeof(disp_buf), "----");
     } else {
-        // Synchronization distance (root_delay/2 + root_dispersion): the
-        // RFC 5905 worst-case bound on our error vs UTC. Dispersion alone
-        // understated the claim by the path-asymmetry term, delay/2 -
-        // ~10-15 ms against pool servers. The stats drilldown still shows
-        // the components separately.
         fmt_pm_us(disp_buf, sizeof(disp_buf),
                   (int64_t)sys.root_delay_us / 2 + sys.root_dispersion_us);
     }
@@ -432,7 +404,6 @@ void ui_clock_update(void) {
     // earlier than the anchor year (util.h).
     bool time_valid = (now >= (time_t)util_anchor_epoch());
 
-    // If time just became valid, force redraw and enable the 1PPS pulse.
     if (time_valid && !last_time_valid) {
         last_hour = -1;
         last_min = -1;
@@ -467,7 +438,6 @@ void ui_clock_update(void) {
             drew_pixels = true;
         }
 
-        // Update date only when day changes
         if (timeinfo.tm_yday != last_day || last_day < 0) {
             char date_str[32];
             snprintf(date_str, sizeof(date_str), "%s %s %d, %d",
@@ -481,7 +451,6 @@ void ui_clock_update(void) {
             drew_pixels = true;
         }
 
-        // Update time digits only when they change
         if (hour / 10 != last_hour / 10 || last_hour < 0) {
             draw_time_digit(0, hour / 10);
             drew_pixels = true;
@@ -516,10 +485,9 @@ void ui_clock_update(void) {
             last_centisecond = centisecond;
         }
     } else {
-        // Time not valid - show dashes, no colons, LED off
         if (last_hour != -2) {
             for (int i = 0; i < 6; i++) {
-                draw_time_digit(i, 10);  // 10 = dash
+                draw_time_digit(i, 10);
             }
             draw_colon(0, false);
             draw_colon(1, false);
@@ -527,7 +495,7 @@ void ui_clock_update(void) {
             clear_fraction();
             led_set_pps_enabled(false);
             ui_draw_centered_string(DATE_Y, "Waiting for NTP...", COLOR_DATE_FG, COLOR_BLACK, true);
-            last_hour = -2;  // Mark as showing dashes
+            last_hour = -2;
         }
     }
 
@@ -546,11 +514,9 @@ void ui_clock_update(void) {
 }
 
 clock_touch_zone_t ui_clock_check_touch(void) {
-    // BOOT button (active low) opens settings
     if (gpio_get_level(BOOT_BUTTON_GPIO) == 0) {
         return CLOCK_TOUCH_SETTINGS;
     }
-    // Touchscreen tap opens stats
     if (touch_is_pressed()) {
         return CLOCK_TOUCH_STATS;
     }

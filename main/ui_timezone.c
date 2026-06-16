@@ -127,7 +127,6 @@ static const timezone_entry_t timezones[] = {
 };
 #define NUM_TIMEZONES ((int)(sizeof(timezones) / sizeof(timezones[0])))
 
-// UI state
 typedef enum {
     TZ_STATE_REGION,
     TZ_STATE_CITY,
@@ -141,8 +140,7 @@ static bool selection_made = false;
 static bool show_back_button = false;
 static ui_list_touch_t list_touch;
 
-// City list for current region (indices into timezones[])
-static int city_indices[30];  // max cities in a region (America has ~20)
+static int city_indices[30];
 static int city_count = 0;
 
 static void draw_region_list(void);
@@ -201,7 +199,6 @@ static void enter_city_view(void) {
     build_city_list(selected_region);
     list_scroll = 0;
 
-    // Try to scroll to current selection if it's in this region
     for (int i = 0; i < city_count; i++) {
         if (city_indices[i] == selected_tz) {
             list_scroll = ui_list_scroll_to_item(i, city_count);
@@ -221,14 +218,12 @@ void ui_timezone_init(const char *current_tz, bool show_back) {
     show_back_button = show_back;
     ui_list_touch_reset(&list_touch);
 
-    // Find current timezone in list
     selected_tz = 0;
     selected_region = 0;
     if (current_tz) {
         for (int i = 0; i < NUM_TIMEZONES; i++) {
             if (strcmp(timezones[i].tz, current_tz) == 0) {
                 selected_tz = i;
-                // Find region index
                 for (int r = 0; r < NUM_REGIONS; r++) {
                     if (strcmp(timezones[i].region, regions[r]) == 0) {
                         selected_region = r;
@@ -264,7 +259,6 @@ tz_select_result_t ui_timezone_update(void) {
 
     const touch_point_t *tap_start = &list_touch.tap_start;
 
-    // Back button
     if (ui_back_button_hit(tap_start)) {
         if (ui_state == TZ_STATE_CITY) {
             enter_region_view();
@@ -276,7 +270,6 @@ tz_select_result_t ui_timezone_update(void) {
 
     int count = list_count();
 
-    // List item touch
     if (tap_start->y >= UI_LIST_START_Y && tap_start->y < UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H) {
         int item = (tap_start->y - UI_LIST_START_Y) / UI_LIST_ITEM_H + list_scroll;
         if (item < count) {

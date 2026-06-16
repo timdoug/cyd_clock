@@ -4,17 +4,14 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-// Touch zone identifiers
 typedef enum {
     CLOCK_TOUCH_NONE,
-    CLOCK_TOUCH_SETTINGS,   // BOOT button
-    CLOCK_TOUCH_STATS,      // Touchscreen tap
+    CLOCK_TOUCH_SETTINGS,
+    CLOCK_TOUCH_STATS,
 } clock_touch_zone_t;
 
-// Initialize clock display
 void ui_clock_init(void);
 
-// Update clock display (call periodically)
 void ui_clock_update(void);
 
 // Rendering-cost class for the last/next clock update. Used by main.c to arm
@@ -25,10 +22,8 @@ uint8_t ui_clock_predict_next_update_digits(void);
 int64_t ui_clock_last_draw_end_us(void);
 bool ui_clock_last_draw_had_pixels(void);
 
-// Force full redraw of clock
 void ui_clock_redraw(void);
 
-// Check for touch and return which zone was touched
 clock_touch_zone_t ui_clock_check_touch(void);
 
-#endif // UI_CLOCK_H
+#endif

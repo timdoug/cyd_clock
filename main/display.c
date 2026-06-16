@@ -294,7 +294,6 @@ static void set_addr_window(int16_t x, int16_t y, int16_t w, int16_t h) {
 void display_init(void) {
     ESP_LOGI(TAG, "Initializing display");
 
-    // Configure GPIO
     gpio_config_t io_conf = {
         .pin_bit_mask = (1ULL << PIN_DC),
         .mode = GPIO_MODE_OUTPUT,
@@ -304,7 +303,6 @@ void display_init(void) {
     };
     gpio_config(&io_conf);
 
-    // Initialize SPI bus
     spi_bus_config_t buscfg = {
         .mosi_io_num = PIN_MOSI,
         .miso_io_num = -1,
@@ -315,7 +313,6 @@ void display_init(void) {
     };
     ESP_ERROR_CHECK(spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO));
 
-    // Add SPI device
     spi_device_interface_config_t devcfg = {
         .clock_speed_hz = SPI_CLOCK_HZ,
         .mode = 0,
@@ -324,7 +321,6 @@ void display_init(void) {
     };
     ESP_ERROR_CHECK(spi_bus_add_device(SPI2_HOST, &devcfg, &spi_dev));
 
-    // Initialize ILI9341
     write_command(ILI9341_SWRESET);
     vTaskDelay(pdMS_TO_TICKS(150));
 
@@ -332,7 +328,7 @@ void display_init(void) {
     vTaskDelay(pdMS_TO_TICKS(150));
 
     write_command(ILI9341_PIXFMT);
-    write_data(0x55);  // 16-bit color
+    write_data(0x55);
 
     // NOTE: do not touch FRMCTR1 (0xB1). Raising the refresh to the
     // datasheet-max ~119 Hz to shrink GRAM-to-glass scan latency was tried
@@ -341,12 +337,11 @@ void display_init(void) {
     // default 70 Hz scan is the price of a readable display.
 
     write_command(ILI9341_MADCTL);
-    write_data(MADCTL_MV | MADCTL_BGR);  // Landscape mode
+    write_data(MADCTL_MV | MADCTL_BGR);
 
     write_command(ILI9341_DISPON);
     vTaskDelay(pdMS_TO_TICKS(100));
 
-    // Setup backlight PWM
     ledc_timer_config_t ledc_timer = {
         .speed_mode = LEDC_LOW_SPEED_MODE,
         .timer_num = LEDC_TIMER_0,
@@ -390,7 +385,6 @@ void display_fill_rect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t colo
     uint8_t hi = color >> 8;
     uint8_t lo = color & 0xFF;
 
-    // Use a buffer for faster filling
     #define FILL_BUF_PIXELS 256
     static uint8_t buf[FILL_BUF_PIXELS * 2];
     for (int i = 0; i < FILL_BUF_PIXELS; i++) {
@@ -456,7 +450,6 @@ void display_string(int16_t x, int16_t y, const char *str, uint16_t fg, uint16_t
     }
 }
 
-// Blend two RGB565 colors (simple average)
 static uint16_t blend_color(uint16_t c1, uint16_t c2) {
     uint16_t r = (((c1 >> 11) & 0x1F) + ((c2 >> 11) & 0x1F)) >> 1;
     uint16_t g = (((c1 >> 5) & 0x3F) + ((c2 >> 5) & 0x3F)) >> 1;
@@ -464,7 +457,6 @@ static uint16_t blend_color(uint16_t c1, uint16_t c2) {
     return (r << 11) | (g << 5) | b;
 }
 
-// Get pixel from glyph (returns 1 if set, 0 if not, handles bounds)
 static inline int get_glyph_pixel(const uint8_t *glyph, int row, int col) {
     if (row < 0 || row >= FONT_CHAR_HEIGHT || col < 0 || col >= FONT_CHAR_WIDTH) return 0;
     return (glyph[row] >> (7 - col)) & 1;
@@ -487,34 +479,29 @@ static void display_char_2x(int16_t x, int16_t y, char c, uint16_t fg, uint16_t 
     int idx = 0;
 
     for (int row = 0; row < FONT_CHAR_HEIGHT; row++) {
-        for (int dup = 0; dup < 2; dup++) {  // Each source row becomes 2 output rows
+        for (int dup = 0; dup < 2; dup++) {
             for (int col = 0; col < FONT_CHAR_WIDTH; col++) {
                 int cur = get_glyph_pixel(glyph, row, col);
                 uint16_t base_color = cur ? fg : bg;
 
-                // Get neighbors for corner smoothing
                 int above = get_glyph_pixel(glyph, row - 1, col);
                 int below = get_glyph_pixel(glyph, row + 1, col);
                 int left = get_glyph_pixel(glyph, row, col - 1);
                 int right = get_glyph_pixel(glyph, row, col + 1);
 
-                // For each source pixel, we output 2 pixels (left and right)
                 uint16_t left_color = base_color;
                 uint16_t right_color = base_color;
 
                 if (cur) {
-                    // Current pixel is ON - check for smoothing at corners
                     int above_left = get_glyph_pixel(glyph, row - 1, col - 1);
                     int above_right = get_glyph_pixel(glyph, row - 1, col + 1);
                     int below_left = get_glyph_pixel(glyph, row + 1, col - 1);
                     int below_right = get_glyph_pixel(glyph, row + 1, col + 1);
 
                     if (dup == 0) {
-                        // Top half - check top corners
                         if (!above_left && !above && !left) left_color = smooth;
                         if (!above_right && !above && !right) right_color = smooth;
                     } else {
-                        // Bottom half - check bottom corners
                         if (!below_left && !below && !left) left_color = smooth;
                         if (!below_right && !below && !right) right_color = smooth;
                     }
@@ -589,7 +576,6 @@ static void buf_segment_v(uint8_t *buf, int16_t buf_w, int16_t x, int16_t y,
 void display_digit_7seg(int16_t x, int16_t y, uint8_t digit, uint8_t size, uint16_t color, uint16_t bg) {
     if (digit > 10) return;
 
-    // Size multipliers
     int16_t seg_len, seg_thick, gap;
     switch (size) {
         case 1: seg_len = 16; seg_thick = 4; gap = 1; break;
@@ -598,16 +584,14 @@ void display_digit_7seg(int16_t x, int16_t y, uint8_t digit, uint8_t size, uint1
         default: seg_len = 48; seg_thick = 8; gap = 2; break;
     }
 
-    // Digit bounding box (matches the segment coordinates below).
     int16_t w = seg_len + seg_thick;
     int16_t h = 2 * seg_len + 2 * seg_thick - 1;
     if (x < 0 || y < 0 || x + w > DISPLAY_WIDTH || y + h > DISPLAY_HEIGHT) return;
 
     uint8_t pattern = seg7_patterns[digit];
 
-    // All segments shortened by gap and positioned with gaps between them
-    int16_t h_len = seg_len - gap * 2;  // Horizontal segments shorter
-    int16_t v_len = seg_len - gap;       // Vertical segments shorter
+    int16_t h_len = seg_len - gap * 2;
+    int16_t v_len = seg_len - gap;
 
     // Background-fill the buffer; "off" segments need no explicit erase since
     // the full bounding box is pushed every time (same no-flash behavior).
@@ -618,19 +602,12 @@ void display_digit_7seg(int16_t x, int16_t y, uint8_t digit, uint8_t size, uint1
         digit_buf[i * 2 + 1] = lo;
     }
 
-    // Segment 0: top horizontal
     if (pattern & 0x01) buf_segment_h(digit_buf, w, seg_thick / 2 + gap, 0, h_len, seg_thick, color);
-    // Segment 1: top-right vertical
     if (pattern & 0x02) buf_segment_v(digit_buf, w, seg_len, seg_thick / 2 + gap, v_len, seg_thick, color);
-    // Segment 2: bottom-right vertical
     if (pattern & 0x04) buf_segment_v(digit_buf, w, seg_len, seg_len + seg_thick / 2 + gap * 2 + 1, v_len, seg_thick, color);
-    // Segment 3: bottom horizontal
     if (pattern & 0x08) buf_segment_h(digit_buf, w, seg_thick / 2 + gap, seg_len * 2 + seg_thick - 1, h_len, seg_thick, color);
-    // Segment 4: bottom-left vertical
     if (pattern & 0x10) buf_segment_v(digit_buf, w, 0, seg_len + seg_thick / 2 + gap * 2 + 1, v_len, seg_thick, color);
-    // Segment 5: top-left vertical
     if (pattern & 0x20) buf_segment_v(digit_buf, w, 0, seg_thick / 2 + gap, v_len, seg_thick, color);
-    // Segment 6: middle horizontal
     if (pattern & 0x40) buf_segment_h(digit_buf, w, seg_thick / 2 + gap, seg_len + seg_thick / 2 - 1, h_len, seg_thick, color);
 
     set_addr_window(x, y, w, h);
@@ -647,11 +624,7 @@ void display_colon_7seg(int16_t x, int16_t y, uint8_t size, uint16_t color, uint
         default: seg_len = 48; seg_thick = 8; dot_size = 8; break;
     }
 
-    // Draw dots directly in color (no background clear to avoid flash)
-    // Upper dot
     display_fill_rect(x + 2, y + seg_len / 2 + seg_thick / 2, dot_size, dot_size, color);
-
-    // Lower dot
     display_fill_rect(x + 2, y + seg_len + seg_len / 2 + seg_thick, dot_size, dot_size, color);
 }
 

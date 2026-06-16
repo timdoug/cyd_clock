@@ -15,7 +15,6 @@
 
 static const char *TAG = "ui_ntp";
 
-// Main screen layout - the touch handler hit-tests against these same values
 #define SERVER_LABEL_Y  40
 #define SERVER_BOX_Y    (SERVER_LABEL_Y + 20)
 #define SERVER_BOX_H    28
@@ -24,7 +23,6 @@ static const char *TAG = "ui_ntp";
 #define IPV6_TOGGLE_W   90
 #define IPV6_TOGGLE_H   28
 
-// Keyboard layout
 static const char *keyboard_rows[] = {
     "1234567890",
     "qwertyuiop",
@@ -32,7 +30,6 @@ static const char *keyboard_rows[] = {
     "zxcvbnm-_",
 };
 
-// UI state
 typedef enum {
     NTP_STATE_MAIN,
     NTP_STATE_KEYBOARD,
@@ -44,13 +41,10 @@ static char custom_server[64] = {0};
 static int custom_server_len = 0;
 
 static void draw_keyboard(void) {
-    // Clear keyboard area
     display_fill_rect(0, KEYBOARD_Y, DISPLAY_WIDTH, DISPLAY_HEIGHT - KEYBOARD_Y, COLOR_BLACK);
 
-    // Character keys
     ui_keyboard_draw_keys(keyboard_rows, 4, KEYBOARD_Y, COLOR_DARKGRAY, COLOR_WHITE, COLOR_GRAY);
 
-    // Bottom row: Cancel (left), Del (center), Done (right)
     int y = ui_keyboard_bottom_y(4, KEYBOARD_Y);
     int btn_h = KB_KEY_HEIGHT - 2;
 
@@ -78,7 +72,6 @@ static void draw_server_input(void) {
         display_string(15, 59, display_str, COLOR_WHITE, COLOR_DARKGRAY);
     }
 
-    // Show cursor
     int cursor_x = 15 + (custom_server_len > 35 ? 35 : custom_server_len) * FONT_CHAR_WIDTH;
     if (cursor_x < DISPLAY_WIDTH - 20) {
         display_string(cursor_x, 59, "_", COLOR_CYAN, COLOR_DARKGRAY);
@@ -97,11 +90,9 @@ static void draw_ipv6_toggle(void) {
 }
 
 static char get_key_at(int16_t x, int16_t y) {
-    // Check character keys
     char key = ui_keyboard_get_key(keyboard_rows, 4, KEYBOARD_Y, x, y);
     if (key) return key;
 
-    // Bottom row: Cancel (left), Del (center), Done (right)
     int btn_y = ui_keyboard_bottom_y(4, KEYBOARD_Y);
     if (y >= btn_y && y < btn_y + KB_KEY_HEIGHT) {
         if (x >= 10 && x < 90) return VKEY_ESCAPE;
@@ -117,10 +108,8 @@ static void draw_main_screen(void) {
 
     ui_draw_header("NTP Settings", true);
 
-    // Server display
     display_string(10, SERVER_LABEL_Y, "Server:", COLOR_GRAY, COLOR_BLACK);
 
-    // Show current server in a tappable box, clipped to the box width
     display_fill_rect(10, SERVER_BOX_Y, DISPLAY_WIDTH - 20, SERVER_BOX_H, COLOR_DARKGRAY);
     char display_server[38];
     str_copy(display_server, sizeof(display_server), wifi_get_custom_ntp_server());
@@ -144,7 +133,6 @@ void ui_ntp_init(void) {
     last_touch_time = 0;
     ui_state = NTP_STATE_MAIN;
 
-    // Load current custom server
     str_copy(custom_server, sizeof(custom_server), wifi_get_custom_ntp_server());
     custom_server_len = strlen(custom_server);
 
@@ -157,18 +145,15 @@ ntp_result_t ui_ntp_update(void) {
 
     if (touched) {
         if (ui_state == NTP_STATE_MAIN) {
-            // Back button
             if (ui_back_button_hit(&touch)) {
                 return NTP_RESULT_BACK;
             }
 
-            // Server box (tap to edit)
             if (touch.y >= SERVER_BOX_Y && touch.y < SERVER_BOX_Y + SERVER_BOX_H) {
                 ui_state = NTP_STATE_KEYBOARD;
                 draw_keyboard_screen();
             }
 
-            // IPv6 toggle
             if (touch.y >= IPV6_TOGGLE_Y && touch.y < IPV6_TOGGLE_Y + IPV6_TOGGLE_H &&
                 touch.x >= IPV6_TOGGLE_X && touch.x < IPV6_TOGGLE_X + IPV6_TOGGLE_W) {
                 bool ipv6 = !wifi_get_ntp_prefer_ipv6();
@@ -179,20 +164,19 @@ ntp_result_t ui_ntp_update(void) {
         } else if (ui_state == NTP_STATE_KEYBOARD) {
             char key = get_key_at(touch.x, touch.y);
 
-            if (key == VKEY_ESCAPE) {  // Cancel
-                // Restore from saved
+            if (key == VKEY_ESCAPE) {
                 str_copy(custom_server, sizeof(custom_server), wifi_get_custom_ntp_server());
                 custom_server_len = strlen(custom_server);
                 ui_state = NTP_STATE_MAIN;
                 draw_main_screen();
-            } else if (key == VKEY_ENTER) {  // Done
+            } else if (key == VKEY_ENTER) {
                 if (custom_server_len > 0) {
                     wifi_set_custom_ntp_server(custom_server);
                     nvs_config_set_custom_ntp_server(custom_server);
                 }
                 ui_state = NTP_STATE_MAIN;
                 draw_main_screen();
-            } else if (key == VKEY_BACKSPACE) {  // Delete
+            } else if (key == VKEY_BACKSPACE) {
                 if (custom_server_len > 0) {
                     custom_server_len--;
                     custom_server[custom_server_len] = '\0';
