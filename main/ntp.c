@@ -199,6 +199,7 @@ static struct {
     int32_t  root_delay_us;
     int32_t  root_dispersion_us;
     int32_t  combined_offset_us;   // dispersion-weighted avg across survivors
+    bool     select_spread_wide;
     int32_t  freq_ppm_x1000;
     bool     freq_loaded_from_nvs; // freq_ppm_x1000 was restored at boot - usable before any sync
     bool     freq_learned_this_session;
@@ -1414,6 +1415,7 @@ static void select_system_peer(void) {
     struct { int idx; int64_t lo; int64_t hi; } c[NTP_MAX_PEERS];
     uint32_t now = mono_ms();
     int n = 0;
+    g.select_spread_wide = false;
     for (int i = 0; i < NTP_MAX_PEERS; i++) {
         ntp_peer_t *p = &g.peers[i];
         if (!p->active || p->reach == 0) continue;
@@ -1585,6 +1587,7 @@ static void select_system_peer(void) {
         }
         bool survivor_spread_wide = min_off != INT32_MAX &&
             (int64_t)max_off - min_off > ROBUST_COMBINE_SPREAD_US;
+        g.select_spread_wide = survivor_spread_wide;
 
         double num_off = 0.0, num_jit_var = 0.0, denom = 0.0;
         if (!survivor_spread_wide) {
@@ -1698,12 +1701,14 @@ static void discipline_clock(int32_t offset_us, bool fresh) {
         bool noisy = false;
         bool gateable = fresh &&
             g.last_freq_sample_ms != 0 &&
+            !g.select_spread_wide &&
             g.system_jitter_us <= ROBUST_FREQ_MAX_JITTER_US &&
             offset_us < ROBUST_FREQ_MAX_OFFSET_US &&
             offset_us > -ROBUST_FREQ_MAX_OFFSET_US;
         noisy = fresh &&
             g.last_freq_sample_ms != 0 &&
-            (g.system_jitter_us > ROBUST_FREQ_MAX_JITTER_US ||
+            (g.select_spread_wide ||
+             g.system_jitter_us > ROBUST_FREQ_MAX_JITTER_US ||
              offset_us >= ROBUST_FREQ_MAX_OFFSET_US ||
              offset_us <= -ROBUST_FREQ_MAX_OFFSET_US);
         if (gateable) {
