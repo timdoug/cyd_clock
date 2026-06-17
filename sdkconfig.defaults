@@ -32,6 +32,17 @@ CONFIG_LWIP_IPV6_DHCP6=y
 CONFIG_LWIP_IPV6_ND6_ROUTE_INFO_OPTION_SUPPORT=y
 CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y
 CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL=y
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_CROSS_SIGNED_VERIFY=y
+# TLS 1.3 client + RFC 8446 keying-material exporter: required for NTS-KE
+# (RFC 8915). NTS mandates TLS 1.3, and the exporter derives the c2s/s2c
+# AEAD keys from the handshake. ALPN is already on by default.
+CONFIG_MBEDTLS_SSL_PROTO_TLS1_3=y
+CONFIG_MBEDTLS_SSL_KEYING_MATERIAL_EXPORT=y
+# The classic ESP32 has no hardware ECC, so an all-ECDSA chain (e.g.
+# Cloudflare's secp384r1) is verified in software and can race a KE server's
+# handshake idle timeout. Fixed-point optimization precomputes base-point
+# tables, speeding the ECDHE share and the fixed-point half of ECDSA verify.
+CONFIG_MBEDTLS_ECP_FIXED_POINT_OPTIM=y
 
 # Reproducible builds: don't embed __DATE__/__TIME__ in the app descriptor
 # (the era anchor in util.h is a hardcoded year for the same reason)

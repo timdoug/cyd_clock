@@ -1,4 +1,5 @@
 #include "ntp_internal.h"
+#include "wifi.h"
 
 const char *NTP_TAG = "ntp";
 
@@ -26,6 +27,11 @@ static void ntp_task(void *arg) {
 
         apply_freq_correction();
 
+        if (g.nts_rebind) {
+            g.nts_rebind = false;
+            nts_rebind_peers();
+        }
+
         // Staleness watchdog: if we've heard from no peer for several poll
         // cycles, shrink the poll interval back toward MIN_POLL_S and re-resolve
         // DNS. Handles the case where all cached pool IPs went away (network
@@ -49,6 +55,18 @@ static void ntp_task(void *arg) {
 
         if (g.dirty_config) {
             g.dirty_config = false;
+            // Avoid double-spawning the 16 KB KE task during config churn.
+            bool nts_ke_in_flight = g.nts.ke_in_flight;
+            uint32_t nts_ke_generation = g.nts.ke_generation;
+            memset(&g.nts, 0, sizeof(g.nts));
+            if (nts_ke_in_flight) {
+                g.nts.ke_in_flight = true;
+                g.nts.ke_generation = nts_ke_generation;
+            } else {
+                g.nts.ke_generation = nts_ke_generation + 1;
+                if (g.nts.ke_generation == 0) g.nts.ke_generation = 1;
+            }
+            g.nts_rebind = false;
             next_global_poll_ms = 0;
             next_global_poll_cycle_id++;
             if (next_global_poll_cycle_id == 0) next_global_poll_cycle_id = 1;
@@ -79,6 +97,9 @@ static void ntp_task(void *arg) {
 
         uint32_t now = mono_ms();
         uint32_t next_wake = now + IDLE_WAKE_MS;
+
+        // Plain NTP success must not permanently mask a transient KE failure.
+        if (!g.nts.valid) nts_start_ke_if_needed();
 
         for (int i = 0; i < NTP_MAX_PEERS; i++) {
             ntp_peer_t *p = &g.peers[i];
@@ -174,7 +195,7 @@ void ntp_init(const char *server, bool prefer_ipv6) {
     if (g.running) ntp_stop();
     if (!g.lock) g.lock = xSemaphoreCreateMutex();
 
-    str_copy(g.server, sizeof(g.server), server ? server : "pool.ntp.org");
+    str_copy(g.server, sizeof(g.server), server ? server : DEFAULT_NTP_SERVER);
     g.prefer_ipv6    = prefer_ipv6;
     g.current_poll_s = MIN_POLL_S;
     g.first_sync_done = false;
@@ -197,6 +218,8 @@ void ntp_init(const char *server, bool prefer_ipv6) {
     g.last_discipline_poll_s = 0;
     g.last_any_response_ms = 0;
     g.poll_adjust = 0;
+    memset(&g.nts, 0, sizeof(g.nts));
+    g.nts_rebind = false;
     next_global_poll_ms = 0;
     next_global_poll_cycle_id++;
     if (next_global_poll_cycle_id == 0) next_global_poll_cycle_id = 1;
@@ -220,7 +243,9 @@ void ntp_init(const char *server, bool prefer_ipv6) {
     g.running = true;
     // Pinned to core 0 with WiFi and lwip; core 1 is reserved for the render
     // loop (main task) so network work can't stretch a display tick mid-draw.
-    if (xTaskCreatePinnedToCore(ntp_task, "ntp", 4096, NULL, 5, &g.task, 0) != pdPASS) {
+    // 8 KB (up from 4 KB): NTS responses add a ~1 KB receive buffer and the
+    // in-place AEAD verify/cookie-harvest on top of the existing select loop.
+    if (xTaskCreatePinnedToCore(ntp_task, "ntp", 8192, NULL, 5, &g.task, 0) != pdPASS) {
         ESP_LOGE(TAG, "Failed to create NTP task");
         g.running = false;
         g.task = NULL;
@@ -284,6 +309,7 @@ static void fill_sys_stats(ntp_sys_stats_t *out) {
     out->freq_known          = g.freq_loaded_from_nvs || g.freq_learned_this_session;
     out->stratum        = g.stratum;
     out->selected_peer  = (g.selected_peer < 0) ? 0xFF : (uint8_t)g.selected_peer;
+    out->nts_active     = g.nts.valid;
     str_copy(out->server, sizeof(out->server), g.server);
 }
 
@@ -304,6 +330,7 @@ static bool fill_peer_stats(int idx, ntp_peer_stats_t *out) {
         ? (mono_ms() - p->last_response_ms)
         : UINT32_MAX;
     out->fresh = (int32_t)(mono_ms() - p->fresh_until_ms) < 0;
+    out->nts   = p->nts;
     str_copy(out->addr_str, sizeof(out->addr_str), p->addr_str);
     return true;
 }

@@ -19,6 +19,7 @@ typedef struct {
     int32_t  dispersion_us;
     uint32_t last_response_ms;
     bool     fresh;
+    bool     nts;       // this peer authenticates exchanges via NTS (RFC 8915)
 } ntp_peer_stats_t;
 
 typedef struct {
@@ -35,6 +36,7 @@ typedef struct {
     bool     freq_known;
     uint8_t  stratum;
     uint8_t  selected_peer;
+    bool     nts_active;   // an NTS context is established for the current server
     char     server[64];
 } ntp_sys_stats_t;
 

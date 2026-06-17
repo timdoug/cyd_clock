@@ -1,4 +1,14 @@
 #include "ntp_internal.h"
+#include "ntp_siv.h"
+
+#include <stdlib.h>
+
+#define NTS_KE_RETRY_MS (5 * 60 * 1000U)
+
+typedef struct {
+    char host[64];
+    uint32_t generation;
+} nts_ke_arg_t;
 
 bool sockaddr_matches(const struct sockaddr_storage *a,
                              const struct sockaddr_storage *b) {
@@ -101,24 +111,165 @@ static void peer_reset(ntp_peer_t *p) {
 }
 
 
+static void peer_set_port(ntp_peer_t *p, uint16_t port) {
+    if (p->addr.ss_family == AF_INET6)
+        ((struct sockaddr_in6 *)&p->addr)->sin6_port = htons(port);
+    else
+        ((struct sockaddr_in *)&p->addr)->sin_port = htons(port);
+}
+
+
+static void peer_set_addr(ntp_peer_t *p, const struct sockaddr_storage *a,
+                          uint16_t port, bool nts) {
+    socklen_t alen = (a->ss_family == AF_INET6)
+        ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
+    memcpy(&p->addr, a, alen);
+    p->addr_len = alen;
+    peer_set_port(p, port);
+    p->active   = true;
+    p->stratum  = 16;
+    p->nts      = nts;
+    p->next_poll_ms = mono_ms();
+    p->next_poll_cycle_id = next_global_poll_cycle_id;
+    const void *src = (a->ss_family == AF_INET6)
+        ? (const void *)&((struct sockaddr_in6 *)&p->addr)->sin6_addr
+        : (const void *)&((struct sockaddr_in  *)&p->addr)->sin_addr;
+    inet_ntop(a->ss_family, src, p->addr_str, sizeof(p->addr_str));
+}
+
+
+static void nts_ke_task(void *arg) {
+    nts_ke_arg_t *ke = (nts_ke_arg_t *)arg;
+    char host[sizeof(ke->host)];
+    uint32_t generation = ke->generation;
+    str_copy(host, sizeof(host), ke->host);
+    free(ke);
+
+    // Guard the AEAD against a miscompiled CMAC/CTR path once, before any
+    // authenticated time is trusted: a broken SIV that still "verifies" would
+    // be worse than no auth. If it fails, refuse NTS and fall back to plain.
+    static bool siv_checked = false, siv_ok = false;
+    if (!siv_checked) {
+        siv_ok = ntp_siv_selftest();
+        siv_checked = true;
+        ESP_LOGI(TAG, "AES-SIV self-test %s", siv_ok ? "passed" : "FAILED");
+    }
+
+    ntp_nts_ctx_t local;
+    bool ok = siv_ok && ntp_nts_ke_run(host, &local);
+
+    lock_take();
+    if (g.nts.ke_generation == generation && strcmp(g.server, host) != 0) {
+        // Keep at most one 16 KB KE task alive; the stale task exits, then the
+        // new config resolves and starts its own KE.
+        g.nts.ke_in_flight = false;
+        g.nts.ke_failed = false;
+        g.nts.ke_retry_at_ms = 0;
+        g.dirty_config = true;
+    } else if (g.nts.ke_generation == generation && ok) {
+        uint32_t keep_generation = g.nts.ke_generation;
+        g.nts = local;
+        g.nts.ke_generation = keep_generation;
+        g.nts.ke_in_flight = false;
+        g.nts.ke_failed    = false;
+        g.nts.ke_retry_at_ms = 0;
+        g.nts_rebind       = true;
+    } else if (g.nts.ke_generation == generation) {
+        g.nts.ke_in_flight = false;
+        g.nts.ke_failed    = true;
+        g.nts.ke_retry_at_ms = mono_ms() + NTS_KE_RETRY_MS;
+    }
+    lock_give();
+    wake_task();
+    vTaskDelete(NULL);
+}
+
+
+void nts_start_ke_if_needed(void) {
+    if (g.nts.valid || g.nts.ke_in_flight) return;
+    if (g.nts.ke_failed && (int32_t)(mono_ms() - g.nts.ke_retry_at_ms) < 0) return;
+    nts_ke_arg_t *ke = calloc(1, sizeof(*ke));
+    if (!ke) {
+        ESP_LOGW(TAG, "Failed to allocate NTS-KE task args");
+        return;
+    }
+    str_copy(ke->host, sizeof(ke->host), g.server);
+    ke->generation = ++g.nts.ke_generation;
+    if (ke->generation == 0) ke->generation = ++g.nts.ke_generation;
+    g.nts.ke_in_flight = true;
+    g.nts.ke_failed = false;
+    if (xTaskCreate(nts_ke_task, "nts_ke", 16384, ke, 5, NULL) != pdPASS) {
+        g.nts.ke_in_flight = false;
+        free(ke);
+        ESP_LOGW(TAG, "Failed to spawn NTS-KE task");
+    }
+}
+
+
+void nts_rebind_peers(void) {
+    if (!g.nts.valid) return;
+    if (strcmp(g.nts.ntp_host, g.server) == 0) {
+        for (int i = 0; i < NTP_MAX_PEERS; i++) {
+            ntp_peer_t *p = &g.peers[i];
+            if (!p->active) continue;
+            p->nts = true;
+            peer_set_port(p, g.nts.ntp_port);
+        }
+        ESP_LOGI(TAG, "NTS active for %s", g.server);
+    } else {
+        resolve_peers();
+    }
+}
+
+
+void nts_drop_context_and_fallback(void) {
+    bool negotiated_host = g.nts.valid && strcmp(g.nts.ntp_host, g.server) != 0;
+    bool ke_in_flight = g.nts.ke_in_flight;
+    uint32_t ke_generation = g.nts.ke_generation;
+
+    memset(&g.nts, 0, sizeof(g.nts));
+    g.nts.ke_in_flight = ke_in_flight;
+    g.nts.ke_generation = ke_generation;
+    g.nts_rebind = false;
+
+    for (int i = 0; i < NTP_MAX_PEERS; i++) {
+        ntp_peer_t *p = &g.peers[i];
+        if (!p->active) continue;
+        p->nts = false;
+        memset(p->uid, 0, sizeof(p->uid));
+        peer_set_port(p, NTP_PORT);
+    }
+
+    if (negotiated_host) {
+        g.dirty_config = true;
+    }
+
+    nts_start_ke_if_needed();
+}
+
+
 int resolve_peers(void) {
-    // DNS is slow (tens to hundreds of ms, up to 2 s on timeout) and was
-    // holding the NTP lock the whole time - which blocked UI stats getters
-    // and caused ui_clock_update to stall, with visible-on-film lag spikes
-    // up to ~100 ms. Snapshot config, release the lock for the network
-    // round-trips, then re-acquire before touching shared state.
+    // DNS runs unlocked; reject the result if config changed while we were out.
+    bool use_nts = g.nts.valid;
+    char host_copy[sizeof(g.server)];
+    str_copy(host_copy, sizeof(host_copy), use_nts ? g.nts.ntp_host : g.server);
     char server_copy[sizeof(g.server)];
     str_copy(server_copy, sizeof(server_copy), g.server);
     bool prefer_ipv6_copy = g.prefer_ipv6;
+    uint16_t port = use_nts ? g.nts.ntp_port : NTP_PORT;
     lock_give();
 
     struct sockaddr_storage addrs[NTP_MAX_PEERS];
-    int n = dns_resolve_all(server_copy, prefer_ipv6_copy, addrs, NTP_MAX_PEERS);
+    int n = dns_resolve_all(host_copy, prefer_ipv6_copy, addrs, NTP_MAX_PEERS);
 
     lock_take();
 
-    if (strcmp(g.server, server_copy) != 0 || g.prefer_ipv6 != prefer_ipv6_copy) {
-        ESP_LOGI(TAG, "Discarding stale DNS results for %s", server_copy);
+    if (g.dirty_config ||
+        strcmp(g.server, server_copy) != 0 || g.prefer_ipv6 != prefer_ipv6_copy ||
+        g.nts.valid != use_nts ||
+        (use_nts && (strcmp(g.nts.ntp_host, host_copy) != 0 ||
+                     g.nts.ntp_port != port))) {
+        ESP_LOGI(TAG, "Discarding stale DNS results for %s", host_copy);
         return 0;
     }
 
@@ -127,27 +278,18 @@ int resolve_peers(void) {
     g.stratum = 16;
 
     if (n == 0) {
-        ESP_LOGW(TAG, "DNS failed for %s", server_copy);
+        ESP_LOGW(TAG, "DNS failed for %s", host_copy);
         return 0;
     }
 
     for (int i = 0; i < n; i++) {
-        ntp_peer_t *p = &g.peers[i];
-        socklen_t alen = (addrs[i].ss_family == AF_INET6)
-            ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
-        memcpy(&p->addr, &addrs[i], alen);
-        p->addr_len = alen;
-        p->active   = true;
-        p->stratum  = 16;
-        p->next_poll_ms = mono_ms();
-        p->next_poll_cycle_id = next_global_poll_cycle_id;
-
-        const void *src = (addrs[i].ss_family == AF_INET6)
-            ? (const void *)&((struct sockaddr_in6 *)&addrs[i])->sin6_addr
-            : (const void *)&((struct sockaddr_in  *)&addrs[i])->sin_addr;
-        inet_ntop(addrs[i].ss_family, src, p->addr_str, sizeof(p->addr_str));
+        peer_set_addr(&g.peers[i], &addrs[i], port, use_nts);
     }
-    ESP_LOGI(TAG, "Resolved %s to %d peer(s)", g.server, n);
+    ESP_LOGI(TAG, "Resolved %s to %d peer(s)%s", host_copy, n,
+             use_nts ? " (NTS)" : "");
+
+    // Idempotent: skips if a KE is running or this host already succeeded/failed.
+    if (!use_nts) nts_start_ke_if_needed();
     return n;
 }
 
@@ -187,19 +329,26 @@ static int find_worst_eligible_peer(void) {
 
 
 static bool try_replace_peer(int dead_idx) {
+    bool use_nts = g.nts.valid;
+    char host_copy[sizeof(g.server)];
+    str_copy(host_copy, sizeof(host_copy), use_nts ? g.nts.ntp_host : g.server);
     char server_copy[sizeof(g.server)];
     str_copy(server_copy, sizeof(server_copy), g.server);
     bool prefer_ipv6_copy = g.prefer_ipv6;
+    uint16_t port = use_nts ? g.nts.ntp_port : NTP_PORT;
     lock_give();
 
     struct sockaddr_storage fresh[NTP_MAX_PEERS];
-    int n = dns_resolve_all(server_copy, prefer_ipv6_copy, fresh, NTP_MAX_PEERS);
+    int n = dns_resolve_all(host_copy, prefer_ipv6_copy, fresh, NTP_MAX_PEERS);
 
     lock_take();
 
     if (g.dirty_config ||
         strcmp(g.server, server_copy) != 0 ||
-        g.prefer_ipv6 != prefer_ipv6_copy) {
+        g.prefer_ipv6 != prefer_ipv6_copy ||
+        g.nts.valid != use_nts ||
+        (use_nts && (strcmp(g.nts.ntp_host, host_copy) != 0 ||
+                     g.nts.ntp_port != port))) {
         return false;
     }
     if (n == 0) return false;
@@ -224,18 +373,7 @@ static bool try_replace_peer(int dead_idx) {
         str_copy(old_addr, sizeof(old_addr), p->addr_str);
 
         peer_reset(p);
-        socklen_t alen = (fresh[i].ss_family == AF_INET6)
-            ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
-        memcpy(&p->addr, &fresh[i], alen);
-        p->addr_len     = alen;
-        p->active       = true;
-        p->stratum      = 16;
-        p->next_poll_ms = mono_ms();
-        p->next_poll_cycle_id = next_global_poll_cycle_id;
-        const void *src = (fresh[i].ss_family == AF_INET6)
-            ? (const void *)&((struct sockaddr_in6 *)&fresh[i])->sin6_addr
-            : (const void *)&((struct sockaddr_in  *)&fresh[i])->sin_addr;
-        inet_ntop(fresh[i].ss_family, src, p->addr_str, sizeof(p->addr_str));
+        peer_set_addr(p, &fresh[i], port, use_nts);
 
         ESP_LOGI(TAG, "Peer swap slot %d: %s -> %s", dead_idx, old_addr, p->addr_str);
         return true;

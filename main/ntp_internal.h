@@ -2,6 +2,7 @@
 #define CYD_NTP_INTERNAL_H
 
 #include "ntp.h"
+#include "ntp_nts.h"
 #include <errno.h>
 #include <math.h>
 #include <stdlib.h>
@@ -173,6 +174,12 @@ typedef struct {
     uint8_t  panic_runs;
     int64_t  panic_offset_us;
     uint32_t fresh_until_ms;
+
+    // NTS (RFC 8915): when nts is set this peer authenticates every exchange
+    // against the shared g.nts context. uid holds the Unique Identifier sent
+    // with the outstanding request, echoed by the server for matching.
+    bool     nts;
+    uint8_t  uid[NTS_UID_LEN];
 } ntp_peer_t;
 
 typedef struct {
@@ -183,6 +190,12 @@ typedef struct {
     ntp_peer_t peers[NTP_MAX_PEERS];
     int      selected_peer;
     uint8_t  stratum;
+
+    // Shared NTS context for the configured host: keys + cookie pool from one
+    // KE handshake, drawn on by all of the host's peers. nts_rebind is set by
+    // the KE task when a fresh context is ready so the NTP task re-binds peers.
+    ntp_nts_ctx_t nts;
+    bool          nts_rebind;
 
     bool     first_sync_done;
     time_t   last_sync_time;
@@ -288,6 +301,12 @@ void step_clock(int64_t step_us);
 bool sockaddr_matches(const struct sockaddr_storage *a, const struct sockaddr_storage *b);
 int resolve_peers(void);
 void maybe_evict_worst_peer(void);
+
+// NTS-KE orchestration (ntp_peers.c); the KE handshake runs in its own
+// large-stack task.
+void nts_start_ke_if_needed(void);
+void nts_rebind_peers(void);
+void nts_drop_context_and_fallback(void);
 
 bool open_sockets(void);
 void close_sockets(void);

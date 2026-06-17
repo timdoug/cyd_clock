@@ -146,16 +146,30 @@ bool send_request(ntp_peer_t *p) {
     pkt.xmt_ts_sec  = esp_random();
     pkt.xmt_ts_frac = esp_random();
 
+    uint8_t buf[1280];
+    memcpy(buf, &pkt, sizeof(pkt));
+    size_t pkt_len = sizeof(pkt);
+    if (p->nts) {
+        if (!ntp_nts_add_ef(buf, &pkt_len, sizeof(buf), &g.nts, p->uid)) {
+            ESP_LOGW(TAG, "NTS cookies exhausted for %s; falling back and re-running KE",
+                     p->addr_str);
+            nts_drop_context_and_fallback();
+            p->next_poll_ms = mono_ms() + 1000;
+            p->next_poll_cycle_id = next_global_poll_cycle_id;
+            return false;
+        }
+    }
+
     // Take t1_pre / sendto / t1_post around the call itself; the MIDPOINT
     // of pre and post is the real t1 for offset computation, which halves
     // the stack-transit bias vs capturing only before sendto. (The WiFi
     // TX-done hook usually overrides this t1 anyway.)
     struct timeval t1_pre, t1_post;
     gettimeofday(&t1_pre, NULL);
-    ssize_t n = sendto(sock, &pkt, sizeof(pkt), 0,
+    ssize_t n = sendto(sock, buf, pkt_len, 0,
                        (struct sockaddr *)&p->addr, p->addr_len);
     gettimeofday(&t1_post, NULL);
-    if (n != sizeof(pkt)) {
+    if (n != (ssize_t)pkt_len) {
         ESP_LOGW(TAG, "sendto %s failed (errno=%d)", p->addr_str, errno);
         settle_send_miss(p, request_cycle_id);
         return false;
@@ -178,6 +192,7 @@ bool send_request(ntp_peer_t *p) {
 
 
 static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
+                                          const uint8_t *raw, size_t raw_len,
                                           const struct timeval *t4) {
     uint8_t mode = pkt->li_vn_mode & 0x07;
     uint8_t vn   = (pkt->li_vn_mode >> 3) & 0x07;
@@ -195,13 +210,35 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
         return RESP_IGNORE;
     }
 
+    if (p->nts && pkt->stratum == 0 && memcmp(&pkt->ref_id, "NTSN", 4) == 0) {
+        if (!ntp_nts_response_uid_matches(raw, raw_len, p->uid)) {
+            ESP_LOGW(TAG, "NTS NAK uid mismatch from %s", p->addr_str);
+            return RESP_IGNORE;
+        }
+        ESP_LOGW(TAG, "NTS NAK from %s; falling back and re-running KE", p->addr_str);
+        nts_drop_context_and_fallback();
+        return RESP_BAD;
+    }
+
+    // Authenticate before trusting anything else (including KoD and the
+    // cold-boot step): per RFC 8915 an unverifiable response - forged, tampered,
+    // or a stale-key mismatch - must be discarded. Verifying also matches the
+    // echoed Unique ID and harvests fresh cookies into the pool.
+    if (p->nts && !ntp_nts_check_response(raw, raw_len, &g.nts, p->uid)) {
+        ESP_LOGW(TAG, "NTS auth failed from %s", p->addr_str);
+        return RESP_IGNORE;
+    }
+
     if (pkt->stratum == 0) {
         char code[5] = {0};
         memcpy(code, &pkt->ref_id, 4);
         ESP_LOGW(TAG, "KoD from %s: %.4s", p->addr_str, code);
         p->stratum = 16;
         p->reach   = 0;
-        if (!memcmp(code, "DENY", 4) || !memcmp(code, "RSTR", 4)) {
+        if (!memcmp(code, "NTSN", 4)) {
+            // A prior NTSN in the same response burst may already have dropped
+            // peer NTS state. Do not park this peer as if NTSN were RATE.
+        } else if (!memcmp(code, "DENY", 4) || !memcmp(code, "RSTR", 4)) {
             // Deactivated slots stay eligible for replacement via
             // find_worst_eligible_peer, so this is not permanent attrition.
             p->active = false;
@@ -501,8 +538,9 @@ void handle_socket_readable(int sock, const struct timeval *t4) {
     // fields and a trailing MAC (for authenticated / NTS packets). We don't
     // validate extensions or MAC, but the buffer is sized generously so a
     // pool peer that sends an extension-laden response doesn't get truncated
-    // to an unreadable prefix by a tight buffer.
-    uint8_t buf[256];
+    // to an unreadable prefix by a tight buffer. 1280 fits a full NTS response
+    // (header + Unique ID + Authenticator carrying up to 8 fresh cookies).
+    uint8_t buf[1280];
     struct sockaddr_storage from;
     socklen_t fromlen = sizeof(from);
     ssize_t n = recvfrom(sock, buf, sizeof(buf), MSG_DONTWAIT,
@@ -524,7 +562,7 @@ void handle_socket_readable(int sock, const struct timeval *t4) {
 
     ntp_pkt_t pkt;
     memcpy(&pkt, buf, sizeof(pkt));
-    ntp_resp_result_t res = process_response(p, &pkt, t4);
+    ntp_resp_result_t res = process_response(p, &pkt, buf, (size_t)n, t4);
     if (res == RESP_IGNORE) return;
     bool ok = (res == RESP_GOOD);
     p->request_outstanding = false;

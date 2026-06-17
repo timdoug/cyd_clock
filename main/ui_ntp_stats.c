@@ -285,9 +285,12 @@ static void refresh_dynamic(void) {
 
     {
         int y = SYS_Y_START;
-        snprintf(val, sizeof(val), "%s", server);
-        draw_field_cached(4, y, 0, "Server: ", val,
-                          sys.synced ? COLOR_GREEN : COLOR_ORANGE);
+        segment_t segs[] = {
+            { server, sys.synced ? COLOR_GREEN : COLOR_ORANGE },
+            { sys.nts_active ? " [NTS]" : "", COLOR_GREEN },
+        };
+        draw_segmented_field_cached(4, y, 0, "Server: ", segs,
+                                    sizeof(segs) / sizeof(segs[0]));
     }
 
     {

@@ -14,6 +14,8 @@ idf_component_register(
         "ntp_wifi_stamp.c"
         "ntp_filter.c"
         "ntp_discipline.c"
+        "ntp_siv.c"
+        "ntp_nts.c"
         "ota_update.c"
         "nvs_config.c"
         "ui_common.c"
@@ -39,6 +41,7 @@ idf_component_register(
         esp_http_client
         esp_hw_support
         esp-tls
+        mbedtls
         esp_netif
         esp_system
         esp_timer
