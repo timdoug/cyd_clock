@@ -89,6 +89,13 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
             case WIFI_EVENT_STA_START:
                 ESP_LOGI(TAG, "WiFi station started");
                 break;
+            case WIFI_EVENT_STA_CONNECTED: {
+                // Create the link-local on association, not at init: too early
+                // (before the interface is up) silently yields no IPv6 address.
+                esp_netif_t *sta = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+                if (sta) esp_netif_create_ip6_linklocal(sta);
+                break;
+            }
             case WIFI_EVENT_STA_DISCONNECTED:
                 ESP_LOGI(TAG, "WiFi disconnected");
                 xEventGroupClearBits(wifi_event_group, WIFI_CONNECTED_BIT);
@@ -142,7 +149,6 @@ void wifi_init(void) {
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     esp_netif_t *netif = esp_netif_create_default_wifi_sta();
-    esp_netif_create_ip6_linklocal(netif);
 #if CONFIG_LWIP_IPV6_DHCP6
     struct netif *lwip_netif = esp_netif_get_netif_impl(netif);
     if (lwip_netif) {
