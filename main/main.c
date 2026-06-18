@@ -222,6 +222,10 @@ void app_main(void) {
     if (nvs_config_get_ntp_ipv6(&ntp_ipv6)) {
         wifi_set_ntp_prefer_ipv6(ntp_ipv6);
     }
+    uint8_t nts_mode;
+    if (nvs_config_get_nts_mode(&nts_mode) && nts_mode <= NTS_MODE_REQUIRE) {
+        wifi_set_nts_mode((nts_mode_t)nts_mode);
+    }
 
     if (nvs_config_get_wifi(stored_ssid, stored_password)) {
         try_connect_stored_credentials();

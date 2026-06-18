@@ -191,12 +191,13 @@ static void ntp_task(void *arg) {
 }
 
 
-void ntp_init(const char *server, bool prefer_ipv6) {
+void ntp_init(const char *server, bool prefer_ipv6, nts_mode_t nts_mode) {
     if (g.running) ntp_stop();
     if (!g.lock) g.lock = xSemaphoreCreateMutex();
 
     str_copy(g.server, sizeof(g.server), server ? server : DEFAULT_NTP_SERVER);
     g.prefer_ipv6    = prefer_ipv6;
+    g.nts_mode       = nts_mode;
     g.current_poll_s = MIN_POLL_S;
     g.first_sync_done = false;
     g.sync_count     = 0;
@@ -280,6 +281,20 @@ void ntp_set_prefer_ipv6(bool prefer) {
     bool changed = (g.prefer_ipv6 != prefer);
     if (changed) {
         g.prefer_ipv6 = prefer;
+        g.dirty_config = true;
+        g.force_sync   = true;
+    }
+    lock_give();
+    if (changed) wake_task();
+}
+
+
+void ntp_set_nts_mode(nts_mode_t mode) {
+    if (!g.lock) return;
+    lock_take();
+    bool changed = (g.nts_mode != mode);
+    if (changed) {
+        g.nts_mode     = mode;
         g.dirty_config = true;
         g.force_sync   = true;
     }

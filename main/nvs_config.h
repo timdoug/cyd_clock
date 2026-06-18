@@ -31,6 +31,9 @@ void nvs_config_set_ota_url(const char *url);
 bool nvs_config_get_ntp_ipv6(bool *prefer);
 void nvs_config_set_ntp_ipv6(bool prefer);
 
+bool nvs_config_get_nts_mode(uint8_t *mode);
+void nvs_config_set_nts_mode(uint8_t mode);
+
 bool nvs_config_get_rotation(bool *rotated);
 void nvs_config_set_rotation(bool rotated);
 

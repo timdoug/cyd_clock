@@ -210,6 +210,9 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
         return RESP_IGNORE;
     }
 
+    // REQUIRE: reject any unauthenticated peer (plain pre-KE, or no NTS here).
+    if (g.nts_mode == NTS_MODE_REQUIRE && !p->nts) return RESP_BAD;
+
     if (p->nts && pkt->stratum == 0 && memcmp(&pkt->ref_id, "NTSN", 4) == 0) {
         if (!ntp_nts_response_uid_matches(raw, raw_len, p->uid)) {
             ESP_LOGW(TAG, "NTS NAK uid mismatch from %s", p->addr_str);

@@ -213,6 +213,34 @@ void nvs_config_set_ntp_ipv6(bool prefer) {
     }
 }
 
+bool nvs_config_get_nts_mode(uint8_t *mode) {
+    nvs_handle_t handle;
+    if (!nvs_open_read(&handle)) {
+        return false;
+    }
+
+    uint8_t value;
+    esp_err_t err = nvs_get_u8(handle, "nts_mode", &value);
+    nvs_close(handle);
+
+    if (err == ESP_OK) {
+        *mode = value;
+        return true;
+    }
+    return false;
+}
+
+void nvs_config_set_nts_mode(uint8_t mode) {
+    nvs_handle_t handle;
+    if (!nvs_open_write(&handle)) return;
+
+    if (nvs_set_ok(nvs_set_u8(handle, "nts_mode", mode), "nts_mode")) {
+        nvs_commit_and_close(handle);
+    } else {
+        nvs_close(handle);
+    }
+}
+
 bool nvs_config_get_rotation(bool *rotated) {
     nvs_handle_t handle;
     if (!nvs_open_read(&handle)) {

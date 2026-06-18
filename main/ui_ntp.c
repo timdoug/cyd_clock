@@ -18,10 +18,16 @@ static const char *TAG = "ui_ntp";
 #define SERVER_LABEL_Y  40
 #define SERVER_BOX_Y    (SERVER_LABEL_Y + 20)
 #define SERVER_BOX_H    28
+// Two equal-width buttons + gap, spanning the server box's 10..310 range.
+#define TOGGLE_GAP      10
 #define IPV6_TOGGLE_X   10
 #define IPV6_TOGGLE_Y   (SERVER_BOX_Y + SERVER_BOX_H + 4)
-#define IPV6_TOGGLE_W   90
+#define IPV6_TOGGLE_W   145
 #define IPV6_TOGGLE_H   28
+#define NTS_TOGGLE_X    (IPV6_TOGGLE_X + IPV6_TOGGLE_W + TOGGLE_GAP)
+#define NTS_TOGGLE_Y    IPV6_TOGGLE_Y
+#define NTS_TOGGLE_W    IPV6_TOGGLE_W
+#define NTS_TOGGLE_H    IPV6_TOGGLE_H
 
 static const char *keyboard_rows[] = {
     "1234567890",
@@ -37,8 +43,12 @@ typedef enum {
 
 static ntp_ui_state_t ui_state = NTP_STATE_MAIN;
 static uint32_t last_touch_time = 0;
+// Edits stay pending in these locals and are applied only on Back, if changed.
 static char custom_server[64] = {0};
 static int custom_server_len = 0;
+static char kb_server_backup[64] = {0};
+static bool ui_prefer_ipv6 = false;
+static nts_mode_t ui_nts_mode = NTS_MODE_OPPORTUNISTIC;
 
 static void draw_keyboard(void) {
     display_fill_rect(0, KEYBOARD_Y, DISPLAY_WIDTH, DISPLAY_HEIGHT - KEYBOARD_Y, COLOR_BLACK);
@@ -79,7 +89,7 @@ static void draw_server_input(void) {
 }
 
 static void draw_ipv6_toggle(void) {
-    bool ipv6 = wifi_get_ntp_prefer_ipv6();
+    bool ipv6 = ui_prefer_ipv6;
     uint16_t ipv6_bg = ipv6 ? COLOR_CYAN : COLOR_DARKGRAY;
     uint16_t ipv6_fg = ipv6 ? COLOR_BLACK : COLOR_WHITE;
     const char *ipv6_label = ipv6 ? "IPv6: On" : "IPv6: Off";
@@ -87,6 +97,20 @@ static void draw_ipv6_toggle(void) {
     int label_x = IPV6_TOGGLE_X +
         (IPV6_TOGGLE_W - (int)strlen(ipv6_label) * FONT_CHAR_WIDTH) / 2;
     display_string(label_x, IPV6_TOGGLE_Y + 7, ipv6_label, ipv6_fg, ipv6_bg);
+}
+
+static void draw_nts_toggle(void) {
+    const char *label;
+    uint16_t bg, fg;
+    switch (ui_nts_mode) {
+    case NTS_MODE_REQUIRE:       label = "NTS: Req"; bg = COLOR_GREEN;    fg = COLOR_BLACK; break;
+    case NTS_MODE_OPPORTUNISTIC: label = "NTS: On";  bg = COLOR_CYAN;     fg = COLOR_BLACK; break;
+    default:                     label = "NTS: Off"; bg = COLOR_DARKGRAY; fg = COLOR_WHITE; break;
+    }
+    display_fill_rect(NTS_TOGGLE_X, NTS_TOGGLE_Y, NTS_TOGGLE_W, NTS_TOGGLE_H, bg);
+    int label_x = NTS_TOGGLE_X +
+        (NTS_TOGGLE_W - (int)strlen(label) * FONT_CHAR_WIDTH) / 2;
+    display_string(label_x, NTS_TOGGLE_Y + 7, label, fg, bg);
 }
 
 static char get_key_at(int16_t x, int16_t y) {
@@ -112,11 +136,12 @@ static void draw_main_screen(void) {
 
     display_fill_rect(10, SERVER_BOX_Y, DISPLAY_WIDTH - 20, SERVER_BOX_H, COLOR_DARKGRAY);
     char display_server[38];
-    str_copy(display_server, sizeof(display_server), wifi_get_custom_ntp_server());
+    str_copy(display_server, sizeof(display_server), custom_server);
     display_string(15, SERVER_BOX_Y + 7, display_server, COLOR_WHITE, COLOR_DARKGRAY);
     display_string(DISPLAY_WIDTH - 30, SERVER_BOX_Y + 7, ">", COLOR_WHITE, COLOR_DARKGRAY);
 
     draw_ipv6_toggle();
+    draw_nts_toggle();
 }
 
 static void draw_keyboard_screen(void) {
@@ -135,8 +160,28 @@ void ui_ntp_init(void) {
 
     str_copy(custom_server, sizeof(custom_server), wifi_get_custom_ntp_server());
     custom_server_len = strlen(custom_server);
+    ui_prefer_ipv6 = wifi_get_ntp_prefer_ipv6();
+    ui_nts_mode = wifi_get_nts_mode();
 
     draw_main_screen();
+}
+
+// Apply (and persist) only the settings that changed - applying one is what
+// triggers the engine resync, so unchanged settings leave the clock alone.
+static void apply_pending_settings(void) {
+    if (custom_server_len > 0 &&
+        strcmp(custom_server, wifi_get_custom_ntp_server()) != 0) {
+        wifi_set_custom_ntp_server(custom_server);
+        nvs_config_set_custom_ntp_server(custom_server);
+    }
+    if (ui_prefer_ipv6 != wifi_get_ntp_prefer_ipv6()) {
+        wifi_set_ntp_prefer_ipv6(ui_prefer_ipv6);
+        nvs_config_set_ntp_ipv6(ui_prefer_ipv6);
+    }
+    if (ui_nts_mode != wifi_get_nts_mode()) {
+        wifi_set_nts_mode(ui_nts_mode);
+        nvs_config_set_nts_mode((uint8_t)ui_nts_mode);
+    }
 }
 
 ntp_result_t ui_ntp_update(void) {
@@ -146,33 +191,41 @@ ntp_result_t ui_ntp_update(void) {
     if (touched) {
         if (ui_state == NTP_STATE_MAIN) {
             if (ui_back_button_hit(&touch)) {
+                apply_pending_settings();
                 return NTP_RESULT_BACK;
             }
 
             if (touch.y >= SERVER_BOX_Y && touch.y < SERVER_BOX_Y + SERVER_BOX_H) {
+                str_copy(kb_server_backup, sizeof(kb_server_backup), custom_server);
                 ui_state = NTP_STATE_KEYBOARD;
                 draw_keyboard_screen();
             }
 
             if (touch.y >= IPV6_TOGGLE_Y && touch.y < IPV6_TOGGLE_Y + IPV6_TOGGLE_H &&
                 touch.x >= IPV6_TOGGLE_X && touch.x < IPV6_TOGGLE_X + IPV6_TOGGLE_W) {
-                bool ipv6 = !wifi_get_ntp_prefer_ipv6();
-                wifi_set_ntp_prefer_ipv6(ipv6);
-                nvs_config_set_ntp_ipv6(ipv6);
+                ui_prefer_ipv6 = !ui_prefer_ipv6;
                 draw_ipv6_toggle();
+            }
+
+            // Cycle NTS mode: Off -> On (opportunistic) -> Req (required) -> Off.
+            if (touch.y >= NTS_TOGGLE_Y && touch.y < NTS_TOGGLE_Y + NTS_TOGGLE_H &&
+                touch.x >= NTS_TOGGLE_X && touch.x < NTS_TOGGLE_X + NTS_TOGGLE_W) {
+                ui_nts_mode = (nts_mode_t)((ui_nts_mode + 1) % 3);
+                draw_nts_toggle();
             }
         } else if (ui_state == NTP_STATE_KEYBOARD) {
             char key = get_key_at(touch.x, touch.y);
 
             if (key == VKEY_ESCAPE) {
-                str_copy(custom_server, sizeof(custom_server), wifi_get_custom_ntp_server());
+                str_copy(custom_server, sizeof(custom_server), kb_server_backup);
                 custom_server_len = strlen(custom_server);
                 ui_state = NTP_STATE_MAIN;
                 draw_main_screen();
             } else if (key == VKEY_ENTER) {
-                if (custom_server_len > 0) {
-                    wifi_set_custom_ntp_server(custom_server);
-                    nvs_config_set_custom_ntp_server(custom_server);
+                // Empty entry keeps the prior value; otherwise it stays pending.
+                if (custom_server_len == 0) {
+                    str_copy(custom_server, sizeof(custom_server), kb_server_backup);
+                    custom_server_len = strlen(custom_server);
                 }
                 ui_state = NTP_STATE_MAIN;
                 draw_main_screen();

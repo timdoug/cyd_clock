@@ -188,6 +188,7 @@ static void nts_ke_task(void *arg) {
 
 
 void nts_start_ke_if_needed(void) {
+    if (g.nts_mode == NTS_MODE_OFF) return;
     if (g.nts.valid || g.nts.ke_in_flight) return;
     if (g.nts.ke_failed && (int32_t)(mono_ms() - g.nts.ke_retry_at_ms) < 0) return;
     nts_ke_arg_t *ke = calloc(1, sizeof(*ke));
@@ -217,6 +218,9 @@ void nts_rebind_peers(void) {
             p->nts = true;
             peer_set_port(p, g.nts.ntp_port);
         }
+        // Poll now: REQUIRE rejected the pre-KE plain responses, so the clock
+        // would otherwise wait a full poll interval for the first NTS sample.
+        g.force_sync = true;
         ESP_LOGI(TAG, "NTS active for %s", g.server);
     } else {
         resolve_peers();

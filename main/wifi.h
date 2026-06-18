@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <time.h>
+#include "ntp.h"
 
 #define MAX_SCAN_RESULTS 15
 #define DEFAULT_NTP_SERVER "pool.ntp.org"
@@ -46,6 +47,9 @@ void wifi_get_ntp_server_ip_str(char *buf, size_t len);
 
 bool wifi_get_ntp_prefer_ipv6(void);
 void wifi_set_ntp_prefer_ipv6(bool prefer);
+
+nts_mode_t wifi_get_nts_mode(void);
+void wifi_set_nts_mode(nts_mode_t mode);
 
 int8_t wifi_get_rssi(void);
 

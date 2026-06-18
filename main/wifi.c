@@ -75,10 +75,12 @@ void wifi_poll_reconnect(void) {
 static struct {
     char custom_server[64];
     bool prefer_ipv6;
+    nts_mode_t nts_mode;
     bool started;
 } ntp_cfg = {
     .custom_server = DEFAULT_NTP_SERVER,
     .prefer_ipv6 = false,
+    .nts_mode = NTS_MODE_OPPORTUNISTIC,
     .started = false,
 };
 
@@ -397,8 +399,9 @@ void wifi_start_ntp(void) {
     if (ntp_cfg.started) {
         ntp_set_server(server);
         ntp_set_prefer_ipv6(ntp_cfg.prefer_ipv6);
+        ntp_set_nts_mode(ntp_cfg.nts_mode);
     } else {
-        ntp_init(server, ntp_cfg.prefer_ipv6);
+        ntp_init(server, ntp_cfg.prefer_ipv6, ntp_cfg.nts_mode);
         ntp_cfg.started = true;
     }
 }
@@ -427,6 +430,15 @@ bool wifi_get_ntp_prefer_ipv6(void) {
 void wifi_set_ntp_prefer_ipv6(bool prefer) {
     ntp_cfg.prefer_ipv6 = prefer;
     if (ntp_cfg.started) ntp_set_prefer_ipv6(prefer);
+}
+
+nts_mode_t wifi_get_nts_mode(void) {
+    return ntp_cfg.nts_mode;
+}
+
+void wifi_set_nts_mode(nts_mode_t mode) {
+    ntp_cfg.nts_mode = mode;
+    if (ntp_cfg.started) ntp_set_nts_mode(mode);
 }
 
 void wifi_get_ntp_server_ip_str(char *buf, size_t len) {

@@ -185,6 +185,7 @@ typedef struct {
 typedef struct {
     char     server[64];
     bool     prefer_ipv6;
+    nts_mode_t nts_mode;
     uint32_t current_poll_s;
 
     ntp_peer_t peers[NTP_MAX_PEERS];
