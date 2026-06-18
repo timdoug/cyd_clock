@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include "esp_idf_version.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "config.h"
 #include "display.h"
 #include "nvs_config.h"
@@ -27,9 +28,22 @@ static const char *TAG = "ui_about";
 #define OTA_UPDATE_BTN_H 28
 #define OTA_KEYBOARD_Y 84
 
+// The IPv6 value sits at x=90; a full address overruns the screen, so it scrolls.
+#define IP6_VAL_X       90
+#define IP6_VIS_CHARS   ((DISPLAY_WIDTH - IP6_VAL_X) / FONT_CHAR_WIDTH)
+#define IP6_SCROLL_MS   250
+#define IP6_REFRESH_MS  2000
+
 static uint32_t last_touch_time = 0;
 static char ota_url[MAX_OTA_URL_LEN];
 static int ota_url_len = 0;
+
+static int      ip6_value_y = -1;
+static char     ip6_addr[46] = {0};
+static int      ip6_scroll = 0;
+static int      ip6_dwell = 0;
+static uint32_t ip6_scroll_ms = 0;
+static uint32_t ip6_refresh_ms = 0;
 
 typedef enum {
     ABOUT_STATE_MAIN,
@@ -107,6 +121,38 @@ static void draw_ota_header(bool force, bool show_back) {
     ota_header_back_drawn = show_back;
 }
 
+static void draw_ip6_window(void) {
+    if (ip6_value_y < 0) return;
+    char win[IP6_VIS_CHARS + 1];
+    ui_marquee_window(win, IP6_VIS_CHARS, ip6_addr[0] ? ip6_addr : "none", ip6_scroll);
+    display_string(IP6_VAL_X, ip6_value_y, win, COLOR_WHITE, COLOR_BLACK);
+}
+
+// Re-fetch the address occasionally (it may arrive after the screen opens) and
+// advance the scroll when it's wider than the visible window.
+static void update_ip6_marquee(void) {
+    if (ip6_value_y < 0) return;
+    uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
+    bool redraw = false;
+    if ((int32_t)(now - ip6_refresh_ms) >= IP6_REFRESH_MS) {
+        ip6_refresh_ms = now;
+        char cur[sizeof(ip6_addr)];
+        wifi_get_ip6_str(cur, sizeof(cur));
+        if (strcmp(cur, ip6_addr) != 0) {
+            str_copy(ip6_addr, sizeof(ip6_addr), cur);
+            ip6_scroll = 0;
+            ip6_dwell = 0;
+            redraw = true;
+        }
+    }
+    if ((int32_t)(now - ip6_scroll_ms) >= IP6_SCROLL_MS) {
+        ip6_scroll_ms = now;
+        const char *s = ip6_addr[0] ? ip6_addr : "none";
+        if (ui_marquee_advance(&ip6_scroll, &ip6_dwell, IP6_VIS_CHARS, s)) redraw = true;
+    }
+    if (redraw) draw_ip6_window();
+}
+
 static void draw_screen(void) {
     display_fill(COLOR_BLACK);
     ui_draw_header("About", true);
@@ -136,10 +182,13 @@ static void draw_screen(void) {
     display_string(90, y, ip_str, COLOR_WHITE, COLOR_BLACK);
     y += 18;
 
-    char ip6_str[46];
-    wifi_get_ip6_str(ip6_str, sizeof(ip6_str));
     display_string(20, y, "IPv6:", COLOR_GRAY, COLOR_BLACK);
-    display_string(90, y, ip6_str[0] ? ip6_str : "none", COLOR_WHITE, COLOR_BLACK);
+    wifi_get_ip6_str(ip6_addr, sizeof(ip6_addr));
+    ip6_value_y = y;
+    ip6_scroll = 0;
+    ip6_dwell = 0;
+    ip6_scroll_ms = ip6_refresh_ms = (uint32_t)(esp_timer_get_time() / 1000);
+    draw_ip6_window();
     y += 18;
 
     char rssi_str[16];
@@ -476,6 +525,8 @@ about_result_t ui_about_update(void) {
     if (ui_state == ABOUT_STATE_OTA) {
         draw_ota_controls();
         draw_ota_status(false);
+    } else if (ui_state == ABOUT_STATE_MAIN) {
+        update_ip6_marquee();
     }
 
     return ABOUT_RESULT_NONE;

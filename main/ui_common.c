@@ -8,6 +8,40 @@
 #include "display.h"
 #include "touch.h"
 
+int ui_marquee_window(char *out, int width, const char *s, int scroll) {
+    int len = (int)strlen(s);
+    if (len <= width) {
+        for (int i = 0; i < width; i++) out[i] = i < len ? s[i] : ' ';
+        out[width] = '\0';
+        return 1;
+    }
+    int period = len + UI_MARQUEE_GAP;
+    for (int i = 0; i < width; i++) {
+        int idx = (scroll % period + i) % period;
+        out[i] = idx < len ? s[idx] : ' ';
+    }
+    out[width] = '\0';
+    return period;
+}
+
+bool ui_marquee_advance(int *scroll, int *dwell, int width, const char *s) {
+    int len = (int)strlen(s);
+    if (len <= width) {            // fits: nothing to scroll
+        *scroll = 0;
+        *dwell = 0;
+        return false;
+    }
+    int period = len + UI_MARQUEE_GAP;
+    int end = len - width;         // scroll with the last char flush right
+    if ((*scroll == 0 || *scroll == end) && *dwell < UI_MARQUEE_DWELL) {
+        (*dwell)++;
+        return false;
+    }
+    *dwell = 0;
+    *scroll = (*scroll + 1) % period;
+    return true;
+}
+
 static void draw_scroll_chevron(int cx, int y, bool up, uint16_t color) {
     for (int i = 0; i < 5; i++) {
         int row = up ? y + i : y + 4 - i;

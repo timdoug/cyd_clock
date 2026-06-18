@@ -18,6 +18,8 @@
 #define UI_LIST_START_Y     35
 #define UI_LIST_VISIBLE     7
 #define UI_LIST_SCROLL_REDRAW_MS 60
+#define UI_MARQUEE_GAP      3
+#define UI_MARQUEE_DWELL    6   // ticks to hold at each end before scrolling on
 
 #define UI_COLOR_HEADER     0x001F
 #define UI_COLOR_ITEM_BG    0x4208
@@ -66,6 +68,16 @@ void ui_draw_slider_value_delta(int y, uint8_t old_value, uint8_t new_value,
                                 uint8_t max_value, uint16_t fill_color);
 
 void ui_draw_centered_string(int16_t y, const char *str, uint16_t fg, uint16_t bg, bool scale_2x);
+
+// Fill out[0..width] with a width-char window of s for a horizontal marquee
+// (space-padded if s fits). Returns the scroll period for `scroll % period`;
+// a string that fits returns 1 (no scrolling).
+int ui_marquee_window(char *out, int width, const char *s, int scroll);
+
+// Advance a marquee one tick, holding *scroll for UI_MARQUEE_DWELL ticks each
+// time the start is flush-left or the end is flush-right. *scroll and *dwell are
+// caller-persisted state. Returns true when the position changed (redraw).
+bool ui_marquee_advance(int *scroll, int *dwell, int width, const char *s);
 
 void ui_draw_list(const char **labels, int count, int scroll_offset, int selected);
 

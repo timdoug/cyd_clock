@@ -6,6 +6,7 @@
 #include <sys/time.h>
 #include "driver/gpio.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "config.h"
@@ -23,6 +24,8 @@ static const char *TAG = "ui_ntp_stats";
 #define PEER_HDR_Y    (SYS_Y_START + SYS_ROWS * SYS_LINE_H)
 #define PEER_Y_START  (PEER_HDR_Y + 18)
 #define PEER_LINE_H   18
+#define PEER_ADDR_W   15   // address column width; longer addrs scroll
+#define PEER_MARQUEE_MS 250
 
 // Liveness indicator in the header - ticks every refresh so the user can tell
 // the screen is active even if all displayed stats are steady. Colors match
@@ -42,6 +45,15 @@ static char     last_sys_row[SYS_ROWS][96];
 static uint16_t last_sys_color[SYS_ROWS];
 static char     last_peer_row[NTP_MAX_PEERS][96];
 static uint16_t last_peer_color[NTP_MAX_PEERS];
+
+// Per-slot horizontal scroll for addresses wider than the column. slot_peer
+// caches the last-drawn stats so the marquee can repaint a row between the
+// 1 Hz refreshes without re-fetching.
+static int              peer_addr_scroll[NTP_MAX_PEERS];
+static int              peer_addr_dwell[NTP_MAX_PEERS];
+static ntp_peer_stats_t slot_peer[NTP_MAX_PEERS];
+static bool             slot_filled[NTP_MAX_PEERS];
+static uint32_t         marquee_ms;
 
 // Signed us formatter capped at 7 chars so peer rows stay inside 40 cells.
 // Adaptive precision - drops decimals as magnitude grows.
@@ -223,8 +235,8 @@ static void draw_peer_row(int slot, const ntp_peer_stats_t *p) {
         row_fg = p->selected ? COLOR_CYAN
                : p->fresh    ? COLOR_GREEN
                              : COLOR_WHITE;
-        char addr[16];
-        str_copy(addr, sizeof(addr), p->addr_str);
+        char addr[PEER_ADDR_W + 1];
+        ui_marquee_window(addr, PEER_ADDR_W, p->addr_str, peer_addr_scroll[slot]);
 
         char off_buf[10], delay_buf[8], jitter_buf[8], reach_buf[3];
         snprintf(reach_buf, sizeof(reach_buf), "%02x", p->reach);
@@ -409,10 +421,34 @@ static void refresh_dynamic(void) {
     }
     for (int slot = 0; slot < NTP_MAX_PEERS; slot++) {
         if (slot < n_active) {
-            draw_peer_row(slot, &peers[active_idx[slot]]);
+            ntp_peer_stats_t *p = &peers[active_idx[slot]];
+            // Restart the scroll when the peer occupying this slot changes.
+            if (!slot_filled[slot] || strcmp(slot_peer[slot].addr_str, p->addr_str) != 0) {
+                peer_addr_scroll[slot] = 0;
+                peer_addr_dwell[slot] = 0;
+            }
+            slot_peer[slot] = *p;
+            slot_filled[slot] = true;
+            draw_peer_row(slot, p);
         } else {
+            slot_filled[slot] = false;
             draw_peer_row(slot, NULL);
         }
+    }
+}
+
+// Advance the address scroll for slots whose address is wider than the column,
+// faster than the 1 Hz full refresh so it's readable. Repaints only those rows
+// (diff_paint touches just the address cells that moved).
+static void marquee_peer_addrs(void) {
+    uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
+    if ((int32_t)(now - marquee_ms) < PEER_MARQUEE_MS) return;
+    marquee_ms = now;
+    for (int slot = 0; slot < NTP_MAX_PEERS; slot++) {
+        if (!slot_filled[slot]) continue;
+        if (ui_marquee_advance(&peer_addr_scroll[slot], &peer_addr_dwell[slot],
+                               PEER_ADDR_W, slot_peer[slot].addr_str))
+            draw_peer_row(slot, &slot_peer[slot]);
     }
 }
 
@@ -421,7 +457,12 @@ void ui_ntp_stats_init(void) {
     last_touch_time  = 0;
     spinner_frame    = 0;
     for (int i = 0; i < SYS_ROWS; i++) last_sys_row[i][0] = '\0';
-    for (int i = 0; i < NTP_MAX_PEERS; i++) last_peer_row[i][0] = '\0';
+    for (int i = 0; i < NTP_MAX_PEERS; i++) {
+        last_peer_row[i][0] = '\0';
+        peer_addr_scroll[i] = 0;
+        peer_addr_dwell[i] = 0;
+        slot_filled[i] = false;
+    }
     draw_static_chrome();
     refresh_dynamic();
     // Mark the current second as already-painted so the next polled tick
@@ -452,5 +493,6 @@ ntp_stats_result_t ui_ntp_stats_update(void) {
         last_refresh_sec = tv.tv_sec;
         refresh_dynamic();
     }
+    marquee_peer_addrs();
     return NTP_STATS_RESULT_NONE;
 }
