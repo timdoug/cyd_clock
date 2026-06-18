@@ -201,7 +201,10 @@ void nts_start_ke_if_needed(void) {
     if (ke->generation == 0) ke->generation = ++g.nts.ke_generation;
     g.nts.ke_in_flight = true;
     g.nts.ke_failed = false;
-    if (xTaskCreate(nts_ke_task, "nts_ke", 16384, ke, 5, NULL) != pdPASS) {
+    // Pin to core 0 (the network core) at one priority below the NTP task: the
+    // transient handshake crypto then can't preempt time-critical NTP work, and
+    // stays off core 1 so it can't stall the render loop.
+    if (xTaskCreatePinnedToCore(nts_ke_task, "nts_ke", 16384, ke, 4, NULL, 0) != pdPASS) {
         g.nts.ke_in_flight = false;
         free(ke);
         ESP_LOGW(TAG, "Failed to spawn NTS-KE task");

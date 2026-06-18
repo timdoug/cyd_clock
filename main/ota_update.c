@@ -248,8 +248,10 @@ bool ota_update_start(const char *url, char *err_buf, size_t err_len) {
     cancel_requested = false;
     if (status_mutex) xSemaphoreGive(status_mutex);
     status_set(OTA_UPDATE_RUNNING, "Queued", 0, 0);
-    BaseType_t ok = xTaskCreate(ota_task, "ota_update", 8192, NULL,
-                                tskIDLE_PRIORITY + 1, NULL);
+    // Pin to core 0 (network core): the HTTPS download + flash writes must not
+    // compete with the OTA progress screen the main task renders on core 1.
+    BaseType_t ok = xTaskCreatePinnedToCore(ota_task, "ota_update", 8192, NULL,
+                                            tskIDLE_PRIORITY + 1, NULL, 0);
     if (ok != pdPASS) {
         status_set(OTA_UPDATE_FAILED, "No memory", 0, 0);
         str_copy(err_buf, err_len, "No memory");
