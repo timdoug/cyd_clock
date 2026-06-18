@@ -1,5 +1,6 @@
 #include "ntp_internal.h"
 #include "ntp_siv.h"
+#include "mbedtls/platform_util.h"
 
 #include <stdlib.h>
 
@@ -145,18 +146,18 @@ static void nts_ke_task(void *arg) {
     str_copy(host, sizeof(host), ke->host);
     free(ke);
 
-    // Guard the AEAD against a miscompiled CMAC/CTR path once, before any
-    // authenticated time is trusted: a broken SIV that still "verifies" would
-    // be worse than no auth. If it fails, refuse NTS and fall back to plain.
-    static bool siv_checked = false, siv_ok = false;
-    if (!siv_checked) {
-        siv_ok = ntp_siv_selftest();
-        siv_checked = true;
-        ESP_LOGI(TAG, "AES-SIV self-test %s", siv_ok ? "passed" : "FAILED");
+    // Guard the AEAD and NTS parser once before any authenticated time is
+    // trusted: a broken SIV/parser that still "verifies" would be worse than
+    // no auth. If it fails, refuse NTS and fall back to plain.
+    static bool nts_checked = false, nts_ok = false;
+    if (!nts_checked) {
+        nts_ok = ntp_siv_selftest() && ntp_nts_selftest();
+        nts_checked = true;
+        ESP_LOGI(TAG, "NTS crypto self-test %s", nts_ok ? "passed" : "FAILED");
     }
 
-    ntp_nts_ctx_t local;
-    bool ok = siv_ok && ntp_nts_ke_run(host, &local);
+    ntp_nts_ctx_t local = {0};
+    bool ok = nts_ok && ntp_nts_ke_run(host, &local);
 
     lock_take();
     if (g.nts.ke_generation == generation && strcmp(g.server, host) != 0) {
@@ -179,6 +180,7 @@ static void nts_ke_task(void *arg) {
         g.nts.ke_failed    = true;
         g.nts.ke_retry_at_ms = mono_ms() + NTS_KE_RETRY_MS;
     }
+    mbedtls_platform_zeroize(&local, sizeof(local));
     lock_give();
     wake_task();
     vTaskDelete(NULL);
@@ -227,7 +229,7 @@ void nts_drop_context_and_fallback(void) {
     bool ke_in_flight = g.nts.ke_in_flight;
     uint32_t ke_generation = g.nts.ke_generation;
 
-    memset(&g.nts, 0, sizeof(g.nts));
+    mbedtls_platform_zeroize(&g.nts, sizeof(g.nts));
     g.nts.ke_in_flight = ke_in_flight;
     g.nts.ke_generation = ke_generation;
     g.nts_rebind = false;

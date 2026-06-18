@@ -63,4 +63,7 @@ bool ntp_nts_check_response(const uint8_t *pkt, size_t pkt_len,
 bool ntp_nts_response_uid_matches(const uint8_t *pkt, size_t pkt_len,
                                   const uint8_t uid[NTS_UID_LEN]);
 
+// Local parser/AEAD regression checks for NTS extension-field handling.
+bool ntp_nts_selftest(void);
+
 #endif

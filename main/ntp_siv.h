@@ -20,8 +20,8 @@
 #define NTP_SIV_TAG_LEN 16
 
 // Encrypt: writes the 16-byte synthetic IV to siv_out and pt_len ciphertext
-// bytes to ct_out (ct_out may equal plaintext for in-place; may be NULL iff
-// pt_len == 0). Returns true on success.
+// bytes to ct_out. plaintext and ct_out must not overlap; ct_out may be NULL
+// iff pt_len == 0. Returns true on success.
 bool ntp_siv_encrypt(const uint8_t key[NTP_SIV_KEY_LEN],
                      const uint8_t *const ad[], const size_t ad_len[], size_t ad_count,
                      const uint8_t *plaintext, size_t pt_len,

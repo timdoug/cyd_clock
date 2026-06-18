@@ -7,6 +7,7 @@
 #include "esp_tls.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "mbedtls/platform_util.h"
 #include "mbedtls/ssl.h"
 #include "ntp_siv.h"
 #include "util.h"
@@ -122,10 +123,11 @@ bool ntp_nts_ke_run(const char *host, ntp_nts_ctx_t *out) {
     bool keys_ok = false;
     if (ok) {
         mbedtls_ssl_context *ssl = (mbedtls_ssl_context *)esp_tls_get_ssl_context(tls);
+        const char *negotiated_alpn = ssl ? mbedtls_ssl_get_alpn_protocol(ssl) : NULL;
         static const char label[] = "EXPORTER-network-time-security";
         uint8_t ctx_c2s[5] = { 0x00, 0x00, 0x00, 0x0f, 0x00 };
         uint8_t ctx_s2c[5] = { 0x00, 0x00, 0x00, 0x0f, 0x01 };
-        keys_ok = ssl &&
+        keys_ok = ssl && negotiated_alpn && strcmp(negotiated_alpn, "ntske/1") == 0 &&
             mbedtls_ssl_export_keying_material(ssl, out->c2s, NTS_KEY_LEN, label,
                 strlen(label), ctx_c2s, sizeof(ctx_c2s), 1) == 0 &&
             mbedtls_ssl_export_keying_material(ssl, out->s2c, NTS_KEY_LEN, label,
@@ -175,40 +177,66 @@ bool ntp_nts_add_ef(uint8_t *buf, size_t *len, size_t cap,
                     ntp_nts_ctx_t *ctx, uint8_t uid_out[NTS_UID_LEN]) {
     if (ctx->cookie_count <= 0) return false;
 
+    bool ok = false;
+    size_t orig_len = *len;
     uint8_t uid[NTS_UID_LEN];
-    esp_fill_random(uid, sizeof(uid));
-    if (!ef_append(buf, len, cap, EF_UNIQUE_ID, uid, sizeof(uid))) return false;
-    memcpy(uid_out, uid, sizeof(uid));
-
     uint8_t cookie[NTS_COOKIE_MAX];
+    uint8_t nonce[NTS_NONCE_LEN];
+    uint8_t tag[NTP_SIV_TAG_LEN];
+    uint8_t body[4 + NTS_NONCE_LEN + NTP_SIV_TAG_LEN];
+
+    esp_fill_random(uid, sizeof(uid));
+    if (!ef_append(buf, len, cap, EF_UNIQUE_ID, uid, sizeof(uid))) {
+        *len = orig_len;
+        goto out;
+    }
+
     uint16_t clen = ctx->cookie_len[0];
     memcpy(cookie, ctx->cookie[0], clen);
-    for (int i = 1; i < ctx->cookie_count; i++) {
-        memcpy(ctx->cookie[i - 1], ctx->cookie[i], ctx->cookie_len[i]);
-        ctx->cookie_len[i - 1] = ctx->cookie_len[i];
+    if (!ef_append(buf, len, cap, EF_COOKIE, cookie, clen)) {
+        *len = orig_len;
+        goto out;
     }
-    ctx->cookie_count--;
-    if (!ef_append(buf, len, cap, EF_COOKIE, cookie, clen)) return false;
 
     // Request enough replacement cookies to refill the pool.
-    int want = NTS_MAX_COOKIES - ctx->cookie_count - 1;
+    int want = NTS_MAX_COOKIES - ctx->cookie_count;
     for (int i = 0; i < want; i++) {
         if (!ef_append(buf, len, cap, EF_COOKIE_PLACEHOLDER, NULL, clen)) break;
     }
 
-    uint8_t nonce[NTS_NONCE_LEN];
     esp_fill_random(nonce, sizeof(nonce));
     const uint8_t *ad[2]  = { buf, nonce };
     const size_t   adl[2] = { *len, sizeof(nonce) };
-    uint8_t tag[NTP_SIV_TAG_LEN];
-    if (!ntp_siv_encrypt(ctx->c2s, ad, adl, 2, NULL, 0, tag, NULL)) return false;
+    if (!ntp_siv_encrypt(ctx->c2s, ad, adl, 2, NULL, 0, tag, NULL)) {
+        *len = orig_len;
+        goto out;
+    }
 
-    uint8_t body[4 + NTS_NONCE_LEN + NTP_SIV_TAG_LEN];
     body[0] = 0; body[1] = NTS_NONCE_LEN;     // Nonce Length
     body[2] = 0; body[3] = NTP_SIV_TAG_LEN;   // Ciphertext Length (tag only)
     memcpy(body + 4, nonce, NTS_NONCE_LEN);
     memcpy(body + 4 + NTS_NONCE_LEN, tag, NTP_SIV_TAG_LEN);
-    return ef_append(buf, len, cap, EF_AUTHENTICATOR, body, sizeof(body));
+    ok = ef_append(buf, len, cap, EF_AUTHENTICATOR, body, sizeof(body));
+    if (ok) {
+        memcpy(uid_out, uid, sizeof(uid));
+        for (int i = 1; i < ctx->cookie_count; i++) {
+            memcpy(ctx->cookie[i - 1], ctx->cookie[i], ctx->cookie_len[i]);
+            ctx->cookie_len[i - 1] = ctx->cookie_len[i];
+        }
+        ctx->cookie_count--;
+        mbedtls_platform_zeroize(ctx->cookie[ctx->cookie_count], NTS_COOKIE_MAX);
+        ctx->cookie_len[ctx->cookie_count] = 0;
+    } else {
+        *len = orig_len;
+    }
+
+out:
+    mbedtls_platform_zeroize(uid, sizeof(uid));
+    mbedtls_platform_zeroize(cookie, sizeof(cookie));
+    mbedtls_platform_zeroize(nonce, sizeof(nonce));
+    mbedtls_platform_zeroize(tag, sizeof(tag));
+    mbedtls_platform_zeroize(body, sizeof(body));
+    return ok;
 }
 
 bool ntp_nts_check_response(const uint8_t *pkt, size_t pkt_len,
@@ -239,7 +267,7 @@ bool ntp_nts_check_response(const uint8_t *pkt, size_t pkt_len,
 
     const uint8_t *a = pkt + auth_off;
     uint16_t a_eflen = (uint16_t)((a[2] << 8) | a[3]);
-    if (a_eflen < 8) return false;
+    if (a_eflen < 8 || auth_off + a_eflen != pkt_len) return false;
     const uint8_t *bd = a + 4;
     uint16_t nonce_len = (uint16_t)((bd[0] << 8) | bd[1]);
     uint16_t ct_len    = (uint16_t)((bd[2] << 8) | bd[3]);
@@ -260,7 +288,10 @@ bool ntp_nts_check_response(const uint8_t *pkt, size_t pkt_len,
     if (enc_len > sizeof(plain)) return false;
     const uint8_t *ad[2]  = { pkt, nonce };
     const size_t   adl[2] = { auth_off, nonce_len };
-    if (!ntp_siv_decrypt(ctx->s2c, ad, adl, 2, tag, enc, enc_len, plain)) return false;
+    if (!ntp_siv_decrypt(ctx->s2c, ad, adl, 2, tag, enc, enc_len, plain)) {
+        mbedtls_platform_zeroize(plain, sizeof(plain));
+        return false;
+    }
 
     size_t po = 0;
     while (po + 4 <= enc_len) {
@@ -277,6 +308,7 @@ bool ntp_nts_check_response(const uint8_t *pkt, size_t pkt_len,
         }
         po += l;
     }
+    mbedtls_platform_zeroize(plain, sizeof(plain));
     return true;
 }
 
@@ -297,4 +329,44 @@ bool ntp_nts_response_uid_matches(const uint8_t *pkt, size_t pkt_len,
         off += eflen;
     }
     return false;
+}
+
+bool ntp_nts_selftest(void) {
+    ntp_nts_ctx_t ctx = {0};
+    for (size_t i = 0; i < NTS_KEY_LEN; i++) {
+        ctx.c2s[i] = (uint8_t)i;
+        ctx.s2c[i] = (uint8_t)(0xa0u + i);
+    }
+
+    uint8_t uid[NTS_UID_LEN];
+    for (size_t i = 0; i < sizeof(uid); i++) uid[i] = (uint8_t)(0x40u + i);
+
+    uint8_t pkt[160] = {0};
+    size_t pkt_len = 48;
+    if (!ef_append(pkt, &pkt_len, sizeof(pkt), EF_UNIQUE_ID, uid, sizeof(uid))) return false;
+
+    uint8_t nonce[NTS_NONCE_LEN];
+    for (size_t i = 0; i < sizeof(nonce); i++) nonce[i] = (uint8_t)(0x80u + i);
+    const uint8_t *ad[2] = { pkt, nonce };
+    const size_t adl[2] = { pkt_len, sizeof(nonce) };
+    uint8_t tag[NTP_SIV_TAG_LEN];
+    if (!ntp_siv_encrypt(ctx.s2c, ad, adl, 2, NULL, 0, tag, NULL)) return false;
+
+    uint8_t body[4 + NTS_NONCE_LEN + NTP_SIV_TAG_LEN];
+    body[0] = 0; body[1] = NTS_NONCE_LEN;
+    body[2] = 0; body[3] = NTP_SIV_TAG_LEN;
+    memcpy(body + 4, nonce, sizeof(nonce));
+    memcpy(body + 4 + sizeof(nonce), tag, sizeof(tag));
+    if (!ef_append(pkt, &pkt_len, sizeof(pkt), EF_AUTHENTICATOR, body, sizeof(body))) return false;
+    if (!ntp_nts_check_response(pkt, pkt_len, &ctx, uid)) return false;
+
+    uint8_t trailing[4] = {0, 0, 0, 4};
+    if (pkt_len + sizeof(trailing) > sizeof(pkt)) return false;
+    memcpy(pkt + pkt_len, trailing, sizeof(trailing));
+    if (ntp_nts_check_response(pkt, pkt_len + sizeof(trailing), &ctx, uid)) return false;
+
+    mbedtls_platform_zeroize(&ctx, sizeof(ctx));
+    mbedtls_platform_zeroize(tag, sizeof(tag));
+    mbedtls_platform_zeroize(body, sizeof(body));
+    return true;
 }
