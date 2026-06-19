@@ -18,10 +18,17 @@ static const char *TAG = "ui_ntp";
 #define SERVER_LABEL_Y  40
 #define SERVER_BOX_Y    (SERVER_LABEL_Y + 20)
 #define SERVER_BOX_H    28
-// Two equal-width buttons + gap, spanning the server box's 10..310 range.
+#define ROW_GAP         8
+#define SECTION_GAP     18   // extra gap before the toggle row
+// Presets button, below the hostname box.
+#define PRESETS_BTN_X   10
+#define PRESETS_BTN_Y   (SERVER_BOX_Y + SERVER_BOX_H + ROW_GAP)
+#define PRESETS_BTN_W   (DISPLAY_WIDTH - 20)
+#define PRESETS_BTN_H   28
+// IPv6 / NTS toggles: two equal-width buttons + gap, spanning the box width.
 #define TOGGLE_GAP      10
 #define IPV6_TOGGLE_X   10
-#define IPV6_TOGGLE_Y   (SERVER_BOX_Y + SERVER_BOX_H + 4)
+#define IPV6_TOGGLE_Y   (PRESETS_BTN_Y + PRESETS_BTN_H + SECTION_GAP)
 #define IPV6_TOGGLE_W   145
 #define IPV6_TOGGLE_H   28
 #define NTS_TOGGLE_X    (IPV6_TOGGLE_X + IPV6_TOGGLE_W + TOGGLE_GAP)
@@ -39,6 +46,7 @@ static const char *keyboard_rows[] = {
 typedef enum {
     NTP_STATE_MAIN,
     NTP_STATE_KEYBOARD,
+    NTP_STATE_PRESETS,
 } ntp_ui_state_t;
 
 static ntp_ui_state_t ui_state = NTP_STATE_MAIN;
@@ -49,6 +57,42 @@ static int custom_server_len = 0;
 static char kb_server_backup[64] = {0};
 static bool ui_prefer_ipv6 = false;
 static nts_mode_t ui_nts_mode = NTS_MODE_OPPORTUNISTIC;
+
+// Server presets, shown by hostname; the nts flag is only a [NTS] display hint.
+typedef struct { const char *host; bool nts; } ntp_preset_t;
+static const ntp_preset_t presets[] = {
+    { "time.apple.com",             false },
+    { "time.cloudflare.com",        true  },
+    { "time.facebook.com",          false },
+    { "time.google.com",            false },
+    { "ntp1.inrim.it",              false },  // INRIM, Italy
+    { "time.kriss.re.kr",           false },  // KRISS, South Korea
+    { "ntp.metas.ch",               false },  // METAS, Switzerland
+    { "time.metrologie.at",         false },  // BEV, Austria
+    { "tick.usno.navy.mil",         false },  // USNO, USA
+    { "nts.netnod.se",              true  },  // Netnod, Sweden
+    { "ntp.nict.jp",                false },  // NICT, Japan
+    { "time.nist.gov",              false },  // NIST, USA
+    { "ntp1.npl.co.uk",             false },  // NPL, UK
+    { "time.nplindia.org",          false },  // NPL, India
+    { "time.nrc.ca",                false },  // NRC, Canada
+    { "pool.ntp.org",               false },
+    { "ntp.obspm.fr",               false },  // Observatoire de Paris, France
+    { "ptbtime1.ptb.de",            true  },  // PTB, Germany
+    { "nts1.ri.se",                 true  },  // RISE, Sweden
+    { "brazil.time.system76.com",   true  },
+    { "ohio.time.system76.com",     true  },
+    { "oregon.time.system76.com",   true  },
+    { "paris.time.system76.com",    true  },
+    { "virginia.time.system76.com", true  },
+    { "ntp.vsl.nl",                 false },  // VSL, Netherlands
+    { "time.windows.com",           false },
+};
+#define N_PRESETS ((int)(sizeof(presets) / sizeof(presets[0])))
+static char            preset_labels[N_PRESETS][40];
+static const char     *preset_label_ptrs[N_PRESETS];
+static ui_list_touch_t list_touch;
+static int             list_scroll = 0;
 
 static void draw_keyboard(void) {
     display_fill_rect(0, KEYBOARD_Y, DISPLAY_WIDTH, DISPLAY_HEIGHT - KEYBOARD_Y, COLOR_BLACK);
@@ -140,6 +184,10 @@ static void draw_main_screen(void) {
     display_string(15, SERVER_BOX_Y + 7, display_server, COLOR_WHITE, COLOR_DARKGRAY);
     display_string(DISPLAY_WIDTH - 30, SERVER_BOX_Y + 7, ">", COLOR_WHITE, COLOR_DARKGRAY);
 
+    display_fill_rect(PRESETS_BTN_X, PRESETS_BTN_Y, PRESETS_BTN_W, PRESETS_BTN_H, UI_COLOR_ITEM_BG);
+    int px = PRESETS_BTN_X + (PRESETS_BTN_W - 7 * FONT_CHAR_WIDTH) / 2;  // "Presets"
+    display_string(px, PRESETS_BTN_Y + 7, "Presets", COLOR_WHITE, UI_COLOR_ITEM_BG);
+
     draw_ipv6_toggle();
     draw_nts_toggle();
 }
@@ -153,6 +201,23 @@ static void draw_keyboard_screen(void) {
     draw_keyboard();
 }
 
+static int preset_highlight(void) {
+    for (int i = 0; i < N_PRESETS; i++) {
+        if (strcmp(custom_server, presets[i].host) == 0) return i;
+    }
+    return -1;
+}
+
+static void draw_presets_list(void) {
+    ui_draw_list(preset_label_ptrs, N_PRESETS, list_scroll, preset_highlight());
+}
+
+static void draw_presets_screen(void) {
+    display_fill(COLOR_BLACK);
+    ui_draw_header("NTP Presets", true);
+    draw_presets_list();
+}
+
 void ui_ntp_init(void) {
     ESP_LOGI(TAG, "Initializing NTP settings UI");
     last_touch_time = 0;
@@ -162,6 +227,12 @@ void ui_ntp_init(void) {
     custom_server_len = strlen(custom_server);
     ui_prefer_ipv6 = wifi_get_ntp_prefer_ipv6();
     ui_nts_mode = wifi_get_nts_mode();
+
+    for (int i = 0; i < N_PRESETS; i++) {
+        snprintf(preset_labels[i], sizeof(preset_labels[i]), "%s%s",
+                 presets[i].host, presets[i].nts ? " [NTS]" : "");
+        preset_label_ptrs[i] = preset_labels[i];
+    }
 
     draw_main_screen();
 }
@@ -186,7 +257,36 @@ static void apply_pending_settings(void) {
 
 ntp_result_t ui_ntp_update(void) {
     touch_point_t touch;
-    bool touched = ui_read_touch(&touch, &last_touch_time);
+    bool pressed = touch_read(&touch);
+    bool touched = false;
+    if (pressed && !ui_should_debounce(last_touch_time)) {
+        last_touch_time = xTaskGetTickCount();
+        touched = true;
+    }
+
+    if (ui_state == NTP_STATE_PRESETS) {
+        ui_list_touch_result_t r =
+            ui_list_touch_update(&list_touch, &touch, pressed, N_PRESETS, &list_scroll);
+        if (r == UI_LIST_TOUCH_SCROLLED) {
+            draw_presets_list();
+        } else if (r == UI_LIST_TOUCH_TAPPED) {
+            const touch_point_t *t = &list_touch.tap_start;
+            if (ui_back_button_hit(t)) {
+                ui_state = NTP_STATE_MAIN;
+                draw_main_screen();
+            } else if (t->y >= UI_LIST_START_Y &&
+                       t->y < UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H) {
+                int item = (t->y - UI_LIST_START_Y) / UI_LIST_ITEM_H + list_scroll;
+                if (item < N_PRESETS) {
+                    str_copy(custom_server, sizeof(custom_server), presets[item].host);
+                    custom_server_len = strlen(custom_server);
+                    ui_state = NTP_STATE_MAIN;
+                    draw_main_screen();
+                }
+            }
+        }
+        return NTP_RESULT_NONE;
+    }
 
     if (touched) {
         if (ui_state == NTP_STATE_MAIN) {
@@ -212,6 +312,16 @@ ntp_result_t ui_ntp_update(void) {
                 touch.x >= NTS_TOGGLE_X && touch.x < NTS_TOGGLE_X + NTS_TOGGLE_W) {
                 ui_nts_mode = (nts_mode_t)((ui_nts_mode + 1) % 3);
                 draw_nts_toggle();
+            }
+
+            if (touch.y >= PRESETS_BTN_Y && touch.y < PRESETS_BTN_Y + PRESETS_BTN_H &&
+                touch.x >= PRESETS_BTN_X && touch.x < PRESETS_BTN_X + PRESETS_BTN_W) {
+                int hl = preset_highlight();
+                list_scroll = ui_list_scroll_to_item(hl < 0 ? 0 : hl, N_PRESETS);
+                ui_list_touch_reset(&list_touch);
+                ui_state = NTP_STATE_PRESETS;
+                draw_presets_screen();
+                ui_wait_for_touch_release();  // don't carry this tap into the list
             }
         } else if (ui_state == NTP_STATE_KEYBOARD) {
             char key = get_key_at(touch.x, touch.y);
