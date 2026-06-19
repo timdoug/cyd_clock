@@ -88,6 +88,8 @@ static void ntp_task(void *arg) {
             // response from the new server - the local clock is already set.
             g.sync_count             = 0;
             g.last_sync_time         = 0;
+            // Let the first wave from the new config discipline immediately.
+            g.last_discipline_ms     = 0;
         }
         if (!open_sockets()) {
             lock_give();
