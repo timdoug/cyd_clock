@@ -21,6 +21,10 @@ static const char *TAG = "nts";
 
 #define NTS_NONCE_LEN 16
 
+static bool ef_len_ok(uint16_t eflen, size_t off, size_t pkt_len) {
+    return eflen >= 16 && (eflen & 3u) == 0 && off + eflen <= pkt_len;
+}
+
 // NTS-KE request: Next Protocol Negotiation = NTPv4(0), AEAD Negotiation =
 // AES-SIV-CMAC-256(15), End of Message. The high bit of each record type is the
 // Critical flag (RFC 8915 section 4).
@@ -252,10 +256,13 @@ bool ntp_nts_check_response(const uint8_t *pkt, size_t pkt_len,
     while (off + 4 <= pkt_len) {
         uint16_t type  = (uint16_t)((pkt[off] << 8) | pkt[off + 1]);
         uint16_t eflen = (uint16_t)((pkt[off + 2] << 8) | pkt[off + 3]);
-        if (eflen < 4 || off + eflen > pkt_len) break;
+        if (!ef_len_ok(eflen, off, pkt_len)) return false;
         if (type == EF_UNIQUE_ID) {
-            if (eflen - 4 >= NTS_UID_LEN && memcmp(pkt + off + 4, uid, NTS_UID_LEN) == 0)
-                uid_ok = true;
+            if (uid_ok || eflen != 4 + NTS_UID_LEN ||
+                memcmp(pkt + off + 4, uid, NTS_UID_LEN) != 0) {
+                return false;
+            }
+            uid_ok = true;
         } else if (type == EF_AUTHENTICATOR) {
             auth_off = off;
             have_auth = true;
@@ -273,6 +280,7 @@ bool ntp_nts_check_response(const uint8_t *pkt, size_t pkt_len,
     uint16_t ct_len    = (uint16_t)((bd[2] << 8) | bd[3]);
     size_t nonce_pad = (nonce_len + 3u) & ~3u;
     size_t ct_pad    = (ct_len + 3u) & ~3u;
+    if (nonce_len != NTS_NONCE_LEN) return false;
     if ((size_t)4 + nonce_pad + ct_pad > (size_t)(a_eflen - 4)) return false;
     if (ct_len < NTP_SIV_TAG_LEN) return false;
 
@@ -293,11 +301,15 @@ bool ntp_nts_check_response(const uint8_t *pkt, size_t pkt_len,
         return false;
     }
 
+    bool enc_fields_ok = true;
     size_t po = 0;
     while (po + 4 <= enc_len) {
         uint16_t t = (uint16_t)((plain[po] << 8) | plain[po + 1]);
         uint16_t l = (uint16_t)((plain[po + 2] << 8) | plain[po + 3]);
-        if (l < 4 || po + l > enc_len) break;
+        if (l < 16 || (l & 3u) != 0 || po + l > enc_len) {
+            enc_fields_ok = false;
+            break;
+        }
         if (t == EF_COOKIE) {
             uint16_t cl = l - 4;
             if (cl > 0 && cl <= NTS_COOKIE_MAX && ctx->cookie_count < NTS_MAX_COOKIES) {
@@ -308,8 +320,9 @@ bool ntp_nts_check_response(const uint8_t *pkt, size_t pkt_len,
         }
         po += l;
     }
+    if (po != enc_len) enc_fields_ok = false;
     mbedtls_platform_zeroize(plain, sizeof(plain));
-    return true;
+    return enc_fields_ok;
 }
 
 bool ntp_nts_response_uid_matches(const uint8_t *pkt, size_t pkt_len,
@@ -320,9 +333,9 @@ bool ntp_nts_response_uid_matches(const uint8_t *pkt, size_t pkt_len,
     while (off + 4 <= pkt_len) {
         uint16_t type  = (uint16_t)((pkt[off] << 8) | pkt[off + 1]);
         uint16_t eflen = (uint16_t)((pkt[off + 2] << 8) | pkt[off + 3]);
-        if (eflen < 4 || off + eflen > pkt_len) return false;
+        if (!ef_len_ok(eflen, off, pkt_len)) return false;
         if (type == EF_UNIQUE_ID) {
-            return eflen - 4 >= NTS_UID_LEN &&
+            return eflen == 4 + NTS_UID_LEN &&
                    memcmp(pkt + off + 4, uid, NTS_UID_LEN) == 0;
         }
         if (type == EF_AUTHENTICATOR) return false;
@@ -359,6 +372,15 @@ bool ntp_nts_selftest(void) {
     memcpy(body + 4 + sizeof(nonce), tag, sizeof(tag));
     if (!ef_append(pkt, &pkt_len, sizeof(pkt), EF_AUTHENTICATOR, body, sizeof(body))) return false;
     if (!ntp_nts_check_response(pkt, pkt_len, &ctx, uid)) return false;
+
+    uint8_t overlong_uid[sizeof(uid) + 4];
+    memcpy(overlong_uid, uid, sizeof(uid));
+    memset(overlong_uid + sizeof(uid), 0xa5, sizeof(overlong_uid) - sizeof(uid));
+    uint8_t nak[96] = {0};
+    size_t nak_len = 48;
+    if (!ef_append(nak, &nak_len, sizeof(nak), EF_UNIQUE_ID,
+                   overlong_uid, sizeof(overlong_uid))) return false;
+    if (ntp_nts_response_uid_matches(nak, nak_len, uid)) return false;
 
     uint8_t trailing[4] = {0, 0, 0, 4};
     if (pkt_len + sizeof(trailing) > sizeof(pkt)) return false;
