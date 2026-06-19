@@ -1,6 +1,8 @@
 #include "ntp_internal.h"
 #include "ntp_siv.h"
 #include "mbedtls/platform_util.h"
+#include "lwip/dns.h"
+#include "lwip/tcpip.h"
 
 #include <stdlib.h>
 
@@ -53,6 +55,25 @@ static int resolve_numeric_host(const char *host, struct sockaddr_storage *out, 
 }
 
 
+static void dns_clear_cache_cb(void *arg) {
+    SemaphoreHandle_t done = (SemaphoreHandle_t)arg;
+    dns_clear_cache();
+    xSemaphoreGive(done);
+}
+
+
+void ntp_clear_dns_cache_for_lookup(void) {
+    SemaphoreHandle_t done = xSemaphoreCreateBinary();
+    if (!done) return;
+
+    if (tcpip_callback(dns_clear_cache_cb, done) == ERR_OK) {
+        xSemaphoreTake(done, pdMS_TO_TICKS(1000));
+    }
+
+    vSemaphoreDelete(done);
+}
+
+
 static int append_getaddrinfo_results(const char *host, int family,
                                       struct sockaddr_storage *out,
                                       int count, int max) {
@@ -88,6 +109,8 @@ static int dns_resolve_all(const char *host, bool prefer_ipv6,
                            struct sockaddr_storage *out, int max) {
     int count = resolve_numeric_host(host, out, max);
     if (count > 0) return count;
+
+    ntp_clear_dns_cache_for_lookup();
 
     if (prefer_ipv6) {
         count = append_getaddrinfo_results(host, AF_INET6, out, count, max);
@@ -266,6 +289,9 @@ int resolve_peers(void) {
     str_copy(server_copy, sizeof(server_copy), g.server);
     bool prefer_ipv6_copy = g.prefer_ipv6;
     uint16_t port = use_nts ? g.nts.ntp_port : NTP_PORT;
+    ESP_LOGD(TAG, "DNS query host=%s server=%s ipv6=%s nts=%s",
+             host_copy, server_copy, prefer_ipv6_copy ? "yes" : "no",
+             use_nts ? "yes" : "no");
     lock_give();
 
     struct sockaddr_storage addrs[NTP_MAX_PEERS];
@@ -293,6 +319,9 @@ int resolve_peers(void) {
 
     for (int i = 0; i < n; i++) {
         peer_set_addr(&g.peers[i], &addrs[i], port, use_nts);
+        ESP_LOGD(TAG, "Peer install server=%s host=%s slot=%d addr=%s%s",
+                 server_copy, host_copy, i, g.peers[i].addr_str,
+                 use_nts ? " NTS" : "");
     }
     ESP_LOGI(TAG, "Resolved %s to %d peer(s)%s", host_copy, n,
              use_nts ? " (NTS)" : "");
@@ -345,6 +374,9 @@ static bool try_replace_peer(int dead_idx) {
     str_copy(server_copy, sizeof(server_copy), g.server);
     bool prefer_ipv6_copy = g.prefer_ipv6;
     uint16_t port = use_nts ? g.nts.ntp_port : NTP_PORT;
+    ESP_LOGD(TAG, "DNS refresh host=%s server=%s ipv6=%s nts=%s",
+             host_copy, server_copy, prefer_ipv6_copy ? "yes" : "no",
+             use_nts ? "yes" : "no");
     lock_give();
 
     struct sockaddr_storage fresh[NTP_MAX_PEERS];

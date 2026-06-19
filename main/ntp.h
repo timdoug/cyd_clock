@@ -58,6 +58,8 @@ void ntp_install_wifi_rx_hook(void);
 void ntp_set_server(const char *server);
 void ntp_set_prefer_ipv6(bool prefer);
 void ntp_set_nts_mode(nts_mode_t mode);
+void ntp_set_poll_paused(bool paused);
+bool ntp_nts_ke_in_flight(void);
 
 void ntp_get_sys_stats(ntp_sys_stats_t *out);
 bool ntp_get_peer_stats(int idx, ntp_peer_stats_t *out);

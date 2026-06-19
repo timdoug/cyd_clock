@@ -8,6 +8,7 @@ idf_component_register(
         "touch.c"
         "wifi.c"
         "ntp.c"
+        "ntp_benchmark.c"
         "ntp_time.c"
         "ntp_peers.c"
         "ntp_io.c"

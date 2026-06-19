@@ -16,6 +16,18 @@ uint32_t next_global_poll_cycle_id = 1;
 uint32_t last_poll_adjust_cycle_id;
 uint32_t last_evict_tick_ms = UINT32_MAX;
 
+static void clear_visible_peer_state_locked(void) {
+    for (int i = 0; i < NTP_MAX_PEERS; i++) {
+        memset(&g.peers[i], 0, sizeof(g.peers[i]));
+        g.peers[i].stratum = 16;
+    }
+    g.selected_peer = -1;
+    g.stratum = 16;
+    g.sync_count = 0;
+    g.last_sync_time = 0;
+    g.last_any_response_ms = 0;
+}
+
 static void ntp_task(void *arg) {
     (void)arg;
     g.sync_start_ms = mono_ms();
@@ -26,6 +38,37 @@ static void ntp_task(void *arg) {
         lock_take();
 
         apply_freq_correction();
+
+        if (g.poll_paused) {
+            close_sockets();
+
+            fd_set rfds;
+            FD_ZERO(&rfds);
+            int maxfd = -1;
+            if (g.wake_sock >= 0) {
+                FD_SET(g.wake_sock, &rfds);
+                maxfd = g.wake_sock;
+            }
+
+            lock_give();
+
+            if (maxfd < 0) {
+                vTaskDelay(pdMS_TO_TICKS(1000));
+                continue;
+            }
+
+            struct timeval tv = {
+                .tv_sec = 1,
+                .tv_usec = 0,
+            };
+            int sr = select(maxfd + 1, &rfds, NULL, NULL, &tv);
+            if (sr > 0) {
+                lock_take();
+                if (g.wake_sock >= 0 && FD_ISSET(g.wake_sock, &rfds)) drain_wake_sock();
+                lock_give();
+            }
+            continue;
+        }
 
         if (g.nts_rebind) {
             g.nts_rebind = false;
@@ -207,6 +250,7 @@ void ntp_init(const char *server, bool prefer_ipv6, nts_mode_t nts_mode) {
     g.stratum        = 16;
     g.dirty_config   = true;
     g.force_sync     = false;
+    g.poll_paused    = false;
     g.last_sync_time = 0;
     g.last_offset_us = 0;
     g.system_jitter_us = 0;
@@ -269,7 +313,9 @@ void ntp_stop(void) {
 void ntp_set_server(const char *server) {
     if (!g.lock || !server) return;
     lock_take();
+    ESP_LOGI(TAG, "Server change: %s -> %s", g.server, server);
     str_copy(g.server, sizeof(g.server), server);
+    clear_visible_peer_state_locked();
     g.dirty_config = true;
     g.force_sync   = true;
     lock_give();
@@ -283,6 +329,7 @@ void ntp_set_prefer_ipv6(bool prefer) {
     bool changed = (g.prefer_ipv6 != prefer);
     if (changed) {
         g.prefer_ipv6 = prefer;
+        clear_visible_peer_state_locked();
         g.dirty_config = true;
         g.force_sync   = true;
     }
@@ -297,11 +344,45 @@ void ntp_set_nts_mode(nts_mode_t mode) {
     bool changed = (g.nts_mode != mode);
     if (changed) {
         g.nts_mode     = mode;
+        clear_visible_peer_state_locked();
         g.dirty_config = true;
         g.force_sync   = true;
     }
     lock_give();
     if (changed) wake_task();
+}
+
+
+void ntp_set_poll_paused(bool paused) {
+    if (!g.lock) return;
+    lock_take();
+    bool changed = (g.poll_paused != paused);
+    if (changed) {
+        g.poll_paused = paused;
+        if (paused) {
+            ESP_LOGI(TAG, "Polling paused");
+            g.force_sync = false;
+            for (int i = 0; i < NTP_MAX_PEERS; i++) {
+                g.peers[i].request_outstanding = false;
+            }
+        } else {
+            ESP_LOGI(TAG, "Polling resumed; re-resolving %s", g.server);
+            clear_visible_peer_state_locked();
+            g.dirty_config = true;
+            g.force_sync = true;
+        }
+    }
+    lock_give();
+    if (changed) wake_task();
+}
+
+
+bool ntp_nts_ke_in_flight(void) {
+    if (!g.lock) return false;
+    lock_take();
+    bool in_flight = g.nts.ke_in_flight;
+    lock_give();
+    return in_flight;
 }
 
 

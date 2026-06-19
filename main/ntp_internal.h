@@ -236,6 +236,7 @@ typedef struct {
     bool     running;
     bool     force_sync;
     bool     dirty_config;
+    bool     poll_paused;
 } ntp_state_t;
 
 typedef struct early_ring early_ring_t;
@@ -300,6 +301,7 @@ static inline int32_t fp1616_to_us(uint32_t raw) {
 void step_clock(int64_t step_us);
 
 bool sockaddr_matches(const struct sockaddr_storage *a, const struct sockaddr_storage *b);
+void ntp_clear_dns_cache_for_lookup(void);
 int resolve_peers(void);
 void maybe_evict_worst_peer(void);
 

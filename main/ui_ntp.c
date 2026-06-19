@@ -1,11 +1,15 @@
 #include "ui_ntp.h"
+#include <limits.h>
 #include <string.h>
 #include <stdio.h>
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "config.h"
 #include "display.h"
+#include "ntp.h"
+#include "ntp_benchmark.h"
 #include "nvs_config.h"
 #include "touch.h"
 #include "ui_common.h"
@@ -93,6 +97,248 @@ static char            preset_labels[N_PRESETS][40];
 static const char     *preset_label_ptrs[N_PRESETS];
 static ui_list_touch_t list_touch;
 static int             list_scroll = 0;
+
+#define BENCH_BTN_W 88
+#define BENCH_BTN_H 20
+#define BENCH_BTN_X (DISPLAY_WIDTH - BENCH_BTN_W - 5)
+#define BENCH_BTN_Y 5
+#define BENCH_LIVE_QUIESCE_MS 2600
+#define BENCH_KE_QUIESCE_MS 9000
+#define BENCH_TASK_STACK_BYTES 24576
+
+typedef enum {
+    PRESET_BENCH_IDLE,
+    PRESET_BENCH_RUNNING,
+    PRESET_BENCH_DONE,
+    PRESET_BENCH_FAILED,
+} preset_bench_state_t;
+
+static preset_bench_state_t preset_bench_state[N_PRESETS];
+static int32_t              preset_bench_delay_us[N_PRESETS];
+static bool                 preset_bench_nts[N_PRESETS];
+static int                  preset_order[N_PRESETS];
+static SemaphoreHandle_t    preset_bench_lock;
+static volatile uint32_t    preset_bench_generation;
+static uint32_t             last_drawn_bench_generation;
+static bool                 preset_benchmarking;
+static bool                 preset_bench_cancel;
+
+static void rebuild_preset_order_locked(void);
+static void rebuild_preset_labels_locked(void);
+
+static void bench_lock(void) {
+    if (preset_bench_lock) xSemaphoreTake(preset_bench_lock, portMAX_DELAY);
+}
+
+static void bench_unlock(void) {
+    if (preset_bench_lock) xSemaphoreGive(preset_bench_lock);
+}
+
+static int preset_rank(int idx) {
+    switch (preset_bench_state[idx]) {
+    case PRESET_BENCH_DONE:    return 0;
+    case PRESET_BENCH_RUNNING: return 1;
+    case PRESET_BENCH_FAILED:  return 2;
+    default:                   return 3;
+    }
+}
+
+static bool preset_less(int a, int b) {
+    int ra = preset_rank(a);
+    int rb = preset_rank(b);
+    if (ra != rb) return ra < rb;
+    if (preset_bench_state[a] == PRESET_BENCH_DONE &&
+        preset_bench_delay_us[a] != preset_bench_delay_us[b]) {
+        return preset_bench_delay_us[a] < preset_bench_delay_us[b];
+    }
+    return a < b;
+}
+
+static void rebuild_preset_order_locked(void) {
+    for (int i = 0; i < N_PRESETS; i++) preset_order[i] = i;
+
+    for (int i = 1; i < N_PRESETS; i++) {
+        int v = preset_order[i];
+        int j = i - 1;
+        while (j >= 0 && preset_less(v, preset_order[j])) {
+            preset_order[j + 1] = preset_order[j];
+            j--;
+        }
+        preset_order[j + 1] = v;
+    }
+}
+
+static void format_delay_prefix(int32_t delay_us, char *buf, size_t len) {
+    int32_t ms = (delay_us + 500) / 1000;
+    if (ms < 1000) {
+        snprintf(buf, len, "%ldms", (long)ms);
+    } else {
+        snprintf(buf, len, "%ld.%01lds", (long)(ms / 1000), (long)((ms % 1000) / 100));
+    }
+}
+
+static void rebuild_preset_labels_locked(void) {
+    for (int row = 0; row < N_PRESETS; row++) {
+        int idx = preset_order[row];
+        char prefix[20] = "";
+        if (preset_bench_state[idx] == PRESET_BENCH_RUNNING) {
+            str_copy(prefix, sizeof(prefix), "... ");
+        } else if (preset_bench_state[idx] == PRESET_BENCH_DONE) {
+            char d[16];
+            format_delay_prefix(preset_bench_delay_us[idx], d, sizeof(d));
+            snprintf(prefix, sizeof(prefix), "%s ", d);
+        } else if (preset_bench_state[idx] == PRESET_BENCH_FAILED) {
+            str_copy(prefix, sizeof(prefix), "fail ");
+        }
+
+        bool show_nts = preset_bench_state[idx] == PRESET_BENCH_DONE
+            ? preset_bench_nts[idx]
+            : presets[idx].nts;
+        snprintf(preset_labels[row], sizeof(preset_labels[row]), "%s%s%s",
+                 prefix, presets[idx].host, show_nts ? " [NTS]" : "");
+        preset_labels[row][38] = '\0';
+        preset_label_ptrs[row] = preset_labels[row];
+    }
+}
+
+static int preset_index_for_row(int row) {
+    if (row < 0 || row >= N_PRESETS) return -1;
+    bench_lock();
+    int idx = preset_order[row];
+    bench_unlock();
+    return idx;
+}
+
+static bool request_benchmark_cancel_locked(void) {
+    if (!preset_benchmarking) return false;
+    preset_bench_cancel = true;
+    preset_bench_generation++;
+    return true;
+}
+
+static void benchmark_mark_dirty_locked(void) {
+    rebuild_preset_order_locked();
+    rebuild_preset_labels_locked();
+    preset_bench_generation++;
+}
+
+static void benchmark_task(void *arg) {
+    (void)arg;
+    bool prefer_ipv6 = ui_prefer_ipv6;
+    nts_mode_t nts_mode = ui_nts_mode;
+
+    uint32_t waited_ms = 0;
+    while (ntp_nts_ke_in_flight() && waited_ms < BENCH_KE_QUIESCE_MS) {
+        vTaskDelay(pdMS_TO_TICKS(100));
+        waited_ms += 100;
+    }
+    if (waited_ms > 0) {
+        ESP_LOGI(TAG, "Benchmark waited %lu ms for live NTS-KE",
+                 (unsigned long)waited_ms);
+    }
+    vTaskDelay(pdMS_TO_TICKS(BENCH_LIVE_QUIESCE_MS));
+
+    for (int i = 0; i < N_PRESETS; i++) {
+        bench_lock();
+        bool cancel = preset_bench_cancel;
+        bench_unlock();
+        if (cancel) break;
+
+        bench_lock();
+        preset_bench_state[i] = PRESET_BENCH_RUNNING;
+        benchmark_mark_dirty_locked();
+        bench_unlock();
+
+        ntp_benchmark_result_t result;
+        ntp_benchmark_status_t status =
+            ntp_benchmark_server(presets[i].host, prefer_ipv6, nts_mode, &result);
+
+        bench_lock();
+        if (status == NTP_BENCHMARK_OK) {
+            preset_bench_state[i] = PRESET_BENCH_DONE;
+            preset_bench_delay_us[i] = result.delay_us;
+            preset_bench_nts[i] = result.nts;
+        } else {
+            preset_bench_state[i] = PRESET_BENCH_FAILED;
+            preset_bench_delay_us[i] = INT32_MAX;
+            preset_bench_nts[i] = false;
+        }
+        benchmark_mark_dirty_locked();
+        cancel = preset_bench_cancel;
+        bench_unlock();
+
+        if (cancel) break;
+    }
+
+    UBaseType_t stack_hwm = uxTaskGetStackHighWaterMark(NULL);
+    ntp_set_poll_paused(false);
+    ESP_LOGI(TAG, "Benchmark stopped (stack high water %lu)",
+             (unsigned long)stack_hwm);
+
+    bench_lock();
+    preset_benchmarking = false;
+    preset_bench_cancel = false;
+    preset_bench_generation++;
+    bench_unlock();
+    vTaskDelete(NULL);
+}
+
+static void draw_benchmark_button(void) {
+    bench_lock();
+    bool running = preset_benchmarking;
+    bool stopping = preset_benchmarking && preset_bench_cancel;
+    bench_unlock();
+
+    uint16_t bg = stopping ? COLOR_ORANGE : (running ? COLOR_CYAN : UI_COLOR_ITEM_BG);
+    uint16_t fg = running ? COLOR_BLACK : COLOR_WHITE;
+    display_fill_rect(BENCH_BTN_X, BENCH_BTN_Y, BENCH_BTN_W, BENCH_BTN_H, bg);
+    const char *label = stopping ? "Stopping" : (running ? "Running" : "Benchmark");
+    int x = BENCH_BTN_X + (BENCH_BTN_W - (int)strlen(label) * FONT_CHAR_WIDTH) / 2;
+    display_string(x, UI_HEADER_TEXT_Y, label, fg, bg);
+}
+
+static bool benchmark_button_hit(const touch_point_t *touch) {
+    return touch->x >= BENCH_BTN_X && touch->x < BENCH_BTN_X + BENCH_BTN_W &&
+           touch->y >= BENCH_BTN_Y && touch->y < BENCH_BTN_Y + BENCH_BTN_H;
+}
+
+static void start_benchmark(void) {
+    bench_lock();
+    if (preset_benchmarking) {
+        bool cancel_requested = request_benchmark_cancel_locked();
+        bench_unlock();
+        if (cancel_requested) ESP_LOGI(TAG, "Benchmark cancel requested");
+        return;
+    }
+    for (int i = 0; i < N_PRESETS; i++) {
+        preset_bench_state[i] = PRESET_BENCH_IDLE;
+        preset_bench_delay_us[i] = INT32_MAX;
+        preset_bench_nts[i] = false;
+    }
+    preset_benchmarking = true;
+    preset_bench_cancel = false;
+    benchmark_mark_dirty_locked();
+    bench_unlock();
+
+    ntp_set_poll_paused(true);
+    if (xTaskCreatePinnedToCore(benchmark_task, "ntp_bench",
+                                BENCH_TASK_STACK_BYTES, NULL, 3, NULL, 0) != pdPASS) {
+        ntp_set_poll_paused(false);
+        bench_lock();
+        preset_benchmarking = false;
+        preset_bench_cancel = false;
+        preset_bench_generation++;
+        bench_unlock();
+        ESP_LOGW(TAG, "Failed to start NTP benchmark task");
+    }
+}
+
+static void cancel_benchmark(void) {
+    bench_lock();
+    bool cancel_requested = request_benchmark_cancel_locked();
+    bench_unlock();
+    if (cancel_requested) ESP_LOGI(TAG, "Benchmark cancel requested");
+}
 
 static void draw_keyboard(void) {
     display_fill_rect(0, KEYBOARD_Y, DISPLAY_WIDTH, DISPLAY_HEIGHT - KEYBOARD_Y, COLOR_BLACK);
@@ -202,19 +448,31 @@ static void draw_keyboard_screen(void) {
 }
 
 static int preset_highlight(void) {
-    for (int i = 0; i < N_PRESETS; i++) {
-        if (strcmp(custom_server, presets[i].host) == 0) return i;
+    bench_lock();
+    for (int row = 0; row < N_PRESETS; row++) {
+        int idx = preset_order[row];
+        if (strcmp(custom_server, presets[idx].host) == 0) {
+            bench_unlock();
+            return row;
+        }
     }
+    bench_unlock();
     return -1;
 }
 
 static void draw_presets_list(void) {
-    ui_draw_list(preset_label_ptrs, N_PRESETS, list_scroll, preset_highlight());
+    int highlight = preset_highlight();
+    bench_lock();
+    uint32_t generation = preset_bench_generation;
+    ui_draw_list(preset_label_ptrs, N_PRESETS, list_scroll, highlight);
+    bench_unlock();
+    last_drawn_bench_generation = generation;
 }
 
 static void draw_presets_screen(void) {
     display_fill(COLOR_BLACK);
     ui_draw_header("NTP Presets", true);
+    draw_benchmark_button();
     draw_presets_list();
 }
 
@@ -228,11 +486,18 @@ void ui_ntp_init(void) {
     ui_prefer_ipv6 = wifi_get_ntp_prefer_ipv6();
     ui_nts_mode = wifi_get_nts_mode();
 
+    if (!preset_bench_lock) preset_bench_lock = xSemaphoreCreateMutex();
+    bench_lock();
     for (int i = 0; i < N_PRESETS; i++) {
-        snprintf(preset_labels[i], sizeof(preset_labels[i]), "%s%s",
-                 presets[i].host, presets[i].nts ? " [NTS]" : "");
-        preset_label_ptrs[i] = preset_labels[i];
+        preset_order[i] = i;
+        if (preset_bench_state[i] != PRESET_BENCH_DONE) {
+            preset_bench_delay_us[i] = INT32_MAX;
+        }
     }
+    rebuild_preset_order_locked();
+    rebuild_preset_labels_locked();
+    last_drawn_bench_generation = preset_bench_generation;
+    bench_unlock();
 
     draw_main_screen();
 }
@@ -240,6 +505,8 @@ void ui_ntp_init(void) {
 // Apply (and persist) only the settings that changed - applying one is what
 // triggers the engine resync, so unchanged settings leave the clock alone.
 static void apply_pending_settings(void) {
+    cancel_benchmark();
+
     if (custom_server_len > 0 &&
         strcmp(custom_server, wifi_get_custom_ntp_server()) != 0) {
         wifi_set_custom_ntp_server(custom_server);
@@ -265,6 +532,11 @@ ntp_result_t ui_ntp_update(void) {
     }
 
     if (ui_state == NTP_STATE_PRESETS) {
+        if (last_drawn_bench_generation != preset_bench_generation) {
+            draw_benchmark_button();
+            draw_presets_list();
+        }
+
         ui_list_touch_result_t r =
             ui_list_touch_update(&list_touch, &touch, pressed, N_PRESETS, &list_scroll);
         if (r == UI_LIST_TOUCH_SCROLLED) {
@@ -272,13 +544,20 @@ ntp_result_t ui_ntp_update(void) {
         } else if (r == UI_LIST_TOUCH_TAPPED) {
             const touch_point_t *t = &list_touch.tap_start;
             if (ui_back_button_hit(t)) {
+                cancel_benchmark();
                 ui_state = NTP_STATE_MAIN;
                 draw_main_screen();
+            } else if (benchmark_button_hit(t)) {
+                start_benchmark();
+                draw_benchmark_button();
+                draw_presets_list();
             } else if (t->y >= UI_LIST_START_Y &&
                        t->y < UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H) {
                 int item = (t->y - UI_LIST_START_Y) / UI_LIST_ITEM_H + list_scroll;
                 if (item < N_PRESETS) {
-                    str_copy(custom_server, sizeof(custom_server), presets[item].host);
+                    int preset_idx = preset_index_for_row(item);
+                    if (preset_idx < 0) return NTP_RESULT_NONE;
+                    str_copy(custom_server, sizeof(custom_server), presets[preset_idx].host);
                     custom_server_len = strlen(custom_server);
                     ui_state = NTP_STATE_MAIN;
                     draw_main_screen();
