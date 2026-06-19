@@ -20,8 +20,13 @@
 static const char *TAG = "ui_ntp";
 
 #define SERVER_LABEL_Y  40
+#define SERVER_BOX_X    10
 #define SERVER_BOX_Y    (SERVER_LABEL_Y + 20)
+#define SERVER_BOX_W    (DISPLAY_WIDTH - 20)
 #define SERVER_BOX_H    28
+#define SERVER_TEXT_X   (SERVER_BOX_X + 5)
+#define SERVER_TEXT_Y   (SERVER_BOX_Y + 7)
+#define SERVER_TEXT_CHARS 35
 #define ROW_GAP         8
 #define SECTION_GAP     18   // extra gap before the toggle row
 // Presets button, below the hostname box.
@@ -39,6 +44,11 @@ static const char *TAG = "ui_ntp";
 #define NTS_TOGGLE_Y    IPV6_TOGGLE_Y
 #define NTS_TOGGLE_W    IPV6_TOGGLE_W
 #define NTS_TOGGLE_H    IPV6_TOGGLE_H
+#define EDIT_DONE_BTN_X (DISPLAY_WIDTH - UI_BACK_BTN_X - UI_BACK_BTN_W)
+#define EDIT_DEL_BTN_W  50
+#define EDIT_DEL_BTN_H  20
+#define EDIT_DEL_BTN_X  (DISPLAY_WIDTH - UI_BACK_BTN_X - EDIT_DEL_BTN_W)
+#define EDIT_DEL_BTN_Y  (KEYBOARD_Y - EDIT_DEL_BTN_H - KB_KEY_SPACING)
 
 static const char *keyboard_rows[] = {
     "1234567890",
@@ -341,40 +351,49 @@ static void cancel_benchmark(void) {
 }
 
 static void draw_keyboard(void) {
-    display_fill_rect(0, KEYBOARD_Y, DISPLAY_WIDTH, DISPLAY_HEIGHT - KEYBOARD_Y, COLOR_BLACK);
+    display_fill_rect(0, EDIT_DEL_BTN_Y, DISPLAY_WIDTH, DISPLAY_HEIGHT - EDIT_DEL_BTN_Y, COLOR_BLACK);
+
+    display_fill_rect(EDIT_DEL_BTN_X, EDIT_DEL_BTN_Y, EDIT_DEL_BTN_W, EDIT_DEL_BTN_H, COLOR_GRAY);
+    display_string(EDIT_DEL_BTN_X + 13, EDIT_DEL_BTN_Y + 3, "Del", COLOR_WHITE, COLOR_GRAY);
 
     ui_keyboard_draw_keys(keyboard_rows, 4, KEYBOARD_Y, COLOR_DARKGRAY, COLOR_WHITE, COLOR_GRAY);
-
-    int y = ui_keyboard_bottom_y(4, KEYBOARD_Y);
-    int btn_h = KB_KEY_HEIGHT - 2;
-
-    display_fill_rect(10, y, 80, btn_h, COLOR_RED);
-    display_string(26, y + 3, "Cancel", COLOR_WHITE, COLOR_RED);
-
-    display_fill_rect(120, y, 80, btn_h, COLOR_GRAY);
-    display_string(144, y + 3, "Del", COLOR_WHITE, COLOR_GRAY);
-
-    display_fill_rect(230, y, 80, btn_h, COLOR_GREEN);
-    display_string(254, y + 3, "Done", COLOR_BLACK, COLOR_GREEN);
 }
 
-static void draw_server_input(void) {
-    display_fill_rect(0, 35, DISPLAY_WIDTH, 30, COLOR_BLACK);
-    display_string(10, 38, "Server:", COLOR_GRAY, COLOR_BLACK);
+static void draw_edit_header(void) {
+    ui_draw_header("NTP Server", false);
 
-    display_fill_rect(10, 55, DISPLAY_WIDTH - 20, 20, COLOR_DARKGRAY);
+    display_fill_rect(UI_BACK_BTN_X, 5, UI_BACK_BTN_W, 20, UI_COLOR_ITEM_BG);
+    display_string(UI_BACK_BTN_X + 1, UI_HEADER_TEXT_Y, "Cancel", COLOR_WHITE, UI_COLOR_ITEM_BG);
 
+    display_fill_rect(EDIT_DONE_BTN_X, 5, UI_BACK_BTN_W, 20, COLOR_GREEN);
+    display_string(EDIT_DONE_BTN_X + 9, UI_HEADER_TEXT_Y, "Done", COLOR_BLACK, COLOR_GREEN);
+}
+
+static void draw_server_field(bool show_cursor, bool show_chevron) {
+    display_fill_rect(0, SERVER_LABEL_Y, DISPLAY_WIDTH, SERVER_BOX_Y + SERVER_BOX_H - SERVER_LABEL_Y, COLOR_BLACK);
+    display_string(10, SERVER_LABEL_Y, "Server:", COLOR_GRAY, COLOR_BLACK);
+
+    display_fill_rect(SERVER_BOX_X, SERVER_BOX_Y, SERVER_BOX_W, SERVER_BOX_H, COLOR_DARKGRAY);
+
+    int max_chars = show_chevron ? SERVER_TEXT_CHARS - 2 : SERVER_TEXT_CHARS;
     if (custom_server_len > 0) {
         const char *display_str = custom_server;
-        if (custom_server_len > 35) {
-            display_str = custom_server + custom_server_len - 35;
+        if (custom_server_len > max_chars) {
+            display_str = custom_server + custom_server_len - max_chars;
         }
-        display_string(15, 59, display_str, COLOR_WHITE, COLOR_DARKGRAY);
+        display_string(SERVER_TEXT_X, SERVER_TEXT_Y, display_str, COLOR_WHITE, COLOR_DARKGRAY);
     }
 
-    int cursor_x = 15 + (custom_server_len > 35 ? 35 : custom_server_len) * FONT_CHAR_WIDTH;
-    if (cursor_x < DISPLAY_WIDTH - 20) {
-        display_string(cursor_x, 59, "_", COLOR_CYAN, COLOR_DARKGRAY);
+    if (show_cursor) {
+        int visible_chars = custom_server_len > max_chars ? max_chars : custom_server_len;
+        int cursor_x = SERVER_TEXT_X + visible_chars * FONT_CHAR_WIDTH;
+        if (cursor_x < SERVER_BOX_X + SERVER_BOX_W - 10) {
+            display_string(cursor_x, SERVER_TEXT_Y, "_", COLOR_CYAN, COLOR_DARKGRAY);
+        }
+    }
+
+    if (show_chevron) {
+        display_string(DISPLAY_WIDTH - 30, SERVER_TEXT_Y, ">", COLOR_WHITE, COLOR_DARKGRAY);
     }
 }
 
@@ -404,15 +423,18 @@ static void draw_nts_toggle(void) {
 }
 
 static char get_key_at(int16_t x, int16_t y) {
+    if (y < UI_HEADER_HEIGHT) {
+        if (x < UI_BACK_BTN_X + UI_BACK_BTN_W) return VKEY_ESCAPE;
+        if (x >= EDIT_DONE_BTN_X) return VKEY_ENTER;
+    }
+
+    if (x >= EDIT_DEL_BTN_X && x < EDIT_DEL_BTN_X + EDIT_DEL_BTN_W &&
+        y >= EDIT_DEL_BTN_Y && y < EDIT_DEL_BTN_Y + EDIT_DEL_BTN_H) {
+        return VKEY_BACKSPACE;
+    }
+
     char key = ui_keyboard_get_key(keyboard_rows, 4, KEYBOARD_Y, x, y);
     if (key) return key;
-
-    int btn_y = ui_keyboard_bottom_y(4, KEYBOARD_Y);
-    if (y >= btn_y && y < btn_y + KB_KEY_HEIGHT) {
-        if (x >= 10 && x < 90) return VKEY_ESCAPE;
-        if (x >= 120 && x < 200) return VKEY_BACKSPACE;
-        if (x >= 230 && x < 310) return VKEY_ENTER;
-    }
 
     return 0;
 }
@@ -422,13 +444,7 @@ static void draw_main_screen(void) {
 
     ui_draw_header("NTP Settings", true);
 
-    display_string(10, SERVER_LABEL_Y, "Server:", COLOR_GRAY, COLOR_BLACK);
-
-    display_fill_rect(10, SERVER_BOX_Y, DISPLAY_WIDTH - 20, SERVER_BOX_H, COLOR_DARKGRAY);
-    char display_server[38];
-    str_copy(display_server, sizeof(display_server), custom_server);
-    display_string(15, SERVER_BOX_Y + 7, display_server, COLOR_WHITE, COLOR_DARKGRAY);
-    display_string(DISPLAY_WIDTH - 30, SERVER_BOX_Y + 7, ">", COLOR_WHITE, COLOR_DARKGRAY);
+    draw_server_field(false, true);
 
     display_fill_rect(PRESETS_BTN_X, PRESETS_BTN_Y, PRESETS_BTN_W, PRESETS_BTN_H, UI_COLOR_ITEM_BG);
     int px = PRESETS_BTN_X + (PRESETS_BTN_W - 7 * FONT_CHAR_WIDTH) / 2;  // "Presets"
@@ -441,9 +457,9 @@ static void draw_main_screen(void) {
 static void draw_keyboard_screen(void) {
     display_fill(COLOR_BLACK);
 
-    ui_draw_header("NTP Server", false);
+    draw_edit_header();
 
-    draw_server_input();
+    draw_server_field(true, false);
     draw_keyboard();
 }
 
@@ -622,12 +638,12 @@ ntp_result_t ui_ntp_update(void) {
                 if (custom_server_len > 0) {
                     custom_server_len--;
                     custom_server[custom_server_len] = '\0';
-                    draw_server_input();
+                    draw_server_field(true, false);
                 }
             } else if (key >= ' ' && key <= '~' && custom_server_len < (int)(sizeof(custom_server) - 1)) {
                 custom_server[custom_server_len++] = key;
                 custom_server[custom_server_len] = '\0';
-                draw_server_input();
+                draw_server_field(true, false);
             }
         }
     }
