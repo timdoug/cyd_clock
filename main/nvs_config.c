@@ -269,6 +269,28 @@ void nvs_config_set_rotation(bool rotated) {
     }
 }
 
+bool nvs_config_get_language(uint8_t *lang) {
+    nvs_handle_t handle;
+    if (!nvs_open_read(&handle)) {
+        return false;
+    }
+
+    esp_err_t err = nvs_get_u8(handle, "language", lang);
+    nvs_close(handle);
+    return err == ESP_OK;
+}
+
+void nvs_config_set_language(uint8_t lang) {
+    nvs_handle_t handle;
+    if (!nvs_open_write(&handle)) return;
+
+    if (nvs_set_ok(nvs_set_u8(handle, "language", lang), "language")) {
+        nvs_commit_and_close(handle);
+    } else {
+        nvs_close(handle);
+    }
+}
+
 bool nvs_config_get_led_brightness(uint8_t *brightness) {
     nvs_handle_t handle;
     if (!nvs_open_read(&handle)) {

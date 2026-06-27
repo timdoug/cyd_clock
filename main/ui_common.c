@@ -2,6 +2,7 @@
 #include "esp_task_wdt.h"
 #include <stdio.h>
 #include <string.h>
+#include "i18n.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "config.h"
@@ -57,8 +58,10 @@ void ui_draw_header(const char *title, bool show_back) {
     display_string(x, UI_HEADER_TEXT_Y, title, COLOR_WHITE, UI_COLOR_HEADER);
 
     if (show_back) {
+        const char *back = tr(STR_BACK);
+        int bx = UI_BACK_BTN_X + (UI_BACK_BTN_W - (int)strlen(back) * FONT_CHAR_WIDTH) / 2;
         display_fill_rect(UI_BACK_BTN_X, 5, UI_BACK_BTN_W, 20, UI_COLOR_ITEM_BG);
-        display_string(UI_BACK_BTN_X + 10, UI_HEADER_TEXT_Y, "Back", COLOR_WHITE, UI_COLOR_ITEM_BG);
+        display_string(bx, UI_HEADER_TEXT_Y, back, COLOR_WHITE, UI_COLOR_ITEM_BG);
     }
 }
 

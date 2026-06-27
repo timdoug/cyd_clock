@@ -12,6 +12,7 @@
 #include "ntp_benchmark.h"
 #include "nvs_config.h"
 #include "touch.h"
+#include "i18n.h"
 #include "ui_common.h"
 #include "ui_keyboard.h"
 #include "util.h"
@@ -198,7 +199,7 @@ static void rebuild_preset_labels_locked(void) {
             format_delay_prefix(preset_bench_delay_us[idx], d, sizeof(d));
             snprintf(prefix, sizeof(prefix), "%s ", d);
         } else if (preset_bench_state[idx] == PRESET_BENCH_FAILED) {
-            str_copy(prefix, sizeof(prefix), "fail ");
+            snprintf(prefix, sizeof(prefix), "%s ", tr(STR_FAIL));
         }
 
         bool show_nts = preset_bench_state[idx] == PRESET_BENCH_DONE
@@ -302,7 +303,7 @@ static void draw_benchmark_button(void) {
     uint16_t bg = stopping ? COLOR_ORANGE : (running ? COLOR_CYAN : UI_COLOR_ITEM_BG);
     uint16_t fg = running ? COLOR_BLACK : COLOR_WHITE;
     display_fill_rect(BENCH_BTN_X, BENCH_BTN_Y, BENCH_BTN_W, BENCH_BTN_H, bg);
-    const char *label = stopping ? "Stopping" : (running ? "Running" : "Benchmark");
+    const char *label = stopping ? tr(STR_STOPPING) : (running ? tr(STR_RUNNING) : tr(STR_BENCHMARK));
     int x = BENCH_BTN_X + (BENCH_BTN_W - (int)strlen(label) * FONT_CHAR_WIDTH) / 2;
     display_string(x, UI_HEADER_TEXT_Y, label, fg, bg);
 }
@@ -354,24 +355,30 @@ static void draw_keyboard(void) {
     display_fill_rect(0, EDIT_DEL_BTN_Y, DISPLAY_WIDTH, DISPLAY_HEIGHT - EDIT_DEL_BTN_Y, COLOR_BLACK);
 
     display_fill_rect(EDIT_DEL_BTN_X, EDIT_DEL_BTN_Y, EDIT_DEL_BTN_W, EDIT_DEL_BTN_H, COLOR_GRAY);
-    display_string(EDIT_DEL_BTN_X + 13, EDIT_DEL_BTN_Y + 3, "Del", COLOR_WHITE, COLOR_GRAY);
+    const char *del = tr(STR_DEL);
+    int del_x = EDIT_DEL_BTN_X + (EDIT_DEL_BTN_W - (int)strlen(del) * FONT_CHAR_WIDTH) / 2;
+    display_string(del_x, EDIT_DEL_BTN_Y + 3, del, COLOR_WHITE, COLOR_GRAY);
 
     ui_keyboard_draw_keys(keyboard_rows, 4, KEYBOARD_Y, COLOR_DARKGRAY, COLOR_WHITE, COLOR_GRAY);
 }
 
 static void draw_edit_header(void) {
-    ui_draw_header("NTP Server", false);
+    ui_draw_header(tr(STR_NTP_SERVER), false);
 
+    const char *cancel = tr(STR_CANCEL);
+    int cancel_x = UI_BACK_BTN_X + (UI_BACK_BTN_W - (int)strlen(cancel) * FONT_CHAR_WIDTH) / 2;
     display_fill_rect(UI_BACK_BTN_X, 5, UI_BACK_BTN_W, 20, UI_COLOR_ITEM_BG);
-    display_string(UI_BACK_BTN_X + 1, UI_HEADER_TEXT_Y, "Cancel", COLOR_WHITE, UI_COLOR_ITEM_BG);
+    display_string(cancel_x, UI_HEADER_TEXT_Y, cancel, COLOR_WHITE, UI_COLOR_ITEM_BG);
 
+    const char *done = tr(STR_DONE);
+    int done_x = EDIT_DONE_BTN_X + (UI_BACK_BTN_W - (int)strlen(done) * FONT_CHAR_WIDTH) / 2;
     display_fill_rect(EDIT_DONE_BTN_X, 5, UI_BACK_BTN_W, 20, COLOR_GREEN);
-    display_string(EDIT_DONE_BTN_X + 9, UI_HEADER_TEXT_Y, "Done", COLOR_BLACK, COLOR_GREEN);
+    display_string(done_x, UI_HEADER_TEXT_Y, done, COLOR_BLACK, COLOR_GREEN);
 }
 
 static void draw_server_field(bool show_cursor, bool show_chevron) {
     display_fill_rect(0, SERVER_LABEL_Y, DISPLAY_WIDTH, SERVER_BOX_Y + SERVER_BOX_H - SERVER_LABEL_Y, COLOR_BLACK);
-    display_string(10, SERVER_LABEL_Y, "Server:", COLOR_GRAY, COLOR_BLACK);
+    display_string(10, SERVER_LABEL_Y, tr(STR_SERVER_LABEL), COLOR_GRAY, COLOR_BLACK);
 
     display_fill_rect(SERVER_BOX_X, SERVER_BOX_Y, SERVER_BOX_W, SERVER_BOX_H, COLOR_DARKGRAY);
 
@@ -401,7 +408,8 @@ static void draw_ipv6_toggle(void) {
     bool ipv6 = ui_prefer_ipv6;
     uint16_t ipv6_bg = ipv6 ? COLOR_CYAN : COLOR_DARKGRAY;
     uint16_t ipv6_fg = ipv6 ? COLOR_BLACK : COLOR_WHITE;
-    const char *ipv6_label = ipv6 ? "IPv6: On" : "IPv6: Off";
+    char ipv6_label[16];
+    snprintf(ipv6_label, sizeof(ipv6_label), "IPv6: %s", ipv6 ? tr(STR_ON) : tr(STR_OFF));
     display_fill_rect(IPV6_TOGGLE_X, IPV6_TOGGLE_Y, IPV6_TOGGLE_W, IPV6_TOGGLE_H, ipv6_bg);
     int label_x = IPV6_TOGGLE_X +
         (IPV6_TOGGLE_W - (int)strlen(ipv6_label) * FONT_CHAR_WIDTH) / 2;
@@ -410,11 +418,18 @@ static void draw_ipv6_toggle(void) {
 
 static void draw_nts_toggle(void) {
     const char *label;
+    char label_buf[24];
     uint16_t bg, fg;
     switch (ui_nts_mode) {
-    case NTS_MODE_REQUIRE:       label = "NTS: Req"; bg = COLOR_GREEN;    fg = COLOR_BLACK; break;
-    case NTS_MODE_OPPORTUNISTIC: label = "NTS: On";  bg = COLOR_CYAN;     fg = COLOR_BLACK; break;
-    default:                     label = "NTS: Off"; bg = COLOR_DARKGRAY; fg = COLOR_WHITE; break;
+    case NTS_MODE_REQUIRE:
+        snprintf(label_buf, sizeof(label_buf), "NTS: %s", tr(STR_NTS_REQUIRE));
+        label = label_buf; bg = COLOR_GREEN; fg = COLOR_BLACK; break;
+    case NTS_MODE_OPPORTUNISTIC:
+        snprintf(label_buf, sizeof(label_buf), "NTS: %s", tr(STR_NTS_ATTEMPT));
+        label = label_buf; bg = COLOR_CYAN; fg = COLOR_BLACK; break;
+    default:
+        snprintf(label_buf, sizeof(label_buf), "NTS: %s", tr(STR_NTS_NO));
+        label = label_buf; bg = COLOR_DARKGRAY; fg = COLOR_WHITE; break;
     }
     display_fill_rect(NTS_TOGGLE_X, NTS_TOGGLE_Y, NTS_TOGGLE_W, NTS_TOGGLE_H, bg);
     int label_x = NTS_TOGGLE_X +
@@ -442,13 +457,14 @@ static char get_key_at(int16_t x, int16_t y) {
 static void draw_main_screen(void) {
     display_fill(COLOR_BLACK);
 
-    ui_draw_header("NTP Settings", true);
+    ui_draw_header(tr(STR_NTP_SETTINGS), true);
 
     draw_server_field(false, true);
 
+    const char *presets = tr(STR_PRESETS);
     display_fill_rect(PRESETS_BTN_X, PRESETS_BTN_Y, PRESETS_BTN_W, PRESETS_BTN_H, UI_COLOR_ITEM_BG);
-    int px = PRESETS_BTN_X + (PRESETS_BTN_W - 7 * FONT_CHAR_WIDTH) / 2;  // "Presets"
-    display_string(px, PRESETS_BTN_Y + 7, "Presets", COLOR_WHITE, UI_COLOR_ITEM_BG);
+    int px = PRESETS_BTN_X + (PRESETS_BTN_W - (int)strlen(presets) * FONT_CHAR_WIDTH) / 2;
+    display_string(px, PRESETS_BTN_Y + 7, presets, COLOR_WHITE, UI_COLOR_ITEM_BG);
 
     draw_ipv6_toggle();
     draw_nts_toggle();
@@ -487,7 +503,7 @@ static void draw_presets_list(void) {
 
 static void draw_presets_screen(void) {
     display_fill(COLOR_BLACK);
-    ui_draw_header("NTP Presets", true);
+    ui_draw_header(tr(STR_NTP_PRESETS), true);
     draw_benchmark_button();
     draw_presets_list();
 }
@@ -602,7 +618,7 @@ ntp_result_t ui_ntp_update(void) {
                 draw_ipv6_toggle();
             }
 
-            // Cycle NTS mode: Off -> On (opportunistic) -> Req (required) -> Off.
+            // Cycle NTS mode: No -> Attempt (opportunistic) -> Require -> No.
             if (touch.y >= NTS_TOGGLE_Y && touch.y < NTS_TOGGLE_Y + NTS_TOGGLE_H &&
                 touch.x >= NTS_TOGGLE_X && touch.x < NTS_TOGGLE_X + NTS_TOGGLE_W) {
                 ui_nts_mode = (nts_mode_t)((ui_nts_mode + 1) % 3);

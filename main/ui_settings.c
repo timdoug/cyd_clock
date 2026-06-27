@@ -9,6 +9,7 @@
 #include "led.h"
 #include "nvs_config.h"
 #include "touch.h"
+#include "i18n.h"
 #include "ui_common.h"
 
 static const char *TAG = "ui_settings";
@@ -23,7 +24,8 @@ static const char *TAG = "ui_settings";
 #define BRIGHTNESS_ROW_Y    (NTP_ROW_Y + UI_ITEM_HEIGHT)
 #define LED_ROW_Y           (BRIGHTNESS_ROW_Y + UI_ITEM_HEIGHT)
 #define ROTATION_ROW_Y      (LED_ROW_Y + UI_ITEM_HEIGHT)
-#define ABOUT_ROW_Y         (ROTATION_ROW_Y + UI_ITEM_HEIGHT)
+#define LANGUAGE_ROW_Y      (ROTATION_ROW_Y + UI_ITEM_HEIGHT)
+#define ABOUT_ROW_Y         (LANGUAGE_ROW_Y + UI_ITEM_HEIGHT)
 
 
 static uint8_t brightness = BRIGHTNESS_DEFAULT;
@@ -58,27 +60,32 @@ static bool handle_slider_touch(int touch_x, uint8_t *value, uint8_t min_val) {
 }
 
 static void draw_menu(void) {
-    ui_draw_menu_item(TZ_ROW_Y, "Time zone");
+    ui_draw_menu_item(TZ_ROW_Y, tr(STR_TIMEZONE));
     ui_draw_menu_item(WIFI_ROW_Y, "WiFi");
     ui_draw_menu_item(NTP_ROW_Y, "NTP");
-    ui_draw_slider(BRIGHTNESS_ROW_Y, "Brightness", brightness, BRIGHTNESS_MAX, UI_COLOR_SELECTED);
-    ui_draw_slider(LED_ROW_Y, "LED Blink", led_brightness, BRIGHTNESS_MAX, COLOR_RED);
+    ui_draw_slider(BRIGHTNESS_ROW_Y, tr(STR_BRIGHTNESS), brightness, BRIGHTNESS_MAX, UI_COLOR_SELECTED);
+    ui_draw_slider(LED_ROW_Y, tr(STR_LED_BLINK), led_brightness, BRIGHTNESS_MAX, COLOR_RED);
 
+    char rotate_label[24];
+    snprintf(rotate_label, sizeof(rotate_label), "%s\x7F", tr(STR_ROTATE));
     display_fill_rect(0, ROTATION_ROW_Y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, UI_COLOR_ITEM_BG);
-    display_string(10, ROTATION_ROW_Y + UI_TEXT_Y_OFFSET, "Rotate 180\x7F", UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
+    display_string(10, ROTATION_ROW_Y + UI_TEXT_Y_OFFSET, rotate_label, UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
     uint16_t rot_bg = rotation ? COLOR_GREEN : COLOR_GRAY;
     display_fill_rect(ROTATION_TOGGLE_X, ROTATION_ROW_Y + 3, ROTATION_TOGGLE_W, 18, rot_bg);
-    const char *rot_label = rotation ? "On" : "Off";
+    const char *rot_label = rotation ? tr(STR_ON) : tr(STR_OFF);
     int rot_text_x = ROTATION_TOGGLE_X + (ROTATION_TOGGLE_W - strlen(rot_label) * FONT_CHAR_WIDTH) / 2;
     display_string(rot_text_x, ROTATION_ROW_Y + 4, rot_label, rotation ? COLOR_BLACK : COLOR_WHITE, rot_bg);
 
-    ui_draw_menu_item(ABOUT_ROW_Y, "About");
+    ui_draw_menu_item(ABOUT_ROW_Y, tr(STR_ABOUT));
+    ui_draw_menu_item(LANGUAGE_ROW_Y, tr(STR_LANGUAGE));
 }
 
 static void draw_header(void) {
-    ui_draw_header("Settings", false);
+    ui_draw_header(tr(STR_SETTINGS), false);
+    const char *done = tr(STR_DONE);
+    int x = UI_BACK_BTN_X + (UI_BACK_BTN_W - (int)strlen(done) * FONT_CHAR_WIDTH) / 2;
     display_fill_rect(UI_BACK_BTN_X, 5, UI_BACK_BTN_W, 20, UI_COLOR_ITEM_BG);
-    display_string(UI_BACK_BTN_X + 10, UI_HEADER_TEXT_Y, "Done", COLOR_WHITE, UI_COLOR_ITEM_BG);
+    display_string(x, UI_HEADER_TEXT_Y, done, COLOR_WHITE, UI_COLOR_ITEM_BG);
 }
 
 void ui_settings_init(void) {
@@ -155,6 +162,10 @@ settings_result_t ui_settings_update(void) {
 
     if (touch.y >= ABOUT_ROW_Y && touch.y < ABOUT_ROW_Y + UI_ITEM_HEIGHT) {
         return SETTINGS_RESULT_ABOUT;
+    }
+
+    if (touch.y >= LANGUAGE_ROW_Y && touch.y < LANGUAGE_ROW_Y + UI_ITEM_HEIGHT) {
+        return SETTINGS_RESULT_LANGUAGE;
     }
 
     return SETTINGS_RESULT_NONE;

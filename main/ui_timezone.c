@@ -5,6 +5,7 @@
 #include "freertos/task.h"
 #include "display.h"
 #include "touch.h"
+#include "i18n.h"
 #include "ui_common.h"
 
 static const char *TAG = "ui_timezone";
@@ -190,7 +191,7 @@ static void enter_region_view(void) {
     ui_state = TZ_STATE_REGION;
     list_scroll = ui_list_scroll_to_item(selected_region, NUM_REGIONS);
     display_fill(COLOR_BLACK);
-    ui_draw_header("Select Region", show_back_button);
+    ui_draw_header(tr(STR_SELECT_REGION), show_back_button);
     draw_region_list();
 }
 

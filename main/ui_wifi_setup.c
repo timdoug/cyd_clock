@@ -7,6 +7,7 @@
 #include "display.h"
 #include "nvs_config.h"
 #include "touch.h"
+#include "i18n.h"
 #include "ui_common.h"
 #include "ui_keyboard.h"
 #include "util.h"
@@ -121,7 +122,7 @@ static void draw_network_list(void) {
 static void draw_password_input(void) {
     display_fill_rect(0, UI_LIST_START_Y, DISPLAY_WIDTH, KEYBOARD_Y - UI_LIST_START_Y, COLOR_BLACK);
 
-    display_string(5, UI_LIST_START_Y + 5, "Network:", COLOR_GRAY, COLOR_BLACK);
+    display_string(5, UI_LIST_START_Y + 5, tr(STR_NETWORK_LABEL), COLOR_GRAY, COLOR_BLACK);
     display_string(80, UI_LIST_START_Y + 5, networks[selected_network].ssid, COLOR_WHITE, COLOR_BLACK);
 
     display_fill_rect(5, UI_LIST_START_Y + 30, DISPLAY_WIDTH - 10, 24, COLOR_DARKGRAY);
@@ -147,6 +148,14 @@ static void draw_password_input(void) {
     display_char(10 + shown * FONT_CHAR_WIDTH, UI_LIST_START_Y + 35, '_', COLOR_GREEN, COLOR_DARKGRAY);
 }
 
+// Center a key's label within its box so longer localized labels stay inside.
+static void draw_key_label(int box_x, int box_w, int y, const char *label,
+                           uint16_t fg, uint16_t bg) {
+    int x = box_x + (box_w - (int)strlen(label) * FONT_CHAR_WIDTH) / 2;
+    if (x < box_x) x = box_x;
+    display_string(x, y + 3, label, fg, bg);
+}
+
 static void draw_keyboard(void) {
     const char **layout;
     if (keyboard_mode == 2) layout = keyboard_symbols;
@@ -161,25 +170,25 @@ static void draw_keyboard(void) {
     int x = 5;
 
     display_fill_rect(x, y, 40, KB_KEY_HEIGHT, shift_active ? UI_COLOR_SELECTED : COLOR_DARKGRAY);
-    display_string(x + 8, y + 3, "Shf", shift_active ? COLOR_BLACK : COLOR_WHITE,
+    draw_key_label(x, 40, y, tr(STR_KB_SHIFT), shift_active ? COLOR_BLACK : COLOR_WHITE,
                    shift_active ? UI_COLOR_SELECTED : COLOR_DARKGRAY);
     x += 45;
 
     display_fill_rect(x, y, 40, KB_KEY_HEIGHT, COLOR_DARKGRAY);
     const char *mode_label = (keyboard_mode == 0) ? "?#@" : "abc";
-    display_string(x + 8, y + 3, mode_label, COLOR_WHITE, COLOR_DARKGRAY);
+    draw_key_label(x, 40, y, mode_label, COLOR_WHITE, COLOR_DARKGRAY);
     x += 45;
 
     display_fill_rect(x, y, 100, KB_KEY_HEIGHT, COLOR_DARKGRAY);
-    display_string(x + 30, y + 3, "Space", COLOR_WHITE, COLOR_DARKGRAY);
+    draw_key_label(x, 100, y, tr(STR_KB_SPACE), COLOR_WHITE, COLOR_DARKGRAY);
     x += 105;
 
     display_fill_rect(x, y, 40, KB_KEY_HEIGHT, COLOR_DARKGRAY);
-    display_string(x + 8, y + 3, "Del", COLOR_WHITE, COLOR_DARKGRAY);
+    draw_key_label(x, 40, y, tr(STR_DEL), COLOR_WHITE, COLOR_DARKGRAY);
     x += 45;
 
     display_fill_rect(x, y, 60, KB_KEY_HEIGHT, COLOR_GREEN);
-    display_string(x + 18, y + 3, "Go", COLOR_BLACK, COLOR_GREEN);
+    draw_key_label(x, 60, y, tr(STR_KB_GO), COLOR_BLACK, COLOR_GREEN);
 }
 
 static char get_key_at(int tx, int ty) {
@@ -238,8 +247,8 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
         case STATE_SCANNING:
             if (!scan_started) {
                 display_fill(COLOR_BLACK);
-                ui_draw_header("WiFi Setup", show_back_button);
-                ui_draw_centered_string(120, "Scanning...", COLOR_WHITE, COLOR_BLACK, false);
+                ui_draw_header(tr(STR_WIFI_SETUP), show_back_button);
+                ui_draw_centered_string(120, tr(STR_SCANNING), COLOR_WHITE, COLOR_BLACK, false);
 
                 scan_started = true;
                 wifi_init();
@@ -247,8 +256,8 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
                     scan_started = false;
                     state = STATE_SCAN_EMPTY;
                     display_fill_rect(0, 100, DISPLAY_WIDTH, 60, COLOR_BLACK);
-                    ui_draw_centered_string(120, "Scan failed", COLOR_RED, COLOR_BLACK, false);
-                    ui_draw_centered_string(150, "Tap to retry", COLOR_GRAY, COLOR_BLACK, false);
+                    ui_draw_centered_string(120, tr(STR_SCAN_FAILED), COLOR_RED, COLOR_BLACK, false);
+                    ui_draw_centered_string(150, tr(STR_TAP_RETRY), COLOR_GRAY, COLOR_BLACK, false);
                     break;
                 }
             }
@@ -269,13 +278,13 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
                 refresh_highlighted_network();
                 scroll_to_highlighted_network();
                 reset_list_touch();
-                ui_draw_header("Select Network", show_back_button);
+                ui_draw_header(tr(STR_SELECT_NETWORK), show_back_button);
                 draw_network_list();
             } else {
                 state = STATE_SCAN_EMPTY;
                 display_fill_rect(0, 100, DISPLAY_WIDTH, 40, COLOR_BLACK);
-                ui_draw_centered_string(120, "No networks found", COLOR_RED, COLOR_BLACK, false);
-                ui_draw_centered_string(150, "Tap to retry", COLOR_GRAY, COLOR_BLACK, false);
+                ui_draw_centered_string(120, tr(STR_NO_NETWORKS), COLOR_RED, COLOR_BLACK, false);
+                ui_draw_centered_string(150, tr(STR_TAP_RETRY), COLOR_GRAY, COLOR_BLACK, false);
             }
             break;
 
@@ -316,13 +325,13 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
                     if (networks[selected_network].authmode == 0) {
                         state = STATE_CONNECTING;
                         display_fill(COLOR_BLACK);
-                        ui_draw_header("Connecting", false);
-                        ui_draw_centered_string(100, "Connecting to", COLOR_WHITE, COLOR_BLACK, false);
+                        ui_draw_header(tr(STR_CONNECTING), false);
+                        ui_draw_centered_string(100, tr(STR_CONNECTING_TO), COLOR_WHITE, COLOR_BLACK, false);
                         ui_draw_centered_string(130, networks[selected_network].ssid, COLOR_CYAN, COLOR_BLACK, false);
                     } else {
                         state = STATE_PASSWORD_ENTRY;
                         display_fill(COLOR_BLACK);
-                        ui_draw_header("Enter Password", true);
+                        ui_draw_header(tr(STR_ENTER_PASSWORD), true);
                         draw_password_input();
                         draw_keyboard();
                     }
@@ -337,7 +346,7 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
                     selected_network = -1;
                     reset_list_touch();
                     display_fill(COLOR_BLACK);
-                    ui_draw_header("Select Network", show_back_button);
+                    ui_draw_header(tr(STR_SELECT_NETWORK), show_back_button);
                     draw_network_list();
                     break;
                 }
@@ -360,8 +369,8 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
                 } else if (key == VKEY_ENTER) {
                     state = STATE_CONNECTING;
                     display_fill(COLOR_BLACK);
-                    ui_draw_header("Connecting", false);
-                    ui_draw_centered_string(100, "Connecting to", COLOR_WHITE, COLOR_BLACK, false);
+                    ui_draw_header(tr(STR_CONNECTING), false);
+                    ui_draw_centered_string(100, tr(STR_CONNECTING_TO), COLOR_WHITE, COLOR_BLACK, false);
                     ui_draw_centered_string(130, networks[selected_network].ssid, COLOR_CYAN, COLOR_BLACK, false);
                 } else if (key >= ' ' && key <= '~' && password_len < MAX_PASSWORD_LEN - 1) {
                     password[password_len++] = key;
@@ -381,14 +390,14 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
                 str_copy(connected_password, sizeof(connected_password), password);
                 state = STATE_CONNECTED;
                 display_fill_rect(0, 160, DISPLAY_WIDTH, 30, COLOR_BLACK);
-                display_string(120, 160, "Connected!", COLOR_GREEN, COLOR_BLACK);
+                ui_draw_centered_string(160, tr(STR_CONNECTED), COLOR_GREEN, COLOR_BLACK, false);
                 vTaskDelay(pdMS_TO_TICKS(1000));
                 return WIFI_SETUP_CONNECTED;
             } else {
                 state = STATE_FAILED;
                 display_fill_rect(0, 160, DISPLAY_WIDTH, 50, COLOR_BLACK);
-                ui_draw_centered_string(160, "Connection failed", COLOR_RED, COLOR_BLACK, false);
-                ui_draw_centered_string(190, "Tap to retry", COLOR_GRAY, COLOR_BLACK, false);
+                ui_draw_centered_string(160, tr(STR_CONNECTION_FAILED), COLOR_RED, COLOR_BLACK, false);
+                ui_draw_centered_string(190, tr(STR_TAP_RETRY), COLOR_GRAY, COLOR_BLACK, false);
             }
             break;
 
@@ -399,7 +408,7 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
             if (touched) {
                 state = STATE_PASSWORD_ENTRY;
                 display_fill(COLOR_BLACK);
-                ui_draw_header("Enter Password", true);
+                ui_draw_header(tr(STR_ENTER_PASSWORD), true);
                 draw_password_input();
                 draw_keyboard();
             }

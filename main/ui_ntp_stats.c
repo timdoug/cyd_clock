@@ -13,6 +13,7 @@
 #include "display.h"
 #include "ntp.h"
 #include "touch.h"
+#include "i18n.h"
 #include "ui_common.h"
 #include "util.h"
 
@@ -213,14 +214,12 @@ static void draw_field_cached(int x, int y, int row_idx,
 
 static void draw_static_chrome(void) {
     display_fill(COLOR_BLACK);
-    ui_draw_header("NTP Statistics", false);
+    ui_draw_header(tr(STR_NTP_STATS), false);
     // Column headers for the peer rows below - padding matches the peer row
     // format "%-15s %-2s %-7s %-5s %-5s%c". Selection marker ('*') is the
     // last char of each row so there's no leading-blank column to skip.
     display_fill_rect(0, PEER_HDR_Y, DISPLAY_WIDTH, FONT_CHAR_HEIGHT, COLOR_BLACK);
-    display_string(4, PEER_HDR_Y,
-                   "Peer            R  Offset  Delay Jitter",
-                   COLOR_GRAY, COLOR_BLACK);
+    display_string(4, PEER_HDR_Y, tr(STR_PEER_HEADER), COLOR_GRAY, COLOR_BLACK);
 }
 
 static void draw_peer_row(int slot, const ntp_peer_stats_t *p) {
@@ -298,10 +297,11 @@ static void refresh_dynamic(void) {
     {
         int y = SYS_Y_START;
         segment_t segs[] = {
+            { " ", COLOR_GRAY },
             { server, sys.synced ? COLOR_GREEN : COLOR_ORANGE },
             { sys.nts_active ? " [NTS]" : "", COLOR_GREEN },
         };
-        draw_segmented_field_cached(4, y, 0, "Server: ", segs,
+        draw_segmented_field_cached(4, y, 0, tr(STR_SERVER_LABEL), segs,
                                     sizeof(segs) / sizeof(segs[0]));
     }
 
@@ -313,16 +313,16 @@ static void refresh_dynamic(void) {
         if (sys.synced) {
             snprintf(strat_buf, sizeof(strat_buf), "%u", sys.stratum);
         } else {
-            snprintf(strat_buf, sizeof(strat_buf), "unsynced");
+            snprintf(strat_buf, sizeof(strat_buf), "%s", tr(STR_UNSYNCED));
         }
         segment_t segs[] = {
             { strat_buf,    COLOR_WHITE },
-            { "  Poll: ",   COLOR_GRAY  },
+            { tr(STR_POLL_LABEL),   COLOR_GRAY  },
             { poll_buf,     COLOR_WHITE },
-            { "  Syncs: ",  COLOR_GRAY  },
+            { tr(STR_SYNCS_LABEL),  COLOR_GRAY  },
             { syncs_buf,    COLOR_WHITE },
         };
-        draw_segmented_field_cached(4, y, 1, "Stratum: ", segs,
+        draw_segmented_field_cached(4, y, 1, tr(STR_STRATUM_LABEL), segs,
                                     sizeof(segs) / sizeof(segs[0]));
     }
 
@@ -350,10 +350,10 @@ static void refresh_dynamic(void) {
         }
         segment_t segs[] = {
             { drift_buf, COLOR_WHITE },
-            { "  Age: ", COLOR_GRAY  },
+            { tr(STR_AGE_LABEL), COLOR_GRAY  },
             { age_buf,   COLOR_WHITE },
         };
-        draw_segmented_field_cached(4, y, 2, "Drift: ", segs,
+        draw_segmented_field_cached(4, y, 2, tr(STR_DRIFT_LABEL), segs,
                                     sizeof(segs) / sizeof(segs[0]));
     }
 
@@ -372,10 +372,10 @@ static void refresh_dynamic(void) {
         }
         segment_t segs[] = {
             { off_buf,       COLOR_WHITE },
-            { "  Jitter: ",  COLOR_GRAY  },
+            { tr(STR_JITTER_LABEL),  COLOR_GRAY  },
             { jit_buf,       COLOR_WHITE },
         };
-        draw_segmented_field_cached(4, y, 3, "Offset: ", segs,
+        draw_segmented_field_cached(4, y, 3, tr(STR_OFFSET_LABEL), segs,
                                     sizeof(segs) / sizeof(segs[0]));
     }
 
@@ -392,9 +392,9 @@ static void refresh_dynamic(void) {
             fmt_offset_us(disp_buf, sizeof(disp_buf), sys.root_dispersion_us);
             const char *rd = rd_buf[0] == '+' ? rd_buf + 1 : rd_buf;
             const char *dp = disp_buf[0] == '+' ? disp_buf + 1 : disp_buf;
-            snprintf(val, sizeof(val), "%s delay, %s disp", rd, dp);
+            snprintf(val, sizeof(val), tr(STR_FMT_ROOT_DETAIL), rd, dp);
         }
-        draw_field_cached(4, y, 4, "Root: ", val, COLOR_WHITE);
+        draw_field_cached(4, y, 4, tr(STR_ROOT_LABEL), val, COLOR_WHITE);
     }
 
     // Peer rows - sorted by IP so a given peer always lives on the same row

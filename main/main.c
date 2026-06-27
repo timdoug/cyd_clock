@@ -23,8 +23,10 @@
 #include "ui_ntp.h"
 #include "ui_ntp_stats.h"
 #include "ui_settings.h"
+#include "ui_language.h"
 #include "ui_timezone.h"
 #include "ui_wifi_setup.h"
+#include "i18n.h"
 #include "util.h"
 #include "wifi.h"
 
@@ -38,6 +40,7 @@ typedef enum {
     APP_STATE_SETTINGS,
     APP_STATE_TIMEZONE,
     APP_STATE_ABOUT,
+    APP_STATE_LANGUAGE,
     APP_STATE_NTP,
     APP_STATE_NTP_STATS,
 } app_state_t;
@@ -141,7 +144,7 @@ static void try_connect_stored_credentials(void) {
 
     // Drawn onto the splash (still showing) rather than a fresh screen;
     // positions complete the centered block (see show_splash).
-    ui_draw_centered_string(132, "Connecting to", COLOR_WHITE, COLOR_BLACK, false);
+    ui_draw_centered_string(132, tr(STR_CONNECTING_TO), COLOR_WHITE, COLOR_BLACK, false);
     ui_draw_centered_string(157, stored_ssid, COLOR_CYAN, COLOR_BLACK, false);
 
     wifi_init();
@@ -205,6 +208,11 @@ void app_main(void) {
     bool rotated;
     if (nvs_config_get_rotation(&rotated)) {
         display_set_rotation(rotated);
+    }
+
+    uint8_t language;
+    if (nvs_config_get_language(&language) && language < LANG_COUNT) {
+        i18n_set_language((lang_t)language);
     }
 
     show_splash();
@@ -410,6 +418,10 @@ void app_main(void) {
                     app_state = APP_STATE_ABOUT;
                     ui_about_init();
                     ui_wait_for_touch_release();
+                } else if (result == SETTINGS_RESULT_LANGUAGE) {
+                    app_state = APP_STATE_LANGUAGE;
+                    ui_language_init();
+                    ui_wait_for_touch_release();
                 } else if (result == SETTINGS_RESULT_DONE) {
                     app_state = APP_STATE_CLOCK;
                     ui_clock_init();
@@ -445,6 +457,16 @@ void app_main(void) {
             case APP_STATE_ABOUT: {
                 about_result_t result = ui_about_update();
                 if (result == ABOUT_RESULT_BACK) {
+                    app_state = APP_STATE_SETTINGS;
+                    ui_settings_init();
+                    ui_wait_for_touch_release();
+                }
+                break;
+            }
+
+            case APP_STATE_LANGUAGE: {
+                language_result_t result = ui_language_update();
+                if (result == LANGUAGE_RESULT_BACK) {
                     app_state = APP_STATE_SETTINGS;
                     ui_settings_init();
                     ui_wait_for_touch_release();

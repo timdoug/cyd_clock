@@ -37,6 +37,10 @@ void nvs_config_set_nts_mode(uint8_t mode);
 bool nvs_config_get_rotation(bool *rotated);
 void nvs_config_set_rotation(bool rotated);
 
+// UI language (lang_t index from i18n.h).
+bool nvs_config_get_language(uint8_t *lang);
+void nvs_config_set_language(uint8_t lang);
+
 bool nvs_config_get_led_brightness(uint8_t *brightness);
 void nvs_config_set_led_brightness(uint8_t brightness);
 

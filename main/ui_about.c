@@ -9,6 +9,7 @@
 #include "nvs_config.h"
 #include "ota_update.h"
 #include "touch.h"
+#include "i18n.h"
 #include "ui_common.h"
 #include "ui_keyboard.h"
 #include "util.h"
@@ -116,7 +117,7 @@ static void draw_ota_header(bool force, bool show_back) {
     if (!force && ota_header_drawn && show_back == ota_header_back_drawn) {
         return;
     }
-    ui_draw_header("OTA Update", show_back);
+    ui_draw_header(tr(STR_OTA_UPDATE), show_back);
     ota_header_drawn = true;
     ota_header_back_drawn = show_back;
 }
@@ -147,7 +148,7 @@ static void update_ip6_marquee(void) {
     }
     if ((int32_t)(now - ip6_scroll_ms) >= IP6_SCROLL_MS) {
         ip6_scroll_ms = now;
-        const char *s = ip6_addr[0] ? ip6_addr : "none";
+        const char *s = ip6_addr[0] ? ip6_addr : tr(STR_NONE);
         if (ui_marquee_advance(&ip6_scroll, &ip6_dwell, IP6_VIS_CHARS, s)) redraw = true;
     }
     if (redraw) draw_ip6_window();
@@ -155,7 +156,7 @@ static void update_ip6_marquee(void) {
 
 static void draw_screen(void) {
     display_fill(COLOR_BLACK);
-    ui_draw_header("About", true);
+    ui_draw_header(tr(STR_ABOUT), true);
     draw_ota_header_button();
 
     // Content
@@ -168,7 +169,7 @@ static void draw_screen(void) {
     ui_draw_centered_string(y, URL, COLOR_GRAY, COLOR_BLACK, false);
     y += 34;
 
-    display_string(20, y, "Version:", COLOR_GRAY, COLOR_BLACK);
+    display_string(20, y, tr(STR_VERSION), COLOR_GRAY, COLOR_BLACK);
     display_string(90, y, VERSION_STRING, COLOR_WHITE, COLOR_BLACK);
     y += 18;
 
@@ -205,7 +206,7 @@ static void draw_screen(void) {
 }
 
 static void draw_url_box(void) {
-    display_string(10, 40, "Firmware URL:", COLOR_GRAY, COLOR_BLACK);
+    display_string(10, 40, tr(STR_FIRMWARE_URL), COLOR_GRAY, COLOR_BLACK);
     display_fill_rect(10, OTA_URL_BOX_Y, DISPLAY_WIDTH - 20, OTA_URL_BOX_H, COLOR_DARKGRAY);
 
     const int chars_per_line = 36;
@@ -240,11 +241,11 @@ static void draw_update_button(void) {
 
     uint16_t bg = busy ? COLOR_GRAY : COLOR_GREEN;
     uint16_t fg = busy ? COLOR_WHITE : COLOR_BLACK;
-    const char *label = "Update";
+    const char *label = tr(STR_UPDATE);
     if (status.state == OTA_UPDATE_RUNNING) {
-        label = "Running";
+        label = tr(STR_RUNNING);
     } else if (status.state == OTA_UPDATE_SUCCESS) {
-        label = "Restarting";
+        label = tr(STR_RESTARTING);
     }
     display_fill_rect(10, OTA_UPDATE_BTN_Y, 100, OTA_UPDATE_BTN_H, bg);
     int x = 10 + (100 - (int)strlen(label) * FONT_CHAR_WIDTH) / 2;
@@ -281,7 +282,7 @@ static void draw_ota_status(bool force) {
 
     if (force || !ota_status_frame_drawn) {
         display_fill_rect(0, 174, DISPLAY_WIDTH, 65, COLOR_BLACK);
-        display_string(10, 176, "Status:", COLOR_GRAY, COLOR_BLACK);
+        display_string(10, 176, tr(STR_STATUS), COLOR_GRAY, COLOR_BLACK);
         ota_status_frame_drawn = true;
         ota_status_message_drawn[0] = '\0';
         ota_status_read_bucket_drawn = UINT32_MAX;
@@ -299,7 +300,7 @@ static void draw_ota_status(bool force) {
     if (force || progress_bucket != ota_status_read_bucket_drawn) {
         if (ota_status_shows_progress(&status) && status.bytes_read > 0) {
             if (force || !ota_status_read_label_drawn) {
-                display_string(10, 198, "Read:", COLOR_GRAY, COLOR_BLACK);
+                display_string(10, 198, tr(STR_READ), COLOR_GRAY, COLOR_BLACK);
                 display_rect(10, 218, 222, 8, COLOR_GRAY);
                 ota_status_read_label_drawn = true;
             }
@@ -345,7 +346,7 @@ static void draw_ota_status(bool force) {
 
 static void draw_ota_error(const char *err) {
     display_fill_rect(0, 174, DISPLAY_WIDTH, 55, COLOR_BLACK);
-    display_string(10, 176, "Status:", COLOR_GRAY, COLOR_BLACK);
+    display_string(10, 176, tr(STR_STATUS), COLOR_GRAY, COLOR_BLACK);
     display_string(75, 176, err, COLOR_RED, COLOR_BLACK);
     ota_status_frame_drawn = true;
     str_copy(ota_status_message_drawn, sizeof(ota_status_message_drawn), err);
@@ -380,7 +381,7 @@ static void draw_ota_screen(void) {
 
 static void draw_keyboard_input(void) {
     display_fill_rect(0, 35, DISPLAY_WIDTH, 45, COLOR_BLACK);
-    display_string(10, 38, "Firmware URL:", COLOR_GRAY, COLOR_BLACK);
+    display_string(10, 38, tr(STR_FIRMWARE_URL), COLOR_GRAY, COLOR_BLACK);
     display_fill_rect(10, 55, DISPLAY_WIDTH - 20, 22, COLOR_DARKGRAY);
 
     const int max_chars = 35;
@@ -396,9 +397,17 @@ static void draw_keyboard_input(void) {
     }
 }
 
+// Center a label within a button box so longer localized labels stay inside.
+static void draw_centered_button_label(int box_x, int box_w, int y,
+                                       const char *label, uint16_t fg, uint16_t bg) {
+    int x = box_x + (box_w - (int)strlen(label) * FONT_CHAR_WIDTH) / 2;
+    if (x < box_x) x = box_x;
+    display_string(x, y, label, fg, bg);
+}
+
 static void draw_keyboard(void) {
     display_fill(COLOR_BLACK);
-    ui_draw_header("OTA URL", false);
+    ui_draw_header(tr(STR_OTA_URL), false);
     draw_keyboard_input();
     ui_keyboard_draw_keys(url_keyboard_rows, 5, OTA_KEYBOARD_Y,
                           COLOR_DARKGRAY, COLOR_WHITE, COLOR_GRAY);
@@ -407,13 +416,13 @@ static void draw_keyboard(void) {
     int btn_h = KB_KEY_HEIGHT - 2;
 
     display_fill_rect(10, y, 80, btn_h, COLOR_RED);
-    display_string(26, y + 3, "Cancel", COLOR_WHITE, COLOR_RED);
+    draw_centered_button_label(10, 80, y + 3, tr(STR_CANCEL), COLOR_WHITE, COLOR_RED);
 
     display_fill_rect(120, y, 80, btn_h, COLOR_GRAY);
-    display_string(144, y + 3, "Del", COLOR_WHITE, COLOR_GRAY);
+    draw_centered_button_label(120, 80, y + 3, tr(STR_DEL), COLOR_WHITE, COLOR_GRAY);
 
     display_fill_rect(230, y, 80, btn_h, COLOR_GREEN);
-    display_string(254, y + 3, "Done", COLOR_BLACK, COLOR_GREEN);
+    draw_centered_button_label(230, 80, y + 3, tr(STR_DONE), COLOR_BLACK, COLOR_GREEN);
 }
 
 static char get_keyboard_key(int16_t x, int16_t y) {

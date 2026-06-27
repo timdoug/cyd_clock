@@ -13,6 +13,7 @@
 #include "ntp.h"
 #include "nvs_config.h"
 #include "touch.h"
+#include "i18n.h"
 #include "ui_common.h"
 #include "util.h"
 #include "wifi.h"
@@ -63,15 +64,6 @@ static char last_line1[80] = "";
 static char last_line2[96] = "";
 static char last_line3[96] = "";
 static char last_fraction[4] = "";
-
-static const char *day_names[] = {
-    "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
-};
-
-static const char *month_names[] = {
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-};
 
 static uint8_t digit_change_count(const struct tm *timeinfo) {
     if (!last_time_valid || last_hour < 0 || last_min < 0 || last_sec < 0) return 7;
@@ -306,10 +298,10 @@ static void draw_ntp_stats(time_t now, int sec) {
     char line1[80];
     uint16_t line1_fg;
     if (synced_here) {
-        snprintf(line1, sizeof(line1), "Synced: %s", server);
+        snprintf(line1, sizeof(line1), tr(STR_FMT_SYNCED), server);
         line1_fg = COLOR_SYNC_OK;
     } else {
-        snprintf(line1, sizeof(line1), "Syncing: %s", server);
+        snprintf(line1, sizeof(line1), tr(STR_FMT_SYNCING), server);
         line1_fg = COLOR_SYNC_WAIT;
     }
     if (synced_here != last_synced_state) {
@@ -323,7 +315,7 @@ static void draw_ntp_stats(time_t now, int sec) {
 
     if (!sys.synced) {
         char line2[48];
-        snprintf(line2, sizeof(line2), "Waiting: %lus",
+        snprintf(line2, sizeof(line2), tr(STR_FMT_WAITING),
                  (unsigned long)(sys.sync_elapsed_ms / 1000));
         draw_line_cached(STATS_LINE2, last_line2, sizeof(last_line2), line2, COLOR_STATS);
         draw_line_cached(STATS_LINE3, last_line3, sizeof(last_line3), "", COLOR_BLACK);
@@ -343,12 +335,12 @@ static void draw_ntp_stats(time_t now, int sec) {
         // No discipline from the current peer set yet: there is no age to
         // show. Rendering now - last_sync_time(0) here used to display the
         // full Unix epoch as "20614d 15h 35m ago".
-        snprintf(line2, sizeof(line2), "%d/%d peers  poll %s  no sync yet",
+        snprintf(line2, sizeof(line2), tr(STR_FMT_PEERS_NOSYNC),
                  peers_reach, peers_total, poll_buf);
     } else {
         ui_fmt_duration_full(ago_buf, sizeof(ago_buf),
                      (uint32_t)(now > sys.last_sync_time ? now - sys.last_sync_time : 0));
-        snprintf(line2, sizeof(line2), "%d/%d peers  poll %s  %s ago",
+        snprintf(line2, sizeof(line2), tr(STR_FMT_PEERS_AGO),
                  peers_reach, peers_total, poll_buf, ago_buf);
     }
     draw_line_cached(STATS_LINE2, last_line2, sizeof(last_line2), line2, COLOR_STATS);
@@ -371,7 +363,7 @@ static void draw_ntp_stats(time_t now, int sec) {
     } else {
         fmt_signed_fixed(drift_buf, sizeof(drift_buf), sys.freq_ppm_x1000, "ppm");
     }
-    snprintf(line3, sizeof(line3), "off %s %s drift %s", off_buf, disp_buf, drift_buf);
+    snprintf(line3, sizeof(line3), tr(STR_FMT_OFF_DRIFT), off_buf, disp_buf, drift_buf);
     draw_line_cached(STATS_LINE3, last_line3, sizeof(last_line3), line3, COLOR_STATS);
 }
 
@@ -440,11 +432,9 @@ void ui_clock_update(void) {
 
         if (timeinfo.tm_yday != last_day || last_day < 0) {
             char date_str[32];
-            snprintf(date_str, sizeof(date_str), "%s %s %d, %d",
-                     day_names[timeinfo.tm_wday],
-                     month_names[timeinfo.tm_mon],
-                     timeinfo.tm_mday,
-                     timeinfo.tm_year + 1900);
+            tr_date(date_str, sizeof(date_str),
+                    timeinfo.tm_wday, timeinfo.tm_mon,
+                    timeinfo.tm_mday, timeinfo.tm_year + 1900);
 
             ui_draw_centered_string(DATE_Y, date_str, COLOR_DATE_FG, COLOR_BLACK, true);
             last_day = timeinfo.tm_yday;
@@ -494,7 +484,7 @@ void ui_clock_update(void) {
             drew_pixels = true;
             clear_fraction();
             led_set_pps_enabled(false);
-            ui_draw_centered_string(DATE_Y, "Waiting for NTP...", COLOR_DATE_FG, COLOR_BLACK, true);
+            ui_draw_centered_string(DATE_Y, tr(STR_WAITING_NTP), COLOR_DATE_FG, COLOR_BLACK, true);
             last_hour = -2;
         }
     }
