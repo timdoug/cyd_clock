@@ -3,28 +3,13 @@
 
 #include <stdint.h>
 
-// Display SPI pins (ILI9341 on ESP32-CYD). The panel's reset line is tied to
-// the board EN signal, not a GPIO; init relies on SWRESET instead.
-#define PIN_DC    2
-#define PIN_CS    15
-#define PIN_MOSI  13
-#define PIN_CLK   14
-#define PIN_BL    21
-
-#define PIN_T_CLK   25
-#define PIN_T_MOSI  32
-#define PIN_T_MISO  39
-#define PIN_T_CS    33
-#define PIN_T_IRQ   36
-
-#define LED_PIN_R  4
-#define LED_PIN_G  16
-#define LED_PIN_B  17
-
-// Bare-GPIO 1PPS output on the CN1 header (GND/IO22/IO27/3V3), active high.
-// A direct register write has no PWM period latch, so this edge is ~1 us
-// from the local clock boundary vs up to ~50 us for the LED.
-#define PPS_OUT_PIN 27
+// Board profile, chosen at build time via CYD_BOARD (see Makefile/README) and
+// passed in by CMake as CYD_BOARD_INCLUDE; defaults to the 2.8" board. The
+// profile carries everything board-specific; the rest of this file does not.
+#ifndef CYD_BOARD_INCLUDE
+#define CYD_BOARD_INCLUDE "boards/esp32_2432s028.h"
+#endif
+#include CYD_BOARD_INCLUDE
 
 #define SPI_CLOCK_HZ        (40 * 1000 * 1000)
 #define TOUCH_SPI_CLOCK_HZ  (1 * 1000 * 1000)
@@ -36,12 +21,6 @@
 // period: 50 us at 20 kHz vs 200 us at 5 kHz.
 #define PWM_FREQUENCY_HZ    20000
 #define BOOT_BUTTON_GPIO    0
-
-// Touch calibration (hardware-specific, adjust for your display)
-#define TOUCH_MIN_X         340
-#define TOUCH_MAX_X         3900
-#define TOUCH_MIN_Y         240
-#define TOUCH_MAX_Y         3800
 
 #define FONT_CHAR_WIDTH     8
 #define FONT_CHAR_HEIGHT    16

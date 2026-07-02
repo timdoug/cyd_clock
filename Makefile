@@ -6,7 +6,11 @@ PORT ?= $(firstword $(wildcard /dev/cu.usbserial-* /dev/cu.wchusbserial*))
 BAUD ?= 2000000
 TZDATA_VERSION ?=
 
-IDF = idf.py
+# Board profile, selected from main/boards/<name>.h. Override with the
+# CYD_BOARD env var or `make CYD_BOARD=esp32_2432s024 ...`.
+CYD_BOARD ?= esp32_2432s028
+
+IDF = idf.py -D CYD_BOARD=$(CYD_BOARD)
 IDF_PORT = $(IDF) -p $(PORT)
 IDF_FLASH = $(IDF_PORT) -b $(BAUD)
 
@@ -47,4 +51,5 @@ help:
 	@echo ""
 	@echo "Serial port: $(or $(PORT),<not found>)"
 	@echo "Override with: make flash PORT=/dev/cu.usbserial-XXX"
+	@echo "Board: $(CYD_BOARD) (override: make CYD_BOARD=esp32_2432s024 ...)"
 	@echo "Pin tzdata: make update-tzdata TZDATA_VERSION=2026c"

@@ -27,6 +27,21 @@ static const char *TAG = "display";
 #define MADCTL_MV  0x20
 #define MADCTL_BGR 0x08
 
+// MADCTL from the board's panel flags. MADCTL_BASE is landscape; MADCTL_FLIPPED
+// is the 180-degree rotation, which toggles both axis-mirror bits.
+#if BOARD_PANEL_BGR
+#define MADCTL_COLOR    MADCTL_BGR
+#else
+#define MADCTL_COLOR    0
+#endif
+#if BOARD_PANEL_MIRROR_X
+#define MADCTL_XFLIP    MADCTL_MX
+#else
+#define MADCTL_XFLIP    0
+#endif
+#define MADCTL_BASE     (MADCTL_MV | MADCTL_COLOR | MADCTL_XFLIP)
+#define MADCTL_FLIPPED  (MADCTL_BASE ^ (MADCTL_MX | MADCTL_MY))
+
 static spi_device_handle_t spi_dev;
 static bool display_rotated = false;
 
@@ -491,7 +506,7 @@ void display_init(void) {
 
     spi_bus_config_t buscfg = {
         .mosi_io_num = PIN_MOSI,
-        .miso_io_num = -1,
+        .miso_io_num = PIN_MISO,
         .sclk_io_num = PIN_CLK,
         .quadwp_io_num = -1,
         .quadhd_io_num = -1,
@@ -523,7 +538,7 @@ void display_init(void) {
     // default 70 Hz scan is the price of a readable display.
 
     write_command(ILI9341_MADCTL);
-    write_data(MADCTL_MV | MADCTL_BGR);
+    write_data(MADCTL_BASE);
 
     write_command(ILI9341_DISPON);
     vTaskDelay(pdMS_TO_TICKS(100));
@@ -821,11 +836,7 @@ void display_set_backlight(uint8_t brightness) {
 void display_set_rotation(bool rotated) {
     display_rotated = rotated;
     write_command(ILI9341_MADCTL);
-    if (rotated) {
-        write_data(MADCTL_MV | MADCTL_MY | MADCTL_MX | MADCTL_BGR);
-    } else {
-        write_data(MADCTL_MV | MADCTL_BGR);
-    }
+    write_data(rotated ? MADCTL_FLIPPED : MADCTL_BASE);
 }
 
 bool display_is_rotated(void) {

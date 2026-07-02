@@ -26,18 +26,32 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.inputs.tag || github.ref }}
 
-      - name: Build firmware
+      - name: Build esp32_2432s028 (default)
         uses: espressif/esp-idf-ci-action@v1
         with:
           esp_idf_version: release-v6.0
           target: esp32
           path: "."
+          command: idf.py -B build -D CYD_BOARD=esp32_2432s028 build
+
+      - name: Build esp32_2432s024
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: release-v6.0
+          target: esp32
+          path: "."
+          command: idf.py -B build_024 -D CYD_BOARD=esp32_2432s024 build
 
       - name: Prepare release assets
         run: |
           set -eu
+          # cyd_clock.bin is the 028 app; the default OTA URL points at it. The
+          # 024 app ships under a board-suffixed name. Bootloader, partition
+          # table, and OTA data are board-independent, so one set covers both.
           test -s build/cyd_clock.bin
+          test -s build_024/cyd_clock.bin
           cp build/cyd_clock.bin cyd_clock.bin
+          cp build_024/cyd_clock.bin cyd_clock-esp32_2432s024.bin
           cp build/bootloader/bootloader.bin bootloader.bin
           cp build/partition_table/partition-table.bin partition-table.bin
           cp build/ota_data_initial.bin ota_data_initial.bin
@@ -72,6 +86,7 @@ jobs:
           set -eu
           gh release upload "${TAG}" \
             cyd_clock.bin \
+            cyd_clock-esp32_2432s024.bin \
             bootloader.bin \
             partition-table.bin \
             ota_data_initial.bin \

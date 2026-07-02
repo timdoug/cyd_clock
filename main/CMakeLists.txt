@@ -53,6 +53,19 @@ idf_component_register(
         nvs_flash
 )
 
+# Board selection: -DCYD_BOARD=<name> picks a profile under main/boards/ and
+# reaches config.h as CYD_BOARD_INCLUDE. The Makefile forwards it; default 2.8".
+if(NOT DEFINED CYD_BOARD OR CYD_BOARD STREQUAL "")
+    set(CYD_BOARD "esp32_2432s028")
+endif()
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/boards/${CYD_BOARD}.h")
+    message(FATAL_ERROR "Unknown CYD_BOARD '${CYD_BOARD}' "
+        "(no main/boards/${CYD_BOARD}.h)")
+endif()
+message(STATUS "CYD board: ${CYD_BOARD}")
+target_compile_definitions(${COMPONENT_LIB}
+    PRIVATE CYD_BOARD_INCLUDE="boards/${CYD_BOARD}.h")
+
 add_custom_target(version_header ALL
     COMMAND
         ${CMAKE_COMMAND}

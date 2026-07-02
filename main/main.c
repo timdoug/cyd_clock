@@ -170,7 +170,7 @@ static void try_connect_stored_credentials(void) {
 }
 
 void app_main(void) {
-    ESP_LOGI(TAG, "CYD Clock starting");
+    ESP_LOGI(TAG, "CYD Clock starting (board: %s)", BOARD_NAME);
 
     nvs_config_init();
     ota_update_init();

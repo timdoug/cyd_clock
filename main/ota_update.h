@@ -5,7 +5,13 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define DEFAULT_OTA_URL "https://github.com/timdoug/cyd_clock/releases/latest/download/cyd_clock.bin"
+#include "config.h"
+
+// Default OTA source: the latest release asset for whichever board this was
+// built for. The asset name comes from the board profile, so each build points
+// at its own binary.
+#define DEFAULT_OTA_URL \
+    "https://github.com/timdoug/cyd_clock/releases/latest/download/" BOARD_OTA_ASSET
 
 typedef enum {
     OTA_UPDATE_IDLE,

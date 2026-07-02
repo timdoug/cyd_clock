@@ -35,6 +35,18 @@ void touch_init(void) {
     };
     gpio_config(&io_conf);
 
+    spi_device_interface_config_t devcfg = {
+        .clock_speed_hz = TOUCH_SPI_CLOCK_HZ,
+        .mode = 0,
+        .spics_io_num = PIN_T_CS,
+        .queue_size = 1,
+    };
+
+#if BOARD_TOUCH_SHARED_BUS
+    // Already on the display's SPI2 bus (set up by display_init()); just add
+    // the device.
+    ESP_ERROR_CHECK(spi_bus_add_device(SPI2_HOST, &devcfg, &touch_spi));
+#else
     spi_bus_config_t buscfg = {
         .mosi_io_num = PIN_T_MOSI,
         .miso_io_num = PIN_T_MISO,
@@ -44,14 +56,8 @@ void touch_init(void) {
         .max_transfer_sz = 32,
     };
     ESP_ERROR_CHECK(spi_bus_initialize(SPI3_HOST, &buscfg, SPI_DMA_DISABLED));
-
-    spi_device_interface_config_t devcfg = {
-        .clock_speed_hz = TOUCH_SPI_CLOCK_HZ,
-        .mode = 0,
-        .spics_io_num = PIN_T_CS,
-        .queue_size = 1,
-    };
     ESP_ERROR_CHECK(spi_bus_add_device(SPI3_HOST, &devcfg, &touch_spi));
+#endif
 
     // Issue a dummy conversion with PD=00 to ensure PENIRQ is enabled.
     // If the controller was left in always-powered mode (PD=11), PENIRQ stays
@@ -124,8 +130,15 @@ bool touch_read(touch_point_t *point) {
     uint16_t raw_x = (sum_x - min_x - max_x) / (samples - 2);
     uint16_t raw_y = (sum_y - min_y - max_y) / (samples - 2);
 
+    // Map the raw channels onto screen axes; SWAP_XY picks which channel drives
+    // which.
+#if BOARD_TOUCH_SWAP_XY
     int32_t x = (int32_t)(raw_y - TOUCH_MIN_Y) * DISPLAY_WIDTH / (TOUCH_MAX_Y - TOUCH_MIN_Y);
     int32_t y = (int32_t)(raw_x - TOUCH_MIN_X) * DISPLAY_HEIGHT / (TOUCH_MAX_X - TOUCH_MIN_X);
+#else
+    int32_t x = (int32_t)(raw_x - TOUCH_MIN_X) * DISPLAY_WIDTH / (TOUCH_MAX_X - TOUCH_MIN_X);
+    int32_t y = (int32_t)(raw_y - TOUCH_MIN_Y) * DISPLAY_HEIGHT / (TOUCH_MAX_Y - TOUCH_MIN_Y);
+#endif
 
     if (x < 0) x = 0;
     if (x >= DISPLAY_WIDTH) x = DISPLAY_WIDTH - 1;
