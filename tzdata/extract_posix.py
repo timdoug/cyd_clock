@@ -65,12 +65,10 @@ def fetch_tzdata(version):
     tempdir = tempfile.TemporaryDirectory()
     destdir = tempdir.name
     with tarfile.open(fileobj=io.BytesIO(archive), mode="r:gz") as tar:
-        for member in tar.getmembers():
-            target = os.path.abspath(os.path.join(destdir, member.name))
-            if not target.startswith(os.path.abspath(destdir) + os.sep):
-                tempdir.cleanup()
-                raise RuntimeError(f"Refusing unsafe archive path: {member.name}")
-        tar.extractall(destdir)
+        # The "data" filter rejects path traversal, absolute paths, links,
+        # and device nodes - strictly stronger than the manual prefix check
+        # this replaces (which missed symlink-then-write chains).
+        tar.extractall(destdir, filter="data")
 
     print(f"Extracted {release} into temporary directory", file=sys.stderr)
     return tempdir
@@ -84,6 +82,20 @@ def check_tzdata_sources(srcdir):
     ]
 
 
+def run_zic(zic, destdir, path):
+    """Run zic on one source file, surfacing its diagnostics on failure."""
+    try:
+        subprocess.run(
+            [zic, "-d", destdir, path],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as e:
+        print(e.stderr, file=sys.stderr, end="")
+        raise
+
+
 def compile_tzdata(srcdir, destdir, zic):
     """Compile tzdata source files into TZif binaries using zic."""
     for region in REGION_FILES:
@@ -91,22 +103,25 @@ def compile_tzdata(srcdir, destdir, zic):
         if not os.path.exists(path):
             print(f"Warning: {path} not found, skipping", file=sys.stderr)
             continue
-        subprocess.run(
-            [zic, "-d", destdir, path],
-            check=True,
-            capture_output=True,
-        )
+        run_zic(zic, destdir, path)
 
 
 def extract_posix_string(tzif_path):
     """Extract the POSIX TZ string from a TZif v2/v3 binary file.
 
-    In TZif v2/v3, the file ends with \\n<posix_string>\\n.
+    In TZif v2/v3, the file ends with \\n<posix_string>\\n. Returns "" for a
+    legal-but-empty footer (a zone with no POSIX-representable rules), which
+    the caller must skip rather than emit as a bogus UTC entry.
     """
     with open(tzif_path, "rb") as f:
         data = f.read()
-    last_nl = data.rindex(b"\n")
-    second_last_nl = data.rindex(b"\n", 0, last_nl)
+    try:
+        last_nl = data.rindex(b"\n")
+        second_last_nl = data.rindex(b"\n", 0, last_nl)
+    except ValueError:
+        raise RuntimeError(
+            f"{tzif_path}: no TZif footer (v1 file? zic too old?)"
+        ) from None
     return data[second_last_nl + 1 : last_nl].decode("ascii")
 
 
@@ -205,7 +220,7 @@ def offset_sort_key(posix_tz):
 
 
 def read_zone1970_tab(path):
-    """Read zone1970.tab and return list of (zone_id, country_codes) tuples."""
+    """Read zone1970.tab and return the list of zone ID strings."""
     zones = []
     with open(path) as f:
         for line in f:
@@ -329,11 +344,7 @@ def generate_timezone_block(srcdir, zic):
         # Also compile Etc/UTC (not in zone1970.tab)
         etcetera_path = os.path.join(srcdir, "etcetera")
         if os.path.exists(etcetera_path):
-            subprocess.run(
-                [zic, "-d", tmpdir, etcetera_path],
-                check=True,
-                capture_output=True,
-            )
+            run_zic(zic, tmpdir, etcetera_path)
 
         # Extract POSIX strings for all zones
         entries = []
@@ -343,6 +354,10 @@ def generate_timezone_block(srcdir, zic):
                 print(f"WARNING: {zone_id} not found", file=sys.stderr)
                 continue
             posix_tz = extract_posix_string(tzif_path)
+            if not posix_tz:
+                print(f"WARNING: {zone_id} has no POSIX-representable rules; "
+                      "skipped", file=sys.stderr)
+                continue
             region = zone_id.split("/")[0]
             city = zone_display_name(zone_id)
             entries.append((region, city, posix_tz, zone_id))
@@ -386,16 +401,8 @@ def generate_timezone_block(srcdir, zic):
         print(f"After functional dedup (within region): {len(entries)}",
               file=sys.stderr)
 
-        # Ensure UTC is always present (it may have been merged with
-        # Abidjan/GMT0 which is functionally identical)
-        has_utc = any(e[0] == "UTC" for e in entries)
-        if not has_utc:
-            # Find the GMT0/UTC0 entry and add UTC alongside it
-            for entry in list(entries):
-                norm = normalize_posix_tz(entry[2])
-                if norm == "<X>0":
-                    entries.append(("UTC", "UTC", "UTC0", "Etc/UTC"))
-                    break
+        # (UTC always survives dedup: both passes key on the region, and the
+        # UTC entry is the only member of its "UTC" region.)
 
         # Build city display labels with UTC offset and DST status
         labeled = []
