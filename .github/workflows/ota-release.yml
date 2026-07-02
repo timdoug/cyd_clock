@@ -48,10 +48,12 @@ jobs:
           # cyd_clock.bin is the 028 app; the default OTA URL points at it. The
           # 024 app ships under a board-suffixed name. Bootloader, partition
           # table, and OTA data are board-independent, so one set covers both.
-          test -s build/cyd_clock.bin
-          test -s build_024/cyd_clock.bin
-          cp build/cyd_clock.bin cyd_clock.bin
-          cp build_024/cyd_clock.bin cyd_clock-esp32_2432s024.bin
+          # (Build outputs carry the board-suffixed project name that the OTA
+          # identity check verifies; asset names stay as devices expect.)
+          test -s build/cyd_clock-esp32_2432s028.bin
+          test -s build_024/cyd_clock-esp32_2432s024.bin
+          cp build/cyd_clock-esp32_2432s028.bin cyd_clock.bin
+          cp build_024/cyd_clock-esp32_2432s024.bin cyd_clock-esp32_2432s024.bin
           cp build/bootloader/bootloader.bin bootloader.bin
           cp build/partition_table/partition-table.bin partition-table.bin
           cp build/ota_data_initial.bin ota_data_initial.bin

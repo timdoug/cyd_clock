@@ -490,8 +490,12 @@ about_result_t ui_about_update(void) {
                        touch.x >= 10 && touch.x < 110 &&
                        touch.y >= OTA_UPDATE_BTN_Y &&
                        touch.y < OTA_UPDATE_BTN_Y + OTA_UPDATE_BTN_H) {
+                // A prior attempt that stopped at "same version" arms the
+                // next tap as a forced reflash (repair path for a suspect
+                // flash); the status line told the user so.
+                bool force = (status.state == OTA_UPDATE_SAME_VERSION);
                 char err[64];
-                if (!ota_update_start(ota_url, err, sizeof(err))) {
+                if (!ota_update_start(ota_url, force, err, sizeof(err))) {
                     ota_update_status_t status = {
                         .state = OTA_UPDATE_FAILED,
                         .bytes_read = 0,

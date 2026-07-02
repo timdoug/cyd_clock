@@ -1,5 +1,6 @@
 #include "ota_update.h"
 #include <string.h>
+#include "esp_app_desc.h"
 #include "esp_crt_bundle.h"
 #include "esp_err.h"
 #include "esp_http_client.h"
@@ -23,12 +24,12 @@ static ota_update_status_t current_status = {
     .message = "Idle",
 };
 static char pending_url[MAX_OTA_URL_LEN];
+static bool pending_force = false;
 static bool cancel_requested = false;
 
 typedef struct {
     int last_status_code;
     int redirects;
-    int64_t content_length;
 } ota_http_debug_t;
 
 static void status_set(ota_update_state_t state,
@@ -84,13 +85,6 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt) {
             if (debug) debug->redirects++;
             ESP_LOGI(TAG, "HTTP redirect");
             break;
-        case HTTP_EVENT_ON_HEADERS_COMPLETE:
-            if (debug && evt->client) {
-                debug->content_length = esp_http_client_get_content_length(evt->client);
-                ESP_LOGI(TAG, "HTTP content length: %lld",
-                         (long long)debug->content_length);
-            }
-            break;
         case HTTP_EVENT_ERROR:
             ESP_LOGE(TAG, "HTTP client error event");
             break;
@@ -109,8 +103,9 @@ static void ota_task(void *arg) {
 
     char url[MAX_OTA_URL_LEN];
     str_copy(url, sizeof(url), pending_url);
+    bool force = pending_force;
 
-    ESP_LOGI(TAG, "Starting OTA from %s", url);
+    ESP_LOGI(TAG, "Starting OTA from %s%s", url, force ? " (forced)" : "");
     status_set(OTA_UPDATE_RUNNING, "Connecting", 0, 0);
 
     const esp_partition_t *running = esp_ota_get_running_partition();
@@ -129,7 +124,6 @@ static void ota_task(void *arg) {
     ota_http_debug_t http_debug = {
         .last_status_code = 0,
         .redirects = 0,
-        .content_length = -1,
     };
     esp_http_client_config_t http_config = {
         .url = url,
@@ -149,9 +143,9 @@ static void ota_task(void *arg) {
     esp_https_ota_handle_t handle = NULL;
     esp_err_t err = esp_https_ota_begin(&ota_config, &handle);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "esp_https_ota_begin failed: %s status=%d redirects=%d len=%lld",
+        ESP_LOGE(TAG, "esp_https_ota_begin failed: %s status=%d redirects=%d",
                  esp_err_to_name(err), http_debug.last_status_code,
-                 http_debug.redirects, (long long)http_debug.content_length);
+                 http_debug.redirects);
         status_set_err(OTA_UPDATE_FAILED, "Begin", err, 0, 0);
         vTaskDelete(NULL);
     }
@@ -165,10 +159,42 @@ static void ota_task(void *arg) {
         vTaskDelete(NULL);
     }
 
-    uint32_t total_bytes = 0;
-    if (http_debug.content_length > 0 && http_debug.content_length <= UINT32_MAX) {
-        total_bytes = (uint32_t)http_debug.content_length;
+    // Identity and version gate. TLS only proves we are talking to the
+    // configured host; the app descriptor proves the served file is this
+    // project's firmware for THIS board (project_name carries the board
+    // suffix - a wrong asset URL used to flash blind, including the other
+    // board's image) and lets us skip re-flashing the version that is
+    // already running.
+    esp_app_desc_t new_desc;
+    err = esp_https_ota_get_img_desc(handle, &new_desc);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "esp_https_ota_get_img_desc failed: %s", esp_err_to_name(err));
+        esp_https_ota_abort(handle);
+        status_set_err(OTA_UPDATE_FAILED, "Describe", err, 0, 0);
+        vTaskDelete(NULL);
     }
+    const esp_app_desc_t *cur = esp_app_get_description();
+    if (strncmp(new_desc.project_name, cur->project_name,
+                sizeof(new_desc.project_name)) != 0) {
+        ESP_LOGE(TAG, "OTA image is '%.*s', not '%s'; refusing",
+                 (int)sizeof(new_desc.project_name), new_desc.project_name,
+                 cur->project_name);
+        esp_https_ota_abort(handle);
+        status_set(OTA_UPDATE_FAILED, "Wrong image", 0, 0);
+        vTaskDelete(NULL);
+    }
+    if (!force &&
+        strncmp(new_desc.version, cur->version, sizeof(new_desc.version)) == 0) {
+        ESP_LOGI(TAG, "OTA image version '%s' is already running", cur->version);
+        esp_https_ota_abort(handle);
+        // The UI turns this state into "tap Update again to reflash anyway"
+        // (a deliberate repair path for a suspect flash).
+        status_set(OTA_UPDATE_SAME_VERSION, "Same version; tap to force", 0, 0);
+        vTaskDelete(NULL);
+    }
+
+    int image_size = esp_https_ota_get_image_size(handle);
+    uint32_t total_bytes = image_size > 0 ? (uint32_t)image_size : 0;
 
     status_set(OTA_UPDATE_RUNNING, "Downloading", 0, total_bytes);
     while ((err = esp_https_ota_perform(handle)) == ESP_ERR_HTTPS_OTA_IN_PROGRESS) {
@@ -194,10 +220,9 @@ static void ota_task(void *arg) {
     }
 
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "esp_https_ota_perform failed: %s bytes=%lu status=%d redirects=%d len=%lld",
+        ESP_LOGE(TAG, "esp_https_ota_perform failed: %s bytes=%lu status=%d redirects=%d",
                  esp_err_to_name(err), (unsigned long)bytes_read,
-                 http_debug.last_status_code, http_debug.redirects,
-                 (long long)http_debug.content_length);
+                 http_debug.last_status_code, http_debug.redirects);
         esp_https_ota_abort(handle);
         status_set_err(OTA_UPDATE_FAILED, "Download", err, bytes_read, total_bytes);
         vTaskDelete(NULL);
@@ -206,10 +231,9 @@ static void ota_task(void *arg) {
     status_set(OTA_UPDATE_RUNNING, "Verifying", bytes_read, total_bytes);
     err = esp_https_ota_finish(handle);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "esp_https_ota_finish failed: %s bytes=%lu status=%d redirects=%d len=%lld",
+        ESP_LOGE(TAG, "esp_https_ota_finish failed: %s bytes=%lu status=%d redirects=%d",
                  esp_err_to_name(err), (unsigned long)bytes_read,
-                 http_debug.last_status_code, http_debug.redirects,
-                 (long long)http_debug.content_length);
+                 http_debug.last_status_code, http_debug.redirects);
         status_set_err(OTA_UPDATE_FAILED, "Finish", err, bytes_read, total_bytes);
         vTaskDelete(NULL);
     }
@@ -226,7 +250,18 @@ void ota_update_init(void) {
     }
 }
 
-bool ota_update_start(const char *url, char *err_buf, size_t err_len) {
+void ota_update_mark_boot_valid(void) {
+    const esp_partition_t *running = esp_ota_get_running_partition();
+    esp_ota_img_states_t img_state;
+    if (running &&
+        esp_ota_get_state_partition(running, &img_state) == ESP_OK &&
+        img_state == ESP_OTA_IMG_PENDING_VERIFY) {
+        esp_err_t err = esp_ota_mark_app_valid_cancel_rollback();
+        ESP_LOGI(TAG, "Marked OTA image valid: %s", esp_err_to_name(err));
+    }
+}
+
+bool ota_update_start(const char *url, bool force, char *err_buf, size_t err_len) {
     if (!url || url[0] == '\0') {
         str_copy(err_buf, err_len, "Missing URL");
         status_set(OTA_UPDATE_FAILED, "Missing URL", 0, 0);
@@ -237,17 +272,25 @@ bool ota_update_start(const char *url, char *err_buf, size_t err_len) {
         status_set(OTA_UPDATE_FAILED, "WiFi offline", 0, 0);
         return false;
     }
-    if (ota_update_is_running()) {
+    // Check-and-claim under the mutex, and WITHOUT touching current_status
+    // on refusal: overwriting the RUNNING state the in-flight task owns
+    // would make is_running()/cancel() no-ops and let a second start pass
+    // the guard and write the same partition concurrently.
+    if (status_mutex) xSemaphoreTake(status_mutex, portMAX_DELAY);
+    if (current_status.state == OTA_UPDATE_RUNNING) {
+        if (status_mutex) xSemaphoreGive(status_mutex);
         str_copy(err_buf, err_len, "Already running");
-        status_set(OTA_UPDATE_FAILED, "Already running", 0, 0);
         return false;
     }
-
-    str_copy(pending_url, sizeof(pending_url), url);
-    if (status_mutex) xSemaphoreTake(status_mutex, portMAX_DELAY);
+    current_status.state = OTA_UPDATE_RUNNING;
+    str_copy(current_status.message, sizeof(current_status.message), "Queued");
+    current_status.bytes_read = 0;
+    current_status.total_bytes = 0;
     cancel_requested = false;
     if (status_mutex) xSemaphoreGive(status_mutex);
-    status_set(OTA_UPDATE_RUNNING, "Queued", 0, 0);
+
+    str_copy(pending_url, sizeof(pending_url), url);
+    pending_force = force;
     // Pin to core 0 (network core): the HTTPS download + flash writes must not
     // compete with the OTA progress screen the main task renders on core 1.
     BaseType_t ok = xTaskCreatePinnedToCore(ota_task, "ota_update", 8192, NULL,

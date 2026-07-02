@@ -54,6 +54,13 @@ CONFIG_MBEDTLS_ECP_FIXED_POINT_OPTIM=y
 # the path from second boundary to pixels
 CONFIG_ESP_TIMER_SUPPORTS_ISR_DISPATCH_METHOD=y
 
+# OTA rollback: a new image boots as PENDING_VERIFY and main.c marks it
+# valid once the app is up; if it crash-loops before that, the bootloader
+# falls back to the previous slot instead of bricking the clock. (OTA never
+# updates the bootloader, so devices flashed before this setting gain the
+# bootloader half of the protection at their next wired flash.)
+CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
+
 # Watchdog the main task: a clock frozen on a stale time is the worst
 # failure mode a clock can have. 30 s window clears the longest legitimate
 # block (wifi_connect's 15 s verdict wait); panic -> reboot -> recover.

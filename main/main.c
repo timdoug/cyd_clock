@@ -258,6 +258,11 @@ void app_main(void) {
     // explicitly.
     ESP_ERROR_CHECK(esp_task_wdt_add(NULL));
 
+    // Init survived and the watchdogged main loop is starting: a freshly
+    // OTA'd image can be committed so the bootloader stops considering a
+    // rollback to the previous slot.
+    ota_update_mark_boot_valid();
+
     while (1) {
         esp_task_wdt_reset();
         wifi_poll_reconnect();
