@@ -262,24 +262,32 @@ void ota_update_mark_boot_valid(void) {
 }
 
 bool ota_update_start(const char *url, bool force, char *err_buf, size_t err_len) {
-    if (!url || url[0] == '\0') {
-        str_copy(err_buf, err_len, "Missing URL");
-        status_set(OTA_UPDATE_FAILED, "Missing URL", 0, 0);
-        return false;
-    }
-    if (!wifi_is_connected()) {
-        str_copy(err_buf, err_len, "WiFi offline");
-        status_set(OTA_UPDATE_FAILED, "WiFi offline", 0, 0);
-        return false;
-    }
     // Check-and-claim under the mutex, and WITHOUT touching current_status
     // on refusal: overwriting the RUNNING state the in-flight task owns
     // would make is_running()/cancel() no-ops and let a second start pass
-    // the guard and write the same partition concurrently.
+    // the guard and write the same partition concurrently. The precondition
+    // refusals (missing URL, offline) write FAILED only after confirming no
+    // task is RUNNING, and inline the write while holding the mutex - so they
+    // can never stomp a running task's status.
     if (status_mutex) xSemaphoreTake(status_mutex, portMAX_DELAY);
     if (current_status.state == OTA_UPDATE_RUNNING) {
         if (status_mutex) xSemaphoreGive(status_mutex);
         str_copy(err_buf, err_len, "Already running");
+        return false;
+    }
+    const char *precheck_err = NULL;
+    if (!url || url[0] == '\0') {
+        precheck_err = "Missing URL";
+    } else if (!wifi_is_connected()) {
+        precheck_err = "WiFi offline";
+    }
+    if (precheck_err) {
+        current_status.state = OTA_UPDATE_FAILED;
+        str_copy(current_status.message, sizeof(current_status.message), precheck_err);
+        current_status.bytes_read = 0;
+        current_status.total_bytes = 0;
+        if (status_mutex) xSemaphoreGive(status_mutex);
+        str_copy(err_buf, err_len, precheck_err);
         return false;
     }
     current_status.state = OTA_UPDATE_RUNNING;
@@ -320,10 +328,4 @@ void ota_update_get_status(ota_update_status_t *status) {
     if (status_mutex) xSemaphoreTake(status_mutex, portMAX_DELAY);
     *status = current_status;
     if (status_mutex) xSemaphoreGive(status_mutex);
-}
-
-bool ota_update_is_running(void) {
-    ota_update_status_t status;
-    ota_update_get_status(&status);
-    return status.state == OTA_UPDATE_RUNNING;
 }

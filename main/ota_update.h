@@ -46,6 +46,5 @@ void ota_update_mark_boot_valid(void);
 bool ota_update_start(const char *url, bool force, char *err_buf, size_t err_len);
 bool ota_update_cancel(void);
 void ota_update_get_status(ota_update_status_t *status);
-bool ota_update_is_running(void);
 
 #endif
