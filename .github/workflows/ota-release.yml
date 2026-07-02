@@ -121,6 +121,30 @@ jobs:
           fi
           echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
 
+      - name: Build changelog notes
+        # Release body: the commit subjects added since the previous r* release
+        # reachable from this tag's history. "${TAG}^" starts the search at the
+        # parent so the current tag never matches itself; the first-ever release
+        # has no predecessor and falls back to a plain line.
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -eu
+          prev="$(git describe --tags --abbrev=0 --match 'r*' "${TAG}^" 2>/dev/null || true)"
+          {
+            echo "CYD Clock ${TAG}"
+            echo
+            if [ -n "${prev}" ]; then
+              echo "### Changes since ${prev}"
+              echo
+              # GitHub autolinks a bare short SHA to its commit page, so the
+              # trailing hash renders as a clickable link in the release body.
+              git log --no-merges --pretty='- %s (%h)' "${prev}..${TAG}"
+            else
+              echo "Initial release."
+            fi
+          } > release-notes.md
+
       - name: Create draft release if needed
         # Create as a draft with no assets so a half-finished or failed run
         # never leaves a published (or "latest") release pointing at nothing.
@@ -131,7 +155,7 @@ jobs:
         run: |
           set -eu
           gh release view "${TAG}" >/dev/null 2>&1 || \
-            gh release create "${TAG}" --title "${TAG}" --notes "CYD Clock ${TAG}" --draft
+            gh release create "${TAG}" --title "${TAG}" --notes-file release-notes.md --draft
 
       - name: Upload firmware assets
         env:
