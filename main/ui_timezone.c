@@ -289,19 +289,15 @@ tz_select_result_t ui_timezone_update(void) {
         }
     }
 
-    int count = list_count();
-
-    if (tap_start->y >= UI_LIST_START_Y && tap_start->y < UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H) {
-        int item = (tap_start->y - UI_LIST_START_Y) / UI_LIST_ITEM_H + list_scroll;
-        if (item < count) {
-            if (ui_state == TZ_STATE_REGION) {
-                selected_region = item;
-                enter_city_view();
-            } else {
-                selected_tz = city_indices[item];
-                selection_made = true;
-                return TZ_SELECT_DONE;
-            }
+    int item = ui_list_tap_to_item(tap_start, list_scroll, list_count());
+    if (item >= 0) {
+        if (ui_state == TZ_STATE_REGION) {
+            selected_region = item;
+            enter_city_view();
+        } else {
+            selected_tz = city_indices[item];
+            selection_made = true;
+            return TZ_SELECT_DONE;
         }
     }
 

@@ -134,6 +134,15 @@ static uint32_t             last_drawn_bench_generation;
 static bool                 preset_benchmarking;
 static bool                 preset_bench_cancel;
 
+// Main-task-owned snapshot of the labels/order actually on screen. Copied
+// under the bench lock, then drawn (multi-ms of SPI) and hit-tested against
+// WITHOUT the lock - so repaints don't stall the benchmark task, and a tap
+// resolves to the row the user saw even if a probe reordered the live list
+// between paint and tap.
+static char                 drawn_labels[N_PRESETS][sizeof(preset_labels[0])];
+static const char          *drawn_label_ptrs[N_PRESETS];
+static int                  drawn_order[N_PRESETS];
+
 static void rebuild_preset_order_locked(void);
 static void rebuild_preset_labels_locked(void);
 
@@ -212,12 +221,11 @@ static void rebuild_preset_labels_locked(void) {
     }
 }
 
+// Resolve a tapped row against the snapshot that was last drawn (main task
+// only; no lock needed).
 static int preset_index_for_row(int row) {
     if (row < 0 || row >= N_PRESETS) return -1;
-    bench_lock();
-    int idx = preset_order[row];
-    bench_unlock();
-    return idx;
+    return drawn_order[row];
 }
 
 static bool request_benchmark_cancel_locked(void) {
@@ -493,11 +501,20 @@ static int preset_highlight(void) {
 }
 
 static void draw_presets_list(void) {
-    int highlight = preset_highlight();
     bench_lock();
     uint32_t generation = preset_bench_generation;
-    ui_draw_list(preset_label_ptrs, N_PRESETS, list_scroll, highlight);
+    memcpy(drawn_labels, preset_labels, sizeof(drawn_labels));
+    memcpy(drawn_order, preset_order, sizeof(drawn_order));
     bench_unlock();
+
+    int highlight = -1;
+    for (int row = 0; row < N_PRESETS; row++) {
+        drawn_label_ptrs[row] = drawn_labels[row];
+        if (strcmp(custom_server, presets[drawn_order[row]].host) == 0) {
+            highlight = row;
+        }
+    }
+    ui_draw_list(drawn_label_ptrs, N_PRESETS, list_scroll, highlight);
     last_drawn_bench_generation = generation;
 }
 
@@ -556,12 +573,8 @@ static void apply_pending_settings(void) {
 
 ntp_result_t ui_ntp_update(void) {
     touch_point_t touch;
-    bool pressed = touch_read(&touch);
-    bool touched = false;
-    if (pressed && !ui_should_debounce(last_touch_time)) {
-        last_touch_time = xTaskGetTickCount();
-        touched = true;
-    }
+    bool pressed;
+    bool touched = ui_read_touch_ex(&touch, &last_touch_time, &pressed);
 
     if (ui_state == NTP_STATE_PRESETS) {
         if (last_drawn_bench_generation != preset_bench_generation) {
@@ -583,12 +596,10 @@ ntp_result_t ui_ntp_update(void) {
                 start_benchmark();
                 draw_benchmark_button();
                 draw_presets_list();
-            } else if (t->y >= UI_LIST_START_Y &&
-                       t->y < UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H) {
-                int item = (t->y - UI_LIST_START_Y) / UI_LIST_ITEM_H + list_scroll;
-                if (item < N_PRESETS) {
-                    int preset_idx = preset_index_for_row(item);
-                    if (preset_idx < 0) return NTP_RESULT_NONE;
+            } else {
+                int item = ui_list_tap_to_item(t, list_scroll, N_PRESETS);
+                int preset_idx = preset_index_for_row(item);
+                if (preset_idx >= 0) {
                     str_copy(custom_server, sizeof(custom_server), presets[preset_idx].host);
                     custom_server_len = strlen(custom_server);
                     ui_state = NTP_STATE_MAIN;

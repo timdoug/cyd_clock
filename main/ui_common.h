@@ -92,11 +92,28 @@ ui_list_touch_result_t ui_list_touch_update(ui_list_touch_t *state,
 
 bool ui_back_button_hit(const touch_point_t *touch);
 
+// Map a tap to a list item index for the standard list geometry, or -1 when
+// the tap is outside the rows or past the end of the list.
+int ui_list_tap_to_item(const touch_point_t *tap, int scroll, int count);
+
+// Paint new_text at (x, y) against old_text already on screen, touching only
+// cells that differ. Handles shrink (erases the tail) and grow. If `colors`
+// is non-NULL it supplies a per-character fg (multi-color rows); otherwise
+// the scalar fg applies. force_full repaints every cell (color changes).
+void ui_diff_paint(int x, int y, const char *old_text, const char *new_text,
+                   uint16_t fg, const uint16_t *colors,
+                   uint16_t bg, bool force_full);
+
 void ui_wait_for_touch_release(void);
 
 bool ui_should_debounce(uint32_t last_time_ticks);
 
 bool ui_read_touch(touch_point_t *touch, uint32_t *last_time_ticks);
+
+// Like ui_read_touch, but also reports the raw pressed state (pre-debounce)
+// for screens that feed ui_list_touch_update.
+bool ui_read_touch_ex(touch_point_t *touch, uint32_t *last_time_ticks,
+                      bool *pressed_out);
 
 // Signed microsecond quantity with adaptive precision, at most 7 chars for
 // int32-range magnitudes: "+0.99ms", "+9.99ms", "+99.9ms", "+9999ms",

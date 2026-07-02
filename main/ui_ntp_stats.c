@@ -105,34 +105,6 @@ static size_t flatten_segments(const segment_t *segs, int nsegs,
     return pos;
 }
 
-// Paint new_text starting at (x, y) vs old_text already on screen, touching
-// only the cells that differ. Handles shrink (erases tail) and grow (draws
-// extra chars). If `colors` is non-NULL, each char uses its per-position
-// color (used for multi-color rows); otherwise the scalar `fg` applies.
-static void diff_paint(int x, int y, const char *old_text, const char *new_text,
-                       uint16_t fg, const uint16_t *colors,
-                       uint16_t bg, bool force_full) {
-    size_t old_len = strlen(old_text);
-    size_t new_len = strlen(new_text);
-    size_t min_len = new_len < old_len ? new_len : old_len;
-
-    for (size_t i = 0; i < min_len; i++) {
-        if (force_full || old_text[i] != new_text[i]) {
-            uint16_t cell_fg = colors ? colors[i] : fg;
-            display_char(x + (int)i * FONT_CHAR_WIDTH, y, new_text[i], cell_fg, bg);
-        }
-    }
-    for (size_t i = min_len; i < new_len; i++) {
-        uint16_t cell_fg = colors ? colors[i] : fg;
-        display_char(x + (int)i * FONT_CHAR_WIDTH, y, new_text[i], cell_fg, bg);
-    }
-    if (old_len > new_len) {
-        display_fill_rect(x + (int)new_len * FONT_CHAR_WIDTH, y,
-                          (int)(old_len - new_len) * FONT_CHAR_WIDTH,
-                          FONT_CHAR_HEIGHT, bg);
-    }
-}
-
 static void draw_segmented_field_cached(int x, int y, int row_idx,
                                         const char *label,
                                         const segment_t *segs, int nsegs) {
@@ -148,7 +120,7 @@ static void draw_segmented_field_cached(int x, int y, int row_idx,
     if (first_time) {
         display_string(x, y, label, COLOR_GRAY, COLOR_BLACK);
     }
-    diff_paint(vx, y, cache, text, 0, colors, COLOR_BLACK, first_time);
+    ui_diff_paint(vx, y, cache, text, 0, colors, COLOR_BLACK, first_time);
 
     str_copy(cache, sizeof(last_sys_row[row_idx]), text);
     last_sys_color[row_idx] = 0;
@@ -172,7 +144,7 @@ static void draw_field_cached(int x, int y, int row_idx,
         display_string(x, y, label, COLOR_GRAY, COLOR_BLACK);
     }
 
-    diff_paint(vx, y, cache, value, val_color, NULL, COLOR_BLACK,
+    ui_diff_paint(vx, y, cache, value, val_color, NULL, COLOR_BLACK,
                first_time || color_changed);
 
     str_copy(cache, sizeof(last_sys_row[row_idx]), value);
@@ -239,7 +211,7 @@ static void draw_peer_row(int slot, const ntp_peer_stats_t *p) {
 
     if (!first_time && !color_changed && strcmp(cache, line) == 0) return;
 
-    diff_paint(4, y, cache, line, row_fg, NULL, COLOR_BLACK,
+    ui_diff_paint(4, y, cache, line, row_fg, NULL, COLOR_BLACK,
                first_time || color_changed);
 
     str_copy(cache, sizeof(last_peer_row[slot]), line);
@@ -408,7 +380,7 @@ static void refresh_dynamic(void) {
 
 // Advance the address scroll for slots whose address is wider than the column,
 // faster than the 1 Hz full refresh so it's readable. Repaints only those rows
-// (diff_paint touches just the address cells that moved).
+// (ui_diff_paint touches just the address cells that moved).
 static void marquee_peer_addrs(void) {
     uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
     if ((int32_t)(now - marquee_ms) < PEER_MARQUEE_MS) return;

@@ -236,12 +236,8 @@ void ui_wifi_setup_init(bool show_back) {
 
 wifi_setup_result_t ui_wifi_setup_update(void) {
     touch_point_t touch;
-    bool pressed = touch_read(&touch);
-    bool touched = false;
-    if (pressed && !ui_should_debounce(last_touch_time)) {
-        last_touch_time = xTaskGetTickCount();
-        touched = true;
-    }
+    bool pressed;
+    bool touched = ui_read_touch_ex(&touch, &last_touch_time, &pressed);
 
     switch (state) {
         case STATE_SCANNING:
@@ -314,27 +310,24 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
                 return WIFI_SETUP_CANCELLED;
             }
 
-            if (tap_start->y >= UI_LIST_START_Y
-                && tap_start->y < UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H) {
-                int item = (tap_start->y - UI_LIST_START_Y) / UI_LIST_ITEM_H + list_scroll;
-                if (item < network_count) {
-                    selected_network = item;
-                    password_len = 0;
-                    password[0] = '\0';
-                    reset_list_touch();
-                    if (networks[selected_network].authmode == 0) {
-                        state = STATE_CONNECTING;
-                        display_fill(COLOR_BLACK);
-                        ui_draw_header(tr(STR_CONNECTING), false);
-                        ui_draw_centered_string(100, tr(STR_CONNECTING_TO), COLOR_WHITE, COLOR_BLACK, false);
-                        ui_draw_centered_string(130, networks[selected_network].ssid, COLOR_CYAN, COLOR_BLACK, false);
-                    } else {
-                        state = STATE_PASSWORD_ENTRY;
-                        display_fill(COLOR_BLACK);
-                        ui_draw_header(tr(STR_ENTER_PASSWORD), true);
-                        draw_password_input();
-                        draw_keyboard();
-                    }
+            int item = ui_list_tap_to_item(tap_start, list_scroll, network_count);
+            if (item >= 0) {
+                selected_network = item;
+                password_len = 0;
+                password[0] = '\0';
+                reset_list_touch();
+                if (networks[selected_network].authmode == 0) {
+                    state = STATE_CONNECTING;
+                    display_fill(COLOR_BLACK);
+                    ui_draw_header(tr(STR_CONNECTING), false);
+                    ui_draw_centered_string(100, tr(STR_CONNECTING_TO), COLOR_WHITE, COLOR_BLACK, false);
+                    ui_draw_centered_string(130, networks[selected_network].ssid, COLOR_CYAN, COLOR_BLACK, false);
+                } else {
+                    state = STATE_PASSWORD_ENTRY;
+                    display_fill(COLOR_BLACK);
+                    ui_draw_header(tr(STR_ENTER_PASSWORD), true);
+                    draw_password_input();
+                    draw_keyboard();
                 }
             }
             break;

@@ -77,16 +77,13 @@ language_result_t ui_language_update(void) {
         if (ui_back_button_hit(tap)) {
             return LANGUAGE_RESULT_BACK;
         }
-        if (tap->y >= UI_LIST_START_Y &&
-            tap->y < UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H) {
-            int item = (tap->y - UI_LIST_START_Y) / UI_LIST_ITEM_H + list_scroll;
-            if (item >= 0 && item < LANG_COUNT && lang_order[item] != i18n_get_language()) {
-                i18n_set_language(lang_order[item]);
-                nvs_config_set_language((uint8_t)lang_order[item]);
-                // Repaint in the newly selected language so the change is
-                // visible immediately; the user taps Back to return.
-                draw_screen();
-            }
+        int item = ui_list_tap_to_item(tap, list_scroll, LANG_COUNT);
+        if (item >= 0 && lang_order[item] != i18n_get_language()) {
+            i18n_set_language(lang_order[item]);
+            nvs_config_set_language((uint8_t)lang_order[item]);
+            // Repaint in the newly selected language so the change is
+            // visible immediately; the user taps Back to return.
+            draw_screen();
         }
     }
 

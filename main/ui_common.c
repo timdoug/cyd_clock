@@ -221,6 +221,39 @@ ui_list_touch_result_t ui_list_touch_update(ui_list_touch_t *state,
     return UI_LIST_TOUCH_TAPPED;
 }
 
+int ui_list_tap_to_item(const touch_point_t *tap, int scroll, int count) {
+    if (!tap || tap->y < UI_LIST_START_Y ||
+        tap->y >= UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H) {
+        return -1;
+    }
+    int item = (tap->y - UI_LIST_START_Y) / UI_LIST_ITEM_H + scroll;
+    return item < count ? item : -1;
+}
+
+void ui_diff_paint(int x, int y, const char *old_text, const char *new_text,
+                   uint16_t fg, const uint16_t *colors,
+                   uint16_t bg, bool force_full) {
+    size_t old_len = strlen(old_text);
+    size_t new_len = strlen(new_text);
+    size_t min_len = new_len < old_len ? new_len : old_len;
+
+    for (size_t i = 0; i < min_len; i++) {
+        if (force_full || old_text[i] != new_text[i]) {
+            uint16_t cell_fg = colors ? colors[i] : fg;
+            display_char(x + (int)i * FONT_CHAR_WIDTH, y, new_text[i], cell_fg, bg);
+        }
+    }
+    for (size_t i = min_len; i < new_len; i++) {
+        uint16_t cell_fg = colors ? colors[i] : fg;
+        display_char(x + (int)i * FONT_CHAR_WIDTH, y, new_text[i], cell_fg, bg);
+    }
+    if (old_len > new_len) {
+        display_fill_rect(x + (int)new_len * FONT_CHAR_WIDTH, y,
+                          (int)(old_len - new_len) * FONT_CHAR_WIDTH,
+                          FONT_CHAR_HEIGHT, bg);
+    }
+}
+
 bool ui_back_button_hit(const touch_point_t *touch) {
     return touch->y < UI_HEADER_HEIGHT && touch->x < UI_BACK_BTN_X + UI_BACK_BTN_W;
 }
@@ -239,15 +272,21 @@ bool ui_should_debounce(uint32_t last_time_ticks) {
     return (now - last_time_ticks) < pdMS_TO_TICKS(TOUCH_DEBOUNCE_MS);
 }
 
-bool ui_read_touch(touch_point_t *touch, uint32_t *last_time_ticks) {
-    bool touched = touch_read(touch);
-    if (touched && ui_should_debounce(*last_time_ticks)) {
+bool ui_read_touch_ex(touch_point_t *touch, uint32_t *last_time_ticks,
+                      bool *pressed_out) {
+    bool pressed = touch_read(touch);
+    if (pressed_out) *pressed_out = pressed;
+    if (pressed && ui_should_debounce(*last_time_ticks)) {
         return false;
     }
-    if (touched) {
+    if (pressed) {
         *last_time_ticks = xTaskGetTickCount();
     }
-    return touched;
+    return pressed;
+}
+
+bool ui_read_touch(touch_point_t *touch, uint32_t *last_time_ticks) {
+    return ui_read_touch_ex(touch, last_time_ticks, NULL);
 }
 
 void ui_draw_menu_item(int y, const char *label) {

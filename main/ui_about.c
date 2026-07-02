@@ -64,29 +64,6 @@ static bool ota_status_read_label_drawn = false;
 static char ota_status_progress_drawn[40] = {0};
 static int ota_status_bar_fill_drawn = -1;
 
-static void draw_changed_text(int x,
-                              int y,
-                              const char *text,
-                              char *drawn,
-                              size_t drawn_len,
-                              uint16_t fg,
-                              uint16_t bg) {
-    size_t text_len = strlen(text);
-    size_t old_len = strlen(drawn);
-    size_t max_len = text_len > old_len ? text_len : old_len;
-    if (max_len >= drawn_len) max_len = drawn_len - 1;
-
-    for (size_t i = 0; i < max_len; i++) {
-        char next = i < text_len ? text[i] : ' ';
-        char prev = i < old_len ? drawn[i] : ' ';
-        if (next != prev) {
-            display_char(x + (int)i * FONT_CHAR_WIDTH, y, next, fg, bg);
-        }
-    }
-
-    str_copy(drawn, drawn_len, text);
-}
-
 static const char *url_keyboard_rows[] = {
     "1234567890",
     "qwertyuiop",
@@ -315,9 +292,10 @@ static void draw_ota_status(bool force) {
             }
 
             if (force || strcmp(progress, ota_status_progress_drawn) != 0) {
-                draw_changed_text(75, 198, progress, ota_status_progress_drawn,
-                                  sizeof(ota_status_progress_drawn),
-                                  COLOR_WHITE, COLOR_BLACK);
+                ui_diff_paint(75, 198, ota_status_progress_drawn, progress,
+                              COLOR_WHITE, NULL, COLOR_BLACK, false);
+                str_copy(ota_status_progress_drawn,
+                         sizeof(ota_status_progress_drawn), progress);
             }
             if (force || bar_fill != ota_status_bar_fill_drawn) {
                 if (force || bar_fill < ota_status_bar_fill_drawn ||
