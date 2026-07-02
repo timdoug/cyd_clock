@@ -361,13 +361,6 @@ void ui_fmt_signed_x1000(char *buf, size_t len, int32_t val_x1000, const char *u
     snprintf(buf, len, "%c%lu%s", sign, (unsigned long)((av + 500) / 1000), unit);
 }
 
-void ui_fmt_duration(char *buf, size_t len, uint32_t seconds) {
-    if (seconds < 60)         snprintf(buf, len, "%lus", (unsigned long)seconds);
-    else if (seconds < 3600)  snprintf(buf, len, "%lum", (unsigned long)(seconds / 60));
-    else if (seconds < 86400) snprintf(buf, len, "%luh", (unsigned long)(seconds / 3600));
-    else                      snprintf(buf, len, "%lud", (unsigned long)(seconds / 86400));
-}
-
 void ui_fmt_duration_full(char *buf, size_t len, uint32_t seconds) {
     if (seconds < 60) {
         snprintf(buf, len, "%lus", (unsigned long)seconds);

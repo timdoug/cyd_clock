@@ -3,7 +3,6 @@ CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
 CONFIG_SPI_FLASH_SUPPORT_BOYA_CHIP=y
 CONFIG_PARTITION_TABLE_CUSTOM=y
 CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions_ota.csv"
-CONFIG_PARTITION_TABLE_FILENAME="partitions_ota.csv"
 
 # RTC clock: use internal 8.5MHz oscillator / 256 (more accurate than RC)
 # 8x default calibration cycles for more accurate RTC tick measurement

@@ -36,7 +36,6 @@ idf_component_register(
         "${CMAKE_CURRENT_BINARY_DIR}"
     PRIV_REQUIRES
         app_update
-        bootloader_support
         esp_event
         esp_driver_gpio
         esp_driver_ledc

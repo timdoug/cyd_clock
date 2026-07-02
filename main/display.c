@@ -11,7 +11,6 @@
 static const char *TAG = "display";
 
 // ILI9341 commands
-#define ILI9341_NOP        0x00
 #define ILI9341_SWRESET    0x01
 #define ILI9341_SLPOUT     0x11
 #define ILI9341_DISPON     0x29
@@ -814,7 +813,7 @@ void display_digit_7seg(int16_t x, int16_t y, uint8_t digit, uint8_t size, uint1
     spi_write_bytes(digit_buf, (size_t)w * h * 2);
 }
 
-void display_colon_7seg(int16_t x, int16_t y, uint8_t size, uint16_t color, uint16_t bg) {
+void display_colon_7seg(int16_t x, int16_t y, uint8_t size, uint16_t color) {
     int16_t seg_len, seg_thick, dot_size;
     switch (size) {
         case 1: seg_len = 16; seg_thick = 4; dot_size = 4; break;

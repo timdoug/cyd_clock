@@ -33,9 +33,7 @@
 static const char *TAG = "main";
 
 typedef enum {
-    APP_STATE_INIT,
     APP_STATE_WIFI_SETUP,
-    APP_STATE_CONNECTING,
     APP_STATE_CLOCK,
     APP_STATE_SETTINGS,
     APP_STATE_TIMEZONE,
@@ -45,7 +43,8 @@ typedef enum {
     APP_STATE_NTP_STATS,
 } app_state_t;
 
-static app_state_t app_state = APP_STATE_INIT;
+// Overwritten during boot, before the main loop first reads it.
+static app_state_t app_state = APP_STATE_CLOCK;
 static bool wifi_setup_from_settings = false;
 static bool initial_setup = false;
 static char stored_ssid[WIFI_SSID_BUF_LEN];
@@ -126,6 +125,15 @@ static void clock_tick_arm(void) {
     esp_timer_start_once(clock_tick_timer, (uint64_t)us_until);
 }
 
+// Hold until BOOT is released so one press doesn't double-trigger; feeds
+// the watchdog while the button is held.
+static void wait_boot_button_release(void) {
+    while (gpio_get_level(BOOT_BUTTON_GPIO) == 0) {
+        esp_task_wdt_reset();
+        vTaskDelay(pdMS_TO_TICKS(TOUCH_RELEASE_POLL_MS));
+    }
+}
+
 // No fixed delay: the splash stays on screen for the real work that
 // follows (WiFi bring-up and connect, ~3-5 s), with the connection status
 // drawn onto it by try_connect_stored_credentials. The old fixed 1.5 s
@@ -140,8 +148,6 @@ static void show_splash(void) {
 }
 
 static void try_connect_stored_credentials(void) {
-    app_state = APP_STATE_CONNECTING;
-
     // Drawn onto the splash (still showing) rather than a fresh screen;
     // positions complete the centered block (see show_splash).
     ui_draw_centered_string(132, tr(STR_CONNECTING_TO), COLOR_WHITE, COLOR_BLACK, false);
@@ -267,9 +273,6 @@ void app_main(void) {
         esp_task_wdt_reset();
         wifi_poll_reconnect();
         switch (app_state) {
-            case APP_STATE_INIT:
-                break;
-
             case APP_STATE_WIFI_SETUP: {
                 wifi_setup_result_t result = ui_wifi_setup_update();
                 if (result == WIFI_SETUP_CONNECTED) {
@@ -302,9 +305,6 @@ void app_main(void) {
                 break;
             }
 
-            case APP_STATE_CONNECTING:
-                break;
-
             case APP_STATE_CLOCK: {
                 // Deferred NTP start for the boot-without-connectivity path:
                 // the background reconnect machinery owns getting online.
@@ -322,10 +322,7 @@ void app_main(void) {
                     app_state = APP_STATE_SETTINGS;
                     ui_settings_init();
                     tick_needs_arm = true;
-                    while (gpio_get_level(BOOT_BUTTON_GPIO) == 0) {
-                        esp_task_wdt_reset();
-                        vTaskDelay(pdMS_TO_TICKS(TOUCH_RELEASE_POLL_MS));
-                    }
+                    wait_boot_button_release();
                     continue;
                 } else if (zone == CLOCK_TOUCH_STATS) {
                     app_state = APP_STATE_NTP_STATS;
@@ -399,10 +396,7 @@ void app_main(void) {
                     app_state = APP_STATE_CLOCK;
                     ui_clock_init();
                     ui_clock_redraw();
-                    while (gpio_get_level(BOOT_BUTTON_GPIO) == 0) {
-                        esp_task_wdt_reset();
-                        vTaskDelay(pdMS_TO_TICKS(TOUCH_RELEASE_POLL_MS));
-                    }
+                    wait_boot_button_release();
                     continue;
                 }
                 settings_result_t result = ui_settings_update();
@@ -500,10 +494,7 @@ void app_main(void) {
                 } else if (result == NTP_STATS_RESULT_SETTINGS) {
                     app_state = APP_STATE_SETTINGS;
                     ui_settings_init();
-                    while (gpio_get_level(BOOT_BUTTON_GPIO) == 0) {
-                        esp_task_wdt_reset();
-                        vTaskDelay(pdMS_TO_TICKS(TOUCH_RELEASE_POLL_MS));
-                    }
+                    wait_boot_button_release();
                 }
                 break;
             }

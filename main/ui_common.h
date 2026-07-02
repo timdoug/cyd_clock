@@ -108,13 +108,6 @@ void ui_fmt_offset_us(char *buf, size_t len, int64_t us);
 // "+9.99ppm", "+99.9ppm", "+500ppm".
 void ui_fmt_signed_x1000(char *buf, size_t len, int32_t val_x1000, const char *unit);
 
-// Format a number of seconds into a short human-readable string:
-//   <60s    -> "Xs"
-//   <3600   -> "Xm"
-//   <86400  -> "Xh"
-//   else    -> "Xd"
-void ui_fmt_duration(char *buf, size_t len, uint32_t seconds);
-
 // Compound two-unit form:
 //   <60s    -> "Xs"
 //   <3600   -> "Xm Ys"

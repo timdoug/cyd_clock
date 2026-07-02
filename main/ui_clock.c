@@ -172,11 +172,7 @@ static void draw_colon(int position, bool visible) {
         x = TIME_START_X + 4 * TIME_DIGIT_STEP + COLON_7SEG_WIDTH - TIME_DIGIT_SPACING / 2;
     }
 
-    if (visible) {
-        display_colon_7seg(x, TIME_Y, 2, COLOR_TIME_FG, COLOR_TIME_BG);
-    } else {
-        display_colon_7seg(x, TIME_Y, 2, COLOR_TIME_BG, COLOR_TIME_BG);
-    }
+    display_colon_7seg(x, TIME_Y, 2, visible ? COLOR_TIME_FG : COLOR_TIME_BG);
 }
 
 static bool draw_fraction(int centisecond) {

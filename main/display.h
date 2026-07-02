@@ -39,7 +39,7 @@ void display_string_2x(int16_t x, int16_t y, const char *str, uint16_t fg, uint1
 // size: 1=small (20x40), 2=medium (40x80), 3=large (60x120)
 void display_digit_7seg(int16_t x, int16_t y, uint8_t digit, uint8_t size, uint16_t color, uint16_t bg);
 
-void display_colon_7seg(int16_t x, int16_t y, uint8_t size, uint16_t color, uint16_t bg);
+void display_colon_7seg(int16_t x, int16_t y, uint8_t size, uint16_t color);
 
 void display_set_backlight(uint8_t brightness);
 

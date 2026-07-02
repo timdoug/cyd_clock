@@ -53,13 +53,12 @@ typedef enum {
 } about_ui_state_t;
 
 static about_ui_state_t ui_state = ABOUT_STATE_MAIN;
-static ota_update_status_t last_status;
 static ota_update_state_t last_update_button_state = OTA_UPDATE_IDLE;
 static bool update_button_drawn = false;
 static bool ota_header_drawn = false;
 static bool ota_header_back_drawn = true;
 static bool ota_status_frame_drawn = false;
-static char ota_status_message_drawn[sizeof(last_status.message)] = {0};
+static char ota_status_message_drawn[sizeof(((ota_update_status_t *)0)->message)] = {0};
 static uint32_t ota_status_read_bucket_drawn = UINT32_MAX;
 static bool ota_status_read_label_drawn = false;
 static char ota_status_progress_drawn[40] = {0};
@@ -340,8 +339,6 @@ static void draw_ota_status(bool force) {
         }
         ota_status_read_bucket_drawn = progress_bucket;
     }
-
-    last_status = status;
 }
 
 static void draw_ota_error(const char *err) {
@@ -450,7 +447,6 @@ void ui_about_init(void) {
     last_touch_time = 0;
     ui_state = ABOUT_STATE_MAIN;
     load_ota_url();
-    memset(&last_status, 0, sizeof(last_status));
 
     display_fill(COLOR_BLACK);
     draw_screen();
@@ -496,12 +492,6 @@ about_result_t ui_about_update(void) {
                 bool force = (status.state == OTA_UPDATE_SAME_VERSION);
                 char err[64];
                 if (!ota_update_start(ota_url, force, err, sizeof(err))) {
-                    ota_update_status_t status = {
-                        .state = OTA_UPDATE_FAILED,
-                        .bytes_read = 0,
-                    };
-                    str_copy(status.message, sizeof(status.message), err);
-                    last_status = status;
                     draw_ota_error(err);
                 }
                 update_button_drawn = false;
