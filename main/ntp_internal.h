@@ -56,6 +56,12 @@ extern const char *NTP_TAG;
 #define STEP_THRESHOLD_US    (128LL * 1000)
 #define PANIC_THRESHOLD_S    1000
 #define PANIC_AGREE_US       500000LL  // panic offsets within 0.5 s corroborate
+// RFC 5905 MAXDIST: a peer whose root distance (root_delay/2 + root_dispersion)
+// exceeds this is unusable for selection. A stratum-N server that has lost its
+// upstream honestly advertises a huge root dispersion; without this gate it can
+// still pass the 16 s field-sanity bar, win a narrow Marzullo interval, and get
+// honest peers evicted as falsetickers. Real pool peers sit well under 1.5 s.
+#define MAX_ROOT_DIST_US     1500000LL
 #define IDLE_WAKE_MS         5000
 #define NEW_PEER_HIGHLIGHT_MS 10000
 
@@ -131,7 +137,6 @@ typedef struct {
     char     addr_str[46];
     uint8_t  stratum;
     uint8_t  reach;
-    int8_t   precision;
     uint32_t root_delay_raw;
     uint32_t root_dispersion_raw;
 
@@ -243,9 +248,16 @@ typedef struct early_ring early_ring_t;
 
 extern ntp_state_t g;
 extern uint32_t next_global_poll_ms;
+// Set at every poll-schedule reset (config change, panic re-step, init) to force
+// the next scheduled request to open a fresh wave immediately. A bare
+// next_global_poll_ms = 0 sentinel breaks once mono_ms() passes 2^31: the wrapped
+// signed due-comparison then reads the tick as ~24 days in the future and polling
+// stalls until the counter wraps back. A dedicated flag sidesteps the wrap.
+extern bool poll_reset_pending;
 extern uint32_t next_global_poll_cycle_id;
 extern uint32_t last_poll_adjust_cycle_id;
 extern uint32_t last_evict_tick_ms;
+extern uint32_t replace_backoff_until_ms;
 
 static inline int32_t precision_to_us(int8_t precision) {
     if (precision >= 0) {
@@ -306,12 +318,13 @@ void step_clock(int64_t step_us);
 bool sockaddr_matches(const struct sockaddr_storage *a, const struct sockaddr_storage *b);
 int ntp_resolve_host(const char *host, bool prefer_ipv6,
                      struct sockaddr_storage *out, int max);
-int resolve_peers(void);
+void resolve_peers(void);
 void maybe_evict_worst_peer(void);
 
 // NTS-KE orchestration (ntp_peers.c); the KE handshake runs in its own
 // large-stack task.
 void nts_start_ke_if_needed(void);
+void nts_request_rekey(void);
 void nts_rebind_peers(void);
 void nts_drop_context_and_fallback(void);
 
@@ -321,6 +334,7 @@ void close_wake_sock(void);
 void open_wake_sock(void);
 void wake_task(void);
 void drain_wake_sock(void);
+void ntp_build_client_request(ntp_pkt_t *pkt, int8_t poll);
 void schedule_after_request(ntp_peer_t *p);
 bool send_request(ntp_peer_t *p);
 void handle_socket_readable(int sock, const struct timeval *t4);

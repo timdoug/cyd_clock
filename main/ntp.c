@@ -12,9 +12,11 @@ ntp_state_t g = {
 };
 
 uint32_t next_global_poll_ms;
+bool poll_reset_pending = true;
 uint32_t next_global_poll_cycle_id = 1;
 uint32_t last_poll_adjust_cycle_id;
 uint32_t last_evict_tick_ms = UINT32_MAX;
+uint32_t replace_backoff_until_ms;
 
 static void clear_visible_peer_state_locked(void) {
     for (int i = 0; i < NTP_MAX_PEERS; i++) {
@@ -110,10 +112,11 @@ static void ntp_task(void *arg) {
                 if (g.nts.ke_generation == 0) g.nts.ke_generation = 1;
             }
             g.nts_rebind = false;
-            next_global_poll_ms = 0;
+            poll_reset_pending = true;
             next_global_poll_cycle_id++;
             if (next_global_poll_cycle_id == 0) next_global_poll_cycle_id = 1;
             last_evict_tick_ms = UINT32_MAX;
+            replace_backoff_until_ms = 0;
             last_poll_adjust_cycle_id = 0;
             resolve_peers();
             // Arm the staleness watchdog against this resolution: even before
@@ -150,9 +153,21 @@ static void ntp_task(void *arg) {
             ntp_peer_t *p = &g.peers[i];
             if (!p->active) continue;
 
-            if (p->kod_until_ms && (int32_t)(now - p->kod_until_ms) < 0) {
-                if ((int32_t)(p->kod_until_ms - next_wake) < 0) next_wake = p->kod_until_ms;
-                continue;
+            // REQUIRE never emits an unauthenticated request. Pre-KE peers are
+            // plain; skip them (rather than send-and-self-reject) until the KE
+            // handshake binds them to NTS, which force_syncs a fresh poll.
+            if (g.nts_mode == NTS_MODE_REQUIRE && !p->nts) continue;
+
+            if (p->kod_until_ms) {
+                if ((int32_t)(now - p->kod_until_ms) < 0) {
+                    if ((int32_t)(p->kod_until_ms - next_wake) < 0) next_wake = p->kod_until_ms;
+                    continue;
+                }
+                // Expired: clear it so the peer polls normally again. Leaving a
+                // stale timestamp set would re-park the peer for ~24 days once
+                // mono_ms() wraps 2^31 past kod_until_ms (the signed compare
+                // above flips back to "in the future").
+                p->kod_until_ms = 0;
             }
 
             if (p->request_outstanding &&
@@ -247,6 +262,11 @@ void ntp_init(const char *server, bool prefer_ipv6, nts_mode_t nts_mode) {
     if (g.running) ntp_stop();
     if (!g.lock) g.lock = xSemaphoreCreateMutex();
 
+    // Hold the lock across the state init: the render loop's once-a-second
+    // ntp_get_all_stats() can run the moment g.lock exists (it starts before
+    // WiFi connects), so unlocked writes to g.last_offset_us (64-bit) and the
+    // rest would otherwise expose torn reads to the UI.
+    lock_take();
     str_copy(g.server, sizeof(g.server), server ? server : DEFAULT_NTP_SERVER);
     g.prefer_ipv6    = prefer_ipv6;
     g.nts_mode       = nts_mode;
@@ -274,10 +294,11 @@ void ntp_init(const char *server, bool prefer_ipv6, nts_mode_t nts_mode) {
     g.poll_adjust = 0;
     memset(&g.nts, 0, sizeof(g.nts));
     g.nts_rebind = false;
-    next_global_poll_ms = 0;
+    poll_reset_pending = true;
     next_global_poll_cycle_id++;
     if (next_global_poll_cycle_id == 0) next_global_poll_cycle_id = 1;
     last_evict_tick_ms = UINT32_MAX;
+    replace_backoff_until_ms = 0;
     last_poll_adjust_cycle_id = 0;
     // Restore the persisted crystal-drift estimate so we start near-converged
     // instead of the ~30 minutes the PI loop normally needs to settle on the
@@ -293,6 +314,7 @@ void ntp_init(const char *server, bool prefer_ipv6, nts_mode_t nts_mode) {
         g.freq_loaded_from_nvs = true;
         ESP_LOGI(TAG, "Restored freq estimate: %+ld ppb", (long)saved_freq);
     }
+    lock_give();
 
     g.running = true;
     // Pinned to core 0 with WiFi and lwip; core 1 is reserved for the render
@@ -438,27 +460,6 @@ static bool fill_peer_stats(int idx, ntp_peer_stats_t *out) {
     out->nts   = p->nts;
     str_copy(out->addr_str, sizeof(out->addr_str), p->addr_str);
     return true;
-}
-
-
-void ntp_get_sys_stats(ntp_sys_stats_t *out) {
-    if (!out) return;
-    memset(out, 0, sizeof(*out));
-    if (!g.lock) { out->stratum = 16; out->selected_peer = 0xFF; return; }
-
-    lock_take();
-    fill_sys_stats(out);
-    lock_give();
-}
-
-
-bool ntp_get_peer_stats(int idx, ntp_peer_stats_t *out) {
-    if (!out || idx < 0 || idx >= NTP_MAX_PEERS || !g.lock) return false;
-    lock_take();
-    memset(out, 0, sizeof(*out));
-    bool ok = fill_peer_stats(idx, out);
-    lock_give();
-    return ok;
 }
 
 

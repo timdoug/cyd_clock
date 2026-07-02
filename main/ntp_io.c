@@ -92,7 +92,8 @@ void drain_wake_sock(void) {
 void schedule_after_request(ntp_peer_t *p) {
     uint32_t now = mono_ms();
     uint32_t interval_ms = g.current_poll_s * 1000;
-    if ((int32_t)(now - next_global_poll_ms) >= 0) {
+    if (poll_reset_pending || (int32_t)(now - next_global_poll_ms) >= 0) {
+        poll_reset_pending = false;
         next_global_poll_ms = now + interval_ms;
         next_global_poll_cycle_id++;
         if (next_global_poll_cycle_id == 0) next_global_poll_cycle_id = 1;
@@ -114,14 +115,31 @@ static void settle_send_miss(ntp_peer_t *p, uint32_t request_cycle_id) {
 }
 
 
+void ntp_build_client_request(ntp_pkt_t *pkt, int8_t poll) {
+    memset(pkt, 0, sizeof(*pkt));
+    pkt->li_vn_mode = (0 << 6) | (NTP_VERSION << 3) | NTP_MODE_CLIENT;
+    pkt->precision  = LOCAL_PRECISION;
+    pkt->poll       = poll;
+    // Fully random transmit timestamp. The server echoes xmt verbatim as
+    // orig and nothing on our side reads it back as a time - it's purely
+    // the correlation key for response matching and the early-stamp rings -
+    // so a 64-bit random nonce works unchanged. Versus stamping the real
+    // clock: an off-path spoofer must guess 64 random bits instead of 32,
+    // and we don't leak clock state (a pre-sync device would otherwise
+    // advertise "clock at epoch" in every request). Same data minimization
+    // chrony applies.
+    pkt->xmt_ts_sec  = esp_random();
+    pkt->xmt_ts_frac = esp_random();
+}
+
+
 bool send_request(ntp_peer_t *p) {
-    ntp_pkt_t pkt = {0};
-    pkt.li_vn_mode = (0 << 6) | (NTP_VERSION << 3) | NTP_MODE_CLIENT;
-    pkt.precision  = LOCAL_PRECISION;
     uint32_t poll_s = g.current_poll_s ? g.current_poll_s : MIN_POLL_S;
     int8_t poll_exp = 0;
     while ((1U << poll_exp) < poll_s && poll_exp < 15) poll_exp++;
-    pkt.poll = poll_exp;
+
+    ntp_pkt_t pkt;
+    ntp_build_client_request(&pkt, poll_exp);
 
     uint32_t request_cycle_id = p->next_poll_cycle_id;
     if (request_cycle_id == 0) {
@@ -135,26 +153,19 @@ bool send_request(ntp_peer_t *p) {
         return false;
     }
 
-    // Fully random transmit timestamp. The server echoes xmt verbatim as
-    // orig and nothing on our side reads it back as a time - it's purely
-    // the correlation key for response matching and the early-stamp rings -
-    // so a 64-bit random nonce works unchanged. Versus stamping the real
-    // clock: an off-path spoofer must guess 64 random bits instead of 32,
-    // and we don't leak clock state (a pre-sync device would otherwise
-    // advertise "clock at epoch" in every request). Same data minimization
-    // chrony applies.
-    pkt.xmt_ts_sec  = esp_random();
-    pkt.xmt_ts_frac = esp_random();
-
     uint8_t buf[1280];
     memcpy(buf, &pkt, sizeof(pkt));
     size_t pkt_len = sizeof(pkt);
     if (p->nts) {
         if (!ntp_nts_add_ef(buf, &pkt_len, sizeof(buf), &g.nts, p->uid)) {
-            ESP_LOGW(TAG, "NTS cookies exhausted for %s; falling back and re-running KE",
-                     p->addr_str);
+            ESP_LOGW(TAG, "NTS cookies exhausted for %s; re-running KE", p->addr_str);
             nts_drop_context_and_fallback();
-            p->next_poll_ms = mono_ms() + 1000;
+            // If we downgraded to plain (opportunistic) retry soon to keep time
+            // flowing; if we stayed NTS (REQUIRE, fail closed) back off a full
+            // interval - the re-run KE force_syncs a fresh poll once cookies
+            // return, so there's no need to spin retrying add_ef every second.
+            uint32_t retry_ms = p->nts ? g.current_poll_s * 1000 : 1000;
+            p->next_poll_ms = mono_ms() + retry_ms;
             p->next_poll_cycle_id = next_global_poll_cycle_id;
             return false;
         }
@@ -218,8 +229,17 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
             ESP_LOGW(TAG, "NTS NAK uid mismatch from %s", p->addr_str);
             return RESP_IGNORE;
         }
-        ESP_LOGW(TAG, "NTS NAK from %s; falling back and re-running KE", p->addr_str);
-        nts_drop_context_and_fallback();
+        // A NAK is unauthenticated by design (RFC 8915 sec 5.7): the only gates
+        // are the echoed origin timestamp and the cleartext Unique ID, both of
+        // which any on-path observer of our request can replay. So a single
+        // (possibly forged) NAK must NOT tear down an established, working NTS
+        // association or downgrade peers to plain NTP - that would let an
+        // attacker strip authentication with one spoofed datagram. Keep the
+        // current keys/cookies (real responses still verify) and just kick off a
+        // background re-key to recover if the NAK was genuine (server rotated
+        // its key). Settle this response with no sample.
+        ESP_LOGW(TAG, "NTS NAK from %s; re-keying, keeping current context", p->addr_str);
+        nts_request_rekey();
         return RESP_BAD;
     }
 
@@ -420,7 +440,7 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
         g.selected_peer          = -1;
         g.stratum                = 16;
         g.current_poll_s         = MIN_POLL_S;
-        next_global_poll_ms      = 0;
+        poll_reset_pending       = true;
         g.poll_adjust            = 0;
         g.last_freq_sample_ms    = 0;
         g.last_discipline_ms     = mono_ms();
@@ -453,10 +473,17 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
     //   * Skip correction when delay > 3 * min_delay - a spike that large is
     //     almost certainly a transient (packet loss, retransmit, burst), not
     //     steady-state asymmetry; inferring direction from it is unreliable.
+    // Only trust recent samples for the min-delay reference: a stale low delay
+    // (e.g. from before a route change raised the true path RTT) would make
+    // every fresh sample look asymmetric and drag legitimate offsets toward
+    // zero. Mirror the sample-age bound update_peer_filter uses.
     int32_t min_delay = INT32_MAX;
     int valid_samples = 0;
+    uint32_t now_hnp = mono_ms();
+    uint32_t hnp_max_age_ms = ROBUST_SAMPLE_MAX_AGE_S * 1000UL;
     for (int i = 0; i < NTP_FILTER_SIZE; i++) {
         if (!p->filter[i].valid) continue;
+        if (now_hnp - p->filter[i].received_ms > hnp_max_age_ms) continue;
         valid_samples++;
         if (p->filter[i].delay_us < min_delay) min_delay = p->filter[i].delay_us;
     }
@@ -519,7 +546,6 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
     p->filter[p->filter_head].valid         = true;
 
     p->stratum         = pkt->stratum;
-    p->precision       = pkt->precision;
     p->root_delay_raw      = ntohl(pkt->root_delay);
     p->root_dispersion_raw = ntohl(pkt->root_dispersion);
     p->last_response_ms = mono_ms();
@@ -539,11 +565,12 @@ void handle_socket_readable(int sock, const struct timeval *t4) {
     //
     // RFC 5905 header is 48 bytes, followed by optional RFC 7822 extension
     // fields and a trailing MAC (for authenticated / NTS packets). We don't
-    // validate extensions or MAC, but the buffer is sized generously so a
-    // pool peer that sends an extension-laden response doesn't get truncated
-    // to an unreadable prefix by a tight buffer. 1280 fits a full NTS response
-    // (header + Unique ID + Authenticator carrying up to 8 fresh cookies).
-    uint8_t buf[1280];
+    // validate extensions or MAC, but the buffer is sized to the same worst
+    // case the NTS layer accepts (NTS_RESP_BUF_LEN: header + Unique ID +
+    // Authenticator carrying up to NTS_MAX_COOKIES fresh cookies of
+    // NTS_COOKIE_MAX bytes each) so a large-cookie server's refill isn't
+    // truncated to an unreadable prefix.
+    uint8_t buf[NTS_RESP_BUF_LEN];
     struct sockaddr_storage from;
     socklen_t fromlen = sizeof(from);
     ssize_t n = recvfrom(sock, buf, sizeof(buf), MSG_DONTWAIT,

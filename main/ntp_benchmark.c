@@ -67,16 +67,15 @@ static ntp_benchmark_status_t bench_one_addr(const struct sockaddr_storage *addr
         return NTP_BENCHMARK_TIMEOUT;
     }
 
-    ntp_pkt_t pkt = {0};
-    pkt.li_vn_mode = (0 << 6) | (NTP_VERSION << 3) | NTP_MODE_CLIENT;
-    pkt.precision = LOCAL_PRECISION;
-    pkt.poll = 6;
-    pkt.xmt_ts_sec = esp_random();
-    pkt.xmt_ts_frac = esp_random();
+    ntp_pkt_t pkt;
+    ntp_build_client_request(&pkt, 6);
     uint32_t req_xmt_sec = pkt.xmt_ts_sec;
     uint32_t req_xmt_frac = pkt.xmt_ts_frac;
 
-    uint8_t buf[1280];
+    // Sized to the NTS worst case (same as the main receive path): this buffer
+    // is reused for the recvfrom below, and an NTS response can refill up to
+    // NTS_MAX_COOKIES cookies of NTS_COOKIE_MAX bytes each.
+    uint8_t buf[NTS_RESP_BUF_LEN];
     memcpy(buf, &pkt, sizeof(pkt));
     size_t pkt_len = sizeof(pkt);
     uint8_t uid[NTS_UID_LEN] = {0};

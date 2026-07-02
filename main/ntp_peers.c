@@ -97,10 +97,7 @@ static void nts_ke_task(void *arg) {
 }
 
 
-void nts_start_ke_if_needed(void) {
-    if (g.nts_mode == NTS_MODE_OFF) return;
-    if (g.nts.valid || g.nts.ke_in_flight) return;
-    if (g.nts.ke_failed && (int32_t)(mono_ms() - g.nts.ke_retry_at_ms) < 0) return;
+static void spawn_ke_task(void) {
     nts_ke_arg_t *ke = calloc(1, sizeof(*ke));
     if (!ke) {
         ESP_LOGW(TAG, "Failed to allocate NTS-KE task args");
@@ -119,6 +116,29 @@ void nts_start_ke_if_needed(void) {
         free(ke);
         ESP_LOGW(TAG, "Failed to spawn NTS-KE task");
     }
+}
+
+
+void nts_start_ke_if_needed(void) {
+    if (g.nts_mode == NTS_MODE_OFF) return;
+    if (g.nts.valid || g.nts.ke_in_flight) return;
+    if (g.nts.ke_failed && (int32_t)(mono_ms() - g.nts.ke_retry_at_ms) < 0) return;
+    spawn_ke_task();
+}
+
+
+void nts_request_rekey(void) {
+    // Refresh keys/cookies while keeping the current context usable. Unlike
+    // nts_start_ke_if_needed this runs even when g.nts.valid, because the
+    // trigger (a NAK) means the current keys may be stale - but we must not
+    // drop them until the new context installs, so a forged NAK can't strip an
+    // established session. The completed KE swaps g.nts atomically under the
+    // lock; a failed KE leaves the current context intact.
+    if (g.nts_mode == NTS_MODE_OFF) return;
+    if (!g.nts.valid) { nts_start_ke_if_needed(); return; }
+    if (g.nts.ke_in_flight) return;   // one KE at a time bounds forged-NAK churn
+    if (g.nts.ke_failed && (int32_t)(mono_ms() - g.nts.ke_retry_at_ms) < 0) return;
+    spawn_ke_task();
 }
 
 
@@ -151,48 +171,74 @@ void nts_drop_context_and_fallback(void) {
     g.nts.ke_generation = ke_generation;
     g.nts_rebind = false;
 
-    for (int i = 0; i < NTP_MAX_PEERS; i++) {
-        ntp_peer_t *p = &g.peers[i];
-        if (!p->active) continue;
-        p->nts = false;
-        memset(p->uid, 0, sizeof(p->uid));
-        peer_set_port(p, NTP_PORT);
-    }
-
-    if (negotiated_host) {
-        g.dirty_config = true;
+    // REQUIRE never falls back to plain: keep the peers marked NTS (they back
+    // off until the re-run KE refills cookies) so we never emit an
+    // unauthenticated request. Opportunistic mode downgrades the peers to plain
+    // port-123 NTP to keep time flowing during the handshake.
+    if (g.nts_mode != NTS_MODE_REQUIRE) {
+        for (int i = 0; i < NTP_MAX_PEERS; i++) {
+            ntp_peer_t *p = &g.peers[i];
+            if (!p->active) continue;
+            p->nts = false;
+            memset(p->uid, 0, sizeof(p->uid));
+            peer_set_port(p, NTP_PORT);
+        }
+        if (negotiated_host) {
+            g.dirty_config = true;
+        }
     }
 
     nts_start_ke_if_needed();
 }
 
 
-int resolve_peers(void) {
-    // DNS runs unlocked; reject the result if config changed while we were out.
-    bool use_nts = g.nts.valid;
-    char host_copy[sizeof(g.server)];
-    str_copy(host_copy, sizeof(host_copy), use_nts ? g.nts.ntp_host : g.server);
-    char server_copy[sizeof(g.server)];
-    str_copy(server_copy, sizeof(server_copy), g.server);
-    bool prefer_ipv6_copy = g.prefer_ipv6;
-    uint16_t port = use_nts ? g.nts.ntp_port : NTP_PORT;
+// Config snapshot for a DNS resolve. ntp_resolve_host blocks, so both the
+// initial resolve and the eviction refresh drop g.lock across the lookup and
+// must reject the result if any of these changed meanwhile.
+typedef struct {
+    char     host[sizeof(g.server)];
+    char     server[sizeof(g.server)];
+    bool     prefer_ipv6;
+    uint16_t port;
+    bool     use_nts;
+} resolve_ctx_t;
+
+// Snapshot under the lock, before dropping it for the lookup.
+static void resolve_ctx_snapshot(resolve_ctx_t *s) {
+    s->use_nts = g.nts.valid;
+    str_copy(s->host, sizeof(s->host), s->use_nts ? g.nts.ntp_host : g.server);
+    str_copy(s->server, sizeof(s->server), g.server);
+    s->prefer_ipv6 = g.prefer_ipv6;
+    s->port = s->use_nts ? g.nts.ntp_port : NTP_PORT;
+}
+
+// True if config drifted while the lock was dropped; call after re-taking it.
+static bool resolve_ctx_stale(const resolve_ctx_t *s) {
+    return g.dirty_config ||
+           strcmp(g.server, s->server) != 0 ||
+           g.prefer_ipv6 != s->prefer_ipv6 ||
+           g.nts.valid != s->use_nts ||
+           (s->use_nts && (strcmp(g.nts.ntp_host, s->host) != 0 ||
+                           g.nts.ntp_port != s->port));
+}
+
+
+void resolve_peers(void) {
+    resolve_ctx_t s;
+    resolve_ctx_snapshot(&s);
     ESP_LOGD(TAG, "DNS query host=%s server=%s ipv6=%s nts=%s",
-             host_copy, server_copy, prefer_ipv6_copy ? "yes" : "no",
-             use_nts ? "yes" : "no");
+             s.host, s.server, s.prefer_ipv6 ? "yes" : "no",
+             s.use_nts ? "yes" : "no");
     lock_give();
 
     struct sockaddr_storage addrs[NTP_MAX_PEERS];
-    int n = ntp_resolve_host(host_copy, prefer_ipv6_copy, addrs, NTP_MAX_PEERS);
+    int n = ntp_resolve_host(s.host, s.prefer_ipv6, addrs, NTP_MAX_PEERS);
 
     lock_take();
 
-    if (g.dirty_config ||
-        strcmp(g.server, server_copy) != 0 || g.prefer_ipv6 != prefer_ipv6_copy ||
-        g.nts.valid != use_nts ||
-        (use_nts && (strcmp(g.nts.ntp_host, host_copy) != 0 ||
-                     g.nts.ntp_port != port))) {
-        ESP_LOGI(TAG, "Discarding stale DNS results for %s", host_copy);
-        return 0;
+    if (resolve_ctx_stale(&s)) {
+        ESP_LOGI(TAG, "Discarding stale DNS results for %s", s.host);
+        return;
     }
 
     for (int i = 0; i < NTP_MAX_PEERS; i++) peer_reset(&g.peers[i]);
@@ -200,22 +246,21 @@ int resolve_peers(void) {
     g.stratum = 16;
 
     if (n == 0) {
-        ESP_LOGW(TAG, "DNS failed for %s", host_copy);
-        return 0;
+        ESP_LOGW(TAG, "DNS failed for %s", s.host);
+        return;
     }
 
     for (int i = 0; i < n; i++) {
-        peer_set_addr(&g.peers[i], &addrs[i], port, use_nts);
+        peer_set_addr(&g.peers[i], &addrs[i], s.port, s.use_nts);
         ESP_LOGD(TAG, "Peer install server=%s host=%s slot=%d addr=%s%s",
-                 server_copy, host_copy, i, g.peers[i].addr_str,
-                 use_nts ? " NTS" : "");
+                 s.server, s.host, i, g.peers[i].addr_str,
+                 s.use_nts ? " NTS" : "");
     }
-    ESP_LOGI(TAG, "Resolved %s to %d peer(s)%s", host_copy, n,
-             use_nts ? " (NTS)" : "");
+    ESP_LOGI(TAG, "Resolved %s to %d peer(s)%s", s.host, n,
+             s.use_nts ? " (NTS)" : "");
 
     // Idempotent: skips if a KE is running or this host already succeeded/failed.
-    if (!use_nts) nts_start_ke_if_needed();
-    return n;
+    if (!s.use_nts) nts_start_ke_if_needed();
 }
 
 static int find_worst_eligible_peer(void) {
@@ -254,31 +299,19 @@ static int find_worst_eligible_peer(void) {
 
 
 static bool try_replace_peer(int dead_idx) {
-    bool use_nts = g.nts.valid;
-    char host_copy[sizeof(g.server)];
-    str_copy(host_copy, sizeof(host_copy), use_nts ? g.nts.ntp_host : g.server);
-    char server_copy[sizeof(g.server)];
-    str_copy(server_copy, sizeof(server_copy), g.server);
-    bool prefer_ipv6_copy = g.prefer_ipv6;
-    uint16_t port = use_nts ? g.nts.ntp_port : NTP_PORT;
+    resolve_ctx_t s;
+    resolve_ctx_snapshot(&s);
     ESP_LOGD(TAG, "DNS refresh host=%s server=%s ipv6=%s nts=%s",
-             host_copy, server_copy, prefer_ipv6_copy ? "yes" : "no",
-             use_nts ? "yes" : "no");
+             s.host, s.server, s.prefer_ipv6 ? "yes" : "no",
+             s.use_nts ? "yes" : "no");
     lock_give();
 
     struct sockaddr_storage fresh[NTP_MAX_PEERS];
-    int n = ntp_resolve_host(host_copy, prefer_ipv6_copy, fresh, NTP_MAX_PEERS);
+    int n = ntp_resolve_host(s.host, s.prefer_ipv6, fresh, NTP_MAX_PEERS);
 
     lock_take();
 
-    if (g.dirty_config ||
-        strcmp(g.server, server_copy) != 0 ||
-        g.prefer_ipv6 != prefer_ipv6_copy ||
-        g.nts.valid != use_nts ||
-        (use_nts && (strcmp(g.nts.ntp_host, host_copy) != 0 ||
-                     g.nts.ntp_port != port))) {
-        return false;
-    }
+    if (resolve_ctx_stale(&s)) return false;
     if (n == 0) return false;
 
     for (int i = 0; i < n; i++) {
@@ -301,7 +334,7 @@ static bool try_replace_peer(int dead_idx) {
         str_copy(old_addr, sizeof(old_addr), p->addr_str);
 
         peer_reset(p);
-        peer_set_addr(p, &fresh[i], port, use_nts);
+        peer_set_addr(p, &fresh[i], s.port, s.use_nts);
 
         ESP_LOGI(TAG, "Peer swap slot %d: %s -> %s", dead_idx, old_addr, p->addr_str);
         return true;
@@ -311,6 +344,13 @@ static bool try_replace_peer(int dead_idx) {
 
 void maybe_evict_worst_peer(void) {
     if (last_evict_tick_ms == next_global_poll_ms) return;
+    // After a replacement attempt found nothing fresh, wait out a backoff before
+    // querying DNS again: a permanently-deactivated slot (a single-IP host that
+    // sent DENY, whose only address is excluded from reinstall) is always the
+    // worst-eligible peer, so without this it triggers a DNS query every poll
+    // tick for the life of the config. Cleared on config change and on success.
+    if (replace_backoff_until_ms &&
+        (int32_t)(mono_ms() - replace_backoff_until_ms) < 0) return;
     int worst = find_worst_eligible_peer();
     if (worst < 0) return;
     // Record the ATTEMPT, not just success: a failed replacement (DNS had
@@ -319,6 +359,9 @@ void maybe_evict_worst_peer(void) {
     // and a small address pool. One attempt per poll tick is the intent.
     last_evict_tick_ms = next_global_poll_ms;
     if (try_replace_peer(worst)) {
+        replace_backoff_until_ms = 0;
         if (g.selected_peer == worst) g.selected_peer = -1;
+    } else {
+        replace_backoff_until_ms = mono_ms() + MAX_POLL_S * 1000;
     }
 }

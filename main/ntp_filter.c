@@ -100,12 +100,22 @@ void select_system_peer(void) {
         ntp_peer_t *p = &g.peers[i];
         if (!p->active || p->reach == 0) continue;
         if (p->stratum == 0 || p->stratum >= 16) continue;
+        // RFC 5905 root distance: the server's own uncertainty about UTC,
+        // root_delay/2 + root_dispersion. A server that lost its upstream
+        // advertises a huge root dispersion; MAXDIST drops it from selection
+        // entirely (otherwise it can pass the 16 s field-sanity bar, present a
+        // deceptively narrow interval, and evict honest peers as falsetickers).
+        int64_t root_dist_us = (int64_t)fp1616_to_us(p->root_delay_raw) / 2 +
+                               fp1616_to_us(p->root_dispersion_raw);
+        if (root_dist_us > MAX_ROOT_DIST_US) continue;
         // Bounded delay allowance leaves room for real path asymmetry without
         // letting RTT dominate consensus; peer dispersion already includes
-        // filter jitter.
+        // filter jitter. Fold in the server root distance so a peer that is
+        // honestly unsure of UTC widens its interval instead of winning narrow.
         int32_t delay_allowance = p->best_delay_us / 4;
         if (delay_allowance > 10000) delay_allowance = 10000;
-        int64_t unc = (int64_t)delay_allowance + aged_peer_dispersion_us(p, now);
+        int64_t unc = (int64_t)delay_allowance + aged_peer_dispersion_us(p, now) +
+                      root_dist_us;
         c[n].idx = i;
         c[n].lo  = (int64_t)p->best_offset_us - unc;
         c[n].hi  = (int64_t)p->best_offset_us + unc;

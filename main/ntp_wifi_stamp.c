@@ -28,7 +28,7 @@ static void stash_early(early_ring_t *r, uint32_t sec, uint32_t frac, int64_t us
 }
 
 
-static bool consume_early_typed(early_ring_t *r, uint32_t sec, uint32_t frac, int64_t *us) {
+bool consume_early(early_ring_t *r, uint32_t sec, uint32_t frac, int64_t *us) {
     bool found = false;
     portENTER_CRITICAL(&r->lock);
     for (int i = 0; i < EARLY_RING_SIZE; i++) {
@@ -43,7 +43,7 @@ static bool consume_early_typed(early_ring_t *r, uint32_t sec, uint32_t frac, in
     return found;
 }
 
-static void shift_early_typed(early_ring_t *r, int64_t delta_us) {
+void shift_early(early_ring_t *r, int64_t delta_us) {
     portENTER_CRITICAL(&r->lock);
     for (int i = 0; i < EARLY_RING_SIZE; i++) {
         if (r->ring[i].valid) r->ring[i].wall_us += delta_us;
@@ -138,11 +138,3 @@ void ntp_install_wifi_rx_hook(void) {
 
 early_ring_t *early_t1_ring(void) { return &s_t1; }
 early_ring_t *early_t4_ring(void) { return &s_t4; }
-
-bool consume_early(early_ring_t *ring, uint32_t sec, uint32_t frac, int64_t *us) {
-    return consume_early_typed(ring, sec, frac, us);
-}
-
-void shift_early(early_ring_t *ring, int64_t delta_us) {
-    shift_early_typed(ring, delta_us);
-}
