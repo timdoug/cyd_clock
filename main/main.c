@@ -154,24 +154,24 @@ static void try_connect_stored_credentials(void) {
     ui_draw_centered_string(157, stored_ssid, COLOR_CYAN, COLOR_BLACK, false);
 
     wifi_init();
-    if (wifi_connect(stored_ssid, stored_password)) {
-        ESP_LOGI(TAG, "Connected with stored credentials");
-        app_state = APP_STATE_CLOCK;
-        ui_clock_init();
-        ui_clock_redraw();
+    bool connected = wifi_connect(stored_ssid, stored_password);
 
+    // Land on the clock either way. If not yet connected, show it in its
+    // waiting state instead of dropping into the setup wizard: a clock
+    // rebooting during a power outage races the router back up and used to
+    // land in WiFi setup until a human intervened. Credentials remain
+    // editable via settings; NTP starts from the main loop once connectivity
+    // arrives.
+    app_state = APP_STATE_CLOCK;
+    ui_clock_init();
+    ui_clock_redraw();
+
+    if (connected) {
+        ESP_LOGI(TAG, "Connected with stored credentials");
         wifi_start_ntp();
         ntp_started = true;
     } else {
         ESP_LOGW(TAG, "No connection yet; showing clock, retrying in background");
-        // Show the clock in its waiting state instead of dropping into the
-        // setup wizard: a clock rebooting during a power outage races the
-        // router back up and used to land in WiFi setup until a human
-        // intervened. Credentials remain editable via settings; NTP starts
-        // from the main loop once connectivity arrives.
-        app_state = APP_STATE_CLOCK;
-        ui_clock_init();
-        ui_clock_redraw();
     }
 }
 
@@ -295,6 +295,17 @@ void app_main(void) {
                     }
                     wifi_setup_from_settings = false;
                 } else if (result == WIFI_SETUP_CANCELLED) {
+                    // A cancelled setup may have left the driver aimed at an
+                    // untested SSID from an earlier failed attempt, which the
+                    // background retry loop would hammer forever. If we're no
+                    // longer on a good network, re-point at the stored
+                    // (known-good) credentials so the device recovers.
+                    if (!wifi_is_connected()) {
+                        char ssid[WIFI_SSID_BUF_LEN], password[MAX_PASSWORD_LEN];
+                        if (nvs_config_get_wifi(ssid, password)) {
+                            wifi_restore_connection(ssid, password);
+                        }
+                    }
                     if (wifi_setup_from_settings) {
                         app_state = APP_STATE_SETTINGS;
                         wifi_setup_from_settings = false;
