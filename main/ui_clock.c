@@ -230,7 +230,8 @@ static bool clock_text_has_cjk_tokens(const char *s) {
 // those rows are repainted as pixel-centered strings.
 static void draw_line_cached(int y, char *cache, size_t cache_len,
                              const char *line, uint16_t fg, bool force) {
-    if (clock_text_has_cjk_tokens(cache) || clock_text_has_cjk_tokens(line)) {
+    bool line_cjk = clock_text_has_cjk_tokens(line);
+    if (line_cjk || clock_text_has_cjk_tokens(cache)) {
         bool blank = (cache[0] == '\0');
         if (!blank && !force && strcmp(cache, line) == 0) return;
 
@@ -238,21 +239,32 @@ static void draw_line_cached(int y, char *cache, size_t cache_len,
         int old_x = (DISPLAY_WIDTH - old_width) / 2;
         if (old_x < 0) old_x = 0;
 
-        int width = display_text_width(line);
-        int x = (DISPLAY_WIDTH - width) / 2;
-        if (x < 0) x = 0;
-
-        if (blank) {
-            display_string(x, y, line, fg, COLOR_BLACK);
-        } else if (x == old_x) {
-            ui_diff_paint(x, y, cache, line, fg, NULL, COLOR_BLACK, force);
+        if (!line_cjk) {
+            // The row lost its tokens: erase the pixel-centered rendering
+            // and rebuild below with an empty cache, so the grid path never
+            // diffs against a raw token-path cache (the two cache formats
+            // store different strings for the same glass contents).
+            if (!blank) {
+                display_fill_rect(old_x, y, old_width, FONT_CHAR_HEIGHT, COLOR_BLACK);
+            }
+            cache[0] = '\0';
         } else {
-            display_fill_rect(old_x, y, old_width, FONT_CHAR_HEIGHT, COLOR_BLACK);
-            display_string(x, y, line, fg, COLOR_BLACK);
-        }
+            int width = display_text_width(line);
+            int x = (DISPLAY_WIDTH - width) / 2;
+            if (x < 0) x = 0;
 
-        str_copy(cache, cache_len, line);
-        return;
+            if (blank) {
+                display_string(x, y, line, fg, COLOR_BLACK);
+            } else if (x == old_x) {
+                ui_diff_paint(x, y, cache, line, fg, NULL, COLOR_BLACK, force);
+            } else {
+                display_fill_rect(old_x, y, old_width, FONT_CHAR_HEIGHT, COLOR_BLACK);
+                display_string(x, y, line, fg, COLOR_BLACK);
+            }
+
+            str_copy(cache, cache_len, line);
+            return;
+        }
     }
 
     char field[STATS_COLS + 1];

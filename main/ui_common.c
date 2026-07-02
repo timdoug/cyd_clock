@@ -9,6 +9,9 @@
 #include "display.h"
 #include "touch.h"
 
+// Byte-oriented windowing: assumes ASCII input (peer addresses, server
+// names). A tokenized translated string must fit in the window, or its
+// two-byte glyph tokens would be split at the wrap point.
 int ui_marquee_window(char *out, int width, const char *s, int scroll) {
     int len = (int)strlen(s);
     if (len <= width) {
@@ -80,16 +83,31 @@ void ui_draw_centered_string(int16_t y, const char *str, uint16_t fg, uint16_t b
     int text_width = display_text_width(str);
     if (scale_2x) text_width *= 2;
     if (text_width > DISPLAY_WIDTH && len > max_chars) {
-        if (max_chars > 3) {
-            memcpy(clipped, str, (size_t)(max_chars - 3));
-            memcpy(clipped + max_chars - 3, "...", 3);
-        } else {
-            memcpy(clipped, str, (size_t)max_chars);
+        // Byte-count clip, but never through the middle of a two-byte glyph
+        // token: a dangling escape would render as a bogus glyph. Every
+        // token's pixel width is at most 2x the byte-cell width, so a byte
+        // budget of max_chars always fits the panel.
+        int keep = 0;
+        int budget = max_chars > 3 ? max_chars - 3 : max_chars;
+        while (keep < budget && str[keep] != '\0') {
+            if ((unsigned char)str[keep] == (unsigned char)DISPLAY_CJK_ESCAPE &&
+                str[keep + 1] != '\0') {
+                if (keep + 2 > budget) break;
+                keep += 2;
+            } else {
+                keep++;
+            }
         }
-        clipped[max_chars] = '\0';
+        memcpy(clipped, str, (size_t)keep);
+        if (max_chars > 3) {
+            memcpy(clipped + keep, "...", 3);
+            keep += 3;
+        }
+        clipped[keep] = '\0';
         str = clipped;
-        len = max_chars;
-        text_width = len * char_width;
+        len = keep;
+        text_width = display_text_width(str);
+        if (scale_2x) text_width *= 2;
     }
 
     int x = (DISPLAY_WIDTH - text_width) / 2;

@@ -257,7 +257,10 @@ static void refresh_dynamic(void) {
 
     {
         int y = SYS_Y_START + SYS_LINE_H;
-        char poll_buf[16], syncs_buf[16], strat_buf[16];
+        // strat_buf holds a translated STR_UNSYNCED, which is multi-byte
+        // per glyph in the generated-font languages (widest today: ko at
+        // 8 bytes, vi at 13); keep headroom so it never truncates.
+        char poll_buf[16], syncs_buf[16], strat_buf[24];
         ui_fmt_duration_full(poll_buf, sizeof(poll_buf), sys.current_poll_s);
         snprintf(syncs_buf, sizeof(syncs_buf), "%lu", (unsigned long)sys.sync_count);
         if (sys.synced) {

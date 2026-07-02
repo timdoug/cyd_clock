@@ -111,10 +111,6 @@
 #define ru_yi   "\xCD"   // Cyrillic yi (Ukrainian)
 #define ru_ye   "\xCE"   // Cyrillic ye (Ukrainian)
 #define Ru_BE   "\xCF"   // Cyrillic BE uppercase (Bulgarian)
-// Supplemental 16x16 glyph table token: DISPLAY_CJK_ESCAPE + 1-based glyph id.
-#define CJK_0 "\x1E\x01"
-#define CJK_1 "\x1E\x02"
-#define CJK_2 "\x1E\x03"
 // Uppercase accents and remaining extras
 #define A_AC_UP "\xC0"   // A acute uppercase (Hungarian)
 #define R_CR_UP "\xD0"   // R caron uppercase (Czech)
@@ -1719,14 +1715,19 @@ void tr_date(char *buf, size_t len, int wday, int mon, int mday, int year) {
     case LANG_DE:
         snprintf(buf, len, "%s %d. %s %d", wd, mday, mo, year);
         break;
+    // No spaces inside the ja/zh numeral+suffix run: that is the native
+    // convention, and it keeps the worst case (zh year+YEAR month+MONTH
+    // day+DAY weekday, 19 bytes = 304px at 2x) inside the 320px panel;
+    // with spaces the 2-digit days of months 10-12 hit 336px and lost the
+    // weekday to the centered-string clip path.
     case LANG_JA:
-        snprintf(buf, len, "%d%s %s %d%s %s", year, date_year_ja, mo, mday, date_day_ja, wd);
+        snprintf(buf, len, "%d%s%s%d%s %s", year, date_year_ja, mo, mday, date_day_ja, wd);
         break;
     case LANG_ZH:
-        snprintf(buf, len, "%d%s %s %d%s %s", year, date_year_zh, mo, mday, date_day_zh, wd);
+        snprintf(buf, len, "%d%s%s%d%s %s", year, date_year_zh, mo, mday, date_day_zh, wd);
         break;
     case LANG_ZH_HANT:
-        snprintf(buf, len, "%d%s %s %d%s %s", year, date_year_zh_hant, mo, mday, date_day_zh_hant, wd);
+        snprintf(buf, len, "%d%s%s%d%s %s", year, date_year_zh_hant, mo, mday, date_day_zh_hant, wd);
         break;
     case LANG_KO:
         snprintf(buf, len, "%d%s %s %d%s %s", year, date_year_ko, mo, mday, date_day_ko, wd);

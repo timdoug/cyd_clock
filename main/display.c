@@ -47,14 +47,12 @@ static uint8_t cjk_glyph_2x_buf[DISPLAY_CJK_GLYPH_2X_WIDTH * DISPLAY_CJK_GLYPH_2
 static spi_device_handle_t spi_dev;
 static bool display_rotated = false;
 
+// Payloads below 0x80 are rejected so a token pair mangled by byte-oriented
+// truncation (escape + stray ASCII byte) degrades to the '?' fallback
+// instead of indexing an arbitrary glyph.
 static inline bool cjk_token_glyph_id(unsigned char payload, unsigned int *glyph_id) {
     if (payload >= 0x80) {
         *glyph_id = payload - 0x80;
-        return true;
-    }
-    // Compatibility for early development builds that used 1-based payloads.
-    if (payload != 0) {
-        *glyph_id = (unsigned int)payload - 1;
         return true;
     }
     return false;

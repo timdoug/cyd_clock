@@ -20,6 +20,11 @@ struct Language {
     let months: [String]
     let yearSuffix: String
     let daySuffix: String
+    // Extra upward shift, in 16px-cell pixels, applied after line-box
+    // centering so a font whose line box rounds differently from the
+    // built-in 8x16 font can sit on the same baseline. Doubled for the
+    // 32px cell.
+    var yNudge: CGFloat = 0
 }
 
 let stringIds = [
@@ -482,7 +487,9 @@ let el = Language(
         ("STR_UNSYNCED", "ασύγχρ."),
         ("STR_STRATUM_LABEL", "Stratum: "),
         ("STR_POLL_LABEL", "  Poll: "),
-        ("STR_SYNCS_LABEL", "  Συγχρ.: "),
+        // Latin like the other stat labels here (Stratum/Poll/Drift): the
+        // Greek gloss is 90px and pushes the syncs count off the panel.
+        ("STR_SYNCS_LABEL", "  Sync.: "),
         ("STR_DRIFT_LABEL", "Drift: "),
         ("STR_AGE_LABEL", "  Ηλικία: "),
         ("STR_OFFSET_LABEL", "Offset: "),
@@ -496,7 +503,8 @@ let el = Language(
     weekdays: ["Κυρ", "Δευ", "Τρι", "Τετ", "Πεμ", "Παρ", "Σαβ"],
     months: ["Ιαν","Φεβ","Μαρ","Απρ","Μαϊ","Ιουν","Ιουλ","Αυγ","Σεπ","Οκτ","Νοε","Δεκ"],
     yearSuffix: "",
-    daySuffix: ""
+    daySuffix: "",
+    yNudge: 1
 )
 
 let sk = Language(
@@ -1025,8 +1033,8 @@ let vi = Language(
         ("STR_STOPPING", "Đang dừng"),
         ("STR_FAIL", "lỗi"),
         ("STR_NTP_STATS", "Thống kê NTP"),
-        ("STR_UNSYNCED", "chưa đồng bộ"),
-        ("STR_STRATUM_LABEL", "Stratum: "),
+        ("STR_UNSYNCED", "chưa ĐB"),
+        ("STR_STRATUM_LABEL", "Tầng: "),
         ("STR_POLL_LABEL", "  Poll: "),
         ("STR_SYNCS_LABEL", "  Lần: "),
         ("STR_DRIFT_LABEL", "Trôi: "),
@@ -1075,9 +1083,13 @@ func printfSpanEnd(_ chars: [Character], from start: Int) -> Int {
     }
 
     let specifiers = Set("diuoxXfFeEgGaAcspn@")
+    let modifiers = Set("0123456789.*+-# 'lhLqjzt")
     while index < chars.count {
         if specifiers.contains(chars[index]) {
             return index + 1
+        }
+        if !modifiers.contains(chars[index]) {
+            break
         }
         index += 1
     }
@@ -1121,8 +1133,10 @@ func collectGlyphs(_ lang: Language) -> [String] {
             }
         }
     }
-    if glyphs.count > 255 {
-        fatalError("\(lang.code) uses \(glyphs.count) glyphs; token encoding supports 255")
+    // Token payloads are emitted as one byte of 0x80 + index, so only 128
+    // glyphs are addressable before the payload overflows the \xNN escape.
+    if glyphs.count > 128 {
+        fatalError("\(lang.code) uses \(glyphs.count) glyphs; token encoding supports 128")
     }
     return glyphs
 }
@@ -1164,16 +1178,30 @@ func render(_ ch: String, lang: Language, pixels: Int) -> [UInt8] {
     NSRect(x: 0, y: 0, width: renderWidth, height: pixels).fill()
 
     let fontSize = pixels == 16 ? lang.fontSize16 : lang.fontSize32
-    let font = NSFont(name: lang.fontName, size: fontSize) ?? NSFont.systemFont(ofSize: fontSize)
+    guard let font = NSFont(name: lang.fontName, size: fontSize) else {
+        // Falling back to another font would silently regenerate every
+        // table with different metrics.
+        fatalError("font \(lang.fontName) is not installed")
+    }
     let s = ch as NSString
     let attrs: [NSAttributedString.Key: Any] = [
         .font: font,
         .foregroundColor: NSColor.white,
     ]
     let size = s.size(withAttributes: attrs)
-    let x = floor((CGFloat(renderWidth) - size.width) / 2.0)
     let y = floor((CGFloat(pixels) - size.height) / 2.0)
-    s.draw(at: NSPoint(x: x, y: y), withAttributes: attrs)
+        + (pixels == 16 ? lang.yNudge : lang.yNudge * 2)
+    if size.width > CGFloat(renderWidth) {
+        // Condense a glyph wider than its cell instead of clipping its
+        // outer strokes (Helvetica Neue W/M/m overflow the 8px cell).
+        let t = NSAffineTransform()
+        t.scaleX(by: CGFloat(renderWidth) / size.width, yBy: 1.0)
+        t.concat()
+        s.draw(at: NSPoint(x: 0, y: y), withAttributes: attrs)
+    } else {
+        let x = floor((CGFloat(renderWidth) - size.width) / 2.0)
+        s.draw(at: NSPoint(x: x, y: y), withAttributes: attrs)
+    }
     NSGraphicsContext.restoreGraphicsState()
 
     guard let data = rep.bitmapData else {
@@ -1256,11 +1284,21 @@ func cStringExpr(_ value: String, lang: Language, glyphIndex: [String: Int]) -> 
         index += 1
     }
     flushAscii()
-    return parts.isEmpty ? "\"\"" : parts.joined(separator: " ")
+    if parts.isEmpty { return "\"\"" }
+    if parts.count == 1 { return parts[0] }
+    // Parenthesize concatenations so hex escapes cannot swallow a following
+    // letter and clang's -Wstring-concatenation stays quiet in initializer
+    // lists.
+    return "(" + parts.joined(separator: " ") + ")"
 }
 
 func validate(_ lang: Language) {
     let got = Set(lang.strings.map { $0.0 })
+    if lang.strings.count != got.count {
+        // A duplicated pair would emit two designated initializers for the
+        // same slot and silently keep only the last one.
+        fatalError("\(lang.code) has duplicate string ids")
+    }
     let expected = Set(stringIds)
     if got != expected {
         let missing = stringIds.filter { !got.contains($0) }
@@ -1333,8 +1371,10 @@ func generateI18nInc(_ glyphsByLanguage: [(Language, [String])]) -> String {
         out += "\n};\n\n"
 
         out += "static const char lang_name_\(lang.code)[] = \(cStringExpr(lang.nativeName, lang: lang, glyphIndex: index));\n\n"
-        out += "static const char date_year_\(lang.code)[] = \(cStringExpr(lang.yearSuffix, lang: lang, glyphIndex: index));\n"
-        out += "static const char date_day_\(lang.code)[] = \(cStringExpr(lang.daySuffix, lang: lang, glyphIndex: index));\n\n"
+        if !lang.yearSuffix.isEmpty || !lang.daySuffix.isEmpty {
+            out += "static const char date_year_\(lang.code)[] = \(cStringExpr(lang.yearSuffix, lang: lang, glyphIndex: index));\n"
+            out += "static const char date_day_\(lang.code)[] = \(cStringExpr(lang.daySuffix, lang: lang, glyphIndex: index));\n\n"
+        }
 
         if lang.generateAsciiDigits {
             out += "static const char *const digits_\(lang.code)[10] = {\n"
