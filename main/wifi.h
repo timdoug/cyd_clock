@@ -5,19 +5,18 @@
 #include <stdint.h>
 #include <time.h>
 #include "ntp.h"
+#include "nvs_config.h"
 
 #define MAX_SCAN_RESULTS 15
 #define DEFAULT_NTP_SERVER "pool.ntp.org"
 
 typedef struct {
-    char ssid[33];
+    char ssid[WIFI_SSID_BUF_LEN];
     int8_t rssi;
     uint8_t authmode;
 } wifi_network_t;
 
 void wifi_init(void);
-
-int wifi_scan(wifi_network_t *networks, int max_networks);
 
 // Non-blocking WiFi scan. Start returns true if the scan was accepted; poll
 // returns true only once results are ready and writes the network count.
@@ -26,6 +25,11 @@ bool wifi_scan_poll(wifi_network_t *networks, int max_networks, int *count);
 void wifi_scan_cancel(void);
 
 bool wifi_connect(const char *ssid, const char *password);
+
+// Re-point the background connection at these credentials without blocking
+// for a verdict (unlike wifi_connect). Restores the known-good stored network
+// after an abandoned WiFi-setup attempt.
+void wifi_restore_connection(const char *ssid, const char *password);
 
 bool wifi_is_connected(void);
 
@@ -42,8 +46,6 @@ void wifi_set_timezone(const char *tz);
 void wifi_get_ip_str(char *buf, size_t len);
 
 void wifi_get_ip6_str(char *buf, size_t len);
-
-void wifi_get_ntp_server_ip_str(char *buf, size_t len);
 
 bool wifi_get_ntp_prefer_ipv6(void);
 void wifi_set_ntp_prefer_ipv6(bool prefer);

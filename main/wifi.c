@@ -29,10 +29,16 @@ static EventGroupHandle_t wifi_event_group;
 #define WIFI_SCAN_DONE_BIT BIT2
 
 static bool wifi_initialized = false;
-static int retry_count = 0;
-static bool ignore_next_disconnect = false;
-static bool scan_running = false;
-static bool scan_resume_reconnect = false;
+static volatile int retry_count = 0;
+static volatile bool ignore_next_disconnect = false;
+static volatile bool scan_running = false;
+static volatile bool scan_resume_reconnect = false;
+
+// Guards the small read-modify-write sequences on the reconnect/retry
+// scalars, which the WiFi event task (core 0) and the main task (core 1)
+// both touch. Held only across scalar updates, never across an esp_wifi_*
+// call.
+static portMUX_TYPE wifi_state_lock = portMUX_INITIALIZER_UNLOCKED;
 
 // Background reconnect: a wall clock must never stop trying. The blocking
 // wifi_connect() stops WAITING after WIFI_MAX_RETRY fast retries so the
@@ -47,19 +53,21 @@ static bool scan_resume_reconnect = false;
 #define WIFI_RECONNECT_MAX_MS 30000
 static volatile bool     reconnect_pending = false;
 static volatile uint32_t reconnect_at_ms;
-static uint32_t reconnect_delay_ms = WIFI_RECONNECT_MIN_MS;
+static volatile uint32_t reconnect_delay_ms = WIFI_RECONNECT_MIN_MS;
 
 static uint32_t mono_ms(void) {
     return (uint32_t)(esp_timer_get_time() / 1000);
 }
 
 static void schedule_reconnect(void) {
+    portENTER_CRITICAL(&wifi_state_lock);
     reconnect_at_ms = mono_ms() + reconnect_delay_ms;
     reconnect_pending = true;
     reconnect_delay_ms *= 2;
     if (reconnect_delay_ms > WIFI_RECONNECT_MAX_MS) {
         reconnect_delay_ms = WIFI_RECONNECT_MAX_MS;
     }
+    portEXIT_CRITICAL(&wifi_state_lock);
 }
 
 void wifi_poll_reconnect(void) {
@@ -105,10 +113,24 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                     ignore_next_disconnect = false;
                     break;
                 }
-                if (retry_count < WIFI_MAX_RETRY) {
+                if (scan_running) {
+                    // A scan is in flight; esp_wifi_connect() now would abort
+                    // it (and the scan-time pause exists precisely to avoid
+                    // that). Defer: resume reconnecting once the scan finishes.
+                    scan_resume_reconnect = true;
+                    break;
+                }
+                // Read-and-increment atomically against wifi_connect's reset to
+                // retry_count = 0 (also under the lock), so a disconnect racing
+                // a new connect can't lose the reset and give up early. The
+                // esp_wifi_connect() call stays outside the critical section.
+                portENTER_CRITICAL(&wifi_state_lock);
+                int rc = retry_count;
+                if (rc < WIFI_MAX_RETRY) retry_count = rc + 1;
+                portEXIT_CRITICAL(&wifi_state_lock);
+                if (rc < WIFI_MAX_RETRY) {
                     esp_wifi_connect();
-                    retry_count++;
-                    ESP_LOGI(TAG, "Retrying connection (%d/%d)", retry_count, WIFI_MAX_RETRY);
+                    ESP_LOGI(TAG, "Retrying connection (%d/%d)", rc + 1, WIFI_MAX_RETRY);
                 } else {
                     xEventGroupSetBits(wifi_event_group, WIFI_FAIL_BIT);
                     schedule_reconnect();
@@ -321,13 +343,51 @@ void wifi_scan_cancel(void) {
     wifi_scan_finish();
 }
 
-int wifi_scan(wifi_network_t *networks, int max_networks) {
-    if (!networks || max_networks <= 0) return 0;
-    if (!wifi_scan_start_async()) return 0;
-    xEventGroupWaitBits(wifi_event_group, WIFI_SCAN_DONE_BIT, pdFALSE, pdFALSE, portMAX_DELAY);
-    int count = 0;
-    wifi_scan_poll(networks, max_networks, &count);
-    return count;
+// Apply credentials to the driver and (re)start the connection, resetting
+// the retry/backoff state so this attempt supersedes any background retry.
+// Returns ESP_OK once esp_wifi_connect() has been issued; the caller decides
+// whether to block for a verdict. Never panics on transient driver-state
+// errors - the setup UI needs a false return, not a reboot.
+static esp_err_t wifi_begin_connect(const char *ssid, const char *password) {
+    wifi_config_t wifi_config = {0};
+    size_t ssid_len = strlen(ssid);
+    if (ssid_len > sizeof(wifi_config.sta.ssid)) ssid_len = sizeof(wifi_config.sta.ssid);
+    memcpy(wifi_config.sta.ssid, ssid, ssid_len);
+    str_copy((char *)wifi_config.sta.password, sizeof(wifi_config.sta.password), password);
+    wifi_config.sta.threshold.authmode = WIFI_AUTH_OPEN;
+
+    bool was_connected = wifi_is_connected();
+
+    // Set the new config FIRST so any connect that races in (a background
+    // retry, or the auto-retry after the disconnect below) uses the new
+    // credentials. If we cleared the wait bits before swapping the config, a
+    // stray connect on the OLD config could set WIFI_CONNECTED_BIT and make
+    // the wait report success for untested credentials.
+    esp_err_t err = esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "esp_wifi_set_config failed: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    ignore_next_disconnect = was_connected;
+    esp_err_t disc_err = esp_wifi_disconnect();
+    if (disc_err != ESP_OK) {
+        ignore_next_disconnect = false;
+    }
+
+    // Clear previous state; this attempt supersedes any background retry.
+    portENTER_CRITICAL(&wifi_state_lock);
+    reconnect_pending = false;
+    reconnect_delay_ms = WIFI_RECONNECT_MIN_MS;
+    retry_count = 0;
+    portEXIT_CRITICAL(&wifi_state_lock);
+    xEventGroupClearBits(wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT);
+
+    err = esp_wifi_connect();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "esp_wifi_connect failed: %s", esp_err_to_name(err));
+    }
+    return err;
 }
 
 bool wifi_connect(const char *ssid, const char *password) {
@@ -339,28 +399,12 @@ bool wifi_connect(const char *ssid, const char *password) {
 
     ESP_LOGI(TAG, "Connecting to %s", ssid);
 
-    wifi_config_t wifi_config = {0};
-    size_t ssid_len = strlen(ssid);
-    if (ssid_len > sizeof(wifi_config.sta.ssid)) ssid_len = sizeof(wifi_config.sta.ssid);
-    memcpy(wifi_config.sta.ssid, ssid, ssid_len);
-    str_copy((char *)wifi_config.sta.password, sizeof(wifi_config.sta.password), password);
-    wifi_config.sta.threshold.authmode = WIFI_AUTH_OPEN;
-
-    bool was_connected = wifi_is_connected();
-
-    // Clear previous state; this attempt supersedes any background retry.
-    reconnect_pending = false;
-    reconnect_delay_ms = WIFI_RECONNECT_MIN_MS;
-    xEventGroupClearBits(wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT);
-    retry_count = 0;
-
-    ignore_next_disconnect = was_connected;
-    esp_err_t disc_err = esp_wifi_disconnect();
-    if (disc_err != ESP_OK) {
-        ignore_next_disconnect = false;
+    if (wifi_begin_connect(ssid, password) != ESP_OK) {
+        // Transient driver-state error; report failure to the setup UI
+        // rather than panic-rebooting. The background retry machinery (and
+        // any subsequent wifi_connect) will recover.
+        return false;
     }
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
-    ESP_ERROR_CHECK(esp_wifi_connect());
 
     EventBits_t bits = xEventGroupWaitBits(wifi_event_group,
                                            WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
@@ -388,6 +432,18 @@ bool wifi_connect(const char *ssid, const char *password) {
 bool wifi_is_connected(void) {
     if (!wifi_event_group) return false;
     return (xEventGroupGetBits(wifi_event_group) & WIFI_CONNECTED_BIT) != 0;
+}
+
+void wifi_restore_connection(const char *ssid, const char *password) {
+    if (!ssid || !ssid[0]) return;
+    if (!password) password = "";
+    if (!wifi_initialized) return;
+    // Re-point the background connection at these (known-good, stored)
+    // credentials without blocking for a verdict, unlike wifi_connect(). Used
+    // to recover after a WiFi-setup attempt is abandoned having left the
+    // driver aimed at an untested SSID that the retry loop would hammer.
+    ESP_LOGI(TAG, "Restoring connection to %s", ssid);
+    wifi_begin_connect(ssid, password);
 }
 
 
@@ -439,12 +495,6 @@ nts_mode_t wifi_get_nts_mode(void) {
 void wifi_set_nts_mode(nts_mode_t mode) {
     ntp_cfg.nts_mode = mode;
     if (ntp_cfg.started) ntp_set_nts_mode(mode);
-}
-
-void wifi_get_ntp_server_ip_str(char *buf, size_t len) {
-    if (!buf || len == 0) return;
-    if (!ntp_cfg.started) { buf[0] = '\0'; return; }
-    ntp_get_primary_addr_str(buf, len);
 }
 
 void wifi_get_ip_str(char *buf, size_t len) {
