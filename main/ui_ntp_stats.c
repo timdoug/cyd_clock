@@ -110,20 +110,29 @@ static void draw_segmented_field_cached(int x, int y, int row_idx,
                                         const segment_t *segs, int nsegs) {
     char     text[96];
     uint16_t colors[96];
-    flatten_segments(segs, nsegs, text, colors, sizeof(text));
+    size_t len = flatten_segments(segs, nsegs, text, colors, sizeof(text));
+
+    // Hash the per-char colors so a color-only flip (e.g. the server row going
+    // green<->orange with identical text) still forces a repaint.
+    uint16_t color_hash = 0;
+    for (size_t i = 0; i < len; i++) {
+        color_hash = (uint16_t)(color_hash * 31u + colors[i]);
+    }
 
     char *cache = last_sys_row[row_idx];
     bool first_time = (cache[0] == '\0');
-    if (!first_time && strcmp(cache, text) == 0) return;
+    bool color_changed = !first_time && last_sys_color[row_idx] != color_hash;
+    if (!first_time && !color_changed && strcmp(cache, text) == 0) return;
 
     int vx = x + (int)strlen(label) * FONT_CHAR_WIDTH;
     if (first_time) {
         display_string(x, y, label, COLOR_GRAY, COLOR_BLACK);
     }
-    ui_diff_paint(vx, y, cache, text, 0, colors, COLOR_BLACK, first_time);
+    ui_diff_paint(vx, y, cache, text, 0, colors, COLOR_BLACK,
+                  first_time || color_changed);
 
     str_copy(cache, sizeof(last_sys_row[row_idx]), text);
-    last_sys_color[row_idx] = 0;
+    last_sys_color[row_idx] = color_hash;
 }
 
 // Draw "label: value" at (x, y) with per-row caching + char-level diff so

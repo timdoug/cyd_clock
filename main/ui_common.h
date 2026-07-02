@@ -7,7 +7,6 @@
 
 #define UI_HEADER_HEIGHT    30
 #define UI_ITEM_HEIGHT      26
-#define UI_ITEM_MARGIN      10
 #define UI_TEXT_Y_OFFSET    5
 #define UI_HEADER_TEXT_Y    8
 
@@ -76,6 +75,16 @@ void ui_draw_slider_value_delta(int y, uint8_t old_value, uint8_t new_value,
                                 uint8_t max_value, uint16_t fill_color);
 
 void ui_draw_centered_string(int16_t y, const char *str, uint16_t fg, uint16_t bg, bool scale_2x);
+
+// Single-line text-entry field. Fills the box interior with bg, renders the
+// tail of `text` that fits `max_chars` (so the growing end stays visible), and
+// - when show_cursor is set - an underscore caret guarded one cell short of the
+// box's right edge. The caller owns the label/border and (for the NTP field)
+// any chevron; this paints only the box interior + caret.
+void ui_draw_text_field(int box_x, int box_y, int box_w, int box_h,
+                        int text_x, int text_y, const char *text, int len,
+                        int max_chars, bool show_cursor,
+                        uint16_t fg, uint16_t cursor_fg, uint16_t bg);
 
 // Fill out[0..width] with a width-char window of s for a horizontal marquee
 // (space-padded if s fits). Returns the scroll period for `scroll % period`;

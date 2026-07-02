@@ -107,9 +107,13 @@ static void draw_network_list(void) {
         else if (networks[idx].rssi > -70) bars = 2;
         else bars = 1;
 
+        // Keep the bars clear of the scroll-chevron gutter (ui_draw_list draws
+        // the down chevron around x = DISPLAY_WIDTH - 9, and the bars are
+        // painted afterwards): the rightmost bar ends at DISPLAY_WIDTH - 16,
+        // leaving the gutter untouched on the last visible row.
         for (int b = 0; b < bars; b++) {
             int bh = 4 + b * 3;
-            display_fill_rect(DISPLAY_WIDTH - 30 + b * 6, y + UI_LIST_ITEM_H - 4 - bh, 4, bh, fg);
+            display_fill_rect(DISPLAY_WIDTH - 38 + b * 6, y + UI_LIST_ITEM_H - 4 - bh, 4, bh, fg);
         }
 
         if (networks[idx].authmode) {
@@ -220,6 +224,22 @@ static char get_key_at(int tx, int ty) {
     return 0;
 }
 
+static void enter_connecting_state(void) {
+    state = STATE_CONNECTING;
+    display_fill(COLOR_BLACK);
+    ui_draw_header(tr(STR_CONNECTING), false);
+    ui_draw_centered_string(100, tr(STR_CONNECTING_TO), COLOR_WHITE, COLOR_BLACK, false);
+    ui_draw_centered_string(130, networks[selected_network].ssid, COLOR_CYAN, COLOR_BLACK, false);
+}
+
+static void enter_password_state(void) {
+    state = STATE_PASSWORD_ENTRY;
+    display_fill(COLOR_BLACK);
+    ui_draw_header(tr(STR_ENTER_PASSWORD), true);
+    draw_password_input();
+    draw_keyboard();
+}
+
 void ui_wifi_setup_init(bool show_back) {
     ESP_LOGI(TAG, "Initializing WiFi setup UI");
     state = STATE_SCANNING;
@@ -325,17 +345,9 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
                 password[0] = '\0';
                 reset_list_touch();
                 if (networks[selected_network].authmode == 0) {
-                    state = STATE_CONNECTING;
-                    display_fill(COLOR_BLACK);
-                    ui_draw_header(tr(STR_CONNECTING), false);
-                    ui_draw_centered_string(100, tr(STR_CONNECTING_TO), COLOR_WHITE, COLOR_BLACK, false);
-                    ui_draw_centered_string(130, networks[selected_network].ssid, COLOR_CYAN, COLOR_BLACK, false);
+                    enter_connecting_state();
                 } else {
-                    state = STATE_PASSWORD_ENTRY;
-                    display_fill(COLOR_BLACK);
-                    ui_draw_header(tr(STR_ENTER_PASSWORD), true);
-                    draw_password_input();
-                    draw_keyboard();
+                    enter_password_state();
                 }
             }
             break;
@@ -343,6 +355,10 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
         case STATE_PASSWORD_ENTRY:
             if (touched) {
                 if (ui_back_button_hit(&touch)) {
+                    // Wait for the finger to lift before re-arming the list;
+                    // otherwise the held Back press is re-registered as a fresh
+                    // list tap and cancels the whole WiFi setup.
+                    ui_wait_for_touch_release();
                     state = STATE_NETWORK_LIST;
                     selected_network = -1;
                     reset_list_touch();
@@ -368,11 +384,7 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
                         draw_password_input();
                     }
                 } else if (key == VKEY_ENTER) {
-                    state = STATE_CONNECTING;
-                    display_fill(COLOR_BLACK);
-                    ui_draw_header(tr(STR_CONNECTING), false);
-                    ui_draw_centered_string(100, tr(STR_CONNECTING_TO), COLOR_WHITE, COLOR_BLACK, false);
-                    ui_draw_centered_string(130, networks[selected_network].ssid, COLOR_CYAN, COLOR_BLACK, false);
+                    enter_connecting_state();
                 } else if (key >= ' ' && key <= '~' && password_len < MAX_PASSWORD_LEN - 1) {
                     password[password_len++] = key;
                     password[password_len] = '\0';
@@ -410,17 +422,9 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
                 // Open networks skipped password entry on the way in; retry
                 // them directly rather than landing on a password keyboard.
                 if (networks[selected_network].authmode == 0) {
-                    state = STATE_CONNECTING;
-                    display_fill(COLOR_BLACK);
-                    ui_draw_header(tr(STR_CONNECTING), false);
-                    ui_draw_centered_string(100, tr(STR_CONNECTING_TO), COLOR_WHITE, COLOR_BLACK, false);
-                    ui_draw_centered_string(130, networks[selected_network].ssid, COLOR_CYAN, COLOR_BLACK, false);
+                    enter_connecting_state();
                 } else {
-                    state = STATE_PASSWORD_ENTRY;
-                    display_fill(COLOR_BLACK);
-                    ui_draw_header(tr(STR_ENTER_PASSWORD), true);
-                    draw_password_input();
-                    draw_keyboard();
+                    enter_password_state();
                 }
             }
             break;

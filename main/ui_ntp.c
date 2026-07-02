@@ -379,24 +379,10 @@ static void draw_server_field(bool show_cursor, bool show_chevron) {
     display_fill_rect(0, SERVER_LABEL_Y, DISPLAY_WIDTH, SERVER_BOX_Y + SERVER_BOX_H - SERVER_LABEL_Y, COLOR_BLACK);
     display_string(10, SERVER_LABEL_Y, tr(STR_SERVER_LABEL), COLOR_GRAY, COLOR_BLACK);
 
-    display_fill_rect(SERVER_BOX_X, SERVER_BOX_Y, SERVER_BOX_W, SERVER_BOX_H, COLOR_DARKGRAY);
-
     int max_chars = show_chevron ? SERVER_TEXT_CHARS - 2 : SERVER_TEXT_CHARS;
-    if (custom_server_len > 0) {
-        const char *display_str = custom_server;
-        if (custom_server_len > max_chars) {
-            display_str = custom_server + custom_server_len - max_chars;
-        }
-        display_string(SERVER_TEXT_X, SERVER_TEXT_Y, display_str, COLOR_WHITE, COLOR_DARKGRAY);
-    }
-
-    if (show_cursor) {
-        int visible_chars = custom_server_len > max_chars ? max_chars : custom_server_len;
-        int cursor_x = SERVER_TEXT_X + visible_chars * FONT_CHAR_WIDTH;
-        if (cursor_x < SERVER_BOX_X + SERVER_BOX_W - 10) {
-            display_string(cursor_x, SERVER_TEXT_Y, "_", COLOR_CYAN, COLOR_DARKGRAY);
-        }
-    }
+    ui_draw_text_field(SERVER_BOX_X, SERVER_BOX_Y, SERVER_BOX_W, SERVER_BOX_H,
+                       SERVER_TEXT_X, SERVER_TEXT_Y, custom_server, custom_server_len,
+                       max_chars, show_cursor, COLOR_WHITE, COLOR_CYAN, COLOR_DARKGRAY);
 
     if (show_chevron) {
         display_string(DISPLAY_WIDTH - 30, SERVER_TEXT_Y, ">", COLOR_WHITE, COLOR_DARKGRAY);
@@ -635,6 +621,9 @@ ntp_result_t ui_ntp_update(void) {
                 custom_server_len = strlen(custom_server);
                 ui_state = NTP_STATE_MAIN;
                 draw_main_screen();
+                // Cancel overlaps MAIN's Back; don't let the held press pop
+                // again and commit the settings being edited.
+                ui_wait_for_touch_release();
             } else if (key == VKEY_ENTER) {
                 // Empty entry keeps the prior value; otherwise it stays pending.
                 if (custom_server_len == 0) {

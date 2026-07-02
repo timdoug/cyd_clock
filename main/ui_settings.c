@@ -32,6 +32,21 @@ static uint8_t brightness = BRIGHTNESS_DEFAULT;
 static uint8_t led_brightness = BRIGHTNESS_DEFAULT;
 static bool rotation = false;
 static uint32_t last_touch_time = 0;
+// Dragging a slider updates the backlight/LED immediately but coalesces the
+// flash write: NVS is touched once on release rather than ~5x/s during a drag.
+static bool brightness_dirty = false;
+static bool led_brightness_dirty = false;
+
+static void flush_brightness_settings(void) {
+    if (brightness_dirty) {
+        nvs_config_set_brightness(brightness);
+        brightness_dirty = false;
+    }
+    if (led_brightness_dirty) {
+        nvs_config_set_led_brightness(led_brightness);
+        led_brightness_dirty = false;
+    }
+}
 
 // Handle touch on a slider row. Returns true if value changed.
 static bool handle_slider_touch(int touch_x, uint8_t *value, uint8_t min_val) {
@@ -101,6 +116,9 @@ void ui_settings_init(void) {
         led_brightness = BRIGHTNESS_DEFAULT;
     }
 
+    brightness_dirty = false;
+    led_brightness_dirty = false;
+
     display_fill(COLOR_BLACK);
     draw_header();
     draw_menu();
@@ -108,7 +126,13 @@ void ui_settings_init(void) {
 
 settings_result_t ui_settings_update(void) {
     touch_point_t touch;
-    bool touched = ui_read_touch(&touch, &last_touch_time);
+    bool pressed;
+    bool touched = ui_read_touch_ex(&touch, &last_touch_time, &pressed);
+
+    if (!pressed) {
+        // Raw release (not just a debounce gap): persist pending slider edits.
+        flush_brightness_settings();
+    }
 
     if (!touched) {
         return SETTINGS_RESULT_NONE;
@@ -134,7 +158,7 @@ settings_result_t ui_settings_update(void) {
         uint8_t old_brightness = brightness;
         if (handle_slider_touch(touch.x, &brightness, BRIGHTNESS_MIN)) {
             display_set_backlight(brightness);
-            nvs_config_set_brightness(brightness);
+            brightness_dirty = true;
             ui_draw_slider_value_delta(BRIGHTNESS_ROW_Y, old_brightness, brightness,
                                        BRIGHTNESS_MAX, UI_COLOR_SELECTED);
         }
@@ -144,7 +168,7 @@ settings_result_t ui_settings_update(void) {
         uint8_t old_led_brightness = led_brightness;
         if (handle_slider_touch(touch.x, &led_brightness, 0)) {
             led_set_brightness(led_brightness);
-            nvs_config_set_led_brightness(led_brightness);
+            led_brightness_dirty = true;
             ui_draw_slider_value_delta(LED_ROW_Y, old_led_brightness, led_brightness,
                                        BRIGHTNESS_MAX, COLOR_RED);
         }

@@ -467,7 +467,11 @@ clock_touch_zone_t ui_clock_check_touch(void) {
     if (gpio_get_level(BOOT_BUTTON_GPIO) == 0) {
         return CLOCK_TOUCH_SETTINGS;
     }
-    if (touch_is_pressed()) {
+    // Go through touch_read (not the bare PENIRQ level) so the TOUCH_Z1_MIN
+    // pressure gate applies here too - a feather-light/condensation touch must
+    // not oscillate the clock in and out of stats.
+    touch_point_t touch;
+    if (touch_read(&touch)) {
         return CLOCK_TOUCH_STATS;
     }
     return CLOCK_TOUCH_NONE;

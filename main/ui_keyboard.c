@@ -9,7 +9,11 @@ void ui_keyboard_draw_keys(const char **layout, int num_rows, int start_y,
     for (int row = 0; row < num_rows; row++) {
         const char *keys = layout[row];
         int row_len = strlen(keys);
-        int x = (DISPLAY_WIDTH - row_len * (KB_KEY_WIDTH + KB_KEY_SPACING)) / 2;
+        // Row width is row_len keys plus (row_len-1) inter-key gaps; the extra
+        // +KB_KEY_SPACING cancels the trailing gap the product counts so the
+        // row is truly centered. Hit testing below shares this formula.
+        int x = (DISPLAY_WIDTH - row_len * (KB_KEY_WIDTH + KB_KEY_SPACING)
+                 + KB_KEY_SPACING) / 2;
 
         for (int col = 0; col < row_len; col++) {
             display_fill_rect(x, y, KB_KEY_WIDTH, KB_KEY_HEIGHT, key_bg);
@@ -32,7 +36,9 @@ char ui_keyboard_get_key(const char **layout, int num_rows, int start_y,
 
     const char *keys = layout[row];
     int row_len = strlen(keys);
-    int row_start = (DISPLAY_WIDTH - row_len * (KB_KEY_WIDTH + KB_KEY_SPACING)) / 2;
+    // Must match the centering in ui_keyboard_draw_keys.
+    int row_start = (DISPLAY_WIDTH - row_len * (KB_KEY_WIDTH + KB_KEY_SPACING)
+                     + KB_KEY_SPACING) / 2;
 
     if (touch_x < row_start) return 0;
 

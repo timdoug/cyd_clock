@@ -109,6 +109,29 @@ void ui_draw_centered_string(int16_t y, const char *str, uint16_t fg, uint16_t b
     }
 }
 
+void ui_draw_text_field(int box_x, int box_y, int box_w, int box_h,
+                        int text_x, int text_y, const char *text, int len,
+                        int max_chars, bool show_cursor,
+                        uint16_t fg, uint16_t cursor_fg, uint16_t bg) {
+    display_fill_rect(box_x, box_y, box_w, box_h, bg);
+
+    if (len > 0) {
+        const char *shown = text;
+        if (len > max_chars) {
+            shown = text + len - max_chars;
+        }
+        display_string(text_x, text_y, shown, fg, bg);
+    }
+
+    if (show_cursor) {
+        int visible = len > max_chars ? max_chars : len;
+        int cursor_x = text_x + visible * FONT_CHAR_WIDTH;
+        if (cursor_x < box_x + box_w - 10) {
+            display_string(cursor_x, text_y, "_", cursor_fg, bg);
+        }
+    }
+}
+
 void ui_draw_list(const char **labels, int count, int scroll_offset, int selected) {
     int rows = 0;
     for (int i = 0; i < UI_LIST_VISIBLE && (i + scroll_offset) < count; i++, rows++) {

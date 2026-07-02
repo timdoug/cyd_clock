@@ -25,9 +25,14 @@ static const char *TAG = "ui_about";
 #define OTA_BTN_H 20
 #define OTA_URL_BOX_Y 58
 #define OTA_URL_BOX_H 60
+#define OTA_UPDATE_BTN_X 10
+#define OTA_UPDATE_BTN_W 100
 #define OTA_UPDATE_BTN_Y 134
 #define OTA_UPDATE_BTN_H 28
 #define OTA_KEYBOARD_Y 84
+// Bottom-row keys draw and hit-test at the same height (drawn 2px short of a
+// full key row for a visual gap; the hit region must match, no dead strip).
+#define OTA_KB_BTN_H (KB_KEY_HEIGHT - 2)
 
 // The IPv6 value sits at x=90; a full address overruns the screen, so it scrolls.
 #define IP6_VAL_X       90
@@ -223,7 +228,8 @@ static void draw_update_button(void) {
     } else if (status.state == OTA_UPDATE_SUCCESS) {
         label = tr(STR_RESTARTING);
     }
-    ui_draw_button(10, OTA_UPDATE_BTN_Y, 100, OTA_UPDATE_BTN_H, label, fg, bg);
+    ui_draw_button(OTA_UPDATE_BTN_X, OTA_UPDATE_BTN_Y, OTA_UPDATE_BTN_W,
+                   OTA_UPDATE_BTN_H, label, fg, bg);
 }
 
 static void draw_ota_controls(void) {
@@ -355,19 +361,9 @@ static void draw_ota_screen(void) {
 static void draw_keyboard_input(void) {
     display_fill_rect(0, 35, DISPLAY_WIDTH, 45, COLOR_BLACK);
     display_string(10, 38, tr(STR_FIRMWARE_URL), COLOR_GRAY, COLOR_BLACK);
-    display_fill_rect(10, 55, DISPLAY_WIDTH - 20, 22, COLOR_DARKGRAY);
-
-    const int max_chars = 35;
-    const char *display_url = ota_url;
-    if (ota_url_len > max_chars) {
-        display_url = ota_url + ota_url_len - max_chars;
-    }
-    display_string(15, 59, display_url, COLOR_WHITE, COLOR_DARKGRAY);
-
-    int cursor_x = 15 + (ota_url_len > max_chars ? max_chars : ota_url_len) * FONT_CHAR_WIDTH;
-    if (cursor_x < DISPLAY_WIDTH - 20) {
-        display_string(cursor_x, 59, "_", COLOR_CYAN, COLOR_DARKGRAY);
-    }
+    ui_draw_text_field(10, 55, DISPLAY_WIDTH - 20, 22, 15, 59,
+                       ota_url, ota_url_len, 35, true,
+                       COLOR_WHITE, COLOR_CYAN, COLOR_DARKGRAY);
 }
 
 // Bottom URL-keyboard row: draw geometry and hit testing share this table.
@@ -387,13 +383,12 @@ static void draw_keyboard(void) {
                           COLOR_DARKGRAY, COLOR_WHITE, COLOR_GRAY);
 
     int y = ui_keyboard_bottom_y(5, OTA_KEYBOARD_Y);
-    int btn_h = KB_KEY_HEIGHT - 2;
 
-    ui_draw_button(ota_kb_bottom_row[0].x, y, ota_kb_bottom_row[0].w, btn_h,
+    ui_draw_button(ota_kb_bottom_row[0].x, y, ota_kb_bottom_row[0].w, OTA_KB_BTN_H,
                    tr(STR_CANCEL), COLOR_WHITE, COLOR_RED);
-    ui_draw_button(ota_kb_bottom_row[1].x, y, ota_kb_bottom_row[1].w, btn_h,
+    ui_draw_button(ota_kb_bottom_row[1].x, y, ota_kb_bottom_row[1].w, OTA_KB_BTN_H,
                    tr(STR_DEL), COLOR_WHITE, COLOR_GRAY);
-    ui_draw_button(ota_kb_bottom_row[2].x, y, ota_kb_bottom_row[2].w, btn_h,
+    ui_draw_button(ota_kb_bottom_row[2].x, y, ota_kb_bottom_row[2].w, OTA_KB_BTN_H,
                    tr(STR_DONE), COLOR_BLACK, COLOR_GREEN);
 }
 
@@ -402,7 +397,7 @@ static char get_keyboard_key(int16_t x, int16_t y) {
     if (key) return key;
 
     int btn_y = ui_keyboard_bottom_y(5, OTA_KEYBOARD_Y);
-    if (y >= btn_y && y < btn_y + KB_KEY_HEIGHT) {
+    if (y >= btn_y && y < btn_y + OTA_KB_BTN_H) {
         for (int i = 0; i < OTA_KB_BOTTOM_KEYS; i++) {
             if (x >= ota_kb_bottom_row[i].x &&
                 x < ota_kb_bottom_row[i].x + ota_kb_bottom_row[i].w) {
@@ -453,15 +448,23 @@ about_result_t ui_about_update(void) {
                 ota_update_cancel();
                 ui_state = ABOUT_STATE_MAIN;
                 draw_screen();
+                // Don't let the held Back press re-fire as MAIN's Back and pop
+                // the About screen too.
+                ui_wait_for_touch_release();
             } else if (!busy && ui_back_button_hit(&touch)) {
                 ui_state = ABOUT_STATE_MAIN;
                 draw_screen();
+                ui_wait_for_touch_release();
             } else if (!busy &&
                        touch.y >= OTA_URL_BOX_Y && touch.y < OTA_URL_BOX_Y + OTA_URL_BOX_H) {
                 ui_state = ABOUT_STATE_OTA_KEYBOARD;
                 draw_keyboard();
+                // The URL box overlaps the keyboard's top rows; wait for release
+                // so the held press doesn't type a spurious character.
+                ui_wait_for_touch_release();
             } else if (!busy &&
-                       touch.x >= 10 && touch.x < 110 &&
+                       touch.x >= OTA_UPDATE_BTN_X &&
+                       touch.x < OTA_UPDATE_BTN_X + OTA_UPDATE_BTN_W &&
                        touch.y >= OTA_UPDATE_BTN_Y &&
                        touch.y < OTA_UPDATE_BTN_Y + OTA_UPDATE_BTN_H) {
                 // A prior attempt that stopped at "same version" arms the
