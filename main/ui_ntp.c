@@ -310,10 +310,8 @@ static void draw_benchmark_button(void) {
 
     uint16_t bg = stopping ? COLOR_ORANGE : (running ? COLOR_CYAN : UI_COLOR_ITEM_BG);
     uint16_t fg = running ? COLOR_BLACK : COLOR_WHITE;
-    display_fill_rect(BENCH_BTN_X, BENCH_BTN_Y, BENCH_BTN_W, BENCH_BTN_H, bg);
     const char *label = stopping ? tr(STR_STOPPING) : (running ? tr(STR_RUNNING) : tr(STR_BENCHMARK));
-    int x = BENCH_BTN_X + (BENCH_BTN_W - (int)strlen(label) * FONT_CHAR_WIDTH) / 2;
-    display_string(x, UI_HEADER_TEXT_Y, label, fg, bg);
+    ui_draw_button(BENCH_BTN_X, BENCH_BTN_Y, BENCH_BTN_W, BENCH_BTN_H, label, fg, bg);
 }
 
 static bool benchmark_button_hit(const touch_point_t *touch) {
@@ -362,10 +360,8 @@ static void cancel_benchmark(void) {
 static void draw_keyboard(void) {
     display_fill_rect(0, EDIT_DEL_BTN_Y, DISPLAY_WIDTH, DISPLAY_HEIGHT - EDIT_DEL_BTN_Y, COLOR_BLACK);
 
-    display_fill_rect(EDIT_DEL_BTN_X, EDIT_DEL_BTN_Y, EDIT_DEL_BTN_W, EDIT_DEL_BTN_H, COLOR_GRAY);
-    const char *del = tr(STR_DEL);
-    int del_x = EDIT_DEL_BTN_X + (EDIT_DEL_BTN_W - (int)strlen(del) * FONT_CHAR_WIDTH) / 2;
-    display_string(del_x, EDIT_DEL_BTN_Y + 3, del, COLOR_WHITE, COLOR_GRAY);
+    ui_draw_button(EDIT_DEL_BTN_X, EDIT_DEL_BTN_Y, EDIT_DEL_BTN_W, EDIT_DEL_BTN_H,
+                   tr(STR_DEL), COLOR_WHITE, COLOR_GRAY);
 
     ui_keyboard_draw_keys(keyboard_rows, 4, KEYBOARD_Y, COLOR_DARKGRAY, COLOR_WHITE, COLOR_GRAY);
 }
@@ -373,15 +369,10 @@ static void draw_keyboard(void) {
 static void draw_edit_header(void) {
     ui_draw_header(tr(STR_NTP_SERVER), false);
 
-    const char *cancel = tr(STR_CANCEL);
-    int cancel_x = UI_BACK_BTN_X + (UI_BACK_BTN_W - (int)strlen(cancel) * FONT_CHAR_WIDTH) / 2;
-    display_fill_rect(UI_BACK_BTN_X, 5, UI_BACK_BTN_W, 20, UI_COLOR_ITEM_BG);
-    display_string(cancel_x, UI_HEADER_TEXT_Y, cancel, COLOR_WHITE, UI_COLOR_ITEM_BG);
-
-    const char *done = tr(STR_DONE);
-    int done_x = EDIT_DONE_BTN_X + (UI_BACK_BTN_W - (int)strlen(done) * FONT_CHAR_WIDTH) / 2;
-    display_fill_rect(EDIT_DONE_BTN_X, 5, UI_BACK_BTN_W, 20, COLOR_GREEN);
-    display_string(done_x, UI_HEADER_TEXT_Y, done, COLOR_BLACK, COLOR_GREEN);
+    ui_draw_button(UI_BACK_BTN_X, UI_HEADER_BTN_Y, UI_BACK_BTN_W, UI_HEADER_BTN_H,
+                   tr(STR_CANCEL), COLOR_WHITE, UI_COLOR_ITEM_BG);
+    ui_draw_button(EDIT_DONE_BTN_X, UI_HEADER_BTN_Y, UI_BACK_BTN_W, UI_HEADER_BTN_H,
+                   tr(STR_DONE), COLOR_BLACK, COLOR_GREEN);
 }
 
 static void draw_server_field(bool show_cursor, bool show_chevron) {
@@ -418,10 +409,8 @@ static void draw_ipv6_toggle(void) {
     uint16_t ipv6_fg = ipv6 ? COLOR_BLACK : COLOR_WHITE;
     char ipv6_label[16];
     snprintf(ipv6_label, sizeof(ipv6_label), "IPv6: %s", ipv6 ? tr(STR_ON) : tr(STR_OFF));
-    display_fill_rect(IPV6_TOGGLE_X, IPV6_TOGGLE_Y, IPV6_TOGGLE_W, IPV6_TOGGLE_H, ipv6_bg);
-    int label_x = IPV6_TOGGLE_X +
-        (IPV6_TOGGLE_W - (int)strlen(ipv6_label) * FONT_CHAR_WIDTH) / 2;
-    display_string(label_x, IPV6_TOGGLE_Y + 7, ipv6_label, ipv6_fg, ipv6_bg);
+    ui_draw_button(IPV6_TOGGLE_X, IPV6_TOGGLE_Y, IPV6_TOGGLE_W, IPV6_TOGGLE_H,
+                   ipv6_label, ipv6_fg, ipv6_bg);
 }
 
 static void draw_nts_toggle(void) {
@@ -439,10 +428,8 @@ static void draw_nts_toggle(void) {
         snprintf(label_buf, sizeof(label_buf), "NTS: %s", tr(STR_NTS_NO));
         label = label_buf; bg = COLOR_DARKGRAY; fg = COLOR_WHITE; break;
     }
-    display_fill_rect(NTS_TOGGLE_X, NTS_TOGGLE_Y, NTS_TOGGLE_W, NTS_TOGGLE_H, bg);
-    int label_x = NTS_TOGGLE_X +
-        (NTS_TOGGLE_W - (int)strlen(label) * FONT_CHAR_WIDTH) / 2;
-    display_string(label_x, NTS_TOGGLE_Y + 7, label, fg, bg);
+    ui_draw_button(NTS_TOGGLE_X, NTS_TOGGLE_Y, NTS_TOGGLE_W, NTS_TOGGLE_H,
+                   label, fg, bg);
 }
 
 static char get_key_at(int16_t x, int16_t y) {
@@ -469,10 +456,8 @@ static void draw_main_screen(void) {
 
     draw_server_field(false, true);
 
-    const char *presets = tr(STR_PRESETS);
-    display_fill_rect(PRESETS_BTN_X, PRESETS_BTN_Y, PRESETS_BTN_W, PRESETS_BTN_H, UI_COLOR_ITEM_BG);
-    int px = PRESETS_BTN_X + (PRESETS_BTN_W - (int)strlen(presets) * FONT_CHAR_WIDTH) / 2;
-    display_string(px, PRESETS_BTN_Y + 7, presets, COLOR_WHITE, UI_COLOR_ITEM_BG);
+    ui_draw_button(PRESETS_BTN_X, PRESETS_BTN_Y, PRESETS_BTN_W, PRESETS_BTN_H,
+                   tr(STR_PRESETS), COLOR_WHITE, UI_COLOR_ITEM_BG);
 
     draw_ipv6_toggle();
     draw_nts_toggle();

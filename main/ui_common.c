@@ -50,6 +50,14 @@ static void draw_scroll_chevron(int cx, int y, bool up, uint16_t color) {
     }
 }
 
+void ui_draw_button(int x, int y, int w, int h, const char *label,
+                    uint16_t fg, uint16_t bg) {
+    display_fill_rect(x, y, w, h, bg);
+    int lx = x + (w - (int)strlen(label) * FONT_CHAR_WIDTH) / 2;
+    if (lx < x) lx = x;
+    display_string(lx, y + (h - FONT_CHAR_HEIGHT) / 2, label, fg, bg);
+}
+
 void ui_draw_header(const char *title, bool show_back) {
     display_fill_rect(0, 0, DISPLAY_WIDTH, UI_HEADER_HEIGHT, UI_COLOR_HEADER);
 
@@ -58,10 +66,8 @@ void ui_draw_header(const char *title, bool show_back) {
     display_string(x, UI_HEADER_TEXT_Y, title, COLOR_WHITE, UI_COLOR_HEADER);
 
     if (show_back) {
-        const char *back = tr(STR_BACK);
-        int bx = UI_BACK_BTN_X + (UI_BACK_BTN_W - (int)strlen(back) * FONT_CHAR_WIDTH) / 2;
-        display_fill_rect(UI_BACK_BTN_X, 5, UI_BACK_BTN_W, 20, UI_COLOR_ITEM_BG);
-        display_string(bx, UI_HEADER_TEXT_Y, back, COLOR_WHITE, UI_COLOR_ITEM_BG);
+        ui_draw_button(UI_BACK_BTN_X, UI_HEADER_BTN_Y, UI_BACK_BTN_W,
+                       UI_HEADER_BTN_H, tr(STR_BACK), COLOR_WHITE, UI_COLOR_ITEM_BG);
     }
 }
 

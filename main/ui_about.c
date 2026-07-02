@@ -73,8 +73,8 @@ static const char *url_keyboard_rows[] = {
 };
 
 static void draw_ota_header_button(void) {
-    display_fill_rect(OTA_BTN_X, OTA_BTN_Y, OTA_BTN_W, OTA_BTN_H, UI_COLOR_ITEM_BG);
-    display_string(OTA_BTN_X + 15, OTA_BTN_Y + 3, "OTA", COLOR_WHITE, UI_COLOR_ITEM_BG);
+    ui_draw_button(OTA_BTN_X, OTA_BTN_Y, OTA_BTN_W, OTA_BTN_H,
+                   "OTA", COLOR_WHITE, UI_COLOR_ITEM_BG);
 }
 
 static bool ota_status_is_busy(const ota_update_status_t *status) {
@@ -223,9 +223,7 @@ static void draw_update_button(void) {
     } else if (status.state == OTA_UPDATE_SUCCESS) {
         label = tr(STR_RESTARTING);
     }
-    display_fill_rect(10, OTA_UPDATE_BTN_Y, 100, OTA_UPDATE_BTN_H, bg);
-    int x = 10 + (100 - (int)strlen(label) * FONT_CHAR_WIDTH) / 2;
-    display_string(x, OTA_UPDATE_BTN_Y + 7, label, fg, bg);
+    ui_draw_button(10, OTA_UPDATE_BTN_Y, 100, OTA_UPDATE_BTN_H, label, fg, bg);
 }
 
 static void draw_ota_controls(void) {
@@ -372,13 +370,14 @@ static void draw_keyboard_input(void) {
     }
 }
 
-// Center a label within a button box so longer localized labels stay inside.
-static void draw_centered_button_label(int box_x, int box_w, int y,
-                                       const char *label, uint16_t fg, uint16_t bg) {
-    int x = box_x + (box_w - (int)strlen(label) * FONT_CHAR_WIDTH) / 2;
-    if (x < box_x) x = box_x;
-    display_string(x, y, label, fg, bg);
-}
+// Bottom URL-keyboard row: draw geometry and hit testing share this table.
+static const struct { int x; int w; char key; } ota_kb_bottom_row[] = {
+    { 10,  80, VKEY_ESCAPE    },
+    { 120, 80, VKEY_BACKSPACE },
+    { 230, 80, VKEY_ENTER     },
+};
+#define OTA_KB_BOTTOM_KEYS \
+    ((int)(sizeof(ota_kb_bottom_row) / sizeof(ota_kb_bottom_row[0])))
 
 static void draw_keyboard(void) {
     display_fill(COLOR_BLACK);
@@ -390,14 +389,12 @@ static void draw_keyboard(void) {
     int y = ui_keyboard_bottom_y(5, OTA_KEYBOARD_Y);
     int btn_h = KB_KEY_HEIGHT - 2;
 
-    display_fill_rect(10, y, 80, btn_h, COLOR_RED);
-    draw_centered_button_label(10, 80, y + 3, tr(STR_CANCEL), COLOR_WHITE, COLOR_RED);
-
-    display_fill_rect(120, y, 80, btn_h, COLOR_GRAY);
-    draw_centered_button_label(120, 80, y + 3, tr(STR_DEL), COLOR_WHITE, COLOR_GRAY);
-
-    display_fill_rect(230, y, 80, btn_h, COLOR_GREEN);
-    draw_centered_button_label(230, 80, y + 3, tr(STR_DONE), COLOR_BLACK, COLOR_GREEN);
+    ui_draw_button(ota_kb_bottom_row[0].x, y, ota_kb_bottom_row[0].w, btn_h,
+                   tr(STR_CANCEL), COLOR_WHITE, COLOR_RED);
+    ui_draw_button(ota_kb_bottom_row[1].x, y, ota_kb_bottom_row[1].w, btn_h,
+                   tr(STR_DEL), COLOR_WHITE, COLOR_GRAY);
+    ui_draw_button(ota_kb_bottom_row[2].x, y, ota_kb_bottom_row[2].w, btn_h,
+                   tr(STR_DONE), COLOR_BLACK, COLOR_GREEN);
 }
 
 static char get_keyboard_key(int16_t x, int16_t y) {
@@ -406,9 +403,12 @@ static char get_keyboard_key(int16_t x, int16_t y) {
 
     int btn_y = ui_keyboard_bottom_y(5, OTA_KEYBOARD_Y);
     if (y >= btn_y && y < btn_y + KB_KEY_HEIGHT) {
-        if (x >= 10 && x < 90) return VKEY_ESCAPE;
-        if (x >= 120 && x < 200) return VKEY_BACKSPACE;
-        if (x >= 230 && x < 310) return VKEY_ENTER;
+        for (int i = 0; i < OTA_KB_BOTTOM_KEYS; i++) {
+            if (x >= ota_kb_bottom_row[i].x &&
+                x < ota_kb_bottom_row[i].x + ota_kb_bottom_row[i].w) {
+                return ota_kb_bottom_row[i].key;
+            }
+        }
     }
     return 0;
 }

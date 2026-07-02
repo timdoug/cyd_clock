@@ -84,10 +84,8 @@ static void draw_menu(void) {
 
 static void draw_header(void) {
     ui_draw_header(tr(STR_SETTINGS), false);
-    const char *done = tr(STR_DONE);
-    int x = UI_BACK_BTN_X + (UI_BACK_BTN_W - (int)strlen(done) * FONT_CHAR_WIDTH) / 2;
-    display_fill_rect(UI_BACK_BTN_X, 5, UI_BACK_BTN_W, 20, UI_COLOR_ITEM_BG);
-    display_string(x, UI_HEADER_TEXT_Y, done, COLOR_WHITE, UI_COLOR_ITEM_BG);
+    ui_draw_button(UI_BACK_BTN_X, UI_HEADER_BTN_Y, UI_BACK_BTN_W, UI_HEADER_BTN_H,
+                   tr(STR_DONE), COLOR_WHITE, UI_COLOR_ITEM_BG);
 }
 
 void ui_settings_init(void) {

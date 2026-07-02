@@ -148,13 +148,16 @@ static void draw_password_input(void) {
     display_char(10 + shown * FONT_CHAR_WIDTH, UI_LIST_START_Y + 35, '_', COLOR_GREEN, COLOR_DARKGRAY);
 }
 
-// Center a key's label within its box so longer localized labels stay inside.
-static void draw_key_label(int box_x, int box_w, int y, const char *label,
-                           uint16_t fg, uint16_t bg) {
-    int x = box_x + (box_w - (int)strlen(label) * FONT_CHAR_WIDTH) / 2;
-    if (x < box_x) x = box_x;
-    display_string(x, y + 3, label, fg, bg);
-}
+// Bottom keyboard row: draw geometry and hit testing share this table so
+// the two can never drift apart.
+static const struct { int x; int w; char key; } kb_bottom_row[] = {
+    { 5,   40,  VKEY_SHIFT     },
+    { 50,  40,  VKEY_MODE      },
+    { 95,  100, ' '            },
+    { 200, 40,  VKEY_BACKSPACE },
+    { 245, 60,  VKEY_ENTER     },
+};
+#define KB_BOTTOM_KEYS ((int)(sizeof(kb_bottom_row) / sizeof(kb_bottom_row[0])))
 
 static void draw_keyboard(void) {
     const char **layout;
@@ -167,28 +170,32 @@ static void draw_keyboard(void) {
     ui_keyboard_draw_keys(layout, 4, KEYBOARD_Y, COLOR_DARKGRAY, COLOR_WHITE, COLOR_GRAY);
 
     int y = ui_keyboard_bottom_y(4, KEYBOARD_Y);
-    int x = 5;
-
-    display_fill_rect(x, y, 40, KB_KEY_HEIGHT, shift_active ? UI_COLOR_SELECTED : COLOR_DARKGRAY);
-    draw_key_label(x, 40, y, tr(STR_KB_SHIFT), shift_active ? COLOR_BLACK : COLOR_WHITE,
-                   shift_active ? UI_COLOR_SELECTED : COLOR_DARKGRAY);
-    x += 45;
-
-    display_fill_rect(x, y, 40, KB_KEY_HEIGHT, COLOR_DARKGRAY);
-    const char *mode_label = (keyboard_mode == 0) ? "?#@" : "abc";
-    draw_key_label(x, 40, y, mode_label, COLOR_WHITE, COLOR_DARKGRAY);
-    x += 45;
-
-    display_fill_rect(x, y, 100, KB_KEY_HEIGHT, COLOR_DARKGRAY);
-    draw_key_label(x, 100, y, tr(STR_KB_SPACE), COLOR_WHITE, COLOR_DARKGRAY);
-    x += 105;
-
-    display_fill_rect(x, y, 40, KB_KEY_HEIGHT, COLOR_DARKGRAY);
-    draw_key_label(x, 40, y, tr(STR_DEL), COLOR_WHITE, COLOR_DARKGRAY);
-    x += 45;
-
-    display_fill_rect(x, y, 60, KB_KEY_HEIGHT, COLOR_GREEN);
-    draw_key_label(x, 60, y, tr(STR_KB_GO), COLOR_BLACK, COLOR_GREEN);
+    for (int i = 0; i < KB_BOTTOM_KEYS; i++) {
+        const char *label;
+        uint16_t fg = COLOR_WHITE, bg = COLOR_DARKGRAY;
+        switch (kb_bottom_row[i].key) {
+        case VKEY_SHIFT:
+            label = tr(STR_KB_SHIFT);
+            if (shift_active) { fg = COLOR_BLACK; bg = UI_COLOR_SELECTED; }
+            break;
+        case VKEY_MODE:
+            label = (keyboard_mode == 0) ? "?#@" : "abc";
+            break;
+        case ' ':
+            label = tr(STR_KB_SPACE);
+            break;
+        case VKEY_BACKSPACE:
+            label = tr(STR_DEL);
+            break;
+        default:
+            label = tr(STR_KB_GO);
+            fg = COLOR_BLACK;
+            bg = COLOR_GREEN;
+            break;
+        }
+        ui_draw_button(kb_bottom_row[i].x, y, kb_bottom_row[i].w,
+                       KB_KEY_HEIGHT, label, fg, bg);
+    }
 }
 
 static char get_key_at(int tx, int ty) {
@@ -202,11 +209,12 @@ static char get_key_at(int tx, int ty) {
 
     int y = ui_keyboard_bottom_y(4, KEYBOARD_Y);
     if (ty >= y && ty < y + KB_KEY_HEIGHT) {
-        if (tx >= 5   && tx < 45)  return VKEY_SHIFT;
-        if (tx >= 50  && tx < 90)  return VKEY_MODE;
-        if (tx >= 95  && tx < 195) return ' ';
-        if (tx >= 200 && tx < 240) return VKEY_BACKSPACE;
-        if (tx >= 245 && tx < 305) return VKEY_ENTER;
+        for (int i = 0; i < KB_BOTTOM_KEYS; i++) {
+            if (tx >= kb_bottom_row[i].x &&
+                tx < kb_bottom_row[i].x + kb_bottom_row[i].w) {
+                return kb_bottom_row[i].key;
+            }
+        }
     }
 
     return 0;

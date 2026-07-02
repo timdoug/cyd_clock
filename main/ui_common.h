@@ -13,6 +13,9 @@
 
 #define UI_BACK_BTN_X       5
 #define UI_BACK_BTN_W       50
+// Geometry shared by all buttons that sit in the header bar.
+#define UI_HEADER_BTN_Y     5
+#define UI_HEADER_BTN_H     20
 
 #define UI_LIST_ITEM_H      28
 #define UI_LIST_START_Y     35
@@ -59,6 +62,11 @@ typedef struct {
 #define UI_SLIDER_BTN_H     18
 
 void ui_draw_header(const char *title, bool show_back);
+
+// Filled box with the label centered inside it (clamped to the left edge
+// when a long localized label overflows the box).
+void ui_draw_button(int x, int y, int w, int h, const char *label,
+                    uint16_t fg, uint16_t bg);
 
 void ui_draw_menu_item(int y, const char *label);
 
