@@ -557,7 +557,10 @@ void display_init(void) {
         .timer_sel = LEDC_TIMER_0,
         .intr_type = LEDC_INTR_DISABLE,
         .gpio_num = PIN_BL,
-        .duty = 128,
+        // Boot at the default brightness through the same gamma curve the
+        // settings slider uses, so first boot (no stored value) matches what
+        // display_set_backlight would paint for BRIGHTNESS_DEFAULT.
+        .duty = gamma_correct(BRIGHTNESS_DEFAULT),
         .hpoint = 0,
     };
     ledc_channel_config(&ledc_channel);

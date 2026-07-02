@@ -116,13 +116,18 @@ static void pps_task(void *arg) {
             portENTER_CRITICAL(&pps_spin_lock);
             while (esp_timer_get_time() < edge) { }
             gpio_set_level(PPS_OUT_PIN, 1);   // the unlatched edge goes first
-            if (b) ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
+            // Re-check the live setting under the critical section (pps_task
+            // and led_set_brightness both run on core 1, so this read and the
+            // latch are atomic against a mid-pulse zeroing): if the user just
+            // zeroed brightness, skip the duty latch so the LED stays dark now
+            // instead of relighting for the rest of the pulse.
+            if (b && pps_brightness) ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
             portEXIT_CRITICAL(&pps_spin_lock);
         } else if (usec >= PPS_LATE_FIRE_US) {
             continue;
         } else {
             gpio_set_level(PPS_OUT_PIN, 1);
-            if (b) set_led_duty(255 - gamma_correct(b));
+            if (b && pps_brightness) set_led_duty(255 - gamma_correct(b));
         }
 
         // Falling edge needs no precision. Always write OFF, even if

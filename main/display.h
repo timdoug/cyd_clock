@@ -11,9 +11,7 @@
 #define COLOR_WHITE   0xFFFF
 #define COLOR_RED     0xF800
 #define COLOR_GREEN   0x07E0
-#define COLOR_BLUE    0x001F
 #define COLOR_CYAN    0x07FF
-#define COLOR_YELLOW  0xFFE0
 #define COLOR_ORANGE  0xFD20
 #define COLOR_GRAY    0xAD55
 #define COLOR_DARKGRAY 0x4208
