@@ -112,14 +112,14 @@ static void ntp_wifi_tx_done_cb(uint8_t ifidx, uint8_t *data,
                       + (subtype == 8           ? 2 : 0)
                       + ((fc1 & 0x03) == 0x03   ? 6 : 0);
     size_t cipher_hdr = (fc1 & 0x40) ? 8 : 0;
-    if ((size_t)len < cipher_hdr + 8u + 20u + 8u + 48u) return;
+    if ((size_t)len < hdr_len + cipher_hdr + 8u + 20u + 8u + 48u) return;
 
     static const uint8_t llc_snap[6] = {0xaa, 0xaa, 0x03, 0x00, 0x00, 0x00};
     const uint8_t *p = data + hdr_len + cipher_hdr;
     if (memcmp(p, llc_snap, 6) != 0) return;
 
     uint32_t sec, frac;
-    if (parse_ip_udp_ntp(p + 8, len - cipher_hdr - 8u, rd_be16(p + 6),
+    if (parse_ip_udp_ntp(p + 8, len - hdr_len - cipher_hdr - 8u, rd_be16(p + 6),
                          /*dst port*/ 2, /*xmt_ts*/ 40, &sec, &frac)) {
         stash_early(&s_t1, sec, frac,
                     (int64_t)tv.tv_sec * 1000000LL + tv.tv_usec);
