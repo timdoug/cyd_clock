@@ -178,6 +178,13 @@ static void ntp_task(void *arg) {
                 if (!disciplined && g.selected_peer == i) {
                     adaptive_poll_update_once(settled_cycle_id);
                 }
+                // Act on the hazards flagged above: DNS during the eviction
+                // can take seconds, so re-stamp `now` before the due/deadline
+                // math below, and skip the slot for this pass if the peer was
+                // deactivated (a replacement installed here is fine - its
+                // next_poll_ms is fresh).
+                now = mono_ms();
+                if (!p->active) continue;
             }
 
             bool due = g.force_sync || (int32_t)(now - p->next_poll_ms) >= 0;

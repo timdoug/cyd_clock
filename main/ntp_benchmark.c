@@ -40,83 +40,11 @@ static void addr_to_str(const struct sockaddr_storage *addr, char *buf, size_t l
     inet_ntop(addr->ss_family, src, buf, len);
 }
 
-static int resolve_numeric_host(const char *host, struct sockaddr_storage *out, int max) {
-    if (!host || max <= 0) return 0;
-
-    struct sockaddr_in *sin = (struct sockaddr_in *)&out[0];
-    memset(sin, 0, sizeof(*sin));
-    if (inet_pton(AF_INET, host, &sin->sin_addr) == 1) {
-        sin->sin_family = AF_INET;
-        sin->sin_port = htons(NTP_PORT);
-        return 1;
-    }
-
-    struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)&out[0];
-    memset(sin6, 0, sizeof(*sin6));
-    if (inet_pton(AF_INET6, host, &sin6->sin6_addr) == 1) {
-        sin6->sin6_family = AF_INET6;
-        sin6->sin6_port = htons(NTP_PORT);
-        return 1;
-    }
-
-    return 0;
-}
-
-static int append_getaddrinfo_results(const char *host, int family,
-                                      struct sockaddr_storage *out,
-                                      int count, int max) {
-    struct addrinfo hints = {
-        .ai_family = family,
-        .ai_socktype = SOCK_DGRAM,
-        .ai_protocol = IPPROTO_UDP,
-    };
-    struct addrinfo *res = NULL;
-    if (getaddrinfo(host, "123", &hints, &res) != 0) return count;
-
-    for (struct addrinfo *ai = res; ai && count < max; ai = ai->ai_next) {
-        if (ai->ai_addrlen > sizeof(out[0])) continue;
-        if (ai->ai_family != AF_INET && ai->ai_family != AF_INET6) continue;
-
-        struct sockaddr_storage cand;
-        memset(&cand, 0, sizeof(cand));
-        memcpy(&cand, ai->ai_addr, ai->ai_addrlen);
-
-        bool dup = false;
-        for (int j = 0; j < count; j++) {
-            if (sockaddr_matches(&out[j], &cand)) {
-                dup = true;
-                break;
-            }
-        }
-        if (!dup) out[count++] = cand;
-    }
-
-    freeaddrinfo(res);
-    return count;
-}
-
 static int resolve_host(const char *host, bool prefer_ipv6,
                         struct sockaddr_storage *out, int max) {
     ESP_LOGI(BENCH_TAG, "DNS query host=%s ipv6=%s",
              host, prefer_ipv6 ? "yes" : "no");
-    int count = resolve_numeric_host(host, out, max);
-    if (count > 0) {
-        char addr[46];
-        addr_to_str(&out[0], addr, sizeof(addr));
-        ESP_LOGI(BENCH_TAG, "DNS result host=%s addr[0]=%s", host, addr);
-        return count;
-    }
-
-    ntp_clear_dns_cache_for_lookup();
-
-    if (prefer_ipv6) {
-        count = append_getaddrinfo_results(host, AF_INET6, out, count, max);
-        if (count < max) {
-            count = append_getaddrinfo_results(host, AF_INET, out, count, max);
-        }
-    } else {
-        count = append_getaddrinfo_results(host, AF_INET, out, count, max);
-    }
+    int count = ntp_resolve_host(host, prefer_ipv6, out, max);
     for (int i = 0; i < count; i++) {
         char addr[46];
         addr_to_str(&out[i], addr, sizeof(addr));

@@ -11,6 +11,7 @@ idf_component_register(
         "ntp_benchmark.c"
         "ntp_time.c"
         "ntp_peers.c"
+        "ntp_resolve.c"
         "ntp_io.c"
         "ntp_wifi_stamp.c"
         "ntp_filter.c"

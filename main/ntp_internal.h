@@ -300,8 +300,12 @@ static inline int32_t fp1616_to_us(uint32_t raw) {
 
 void step_clock(int64_t step_us);
 
+// Shared address helpers (ntp_resolve.c). ntp_resolve_host resolves numeric
+// literals directly and otherwise clears the lwIP DNS cache before querying,
+// returning up to `max` deduplicated addresses with the NTP port pre-set.
 bool sockaddr_matches(const struct sockaddr_storage *a, const struct sockaddr_storage *b);
-void ntp_clear_dns_cache_for_lookup(void);
+int ntp_resolve_host(const char *host, bool prefer_ipv6,
+                     struct sockaddr_storage *out, int max);
 int resolve_peers(void);
 void maybe_evict_worst_peer(void);
 
