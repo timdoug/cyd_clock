@@ -39,6 +39,10 @@ extern volatile uint32_t clock_latency_us;
 #define FRACTION_WIDTH      (3 * FONT_CHAR_WIDTH)
 #define FRACTION_X          (TIME_START_X + 5 * TIME_DIGIT_STEP + 2 * COLON_7SEG_WIDTH + TIME_DIGIT_WIDTH - FRACTION_WIDTH)
 
+// Stats lines are drawn on a fixed 40-column character grid (see
+// draw_line_cached).
+#define STATS_COLS (DISPLAY_WIDTH / FONT_CHAR_WIDTH)
+
 #define COLOR_TIME_FG   COLOR_RED
 #define COLOR_TIME_BG   COLOR_BLACK
 #define COLOR_DATE_FG   COLOR_WHITE
@@ -60,9 +64,9 @@ static uint8_t last_update_digits = 1;
 static int64_t last_draw_end_us = 0;
 static bool last_draw_had_pixels = false;
 
-static char last_line1[80] = "";
-static char last_line2[96] = "";
-static char last_line3[96] = "";
+static char last_line1[STATS_COLS + 1] = "";
+static char last_line2[STATS_COLS + 1] = "";
+static char last_line3[STATS_COLS + 1] = "";
 static char last_fraction[4] = "";
 
 static uint8_t digit_change_count(const struct tm *timeinfo) {
@@ -263,26 +267,33 @@ static void fmt_pm_us(char *buf, size_t len, int64_t us) {
     }
 }
 
+// One draw path: the line is centered into a fixed 40-column field (space
+// padded, clipped if a long custom server name overflows it) and diffed
+// cell-by-cell against what is on the glass. The cache always holds exactly
+// the padded field that was painted, so length changes need no special
+// margin handling - the padding spaces overwrite vacated cells as part of
+// the same diff. An empty cache means the row is blank (the screen was just
+// cleared); `force` repaints every glyph cell for a color change while
+// still diffing the erases. Caches must hold STATS_COLS + 1 bytes.
 static void draw_line_cached(int y, char *cache, size_t cache_len,
-                             const char *line, uint16_t fg) {
-    if (strcmp(cache, line) == 0) return;
+                             const char *line, uint16_t fg, bool force) {
+    char field[STATS_COLS + 1];
+    size_t len = strlen(line);
+    if (len > STATS_COLS) len = STATS_COLS;
+    size_t pad = (STATS_COLS - len) / 2;
+    memset(field, ' ', STATS_COLS);
+    memcpy(field + pad, line, len);
+    field[STATS_COLS] = '\0';
 
-    size_t old_len = strlen(cache);
-    size_t new_len = strlen(line);
-
-    if (old_len == new_len && old_len > 0) {
-        int x0 = (DISPLAY_WIDTH - (int)new_len * FONT_CHAR_WIDTH) / 2;
-        for (size_t i = 0; i < new_len; i++) {
-            if (cache[i] != line[i]) {
-                display_char(x0 + (int)i * FONT_CHAR_WIDTH, y,
-                             line[i], fg, COLOR_BLACK);
-            }
+    bool blank = (cache[0] == '\0');
+    for (size_t i = 0; i < STATS_COLS; i++) {
+        char prev = blank ? ' ' : cache[i];
+        if (prev != field[i] || (force && field[i] != ' ')) {
+            display_char((int)i * FONT_CHAR_WIDTH, y, field[i], fg, COLOR_BLACK);
         }
-    } else {
-        ui_draw_centered_string(y, line, fg, COLOR_BLACK, false);
     }
 
-    str_copy(cache, cache_len, line);
+    str_copy(cache, cache_len, field);
 }
 
 static void draw_ntp_stats(time_t now, int sec) {
@@ -304,11 +315,11 @@ static void draw_ntp_stats(time_t now, int sec) {
         snprintf(line1, sizeof(line1), tr(STR_FMT_SYNCING), server);
         line1_fg = COLOR_SYNC_WAIT;
     }
-    if (synced_here != last_synced_state) {
-        last_line1[0] = '\0';
-        last_synced_state = synced_here;
-    }
-    draw_line_cached(STATS_Y, last_line1, sizeof(last_line1), line1, line1_fg);
+    // A sync-state flip recolors the line even where the text is unchanged.
+    bool line1_force = (synced_here != last_synced_state);
+    last_synced_state = synced_here;
+    draw_line_cached(STATS_Y, last_line1, sizeof(last_line1), line1, line1_fg,
+                     line1_force);
 
     if (sec == last_stats_sec) return;
     last_stats_sec = sec;
@@ -317,8 +328,10 @@ static void draw_ntp_stats(time_t now, int sec) {
         char line2[48];
         snprintf(line2, sizeof(line2), tr(STR_FMT_WAITING),
                  (unsigned long)(sys.sync_elapsed_ms / 1000));
-        draw_line_cached(STATS_LINE2, last_line2, sizeof(last_line2), line2, COLOR_STATS);
-        draw_line_cached(STATS_LINE3, last_line3, sizeof(last_line3), "", COLOR_BLACK);
+        draw_line_cached(STATS_LINE2, last_line2, sizeof(last_line2), line2,
+                         COLOR_STATS, false);
+        draw_line_cached(STATS_LINE3, last_line3, sizeof(last_line3), "",
+                         COLOR_BLACK, false);
         return;
     }
 
@@ -343,7 +356,8 @@ static void draw_ntp_stats(time_t now, int sec) {
         snprintf(line2, sizeof(line2), tr(STR_FMT_PEERS_AGO),
                  peers_reach, peers_total, poll_buf, ago_buf);
     }
-    draw_line_cached(STATS_LINE2, last_line2, sizeof(last_line2), line2, COLOR_STATS);
+    draw_line_cached(STATS_LINE2, last_line2, sizeof(last_line2), line2,
+                     COLOR_STATS, false);
 
     char line3[96];
     char off_buf[20], disp_buf[20], drift_buf[16];
@@ -364,7 +378,8 @@ static void draw_ntp_stats(time_t now, int sec) {
         fmt_signed_fixed(drift_buf, sizeof(drift_buf), sys.freq_ppm_x1000, "ppm");
     }
     snprintf(line3, sizeof(line3), tr(STR_FMT_OFF_DRIFT), off_buf, disp_buf, drift_buf);
-    draw_line_cached(STATS_LINE3, last_line3, sizeof(last_line3), line3, COLOR_STATS);
+    draw_line_cached(STATS_LINE3, last_line3, sizeof(last_line3), line3,
+                     COLOR_STATS, false);
 }
 
 void ui_clock_update(void) {

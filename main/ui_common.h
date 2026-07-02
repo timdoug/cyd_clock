@@ -105,12 +105,14 @@ bool ui_read_touch(touch_point_t *touch, uint32_t *last_time_ticks);
 //   else    -> "Xd"
 void ui_fmt_duration(char *buf, size_t len, uint32_t seconds);
 
-// Compound form that always carries seconds granularity:
+// Compound two-unit form:
 //   <60s    -> "Xs"
 //   <3600   -> "Xm Ys"
-//   <86400  -> "Xh Ym Zs"
-//   else    -> "Xd Yh Zm"
-// Worst case 11 chars ("23h 59m 59s").
+//   <86400  -> "Xh Ym"
+//   else    -> "Xd Yh"
+// Worst case 8 chars ("365d 23h") for ages up to ~3 years. Capped at two
+// units so the clock screen's peers/poll/ago line fits 40 columns in every
+// language (the wordiest translations leave 10 columns for this field).
 void ui_fmt_duration_full(char *buf, size_t len, uint32_t seconds);
 
 #endif
