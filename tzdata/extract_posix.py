@@ -5,10 +5,9 @@ Reads zone1970.tab for the canonical list of zones, compiles tzdata
 using zic, extracts POSIX TZ strings from TZif binaries, and generates
 C code for main/ui_timezone.c with a two-level region/city structure.
 
-Deduplicates zones in two passes:
-1. Exact POSIX string match - keep largest city by population
-2. Functional equivalence (same offset + DST rules, different abbreviation)
-   - keep largest city
+Deduplicates zones within each region by functional POSIX equivalence
+(same offset and DST rules regardless of abbreviation name), keeping the
+largest city by population as the representative.
 """
 
 import argparse
@@ -46,7 +45,7 @@ def latest_tzdata_release():
     with urllib.request.urlopen(f"{IANA_RELEASE_URL}/") as response:
         index = response.read().decode("utf-8", errors="replace")
 
-    releases = re.findall(r"tzdata(\d{4}[a-z])\.tar\.gz", index)
+    releases = re.findall(r"tzdata(\d{4}[a-z]{1,2})\.tar\.gz", index)
     if not releases:
         raise RuntimeError("Could not find any tzdata releases in IANA index")
 
@@ -97,13 +96,13 @@ def run_zic(zic, destdir, path):
 
 
 def compile_tzdata(srcdir, destdir, zic):
-    """Compile tzdata source files into TZif binaries using zic."""
+    """Compile tzdata source files into TZif binaries using zic.
+
+    Every REGION_FILES entry is required (main() aborts earlier via
+    check_tzdata_sources), so a missing region here is a hard error.
+    """
     for region in REGION_FILES:
-        path = os.path.join(srcdir, region)
-        if not os.path.exists(path):
-            print(f"Warning: {path} not found, skipping", file=sys.stderr)
-            continue
-        run_zic(zic, destdir, path)
+        run_zic(zic, destdir, os.path.join(srcdir, region))
 
 
 def extract_posix_string(tzif_path):
@@ -160,7 +159,13 @@ def _parse_posix_offset(s):
 def _skip_abbrev(s):
     """Skip a POSIX timezone abbreviation, return remaining string."""
     if s.startswith("<"):
-        return s[s.index(">") + 1:]
+        try:
+            end = s.index(">")
+        except ValueError:
+            raise ValueError(
+                f"malformed POSIX abbreviation, no closing '>': {s!r}"
+            ) from None
+        return s[end + 1:]
     i = 0
     while i < len(s) and s[i].isalpha():
         i += 1
@@ -222,7 +227,7 @@ def offset_sort_key(posix_tz):
 def read_zone1970_tab(path):
     """Read zone1970.tab and return the list of zone ID strings."""
     zones = []
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         for line in f:
             if line.startswith("#") or not line.strip():
                 continue
@@ -313,7 +318,12 @@ def normalize_posix_tz(posix_tz):
     while i < len(s):
         if s[i] == "<":
             # Skip <abbrev>
-            end = s.index(">", i)
+            try:
+                end = s.index(">", i)
+            except ValueError:
+                raise ValueError(
+                    f"malformed POSIX abbreviation, no closing '>': {s!r}"
+                ) from None
             result.append("<X>")
             i = end + 1
         elif s[i].isalpha():
@@ -341,10 +351,8 @@ def generate_timezone_block(srcdir, zic):
         print("Compiling tzdata...", file=sys.stderr)
         compile_tzdata(srcdir, tmpdir, zic)
 
-        # Also compile Etc/UTC (not in zone1970.tab)
-        etcetera_path = os.path.join(srcdir, "etcetera")
-        if os.path.exists(etcetera_path):
-            run_zic(zic, tmpdir, etcetera_path)
+        # Etc/UTC comes from the "etcetera" region compiled above; it is not
+        # listed in zone1970.tab, so it is looked up separately below.
 
         # Extract POSIX strings for all zones
         entries = []
@@ -371,20 +379,7 @@ def generate_timezone_block(srcdir, zic):
         print(f"Total zones from zone1970.tab: {len(entries)}",
               file=sys.stderr)
 
-        # --- Pass 1: Deduplicate by exact POSIX string within region ---
-        # Keep the entry with the largest city population for each string.
-        by_posix = {}
-        for entry in entries:
-            region, city, posix_tz, zone_id = entry
-            key = (region, posix_tz)
-            pop = city_population(zone_id)
-            if key not in by_posix or pop > by_posix[key][1]:
-                by_posix[key] = (entry, pop)
-        entries = [v[0] for v in by_posix.values()]
-        print(f"After exact POSIX dedup (within region): {len(entries)}",
-              file=sys.stderr)
-
-        # --- Pass 2: Deduplicate by functional equivalence within region ---
+        # --- Deduplicate by functional equivalence within region ---
         # Two POSIX strings that differ only in abbreviation names
         # (e.g., PKT-5 vs <+05>-5) compute identical times.
         # Only dedup within the same region so users can find entries
@@ -401,7 +396,7 @@ def generate_timezone_block(srcdir, zic):
         print(f"After functional dedup (within region): {len(entries)}",
               file=sys.stderr)
 
-        # (UTC always survives dedup: both passes key on the region, and the
+        # (UTC always survives dedup: the pass keys on the region, and the
         # UTC entry is the only member of its "UTC" region.)
 
         # Build city display labels with UTC offset and DST status
@@ -454,7 +449,7 @@ def generate_timezone_block(srcdir, zic):
 
 def update_ui_timezone(path, generated_block):
     """Replace the generated timezone block in main/ui_timezone.c."""
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         source = f.read()
 
     pattern = (
@@ -465,7 +460,7 @@ def update_ui_timezone(path, generated_block):
     if count != 1:
         raise RuntimeError(f"Could not find generated timezone block in {path}")
 
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         f.write(updated)
 
     print(f"Updated {path}", file=sys.stderr)
@@ -536,7 +531,7 @@ def main():
         generated_block = generate_timezone_block(srcdir, args.zic)
 
         if args.output:
-            with open(args.output, "w") as f:
+            with open(args.output, "w", encoding="utf-8") as f:
                 f.write(generated_block)
             print(f"Wrote {args.output}", file=sys.stderr)
         elif not args.update_ui:
