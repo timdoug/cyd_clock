@@ -21,18 +21,80 @@ static bool nvs_open_write(nvs_handle_t *handle) {
     return true;
 }
 
-static void nvs_commit_and_close(nvs_handle_t handle) {
+// Commit and close. Returns the commit result so setters only report success
+// on ESP_OK rather than logging "Saved ..." unconditionally.
+static esp_err_t nvs_commit_and_close(nvs_handle_t handle) {
     esp_err_t err = nvs_commit(handle);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to commit NVS changes: %s", esp_err_to_name(err));
     }
     nvs_close(handle);
+    return err;
 }
 
 static bool nvs_set_ok(esp_err_t err, const char *key) {
     if (err == ESP_OK) return true;
     ESP_LOGE(TAG, "Failed to write NVS key '%s': %s", key, esp_err_to_name(err));
     return false;
+}
+
+// Generic single-key getters: open readonly, read one key, close. Return true
+// only on a hit. `len` is the destination buffer size (bytes) for strings.
+static bool nvs_get_str_key(const char *key, char *out, size_t len) {
+    nvs_handle_t handle;
+    if (!nvs_open_read(&handle)) return false;
+    esp_err_t err = nvs_get_str(handle, key, out, &len);
+    nvs_close(handle);
+    return err == ESP_OK;
+}
+
+static bool nvs_get_u8_key(const char *key, uint8_t *out) {
+    nvs_handle_t handle;
+    if (!nvs_open_read(&handle)) return false;
+    esp_err_t err = nvs_get_u8(handle, key, out);
+    nvs_close(handle);
+    return err == ESP_OK;
+}
+
+static bool nvs_get_i32_key(const char *key, int32_t *out) {
+    nvs_handle_t handle;
+    if (!nvs_open_read(&handle)) return false;
+    esp_err_t err = nvs_get_i32(handle, key, out);
+    nvs_close(handle);
+    return err == ESP_OK;
+}
+
+// Generic single-key setters: open r/w, write one key, commit+close. Return
+// ESP_OK only if the value was both written and committed. Write and commit
+// failures are logged inside the helpers, so silent loss is impossible.
+static esp_err_t nvs_set_str_key(const char *key, const char *value) {
+    nvs_handle_t handle;
+    if (!nvs_open_write(&handle)) return ESP_FAIL;
+    if (!nvs_set_ok(nvs_set_str(handle, key, value ? value : ""), key)) {
+        nvs_close(handle);
+        return ESP_FAIL;
+    }
+    return nvs_commit_and_close(handle);
+}
+
+static esp_err_t nvs_set_u8_key(const char *key, uint8_t value) {
+    nvs_handle_t handle;
+    if (!nvs_open_write(&handle)) return ESP_FAIL;
+    if (!nvs_set_ok(nvs_set_u8(handle, key, value), key)) {
+        nvs_close(handle);
+        return ESP_FAIL;
+    }
+    return nvs_commit_and_close(handle);
+}
+
+static esp_err_t nvs_set_i32_key(const char *key, int32_t value) {
+    nvs_handle_t handle;
+    if (!nvs_open_write(&handle)) return ESP_FAIL;
+    if (!nvs_set_ok(nvs_set_i32(handle, key, value), key)) {
+        nvs_close(handle);
+        return ESP_FAIL;
+    }
+    return nvs_commit_and_close(handle);
 }
 
 void nvs_config_init(void) {
@@ -47,6 +109,8 @@ void nvs_config_init(void) {
 }
 
 bool nvs_config_get_wifi(char *ssid, char *password) {
+    // Two keys under one handle; kept custom (the generic single-key helpers
+    // would open the namespace twice) and it carries its own logging.
     nvs_handle_t handle;
     if (!nvs_open_read(&handle)) {
         ESP_LOGW(TAG, "No stored WiFi credentials");
@@ -57,12 +121,9 @@ bool nvs_config_get_wifi(char *ssid, char *password) {
     size_t pass_len = MAX_PASSWORD_LEN;
 
     esp_err_t err = nvs_get_str(handle, "ssid", ssid, &ssid_len);
-    if (err != ESP_OK) {
-        nvs_close(handle);
-        return false;
+    if (err == ESP_OK) {
+        err = nvs_get_str(handle, "password", password, &pass_len);
     }
-
-    err = nvs_get_str(handle, "password", password, &pass_len);
     nvs_close(handle);
 
     if (err != ESP_OK) {
@@ -74,285 +135,122 @@ bool nvs_config_get_wifi(char *ssid, char *password) {
 }
 
 void nvs_config_set_wifi(const char *ssid, const char *password) {
+    // Two keys under one handle; kept custom. Log success only once both
+    // writes committed.
     nvs_handle_t handle;
     if (!nvs_open_write(&handle)) return;
 
+    esp_err_t err = ESP_FAIL;
     if (nvs_set_ok(nvs_set_str(handle, "ssid", ssid ? ssid : ""), "ssid") &&
         nvs_set_ok(nvs_set_str(handle, "password", password ? password : ""), "password")) {
-        nvs_commit_and_close(handle);
-        ESP_LOGI(TAG, "Saved WiFi credentials for SSID: %s", ssid ? ssid : "");
+        err = nvs_commit_and_close(handle);
     } else {
         nvs_close(handle);
     }
+
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "Saved WiFi credentials for SSID: %s", ssid ? ssid : "");
+    } else {
+        ESP_LOGE(TAG, "Failed to save WiFi credentials for SSID: %s", ssid ? ssid : "");
+    }
 }
 
-
 bool nvs_config_get_timezone(char *tz) {
-    nvs_handle_t handle;
-    if (!nvs_open_read(&handle)) {
-        return false;
-    }
-
-    size_t tz_len = MAX_TIMEZONE_LEN;
-    esp_err_t err = nvs_get_str(handle, "timezone", tz, &tz_len);
-    nvs_close(handle);
-
-    if (err != ESP_OK) {
-        return false;
-    }
-
+    if (!nvs_get_str_key("timezone", tz, MAX_TIMEZONE_LEN)) return false;
     ESP_LOGI(TAG, "Loaded timezone: %s", tz);
     return true;
 }
 
 void nvs_config_set_timezone(const char *tz) {
-    nvs_handle_t handle;
-    if (!nvs_open_write(&handle)) return;
-
-    if (nvs_set_ok(nvs_set_str(handle, "timezone", tz ? tz : ""), "timezone")) {
-        nvs_commit_and_close(handle);
+    if (nvs_set_str_key("timezone", tz) == ESP_OK) {
         ESP_LOGI(TAG, "Saved timezone: %s", tz ? tz : "");
     } else {
-        nvs_close(handle);
+        ESP_LOGE(TAG, "Failed to save timezone: %s", tz ? tz : "");
     }
 }
 
 bool nvs_config_get_timezone_name(char *name) {
-    nvs_handle_t handle;
-    if (!nvs_open_read(&handle)) {
-        return false;
-    }
-
-    size_t len = MAX_TIMEZONE_NAME_LEN;
-    esp_err_t err = nvs_get_str(handle, "tz_name", name, &len);
-    nvs_close(handle);
-    return err == ESP_OK;
+    return nvs_get_str_key("tz_name", name, MAX_TIMEZONE_NAME_LEN);
 }
 
 void nvs_config_set_timezone_name(const char *name) {
-    nvs_handle_t handle;
-    if (!nvs_open_write(&handle)) return;
-
-    if (nvs_set_ok(nvs_set_str(handle, "tz_name", name ? name : ""), "tz_name")) {
-        nvs_commit_and_close(handle);
-    } else {
-        nvs_close(handle);
-    }
+    nvs_set_str_key("tz_name", name);
 }
 
 bool nvs_config_get_brightness(uint8_t *brightness) {
-    nvs_handle_t handle;
-    if (!nvs_open_read(&handle)) {
-        return false;
-    }
-
-    esp_err_t err = nvs_get_u8(handle, "brightness", brightness);
-    nvs_close(handle);
-    return err == ESP_OK;
+    return nvs_get_u8_key("brightness", brightness);
 }
 
 void nvs_config_set_brightness(uint8_t brightness) {
-    nvs_handle_t handle;
-    if (!nvs_open_write(&handle)) return;
-
-    if (nvs_set_ok(nvs_set_u8(handle, "brightness", brightness), "brightness")) {
-        nvs_commit_and_close(handle);
-    } else {
-        nvs_close(handle);
-    }
+    nvs_set_u8_key("brightness", brightness);
 }
 
 bool nvs_config_get_custom_ntp_server(char *server) {
-    nvs_handle_t handle;
-    if (!nvs_open_read(&handle)) {
-        return false;
-    }
-
-    size_t len = MAX_NTP_SERVER_LEN;
-    esp_err_t err = nvs_get_str(handle, "ntp_custom", server, &len);
-    nvs_close(handle);
-    return err == ESP_OK;
+    return nvs_get_str_key("ntp_custom", server, MAX_NTP_SERVER_LEN);
 }
 
 void nvs_config_set_custom_ntp_server(const char *server) {
-    nvs_handle_t handle;
-    if (!nvs_open_write(&handle)) return;
-
-    if (nvs_set_ok(nvs_set_str(handle, "ntp_custom", server ? server : ""), "ntp_custom")) {
-        nvs_commit_and_close(handle);
-    } else {
-        nvs_close(handle);
-    }
+    nvs_set_str_key("ntp_custom", server);
 }
 
 bool nvs_config_get_ota_url(char *url) {
-    nvs_handle_t handle;
-    if (!nvs_open_read(&handle)) {
-        return false;
-    }
-
-    size_t len = MAX_OTA_URL_LEN;
-    esp_err_t err = nvs_get_str(handle, "ota_url", url, &len);
-    nvs_close(handle);
-    return err == ESP_OK;
+    return nvs_get_str_key("ota_url", url, MAX_OTA_URL_LEN);
 }
 
 void nvs_config_set_ota_url(const char *url) {
-    nvs_handle_t handle;
-    if (!nvs_open_write(&handle)) return;
-
-    if (nvs_set_ok(nvs_set_str(handle, "ota_url", url ? url : ""), "ota_url")) {
-        nvs_commit_and_close(handle);
-    } else {
-        nvs_close(handle);
-    }
+    nvs_set_str_key("ota_url", url);
 }
 
 bool nvs_config_get_ntp_ipv6(bool *prefer) {
-    nvs_handle_t handle;
-    if (!nvs_open_read(&handle)) {
-        return false;
-    }
-
     uint8_t value;
-    esp_err_t err = nvs_get_u8(handle, "ntp_ipv6", &value);
-    nvs_close(handle);
-
-    if (err == ESP_OK) {
-        *prefer = (value != 0);
-        return true;
-    }
-    return false;
+    if (!nvs_get_u8_key("ntp_ipv6", &value)) return false;
+    *prefer = (value != 0);
+    return true;
 }
 
 void nvs_config_set_ntp_ipv6(bool prefer) {
-    nvs_handle_t handle;
-    if (!nvs_open_write(&handle)) return;
-
-    if (nvs_set_ok(nvs_set_u8(handle, "ntp_ipv6", prefer ? 1 : 0), "ntp_ipv6")) {
-        nvs_commit_and_close(handle);
-    } else {
-        nvs_close(handle);
-    }
+    nvs_set_u8_key("ntp_ipv6", prefer ? 1 : 0);
 }
 
 bool nvs_config_get_nts_mode(uint8_t *mode) {
-    nvs_handle_t handle;
-    if (!nvs_open_read(&handle)) {
-        return false;
-    }
-
-    uint8_t value;
-    esp_err_t err = nvs_get_u8(handle, "nts_mode", &value);
-    nvs_close(handle);
-
-    if (err == ESP_OK) {
-        *mode = value;
-        return true;
-    }
-    return false;
+    return nvs_get_u8_key("nts_mode", mode);
 }
 
 void nvs_config_set_nts_mode(uint8_t mode) {
-    nvs_handle_t handle;
-    if (!nvs_open_write(&handle)) return;
-
-    if (nvs_set_ok(nvs_set_u8(handle, "nts_mode", mode), "nts_mode")) {
-        nvs_commit_and_close(handle);
-    } else {
-        nvs_close(handle);
-    }
+    nvs_set_u8_key("nts_mode", mode);
 }
 
 bool nvs_config_get_rotation(bool *rotated) {
-    nvs_handle_t handle;
-    if (!nvs_open_read(&handle)) {
-        return false;
-    }
-
     uint8_t value;
-    esp_err_t err = nvs_get_u8(handle, "rotation", &value);
-    nvs_close(handle);
-
-    if (err == ESP_OK) {
-        *rotated = (value != 0);
-        return true;
-    }
-    return false;
+    if (!nvs_get_u8_key("rotation", &value)) return false;
+    *rotated = (value != 0);
+    return true;
 }
 
 void nvs_config_set_rotation(bool rotated) {
-    nvs_handle_t handle;
-    if (!nvs_open_write(&handle)) return;
-
-    if (nvs_set_ok(nvs_set_u8(handle, "rotation", rotated ? 1 : 0), "rotation")) {
-        nvs_commit_and_close(handle);
-    } else {
-        nvs_close(handle);
-    }
+    nvs_set_u8_key("rotation", rotated ? 1 : 0);
 }
 
 bool nvs_config_get_language(uint8_t *lang) {
-    nvs_handle_t handle;
-    if (!nvs_open_read(&handle)) {
-        return false;
-    }
-
-    esp_err_t err = nvs_get_u8(handle, "language", lang);
-    nvs_close(handle);
-    return err == ESP_OK;
+    return nvs_get_u8_key("language", lang);
 }
 
 void nvs_config_set_language(uint8_t lang) {
-    nvs_handle_t handle;
-    if (!nvs_open_write(&handle)) return;
-
-    if (nvs_set_ok(nvs_set_u8(handle, "language", lang), "language")) {
-        nvs_commit_and_close(handle);
-    } else {
-        nvs_close(handle);
-    }
+    nvs_set_u8_key("language", lang);
 }
 
 bool nvs_config_get_led_brightness(uint8_t *brightness) {
-    nvs_handle_t handle;
-    if (!nvs_open_read(&handle)) {
-        return false;
-    }
-
-    esp_err_t err = nvs_get_u8(handle, "led_bright", brightness);
-    nvs_close(handle);
-
-    return (err == ESP_OK);
+    return nvs_get_u8_key("led_bright", brightness);
 }
 
 void nvs_config_set_led_brightness(uint8_t brightness) {
-    nvs_handle_t handle;
-    if (!nvs_open_write(&handle)) return;
-
-    if (nvs_set_ok(nvs_set_u8(handle, "led_bright", brightness), "led_bright")) {
-        nvs_commit_and_close(handle);
-    } else {
-        nvs_close(handle);
-    }
+    nvs_set_u8_key("led_bright", brightness);
 }
 
 bool nvs_config_get_freq_ppm_x1000(int32_t *value) {
-    nvs_handle_t handle;
-    if (!nvs_open_read(&handle)) {
-        return false;
-    }
-    esp_err_t err = nvs_get_i32(handle, "freq_ppm", value);
-    nvs_close(handle);
-    return (err == ESP_OK);
+    return nvs_get_i32_key("freq_ppm", value);
 }
 
 void nvs_config_set_freq_ppm_x1000(int32_t value) {
-    nvs_handle_t handle;
-    if (!nvs_open_write(&handle)) return;
-    if (nvs_set_ok(nvs_set_i32(handle, "freq_ppm", value), "freq_ppm")) {
-        nvs_commit_and_close(handle);
-    } else {
-        nvs_close(handle);
-    }
+    nvs_set_i32_key("freq_ppm", value);
 }

@@ -6,6 +6,10 @@
 
 // Buffer sizes including the terminating NUL. 802.11 SSIDs are up to 32 bytes.
 #define WIFI_SSID_BUF_LEN 33
+// WPA2 passphrases are 8..63 characters, which fit. Note the buffer includes
+// the NUL, so only 63 usable bytes: a raw 64-hex-char PSK (the pre-shared key
+// entered directly instead of a passphrase) cannot be stored. That is a rare
+// configuration and expanding the buffer to 65 to allow it is left out here.
 #define MAX_PASSWORD_LEN 64
 #define MAX_TIMEZONE_LEN 48
 
