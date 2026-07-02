@@ -7,5 +7,7 @@ extern const display_cjk_font_t font_ja;
 extern const display_cjk_font_t font_zh;
 extern const display_cjk_font_t font_zh_hant;
 extern const display_cjk_font_t font_ko;
+extern const display_cjk_font_t font_el;
+extern const display_cjk_font_t font_vi;
 
 #endif

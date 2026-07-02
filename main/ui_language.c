@@ -19,21 +19,28 @@ static const lang_t lang_order[LANG_COUNT] = {
     LANG_CS,  // Cestina
     LANG_DA,  // Dansk
     LANG_DE,  // Deutsch
+    LANG_ET,  // Eesti
     LANG_EN,  // English
     LANG_ES,  // Espanol
     LANG_FR,  // Francais
     LANG_HR,  // Hrvatski
     LANG_ID,  // Indonesia
     LANG_IT,  // Italiano
+    LANG_LV,  // Latviesu
+    LANG_LT,  // Lietuviu
     LANG_HU,  // Magyar
     LANG_NL,  // Nederlands
     LANG_NO,  // Norsk
     LANG_PL,  // Polski
     LANG_PT,  // Portugues
     LANG_RO,  // Romana
+    LANG_SK,  // Slovencina
+    LANG_SL,  // Slovenscina
     LANG_FI,  // Suomi
     LANG_SV,  // Svenska
+    LANG_VI,  // Tieng Viet
     LANG_TR,  // Turkce
+    LANG_EL,  // Ellinika
     LANG_JA,  // Japanese native name
     LANG_ZH,  // Simplified Chinese native name
     LANG_ZH_HANT,  // Traditional Chinese native name

@@ -15,8 +15,8 @@
 static const char *TAG = "ui_settings";
 
 #define ITEM_START_Y        32
-#define ROTATION_TOGGLE_X   260
-#define ROTATION_TOGGLE_W   50
+#define ROTATION_TOGGLE_W   64
+#define ROTATION_TOGGLE_X   (DISPLAY_WIDTH - ROTATION_TOGGLE_W - 8)
 
 #define TZ_ROW_Y            (ITEM_START_Y)
 #define WIFI_ROW_Y          (TZ_ROW_Y + UI_ITEM_HEIGHT)
@@ -90,7 +90,7 @@ static void draw_menu(void) {
     uint16_t rot_bg = rotation ? COLOR_GREEN : COLOR_GRAY;
     display_fill_rect(ROTATION_TOGGLE_X, ROTATION_ROW_Y + 3, ROTATION_TOGGLE_W, 18, rot_bg);
     const char *rot_label = rotation ? tr(STR_ON) : tr(STR_OFF);
-    int rot_text_x = ROTATION_TOGGLE_X + (ROTATION_TOGGLE_W - strlen(rot_label) * FONT_CHAR_WIDTH) / 2;
+    int rot_text_x = ROTATION_TOGGLE_X + (ROTATION_TOGGLE_W - display_text_width(rot_label)) / 2;
     display_string(rot_text_x, ROTATION_ROW_Y + 4, rot_label, rotation ? COLOR_BLACK : COLOR_WHITE, rot_bg);
 
     ui_draw_menu_item(ABOUT_ROW_Y, tr(STR_ABOUT));

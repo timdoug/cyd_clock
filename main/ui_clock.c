@@ -231,11 +231,26 @@ static bool clock_text_has_cjk_tokens(const char *s) {
 static void draw_line_cached(int y, char *cache, size_t cache_len,
                              const char *line, uint16_t fg, bool force) {
     if (clock_text_has_cjk_tokens(cache) || clock_text_has_cjk_tokens(line)) {
+        bool blank = (cache[0] == '\0');
+        if (!blank && !force && strcmp(cache, line) == 0) return;
+
+        int old_width = blank ? 0 : display_text_width(cache);
+        int old_x = (DISPLAY_WIDTH - old_width) / 2;
+        if (old_x < 0) old_x = 0;
+
         int width = display_text_width(line);
         int x = (DISPLAY_WIDTH - width) / 2;
         if (x < 0) x = 0;
-        display_fill_rect(0, y, DISPLAY_WIDTH, FONT_CHAR_HEIGHT, COLOR_BLACK);
-        display_string(x, y, line, fg, COLOR_BLACK);
+
+        if (blank) {
+            display_string(x, y, line, fg, COLOR_BLACK);
+        } else if (x == old_x) {
+            ui_diff_paint(x, y, cache, line, fg, NULL, COLOR_BLACK, force);
+        } else {
+            display_fill_rect(old_x, y, old_width, FONT_CHAR_HEIGHT, COLOR_BLACK);
+            display_string(x, y, line, fg, COLOR_BLACK);
+        }
+
         str_copy(cache, cache_len, line);
         return;
     }

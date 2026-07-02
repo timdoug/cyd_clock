@@ -124,7 +124,7 @@ static void draw_segmented_field_cached(int x, int y, int row_idx,
     bool color_changed = !first_time && last_sys_color[row_idx] != color_hash;
     if (!first_time && !color_changed && strcmp(cache, text) == 0) return;
 
-    int vx = x + (int)strlen(label) * FONT_CHAR_WIDTH;
+    int vx = x + display_text_width(label);
     if (first_time) {
         display_string(x, y, label, COLOR_GRAY, COLOR_BLACK);
     }
@@ -148,7 +148,7 @@ static void draw_field_cached(int x, int y, int row_idx,
 
     if (!first_time && !color_changed && strcmp(cache, value) == 0) return;
 
-    int vx = x + (int)strlen(label) * FONT_CHAR_WIDTH;
+    int vx = x + display_text_width(label);
     if (first_time) {
         display_string(x, y, label, COLOR_GRAY, COLOR_BLACK);
     }

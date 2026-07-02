@@ -32,6 +32,7 @@ typedef struct display_cjk_font {
     const uint8_t (*glyphs)[DISPLAY_CJK_GLYPH_BYTES];
     const uint8_t (*glyphs_2x)[DISPLAY_CJK_GLYPH_2X_BYTES];
     uint16_t count;
+    uint8_t glyph_width;
 } display_cjk_font_t;
 
 void display_init(void);

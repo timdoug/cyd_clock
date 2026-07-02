@@ -12,7 +12,7 @@
 #define UI_HEADER_TEXT_Y    8
 
 #define UI_BACK_BTN_X       5
-#define UI_BACK_BTN_W       50
+#define UI_BACK_BTN_W       70
 // Geometry shared by all buttons that sit in the header bar.
 #define UI_HEADER_BTN_Y     5
 #define UI_HEADER_BTN_H     20

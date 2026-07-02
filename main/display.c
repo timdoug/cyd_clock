@@ -398,8 +398,28 @@ static const uint8_t font_high[128][FONT_CHAR_HEIGHT] = {
     [0xD3 - 0x80] = {0x18,0x18,0x00,0x3C,0x18,0x18,0x18,0x18,0x18,0x18,0x18,0x3C,0x00,0x00,0x00,0x00},
     // Cyrillic tse (0xD4) - Ukrainian
     [0xD4 - 0x80] = {0x00,0x00,0x00,0x00,0x00,0xC6,0xC6,0xC6,0xC6,0xC6,0xC6,0xFE,0x06,0x06,0x00,0x00},
+    // S-caron uppercase (0xD5) - Slovak/Lithuanian
+    [0xD5 - 0x80] = {0x6C,0x38,0x7C,0xC6,0xC6,0x60,0x38,0x0C,0x06,0xC6,0xC6,0x7C,0x00,0x00,0x00,0x00},
+    // T-caron uppercase (0xD6) - Slovak
+    [0xD6 - 0x80] = {0x6C,0x38,0xFF,0xDB,0x99,0x18,0x18,0x18,0x18,0x18,0x18,0x3C,0x00,0x00,0x00,0x00},
+    // a-macron (0xD7) - Latvian
+    [0xD7 - 0x80] = {0x00,0x00,0x7E,0x00,0x00,0x78,0x0C,0x7C,0xCC,0xCC,0xCC,0x76,0x00,0x00,0x00,0x00},
+    // e-macron (0xD8) - Latvian
+    [0xD8 - 0x80] = {0x00,0x00,0x7E,0x00,0x00,0x7C,0xC6,0xFE,0xC0,0xC0,0xC6,0x7C,0x00,0x00,0x00,0x00},
+    // g-comma/cedilla (0xD9) - Latvian
+    [0xD9 - 0x80] = {0x00,0x00,0x18,0x30,0x00,0x76,0xCC,0xCC,0xCC,0xCC,0xCC,0x7C,0x0C,0xCC,0x78,0x00},
     // U-acute uppercase (0xDA, true Latin-1 slot) - Czech
     [0xDA - 0x80] = {0x0C,0x18,0xC6,0xC6,0xC6,0xC6,0xC6,0xC6,0xC6,0xC6,0xC6,0x7C,0x00,0x00,0x00,0x00},
+    // i-macron (0xDB) - Latvian
+    [0xDB - 0x80] = {0x00,0x00,0x7E,0x00,0x00,0x38,0x18,0x18,0x18,0x18,0x18,0x3C,0x00,0x00,0x00,0x00},
+    // U-diaeresis uppercase (0xDC, true Latin-1 slot) - Estonian
+    [0xDC - 0x80] = {0x66,0x66,0xC6,0xC6,0xC6,0xC6,0xC6,0xC6,0xC6,0xC6,0xC6,0x7C,0x00,0x00,0x00,0x00},
+    // l-cedilla/comma (0xDD) - Latvian
+    [0xDD - 0x80] = {0x00,0x00,0x38,0x18,0x18,0x18,0x18,0x18,0x18,0x18,0x18,0x3C,0x18,0x30,0x00,0x00},
+    // u-macron (0xDE) - Latvian/Lithuanian
+    [0xDE - 0x80] = {0x00,0x00,0x7E,0x00,0x00,0xCC,0xCC,0xCC,0xCC,0xCC,0xCC,0x76,0x00,0x00,0x00,0x00},
+    // e-dot (0xDF) - Lithuanian
+    [0xDF - 0x80] = {0x00,0x00,0x18,0x00,0x00,0x7C,0xC6,0xFE,0xC0,0xC0,0xC6,0x7C,0x00,0x00,0x00,0x00},
     // a-grave (0xE0)
     [0xE0 - 0x80] = {0x00,0x00,0x30,0x18,0x00,0x78,0x0C,0x7C,0xCC,0xCC,0xCC,0x76,0x00,0x00,0x00,0x00},
     // a-acute (0xE1)
@@ -424,6 +444,10 @@ static const uint8_t font_high[128][FONT_CHAR_HEIGHT] = {
     [0xEC - 0x80] = {0x00,0x00,0x30,0x18,0x00,0x38,0x18,0x18,0x18,0x18,0x18,0x3C,0x00,0x00,0x00,0x00},
     // n-tilde (0xF1)
     [0xF1 - 0x80] = {0x00,0x00,0x76,0xDC,0x00,0xDC,0x66,0x66,0x66,0x66,0x66,0x66,0x00,0x00,0x00,0x00},
+    // I-ogonek uppercase (0xF0) - Lithuanian
+    [0xF0 - 0x80] = {0x00,0x00,0x3C,0x18,0x18,0x18,0x18,0x18,0x18,0x18,0x18,0x3C,0x18,0x30,0x18,0x00},
+    // u-ogonek (0xF2) - Lithuanian
+    [0xF2 - 0x80] = {0x00,0x00,0x00,0x00,0x00,0xCC,0xCC,0xCC,0xCC,0xCC,0xCC,0x76,0x18,0x30,0x18,0x00},
     // o-acute (0xF3)
     [0xF3 - 0x80] = {0x00,0x00,0x0C,0x18,0x00,0x7C,0xC6,0xC6,0xC6,0xC6,0xC6,0x7C,0x00,0x00,0x00,0x00},
     // o-tilde (0xF5)
@@ -675,39 +699,47 @@ void display_char(int16_t x, int16_t y, char c, uint16_t fg, uint16_t bg) {
     spi_write_bytes(buf, sizeof(buf));
 }
 
+static uint8_t cjk_font_glyph_width(const display_cjk_font_t *font) {
+    if (!font || font->glyph_width == 0 || font->glyph_width > DISPLAY_CJK_GLYPH_WIDTH) {
+        return DISPLAY_CJK_GLYPH_WIDTH;
+    }
+    return font->glyph_width;
+}
+
 static void display_cjk_glyph(int16_t x, int16_t y, const uint8_t glyph[DISPLAY_CJK_GLYPH_BYTES],
-                              uint16_t fg, uint16_t bg) {
+                              uint8_t glyph_width, uint16_t fg, uint16_t bg) {
     if (!glyph || x < 0 || y < 0 ||
-        x + DISPLAY_CJK_GLYPH_WIDTH > DISPLAY_WIDTH ||
+        x + glyph_width > DISPLAY_WIDTH ||
         y + DISPLAY_CJK_GLYPH_HEIGHT > DISPLAY_HEIGHT) {
         return;
     }
 
-    set_addr_window(x, y, DISPLAY_CJK_GLYPH_WIDTH, DISPLAY_CJK_GLYPH_HEIGHT);
+    set_addr_window(x, y, glyph_width, DISPLAY_CJK_GLYPH_HEIGHT);
     dc_data();
 
     int idx = 0;
     for (int row = 0; row < DISPLAY_CJK_GLYPH_HEIGHT; row++) {
         uint16_t bits = ((uint16_t)glyph[row * 2] << 8) | glyph[row * 2 + 1];
-        for (int col = 0; col < DISPLAY_CJK_GLYPH_WIDTH; col++) {
+        for (int col = 0; col < glyph_width; col++) {
             uint16_t color = (bits & 0x8000) ? fg : bg;
             cjk_glyph_buf[idx++] = color >> 8;
             cjk_glyph_buf[idx++] = color & 0xFF;
             bits <<= 1;
         }
     }
-    spi_write_bytes(cjk_glyph_buf, sizeof(cjk_glyph_buf));
+    spi_write_bytes(cjk_glyph_buf, glyph_width * DISPLAY_CJK_GLYPH_HEIGHT * 2);
 }
 
 static void display_cjk_glyph_2x(int16_t x, int16_t y, const uint8_t glyph[DISPLAY_CJK_GLYPH_BYTES],
-                                 uint16_t fg, uint16_t bg) {
+                                 uint8_t glyph_width, uint16_t fg, uint16_t bg) {
+    uint8_t width_2x = glyph_width * 2;
     if (!glyph || x < 0 || y < 0 ||
-        x + DISPLAY_CJK_GLYPH_WIDTH * 2 > DISPLAY_WIDTH ||
+        x + width_2x > DISPLAY_WIDTH ||
         y + DISPLAY_CJK_GLYPH_HEIGHT * 2 > DISPLAY_HEIGHT) {
         return;
     }
 
-    set_addr_window(x, y, DISPLAY_CJK_GLYPH_WIDTH * 2, DISPLAY_CJK_GLYPH_HEIGHT * 2);
+    set_addr_window(x, y, width_2x, DISPLAY_CJK_GLYPH_HEIGHT * 2);
     dc_data();
 
     int idx = 0;
@@ -715,7 +747,7 @@ static void display_cjk_glyph_2x(int16_t x, int16_t y, const uint8_t glyph[DISPL
         uint16_t bits = ((uint16_t)glyph[row * 2] << 8) | glyph[row * 2 + 1];
         for (int dup = 0; dup < 2; dup++) {
             uint16_t row_bits = bits;
-            for (int col = 0; col < DISPLAY_CJK_GLYPH_WIDTH; col++) {
+            for (int col = 0; col < glyph_width; col++) {
                 uint16_t color = (row_bits & 0x8000) ? fg : bg;
                 cjk_glyph_2x_buf[idx++] = color >> 8;
                 cjk_glyph_2x_buf[idx++] = color & 0xFF;
@@ -725,19 +757,20 @@ static void display_cjk_glyph_2x(int16_t x, int16_t y, const uint8_t glyph[DISPL
             }
         }
     }
-    spi_write_bytes(cjk_glyph_2x_buf, sizeof(cjk_glyph_2x_buf));
+    spi_write_bytes(cjk_glyph_2x_buf, width_2x * DISPLAY_CJK_GLYPH_HEIGHT * 2 * 2);
 }
 
 static void display_cjk_glyph_32(int16_t x, int16_t y,
                                  const uint8_t glyph[DISPLAY_CJK_GLYPH_2X_BYTES],
-                                 uint16_t fg, uint16_t bg) {
+                                 uint8_t glyph_width, uint16_t fg, uint16_t bg) {
+    uint8_t width_2x = glyph_width * 2;
     if (!glyph || x < 0 || y < 0 ||
-        x + DISPLAY_CJK_GLYPH_2X_WIDTH > DISPLAY_WIDTH ||
+        x + width_2x > DISPLAY_WIDTH ||
         y + DISPLAY_CJK_GLYPH_2X_HEIGHT > DISPLAY_HEIGHT) {
         return;
     }
 
-    set_addr_window(x, y, DISPLAY_CJK_GLYPH_2X_WIDTH, DISPLAY_CJK_GLYPH_2X_HEIGHT);
+    set_addr_window(x, y, width_2x, DISPLAY_CJK_GLYPH_2X_HEIGHT);
     dc_data();
 
     int idx = 0;
@@ -746,14 +779,14 @@ static void display_cjk_glyph_32(int16_t x, int16_t y,
                         ((uint32_t)glyph[row * 4 + 1] << 16) |
                         ((uint32_t)glyph[row * 4 + 2] << 8) |
                         glyph[row * 4 + 3];
-        for (int col = 0; col < DISPLAY_CJK_GLYPH_2X_WIDTH; col++) {
+        for (int col = 0; col < width_2x; col++) {
             uint16_t color = (bits & 0x80000000U) ? fg : bg;
             cjk_glyph_2x_buf[idx++] = color >> 8;
             cjk_glyph_2x_buf[idx++] = color & 0xFF;
             bits <<= 1;
         }
     }
-    spi_write_bytes(cjk_glyph_2x_buf, sizeof(cjk_glyph_2x_buf));
+    spi_write_bytes(cjk_glyph_2x_buf, width_2x * DISPLAY_CJK_GLYPH_2X_HEIGHT * 2);
 }
 
 void display_set_cjk_font(const display_cjk_font_t *font) {
@@ -768,7 +801,7 @@ int display_text_width_font(const char *str, const display_cjk_font_t *font) {
             unsigned int glyph_id = 0;
             bool valid_id = cjk_token_glyph_id(p[1], &glyph_id);
             if (valid_id && font && glyph_id < font->count) {
-                width += DISPLAY_CJK_GLYPH_WIDTH;
+                width += cjk_font_glyph_width(font);
             } else {
                 width += FONT_CHAR_WIDTH;
             }
@@ -798,8 +831,9 @@ void display_string_font(int16_t x, int16_t y, const char *str,
             unsigned int glyph_id = 0;
             bool valid_id = cjk_token_glyph_id(p[1], &glyph_id);
             if (valid_id && font && glyph_id < font->count) {
-                display_cjk_glyph(x, y, font->glyphs[glyph_id], fg, bg);
-                x += DISPLAY_CJK_GLYPH_WIDTH;
+                uint8_t glyph_width = cjk_font_glyph_width(font);
+                display_cjk_glyph(x, y, font->glyphs[glyph_id], glyph_width, fg, bg);
+                x += glyph_width;
             } else {
                 display_char(x, y, '?', fg, bg);
                 x += FONT_CHAR_WIDTH;
@@ -884,12 +918,15 @@ void display_string_2x(int16_t x, int16_t y, const char *str, uint16_t fg, uint1
             unsigned int glyph_id = 0;
             bool valid_id = cjk_token_glyph_id((unsigned char)str[1], &glyph_id);
             if (valid_id && active_cjk_font && glyph_id < active_cjk_font->count) {
+                uint8_t glyph_width = cjk_font_glyph_width(active_cjk_font);
                 if (active_cjk_font->glyphs_2x) {
-                    display_cjk_glyph_32(x, y, active_cjk_font->glyphs_2x[glyph_id], fg, bg);
+                    display_cjk_glyph_32(x, y, active_cjk_font->glyphs_2x[glyph_id],
+                                         glyph_width, fg, bg);
                 } else {
-                    display_cjk_glyph_2x(x, y, active_cjk_font->glyphs[glyph_id], fg, bg);
+                    display_cjk_glyph_2x(x, y, active_cjk_font->glyphs[glyph_id],
+                                         glyph_width, fg, bg);
                 }
-                x += DISPLAY_CJK_GLYPH_2X_WIDTH;
+                x += glyph_width * 2;
             } else {
                 display_char_2x(x, y, '?', fg, bg);
                 x += FONT_CHAR_WIDTH_2X;

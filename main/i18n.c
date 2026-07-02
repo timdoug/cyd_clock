@@ -1522,6 +1522,13 @@ static const char *const *const lang_tables[LANG_COUNT] = {
     [LANG_ZH] = lang_zh,
     [LANG_ZH_HANT] = lang_zh_hant,
     [LANG_KO] = lang_ko,
+    [LANG_EL] = lang_el,
+    [LANG_SK] = lang_sk,
+    [LANG_SL] = lang_sl,
+    [LANG_LV] = lang_lv,
+    [LANG_LT] = lang_lt,
+    [LANG_ET] = lang_et,
+    [LANG_VI] = lang_vi,
 };
 
 static const char *const weekdays[LANG_COUNT][7] = {
@@ -1550,6 +1557,13 @@ static const char *const weekdays[LANG_COUNT][7] = {
     [LANG_ZH] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"},
     [LANG_ZH_HANT] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"},
     [LANG_KO] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"},
+    [LANG_EL] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"},
+    [LANG_SK] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"},
+    [LANG_SL] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"},
+    [LANG_LV] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"},
+    [LANG_LT] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"},
+    [LANG_ET] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"},
+    [LANG_VI] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"},
 };
 
 static const char *const months[LANG_COUNT][12] = {
@@ -1584,6 +1598,13 @@ static const char *const months[LANG_COUNT][12] = {
     [LANG_ZH] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"},
     [LANG_ZH_HANT] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"},
     [LANG_KO] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"},
+    [LANG_EL] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"},
+    [LANG_SK] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"},
+    [LANG_SL] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"},
+    [LANG_LV] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"},
+    [LANG_LT] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"},
+    [LANG_ET] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"},
+    [LANG_VI] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"},
 };
 
 static const char *const lang_names[LANG_COUNT] = {
@@ -1612,6 +1633,13 @@ static const char *const lang_names[LANG_COUNT] = {
     [LANG_ZH] = lang_name_zh,
     [LANG_ZH_HANT] = lang_name_zh_hant,
     [LANG_KO] = lang_name_ko,
+    [LANG_EL] = lang_name_el,
+    [LANG_SK] = lang_name_sk,
+    [LANG_SL] = lang_name_sl,
+    [LANG_LV] = lang_name_lv,
+    [LANG_LT] = lang_name_lt,
+    [LANG_ET] = lang_name_et,
+    [LANG_VI] = lang_name_vi,
 };
 
 static lang_t current_lang = LANG_EN;
@@ -1630,6 +1658,13 @@ const char *tr_weekday(int dow) {
     case LANG_ZH: return weekdays_zh[dow];
     case LANG_ZH_HANT: return weekdays_zh_hant[dow];
     case LANG_KO: return weekdays_ko[dow];
+    case LANG_EL: return weekdays_el[dow];
+    case LANG_SK: return weekdays_sk[dow];
+    case LANG_SL: return weekdays_sl[dow];
+    case LANG_LV: return weekdays_lv[dow];
+    case LANG_LT: return weekdays_lt[dow];
+    case LANG_ET: return weekdays_et[dow];
+    case LANG_VI: return weekdays_vi[dow];
     default: break;
     }
     return weekdays[current_lang][dow];
@@ -1642,9 +1677,36 @@ const char *tr_month(int mon) {
     case LANG_ZH: return months_zh[mon];
     case LANG_ZH_HANT: return months_zh_hant[mon];
     case LANG_KO: return months_ko[mon];
+    case LANG_EL: return months_el[mon];
+    case LANG_SK: return months_sk[mon];
+    case LANG_SL: return months_sl[mon];
+    case LANG_LV: return months_lv[mon];
+    case LANG_LT: return months_lt[mon];
+    case LANG_ET: return months_et[mon];
+    case LANG_VI: return months_vi[mon];
     default: break;
     }
     return months[current_lang][mon];
+}
+
+static void date_append(char *buf, size_t len, size_t *pos, const char *s) {
+    if (!buf || len == 0 || !pos || !s) return;
+    while (*s && *pos + 1 < len) {
+        buf[(*pos)++] = *s++;
+    }
+    buf[*pos] = '\0';
+}
+
+static void date_append_generated_uint(char *buf, size_t len, size_t *pos,
+                                       unsigned int value,
+                                       const char *const digits[10]) {
+    char tmp[12];
+    snprintf(tmp, sizeof(tmp), "%u", value);
+    for (const char *p = tmp; *p; p++) {
+        if (*p >= '0' && *p <= '9') {
+            date_append(buf, len, pos, digits[*p - '0']);
+        }
+    }
 }
 
 void tr_date(char *buf, size_t len, int wday, int mon, int mday, int year) {
@@ -1669,6 +1731,30 @@ void tr_date(char *buf, size_t len, int wday, int mon, int mday, int year) {
     case LANG_KO:
         snprintf(buf, len, "%d%s %s %d%s %s", year, date_year_ko, mo, mday, date_day_ko, wd);
         break;
+    case LANG_EL: {
+        size_t pos = 0;
+        if (len > 0) buf[0] = '\0';
+        date_append(buf, len, &pos, wd);
+        date_append(buf, len, &pos, " ");
+        date_append_generated_uint(buf, len, &pos, (unsigned int)mday, digits_el);
+        date_append(buf, len, &pos, " ");
+        date_append(buf, len, &pos, mo);
+        date_append(buf, len, &pos, " ");
+        date_append_generated_uint(buf, len, &pos, (unsigned int)year, digits_el);
+        break;
+    }
+    case LANG_VI: {
+        size_t pos = 0;
+        if (len > 0) buf[0] = '\0';
+        date_append(buf, len, &pos, wd);
+        date_append(buf, len, &pos, " ");
+        date_append_generated_uint(buf, len, &pos, (unsigned int)mday, digits_vi);
+        date_append(buf, len, &pos, " ");
+        date_append(buf, len, &pos, mo);
+        date_append(buf, len, &pos, " ");
+        date_append_generated_uint(buf, len, &pos, (unsigned int)year, digits_vi);
+        break;
+    }
     default:  // most others: day-first, no comma
         snprintf(buf, len, "%s %d %s %d", wd, mday, mo, year);
         break;
@@ -1686,6 +1772,8 @@ const display_cjk_font_t *i18n_cjk_font(lang_t lang) {
     case LANG_ZH: return &font_zh;
     case LANG_ZH_HANT: return &font_zh_hant;
     case LANG_KO: return &font_ko;
+    case LANG_EL: return &font_el;
+    case LANG_VI: return &font_vi;
     default: return NULL;
     }
 }

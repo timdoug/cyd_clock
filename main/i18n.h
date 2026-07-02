@@ -40,6 +40,13 @@ typedef enum {
     LANG_ZH,
     LANG_ZH_HANT,
     LANG_KO,
+    LANG_EL,
+    LANG_SK,
+    LANG_SL,
+    LANG_LV,
+    LANG_LT,
+    LANG_ET,
+    LANG_VI,
     LANG_COUNT,
 } lang_t;
 
