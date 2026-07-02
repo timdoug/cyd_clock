@@ -1,4 +1,5 @@
 #include "ui_timezone.h"
+#include <stdio.h>
 #include <string.h>
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"

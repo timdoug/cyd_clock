@@ -16,6 +16,7 @@
 #include "i18n.h"
 #include "ui_common.h"
 #include "util.h"
+#include "wifi.h"
 
 static const char *TAG = "ui_ntp_stats";
 
@@ -290,7 +291,9 @@ static void refresh_dynamic(void) {
     ntp_sys_stats_t sys;
     ntp_peer_stats_t peers[NTP_MAX_PEERS];
     ntp_get_all_stats(&sys, peers);
-    const char *server = sys.server[0] ? sys.server : "?";
+    // Same fallback as the clock screen: before the engine has a server
+    // string, show the configured one rather than a placeholder.
+    const char *server = sys.server[0] ? sys.server : wifi_get_custom_ntp_server();
 
     char val[96];
 

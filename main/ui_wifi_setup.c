@@ -406,11 +406,21 @@ wifi_setup_result_t ui_wifi_setup_update(void) {
 
         case STATE_FAILED:
             if (touched) {
-                state = STATE_PASSWORD_ENTRY;
-                display_fill(COLOR_BLACK);
-                ui_draw_header(tr(STR_ENTER_PASSWORD), true);
-                draw_password_input();
-                draw_keyboard();
+                // Open networks skipped password entry on the way in; retry
+                // them directly rather than landing on a password keyboard.
+                if (networks[selected_network].authmode == 0) {
+                    state = STATE_CONNECTING;
+                    display_fill(COLOR_BLACK);
+                    ui_draw_header(tr(STR_CONNECTING), false);
+                    ui_draw_centered_string(100, tr(STR_CONNECTING_TO), COLOR_WHITE, COLOR_BLACK, false);
+                    ui_draw_centered_string(130, networks[selected_network].ssid, COLOR_CYAN, COLOR_BLACK, false);
+                } else {
+                    state = STATE_PASSWORD_ENTRY;
+                    display_fill(COLOR_BLACK);
+                    ui_draw_header(tr(STR_ENTER_PASSWORD), true);
+                    draw_password_input();
+                    draw_keyboard();
+                }
             }
             break;
     }

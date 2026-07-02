@@ -606,26 +606,23 @@ ntp_result_t ui_ntp_update(void) {
                 return NTP_RESULT_BACK;
             }
 
+            // One tap resolves to at most one zone; the chain also prevents a
+            // state change above from letting the same tap fall through to a
+            // zone that happens to overlap on the next screen.
             if (touch.y >= SERVER_BOX_Y && touch.y < SERVER_BOX_Y + SERVER_BOX_H) {
                 str_copy(kb_server_backup, sizeof(kb_server_backup), custom_server);
                 ui_state = NTP_STATE_KEYBOARD;
                 draw_keyboard_screen();
-            }
-
-            if (touch.y >= IPV6_TOGGLE_Y && touch.y < IPV6_TOGGLE_Y + IPV6_TOGGLE_H &&
+            } else if (touch.y >= IPV6_TOGGLE_Y && touch.y < IPV6_TOGGLE_Y + IPV6_TOGGLE_H &&
                 touch.x >= IPV6_TOGGLE_X && touch.x < IPV6_TOGGLE_X + IPV6_TOGGLE_W) {
                 ui_prefer_ipv6 = !ui_prefer_ipv6;
                 draw_ipv6_toggle();
-            }
-
-            // Cycle NTS mode: No -> Attempt (opportunistic) -> Require -> No.
-            if (touch.y >= NTS_TOGGLE_Y && touch.y < NTS_TOGGLE_Y + NTS_TOGGLE_H &&
+            } else if (touch.y >= NTS_TOGGLE_Y && touch.y < NTS_TOGGLE_Y + NTS_TOGGLE_H &&
                 touch.x >= NTS_TOGGLE_X && touch.x < NTS_TOGGLE_X + NTS_TOGGLE_W) {
+                // Cycle NTS mode: No -> Attempt (opportunistic) -> Require -> No.
                 ui_nts_mode = (nts_mode_t)((ui_nts_mode + 1) % 3);
                 draw_nts_toggle();
-            }
-
-            if (touch.y >= PRESETS_BTN_Y && touch.y < PRESETS_BTN_Y + PRESETS_BTN_H &&
+            } else if (touch.y >= PRESETS_BTN_Y && touch.y < PRESETS_BTN_Y + PRESETS_BTN_H &&
                 touch.x >= PRESETS_BTN_X && touch.x < PRESETS_BTN_X + PRESETS_BTN_W) {
                 int hl = preset_highlight();
                 list_scroll = ui_list_scroll_to_item(hl < 0 ? 0 : hl, N_PRESETS);

@@ -36,7 +36,9 @@ static uint32_t last_touch_time = 0;
 // Handle touch on a slider row. Returns true if value changed.
 static bool handle_slider_touch(int touch_x, uint8_t *value, uint8_t min_val) {
     if (touch_x >= UI_SLIDER_BAR_X && touch_x < UI_SLIDER_BAR_X + UI_SLIDER_BAR_W) {
-        *value = ((touch_x - UI_SLIDER_BAR_X) * BRIGHTNESS_MAX) / UI_SLIDER_BAR_W;
+        // Scale by W-1 so the rightmost tappable pixel reaches BRIGHTNESS_MAX
+        // (dividing by W topped out at 253).
+        *value = ((touch_x - UI_SLIDER_BAR_X) * BRIGHTNESS_MAX) / (UI_SLIDER_BAR_W - 1);
         if (*value < min_val) *value = min_val;
         return true;
     }

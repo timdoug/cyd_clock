@@ -125,7 +125,7 @@ static void draw_ota_header(bool force, bool show_back) {
 static void draw_ip6_window(void) {
     if (ip6_value_y < 0) return;
     char win[IP6_VIS_CHARS + 1];
-    ui_marquee_window(win, IP6_VIS_CHARS, ip6_addr[0] ? ip6_addr : "none", ip6_scroll);
+    ui_marquee_window(win, IP6_VIS_CHARS, ip6_addr[0] ? ip6_addr : tr(STR_NONE), ip6_scroll);
     display_string(IP6_VAL_X, ip6_value_y, win, COLOR_WHITE, COLOR_BLACK);
 }
 
