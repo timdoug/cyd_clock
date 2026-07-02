@@ -64,10 +64,14 @@ static int ke_parse(const uint8_t *buf, size_t len, ntp_nts_ctx_t *out) {
         const uint8_t *body = buf + off + 4;
         switch (type) {
         case 0:
+            // End of Message (RFC 8915 4.1.1): Critical Bit set, empty body.
+            if ((rt & 0x8000) == 0 || blen != 0) return -1;
             if (!proto_ok || !aead_ok || cookies == 0) return -1;
             out->cookie_count = cookies;
             return 1;
         case 1:
+            // Next Protocol Negotiation (RFC 8915 4.1.2) MUST be critical.
+            if ((rt & 0x8000) == 0) return -1;
             for (int i = 0; i + 1 < blen; i += 2)
                 if (((body[i] << 8) | body[i + 1]) == 0) proto_ok = true;
             break;
@@ -76,7 +80,11 @@ static int ke_parse(const uint8_t *buf, size_t len, ntp_nts_ctx_t *out) {
                      blen >= 2 ? (unsigned)((body[0] << 8) | body[1]) : 0);
             return -1;
         case 3:
-            break;
+            // Warning (RFC 8915 4.1.4): we recognize no warning codes, and an
+            // unrecognized warning MUST be treated as fatal.
+            ESP_LOGW(TAG, "KE warning record code %u",
+                     blen >= 2 ? (unsigned)((body[0] << 8) | body[1]) : 0);
+            return -1;
         case 4:
             for (int i = 0; i + 1 < blen; i += 2)
                 if (((body[i] << 8) | body[i + 1]) == 15) aead_ok = true;
@@ -89,7 +97,11 @@ static int ke_parse(const uint8_t *buf, size_t len, ntp_nts_ctx_t *out) {
             }
             break;
         case 6:
-            if (blen > 0 && blen < sizeof(out->ntp_host)) {
+            // Negotiated NTP server name (RFC 8915 4.1.7). An over-long name
+            // cannot be stored; silently keeping the KE host risks cookie/host
+            // mismatch NAKs, so fail the handshake instead. Empty stays lenient.
+            if (blen >= sizeof(out->ntp_host)) return -1;
+            if (blen > 0) {
                 memcpy(out->ntp_host, body, blen);
                 out->ntp_host[blen] = '\0';
             }
@@ -138,8 +150,23 @@ bool ntp_nts_ke_run(const char *host, ntp_nts_ctx_t *out) {
                 strlen(label), ctx_s2c, sizeof(ctx_s2c), 1) == 0;
     }
 
+    // If ALPN or key export failed there is nothing to gain from the request/
+    // response exchange, so fold keys_ok into the loop guard and fail fast.
+    ok = ok && keys_ok;
+
+    // Overall wall-clock budget for the whole KE exchange. The per-operation
+    // esp-tls socket timeout is ~8 s, but a slow-drip server can reset it on
+    // each byte and pin this 16 KB task for a very long time; cap the total.
+    // (mono_ms() lives in ntp_internal.h, which cannot be included here without
+    // clashing on its TAG macro, so use the same monotonic clock directly.)
+    uint32_t ke_deadline = pdTICKS_TO_MS(xTaskGetTickCount()) + 15000;
+
     size_t sent = 0;
     while (ok && sent < sizeof(KE_REQUEST)) {
+        if ((int32_t)(pdTICKS_TO_MS(xTaskGetTickCount()) - ke_deadline) >= 0) {
+            ok = false;
+            break;
+        }
         int w = esp_tls_conn_write(tls, KE_REQUEST + sent, sizeof(KE_REQUEST) - sent);
         if (w == ESP_TLS_ERR_SSL_WANT_WRITE || w == ESP_TLS_ERR_SSL_WANT_READ) {
             vTaskDelay(pdMS_TO_TICKS(1));
@@ -149,10 +176,14 @@ bool ntp_nts_ke_run(const char *host, ntp_nts_ctx_t *out) {
         sent += (size_t)w;
     }
 
-    uint8_t buf[1500];
+    uint8_t buf[NTS_RESP_BUF_LEN];
     size_t total = 0;
     bool eom = false;
     while (ok && total < sizeof(buf)) {
+        if ((int32_t)(pdTICKS_TO_MS(xTaskGetTickCount()) - ke_deadline) >= 0) {
+            ok = false;
+            break;
+        }
         int rd = esp_tls_conn_read(tls, buf + total, sizeof(buf) - total);
         if (rd == ESP_TLS_ERR_SSL_WANT_READ || rd == ESP_TLS_ERR_SSL_WANT_WRITE) {
             vTaskDelay(pdMS_TO_TICKS(1));
@@ -274,7 +305,9 @@ bool ntp_nts_check_response(const uint8_t *pkt, size_t pkt_len,
 
     const uint8_t *a = pkt + auth_off;
     uint16_t a_eflen = (uint16_t)((a[2] << 8) | a[3]);
-    if (a_eflen < 8 || auth_off + a_eflen != pkt_len) return false;
+    // ef_len_ok() already guaranteed a_eflen >= 16 for this EF in the parse
+    // loop above, so only the exact-length (Authenticator is last) check remains.
+    if (auth_off + a_eflen != pkt_len) return false;
     const uint8_t *bd = a + 4;
     uint16_t nonce_len = (uint16_t)((bd[0] << 8) | bd[1]);
     uint16_t ct_len    = (uint16_t)((bd[2] << 8) | bd[3]);

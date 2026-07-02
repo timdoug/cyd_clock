@@ -18,6 +18,7 @@
 #define NTS_UID_LEN      32   // Unique Identifier extension-field nonce length
 #define NTS_MAX_COOKIES  8    // RFC 8915 recommends keeping ~8 cookies on hand
 #define NTS_COOKIE_MAX   256  // generous cap; real cookies are ~100-200 bytes
+#define NTS_RESP_BUF_LEN 2560   // holds NTS_MAX_COOKIES * (4 + NTS_COOKIE_MAX) plus header/EF overhead
 #define NTS_KE_PORT      4460
 
 typedef struct {

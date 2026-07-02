@@ -1,6 +1,7 @@
 #include "ntp_siv.h"
 
 #include <string.h>
+#include "mbedtls/platform_util.h"
 #include "psa/crypto.h"
 
 // mbedTLS 4.x makes PSA Crypto the public API; the legacy mbedtls/aes.h and
@@ -34,7 +35,9 @@ static void dbl(uint8_t b[BLK]) {
     uint8_t carry = b[0] >> 7;
     for (int i = 0; i < BLK - 1; i++) b[i] = (uint8_t)((b[i] << 1) | (b[i + 1] >> 7));
     b[BLK - 1] = (uint8_t)(b[BLK - 1] << 1);
-    if (carry) b[BLK - 1] ^= 0x87;
+    // Constant-time: -(int)carry is 0 when carry==0 and all-ones (-1) when
+    // carry==1, so the mask is 0x00 or 0x87 without branching on the secret bit.
+    b[BLK - 1] ^= (uint8_t)(0x87 & -(int)carry);
 }
 
 static void xor_block(uint8_t dst[BLK], const uint8_t a[BLK], const uint8_t b[BLK]) {
@@ -59,6 +62,7 @@ static bool s2v(const uint8_t key[BLK],
         ok = cmac_oneshot(id, ad[i], ad_len[i], c);
         dbl(d);
         xor_block(d, d, c);
+        mbedtls_platform_zeroize(c, sizeof(c));
     }
 
     if (ok && pt_len >= BLK) {
@@ -74,6 +78,7 @@ static bool s2v(const uint8_t key[BLK],
              psa_mac_update(&op, last, BLK) == PSA_SUCCESS &&
              psa_mac_sign_finish(&op, out, BLK, &olen) == PSA_SUCCESS;
         if (!ok) psa_mac_abort(&op);
+        mbedtls_platform_zeroize(last, sizeof(last));
     } else if (ok) {
         // T = dbl(D) XOR pad(S_m): pad appends 0x80 then zeros to a block.
         uint8_t t[BLK];
@@ -83,9 +88,11 @@ static bool s2v(const uint8_t key[BLK],
         t[pt_len] = 0x80;
         xor_block(t, t, d);
         ok = cmac_oneshot(id, t, BLK, out);
+        mbedtls_platform_zeroize(t, sizeof(t));
     }
 
     psa_destroy_key(id);
+    mbedtls_platform_zeroize(d, sizeof(d));
     return ok;
 }
 
@@ -106,7 +113,10 @@ static bool siv_ctr(const uint8_t enc_key[BLK], const uint8_t siv[BLK],
     psa_set_key_type(&a, PSA_KEY_TYPE_AES);
     psa_set_key_bits(&a, BLK * 8);
     mbedtls_svc_key_id_t id;
-    if (psa_import_key(&a, enc_key, BLK, &id) != PSA_SUCCESS) return false;
+    if (psa_import_key(&a, enc_key, BLK, &id) != PSA_SUCCESS) {
+        mbedtls_platform_zeroize(ctr, sizeof(ctr));
+        return false;
+    }
 
     psa_cipher_operation_t op = PSA_CIPHER_OPERATION_INIT;
     size_t o1 = 0, o2 = 0;
@@ -117,6 +127,7 @@ static bool siv_ctr(const uint8_t enc_key[BLK], const uint8_t siv[BLK],
               o1 + o2 == len;
     if (!ok) psa_cipher_abort(&op);
     psa_destroy_key(id);
+    mbedtls_platform_zeroize(ctr, sizeof(ctr));
     return ok;
 }
 
@@ -124,7 +135,7 @@ bool ntp_siv_encrypt(const uint8_t key[NTP_SIV_KEY_LEN],
                      const uint8_t *const ad[], const size_t ad_len[], size_t ad_count,
                      const uint8_t *plaintext, size_t pt_len,
                      uint8_t siv_out[NTP_SIV_TAG_LEN], uint8_t *ct_out) {
-    psa_crypto_init();
+    if (psa_crypto_init() != PSA_SUCCESS) return false;
     const uint8_t *mac_key = key;        // leftmost half: S2V
     const uint8_t *enc_key = key + BLK;  // rightmost half: CTR
     if (!s2v(mac_key, ad, ad_len, ad_count, plaintext, pt_len, siv_out)) return false;
@@ -135,7 +146,7 @@ bool ntp_siv_decrypt(const uint8_t key[NTP_SIV_KEY_LEN],
                      const uint8_t *const ad[], const size_t ad_len[], size_t ad_count,
                      const uint8_t siv[NTP_SIV_TAG_LEN],
                      const uint8_t *ct, size_t ct_len, uint8_t *pt_out) {
-    psa_crypto_init();
+    if (psa_crypto_init() != PSA_SUCCESS) return false;
     const uint8_t *mac_key = key;
     const uint8_t *enc_key = key + BLK;
     if (!siv_ctr(enc_key, siv, ct, ct_len, pt_out)) return false;
