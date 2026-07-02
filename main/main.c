@@ -437,6 +437,7 @@ void app_main(void) {
                     const char *tz = ui_timezone_get_selected();
                     str_copy(stored_tz, sizeof(stored_tz), tz);
                     nvs_config_set_timezone(tz);
+                    nvs_config_set_timezone_name(ui_timezone_get_name());
                     wifi_set_timezone(tz);
                     ESP_LOGI(TAG, "Timezone set to: %s", ui_timezone_get_name());
                 }

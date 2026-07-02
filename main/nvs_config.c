@@ -117,6 +117,29 @@ void nvs_config_set_timezone(const char *tz) {
     }
 }
 
+bool nvs_config_get_timezone_name(char *name) {
+    nvs_handle_t handle;
+    if (!nvs_open_read(&handle)) {
+        return false;
+    }
+
+    size_t len = MAX_TIMEZONE_NAME_LEN;
+    esp_err_t err = nvs_get_str(handle, "tz_name", name, &len);
+    nvs_close(handle);
+    return err == ESP_OK;
+}
+
+void nvs_config_set_timezone_name(const char *name) {
+    nvs_handle_t handle;
+    if (!nvs_open_write(&handle)) return;
+
+    if (nvs_set_ok(nvs_set_str(handle, "tz_name", name ? name : ""), "tz_name")) {
+        nvs_commit_and_close(handle);
+    } else {
+        nvs_close(handle);
+    }
+}
+
 bool nvs_config_get_brightness(uint8_t *brightness) {
     nvs_handle_t handle;
     if (!nvs_open_read(&handle)) {

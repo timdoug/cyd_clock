@@ -5,6 +5,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "display.h"
+#include "nvs_config.h"
 #include "touch.h"
 #include "i18n.h"
 #include "ui_common.h"
@@ -223,16 +224,34 @@ void ui_timezone_init(const char *current_tz, bool show_back) {
     selected_tz = 0;
     selected_region = 0;
     if (current_tz) {
-        for (int i = 0; i < NUM_TIMEZONES; i++) {
-            if (strcmp(timezones[i].tz, current_tz) == 0) {
-                selected_tz = i;
-                for (int r = 0; r < NUM_REGIONS; r++) {
-                    if (strcmp(timezones[i].region, regions[r]) == 0) {
-                        selected_region = r;
-                        break;
-                    }
+        // Several zones share one POSIX string (Paris and Ceuta, Halifax and
+        // Bermuda, ...), so a string match alone restores the first table
+        // entry rather than the city the user picked. Prefer the persisted
+        // display name when it still resolves to the active POSIX string
+        // (a tzdata update may have changed an entry's string, in which case
+        // the name no longer describes what the clock is running).
+        char stored_name[MAX_TIMEZONE_NAME_LEN];
+        bool have_name = nvs_config_get_timezone_name(stored_name);
+        int match = -1;
+        for (int i = 0; i < NUM_TIMEZONES && match < 0; i++) {
+            if (strcmp(timezones[i].tz, current_tz) != 0) continue;
+            if (have_name) {
+                char name[MAX_TIMEZONE_NAME_LEN];
+                snprintf(name, sizeof(name), "%s/%s",
+                         timezones[i].region, timezones[i].city);
+                if (strcmp(name, stored_name) == 0) match = i;
+            }
+        }
+        for (int i = 0; i < NUM_TIMEZONES && match < 0; i++) {
+            if (strcmp(timezones[i].tz, current_tz) == 0) match = i;
+        }
+        if (match >= 0) {
+            selected_tz = match;
+            for (int r = 0; r < NUM_REGIONS; r++) {
+                if (strcmp(timezones[match].region, regions[r]) == 0) {
+                    selected_region = r;
+                    break;
                 }
-                break;
             }
         }
     }

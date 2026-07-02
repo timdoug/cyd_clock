@@ -17,6 +17,14 @@ void nvs_config_set_wifi(const char *ssid, const char *password);
 bool nvs_config_get_timezone(char *tz);
 void nvs_config_set_timezone(const char *tz);
 
+// Display name ("Region/City (UTC+X, DST)") of the picked zone. The POSIX
+// string above is what actually takes effect; the name only disambiguates
+// zones that share one POSIX string (e.g. Paris and Ceuta) so the picker
+// can restore the city the user actually chose.
+#define MAX_TIMEZONE_NAME_LEN 64
+bool nvs_config_get_timezone_name(char *name);
+void nvs_config_set_timezone_name(const char *name);
+
 bool nvs_config_get_brightness(uint8_t *brightness);
 void nvs_config_set_brightness(uint8_t brightness);
 
