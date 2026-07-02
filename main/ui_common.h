@@ -98,6 +98,16 @@ bool ui_should_debounce(uint32_t last_time_ticks);
 
 bool ui_read_touch(touch_point_t *touch, uint32_t *last_time_ticks);
 
+// Signed microsecond quantity with adaptive precision, at most 7 chars for
+// int32-range magnitudes: "+0.99ms", "+9.99ms", "+99.9ms", "+9999ms",
+// "+99.9s", "+2147s". Shared by the clock stats line and the NTP stats
+// rows, whose fixed-width columns rely on the 7-char cap.
+void ui_fmt_offset_us(char *buf, size_t len, int64_t us);
+
+// x1000 fixed-point value with unit suffix and adaptive decimals:
+// "+9.99ppm", "+99.9ppm", "+500ppm".
+void ui_fmt_signed_x1000(char *buf, size_t len, int32_t val_x1000, const char *unit);
+
 // Format a number of seconds into a short human-readable string:
 //   <60s    -> "Xs"
 //   <3600   -> "Xm"

@@ -209,62 +209,11 @@ static bool clear_fraction(void) {
     return true;
 }
 
-static void fmt_signed_fixed(char *buf, size_t len, int32_t val_x1000, const char *unit) {
-    char sign = (val_x1000 < 0) ? '-' : '+';
-    uint32_t av = val_x1000 < 0 ? (uint32_t)-val_x1000 : (uint32_t)val_x1000;
-    if (av < 10000) {
-        uint32_t r = (av + 5) / 10;
-        snprintf(buf, len, "%c%lu.%02lu%s", sign,
-                 (unsigned long)(r / 100),
-                 (unsigned long)(r % 100), unit);
-    } else if (av < 100000) {
-        uint32_t r = (av + 50) / 100;
-        snprintf(buf, len, "%c%lu.%lu%s", sign,
-                 (unsigned long)(r / 10),
-                 (unsigned long)(r % 10), unit);
-    } else {
-        snprintf(buf, len, "%c%lu%s", sign,
-                 (unsigned long)((av + 500) / 1000), unit);
-    }
-}
-
-static void fmt_offset(char *buf, size_t len, int64_t us) {
-    int64_t av = us < 0 ? -us : us;
-    char sign = (us < 0) ? '-' : '+';
-    if (av < 1000) {
-        snprintf(buf, len, "%c0.%03lldms", sign, (long long)av);
-    } else if (av < 10000) {
-        int64_t r = (av + 5) / 10;
-        snprintf(buf, len, "%c%lld.%02lldms", sign,
-                 (long long)(r / 100), (long long)(r % 100));
-    } else if (av < 100000) {
-        int64_t r = (av + 50) / 100;
-        snprintf(buf, len, "%c%lld.%lldms", sign,
-                 (long long)(r / 10), (long long)(r % 10));
-    } else if (av < 10000000LL) {
-        snprintf(buf, len, "%c%lldms", sign, (long long)((av + 500) / 1000));
-    } else if (av < 100000000LL) {
-        int64_t r = (av + 50000) / 100000;
-        snprintf(buf, len, "%c%lld.%llds", sign,
-                 (long long)(r / 10), (long long)(r % 10));
-    } else {
-        snprintf(buf, len, "%c%llds", sign, (long long)((av + 500000) / 1000000));
-    }
-}
-
 static void fmt_pm_us(char *buf, size_t len, int64_t us) {
-    if (us < 0) us = -us;
-    if (us < 1000) {
-        snprintf(buf, len, "+/-0.%03lldms", (long long)us);
-    } else if (us < 10000) {
-        int64_t r = (us + 50) / 100;
-        snprintf(buf, len, "+/-%lld.%lldms",
-                 (long long)(r / 10), (long long)(r % 10));
-    } else if (us < 10000000LL) {
-        snprintf(buf, len, "+/-%lldms", (long long)((us + 500) / 1000));
-    } else {
-        snprintf(buf, len, "+/-%llds", (long long)((us + 500000) / 1000000));
-    }
+    // ui_fmt_offset_us with the sign replaced by "+/-".
+    char t[16];
+    ui_fmt_offset_us(t, sizeof(t), us < 0 ? -us : us);
+    snprintf(buf, len, "+/-%s", t + 1);
 }
 
 // One draw path: the line is centered into a fixed 40-column field (space
@@ -364,7 +313,7 @@ static void draw_ntp_stats(time_t now, int sec) {
     if (sys.sync_count < 2) {
         snprintf(off_buf,  sizeof(off_buf),  "----");
     } else {
-        fmt_offset(off_buf, sizeof(off_buf), sys.last_offset_us);
+        ui_fmt_offset_us(off_buf, sizeof(off_buf), sys.last_offset_us);
     }
     if (sys.sync_count < 1) {
         snprintf(disp_buf, sizeof(disp_buf), "----");
@@ -375,7 +324,7 @@ static void draw_ntp_stats(time_t now, int sec) {
     if (!sys.freq_known) {
         snprintf(drift_buf, sizeof(drift_buf), "----");
     } else {
-        fmt_signed_fixed(drift_buf, sizeof(drift_buf), sys.freq_ppm_x1000, "ppm");
+        ui_fmt_signed_x1000(drift_buf, sizeof(drift_buf), sys.freq_ppm_x1000, "ppm");
     }
     snprintf(line3, sizeof(line3), tr(STR_FMT_OFF_DRIFT), off_buf, disp_buf, drift_buf);
     draw_line_cached(STATS_LINE3, last_line3, sizeof(last_line3), line3,

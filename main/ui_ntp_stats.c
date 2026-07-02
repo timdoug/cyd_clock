@@ -57,63 +57,29 @@ static ntp_peer_stats_t slot_peer[NTP_MAX_PEERS];
 static bool             slot_filled[NTP_MAX_PEERS];
 static uint32_t         marquee_ms;
 
-// Signed us formatter capped at 7 chars so peer rows stay inside 40 cells.
-// Adaptive precision - drops decimals as magnitude grows.
-static void fmt_offset_us(char *buf, size_t len, int64_t us) {
-    int64_t av = us < 0 ? -us : us;
-    char sign = (us < 0) ? '-' : '+';
-    if (av < 1000) {
-        int64_t r = (av + 5) / 10;
-        snprintf(buf, len, "%c%lld.%02lldms", sign,
-                 (long long)(r / 100), (long long)(r % 100));
-    } else if (av < 10000) {
-        int64_t r = (av + 5) / 10;
-        snprintf(buf, len, "%c%lld.%02lldms", sign,
-                 (long long)(r / 100), (long long)(r % 100));
-    } else if (av < 100000) {
-        int64_t r = (av + 50) / 100;
-        snprintf(buf, len, "%c%lld.%lldms", sign,
-                 (long long)(r / 10), (long long)(r % 10));
-    } else if (av < 10000000LL) {
-        snprintf(buf, len, "%c%lldms", sign, (long long)((av + 500) / 1000));
-    } else if (av < 100000000LL) {
-        int64_t r = (av + 50000) / 100000;
-        snprintf(buf, len, "%c%lld.%llds", sign,
-                 (long long)(r / 10), (long long)(r % 10));
-    } else {
-        snprintf(buf, len, "%c%llds", sign, (long long)((av + 500000) / 1000000));
-    }
-}
-
 // Compact unsigned us -> string (fits in 5 chars). Used for per-peer delay and
 // jitter where the sign is always non-negative and horizontal space is tight.
+// Buckets are chosen after rounding so edge values stay within the cap
+// (9999 us renders as "10ms", not "10.0ms").
 static void fmt_unsigned_compact(char *buf, size_t len, uint32_t us) {
-    if (us < 1000) {
-        uint32_t r = (us + 50) / 100;
+    uint32_t tenth_ms = (us + 50) / 100;
+    if (tenth_ms < 100) {
         snprintf(buf, len, "%lu.%lums",
-                 (unsigned long)(r / 10), (unsigned long)(r % 10));
-    } else if (us < 10000) {
-        uint32_t r = (us + 50) / 100;
-        snprintf(buf, len, "%lu.%lums",
-                 (unsigned long)(r / 10), (unsigned long)(r % 10));
-    } else if (us < 1000000) {
-        snprintf(buf, len, "%lums", (unsigned long)((us + 500) / 1000));
-    } else if (us < 10000000) {
-        uint32_t r = (us + 50000) / 100000;
-        snprintf(buf, len, "%lu.%lus",
-                 (unsigned long)(r / 10), (unsigned long)(r % 10));
-    } else {
-        snprintf(buf, len, "%lus", (unsigned long)((us + 500000) / 1000000));
+                 (unsigned long)(tenth_ms / 10), (unsigned long)(tenth_ms % 10));
+        return;
     }
-}
-
-static void fmt_ppm_x1000(char *buf, size_t len, int32_t val) {
-    char sign = (val < 0) ? '-' : '+';
-    uint32_t av = val < 0 ? (uint32_t)-val : (uint32_t)val;
-    uint32_t r = (av + 5) / 10;
-    snprintf(buf, len, "%c%lu.%02luppm", sign,
-             (unsigned long)(r / 100),
-             (unsigned long)(r % 100));
+    uint32_t ms = (us + 500) / 1000;
+    if (ms < 1000) {
+        snprintf(buf, len, "%lums", (unsigned long)ms);
+        return;
+    }
+    uint32_t tenth_s = (us + 50000) / 100000;
+    if (tenth_s < 100) {
+        snprintf(buf, len, "%lu.%lus",
+                 (unsigned long)(tenth_s / 10), (unsigned long)(tenth_s % 10));
+        return;
+    }
+    snprintf(buf, len, "%lus", (unsigned long)((us + 500000) / 1000000));
 }
 
 // A colored text segment, used to render rows that mix gray inline labels
@@ -247,7 +213,7 @@ static void draw_peer_row(int slot, const ntp_peer_stats_t *p) {
         // measurement.
         bool has_sample = p->reach && p->jitter_us < 1000000;
         if (has_sample) {
-            fmt_offset_us(off_buf, sizeof(off_buf), p->offset_us);
+            ui_fmt_offset_us(off_buf, sizeof(off_buf), p->offset_us);
             fmt_unsigned_compact(delay_buf,  sizeof(delay_buf),  (uint32_t)p->delay_us);
             fmt_unsigned_compact(jitter_buf, sizeof(jitter_buf), (uint32_t)p->jitter_us);
         } else {
@@ -340,7 +306,7 @@ static void refresh_dynamic(void) {
         if (!sys.freq_known) {
             snprintf(drift_buf, sizeof(drift_buf), "---");
         } else {
-            fmt_ppm_x1000(drift_buf, sizeof(drift_buf), sys.freq_ppm_x1000);
+            ui_fmt_signed_x1000(drift_buf, sizeof(drift_buf), sys.freq_ppm_x1000, "ppm");
         }
         if (sys.sync_count < 1) {
             snprintf(age_buf, sizeof(age_buf), "--");
@@ -370,8 +336,8 @@ static void refresh_dynamic(void) {
             snprintf(off_buf, sizeof(off_buf), "---");
             snprintf(jit_buf, sizeof(jit_buf), "---");
         } else {
-            fmt_offset_us(off_buf, sizeof(off_buf), sys.last_offset_us);
-            fmt_offset_us(jit_buf, sizeof(jit_buf), sys.system_jitter_us);
+            ui_fmt_offset_us(off_buf, sizeof(off_buf), sys.last_offset_us);
+            ui_fmt_offset_us(jit_buf, sizeof(jit_buf), sys.system_jitter_us);
         }
         segment_t segs[] = {
             { off_buf,       COLOR_WHITE },
@@ -391,8 +357,8 @@ static void refresh_dynamic(void) {
             snprintf(val, sizeof(val), "---");
         } else {
             char rd_buf[16], disp_buf[16];
-            fmt_offset_us(rd_buf, sizeof(rd_buf), sys.root_delay_us);
-            fmt_offset_us(disp_buf, sizeof(disp_buf), sys.root_dispersion_us);
+            ui_fmt_offset_us(rd_buf, sizeof(rd_buf), sys.root_delay_us);
+            ui_fmt_offset_us(disp_buf, sizeof(disp_buf), sys.root_dispersion_us);
             const char *rd = rd_buf[0] == '+' ? rd_buf + 1 : rd_buf;
             const char *dp = disp_buf[0] == '+' ? disp_buf + 1 : disp_buf;
             snprintf(val, sizeof(val), tr(STR_FMT_ROOT_DETAIL), rd, dp);
