@@ -5,9 +5,9 @@
 // Accented letters as escapes, kept as macros so the source stays ASCII and
 // the translation strings below remain readable. Each is its own string
 // literal token, so concatenation like "Atr" A_AC "s" is unambiguous (no
-// \x-eats-following-hex-digit pitfall). 0xE0-0xFF are Latin-1 codepoints;
-// 0x80-0x8F are a private block for Latin letters outside Latin-1 (see the
-// font_high table in display.c).
+// \x-eats-following-hex-digit pitfall). 0xA1, 0xDA, 0xFA and 0xE0-0xFF are
+// Latin-1 codepoints; the rest of 0x80-0xD4 is a private block for letters
+// outside Latin-1 (see the font_high table in display.c).
 #define A_GR  "\xE0"   // a grave
 #define A_AC  "\xE1"   // a acute
 #define A_TL  "\xE3"   // a tilde
@@ -45,7 +45,6 @@
 #define CC_UP "\x8F"   // C caron (uppercase, Czech native name)
 #define C_CE_UP "\xBE" // C cedilla uppercase (Turkish)
 #define S_CE_UP "\xBF" // S cedilla uppercase (Turkish)
-#define Z_CR_UP "\xC0" // Z caron uppercase (Czech)
 #define I_GR  "\xEC"   // i grave
 // Cyrillic (Russian) - uppercase Ru_*, lowercase ru_* (transliterated names)
 #define Ru_A  "\x90"
@@ -110,6 +109,15 @@
 #define ru_yi   "\xCD"   // Cyrillic yi (Ukrainian)
 #define ru_ye   "\xCE"   // Cyrillic ye (Ukrainian)
 #define Ru_BE   "\xCF"   // Cyrillic BE uppercase (Bulgarian)
+// Uppercase accents and remaining extras
+#define A_AC_UP "\xC0"   // A acute uppercase (Hungarian)
+#define R_CR_UP "\xD0"   // R caron uppercase (Czech)
+#define S_AC_UP "\xD1"   // S acute uppercase (Polish)
+#define Z_AC    "\xD2"   // z acute (Polish)
+#define I_DOT   "\xD3"   // I with dot uppercase (Turkish)
+#define ru_tse  "\xD4"   // Cyrillic tse (Ukrainian)
+#define U_AC_UP "\xDA"   // U acute uppercase (Czech)
+#define U_AC    "\xFA"   // u acute (Hungarian)
 
 // Strings are language-major: one designated-initializer block per language.
 // A missing/NULL entry falls back to English via tr(). English is the complete
@@ -196,7 +204,7 @@ static const char *const lang_es[STR_COUNT] = {
     [STR_BRIGHTNESS] = "Brillo",
     [STR_LED_BLINK] = "LED Parpad.",
     [STR_ROTATE] = "Girar 180",
-    [STR_ABOUT] = "Acerca",
+    [STR_ABOUT] = "Acerca de",
     [STR_LANGUAGE] = "Idioma",
     [STR_DONE] = "Listo",
     [STR_BACK] = "Atr" A_AC "s",
@@ -210,7 +218,7 @@ static const char *const lang_es[STR_COUNT] = {
     [STR_NTS_REQUIRE] = "Requerir",
     [STR_WAITING_NTP] = "Esperando NTP...",
     [STR_FMT_SYNCED] = "Sinc.: %s",
-    [STR_FMT_SYNCING] = "Sincr.: %s",
+    [STR_FMT_SYNCING] = "Sinc...: %s",
     [STR_FMT_WAITING] = "Espera: %lus",
     [STR_FMT_PEERS_NOSYNC] = "%d/%d serv  poll %s  sin sinc",
     [STR_FMT_PEERS_AGO] = "%d/%d serv  poll %s  hace %s",
@@ -276,7 +284,7 @@ static const char *const lang_fr[STR_COUNT] = {
     [STR_NTS_REQUIRE] = "Exiger",
     [STR_WAITING_NTP] = "Attente NTP...",
     [STR_FMT_SYNCED] = "Sync.: %s",
-    [STR_FMT_SYNCING] = "Synchro: %s",
+    [STR_FMT_SYNCING] = "Sync...: %s",
     [STR_FMT_WAITING] = "Attente: %lus",
     [STR_FMT_PEERS_NOSYNC] = "%d/%d srv  poll %s  pas sync",
     [STR_FMT_PEERS_AGO] = "%d/%d srv  poll %s  il y a %s",
@@ -300,7 +308,7 @@ static const char *const lang_fr[STR_COUNT] = {
     [STR_OTA_URL] = "URL OTA",
     [STR_STATUS] = "Statut:",
     [STR_READ] = "Lu:",
-    [STR_UPDATE] = "Actualiser",
+    [STR_UPDATE] = "M. " A_GR " jour",
     [STR_RESTARTING] = "Red" E_AC "marrage",
     [STR_OTA_UPDATE] = "MAJ OTA",
     [STR_NTP_SERVER] = "Serveur NTP",
@@ -317,7 +325,7 @@ static const char *const lang_fr[STR_COUNT] = {
     [STR_AGE_LABEL] = "  Age: ",
     [STR_OFFSET_LABEL] = "Offset: ",
     [STR_JITTER_LABEL] = "  Jitter: ",
-    [STR_NONE] = "aucun",
+    [STR_NONE] = "aucune",  // refers to the IPv6 address (feminine)
     [STR_SELECT_REGION] = "Choisir r" E_AC "gion",
 };
 
@@ -408,7 +416,7 @@ static const char *const lang_pt[STR_COUNT] = {
     [STR_NTS_REQUIRE] = "Exigir",
     [STR_WAITING_NTP] = "Aguardando NTP...",
     [STR_FMT_SYNCED] = "Sinc.: %s",
-    [STR_FMT_SYNCING] = "Sincr.: %s",
+    [STR_FMT_SYNCING] = "Sinc...: %s",
     [STR_FMT_WAITING] = "Espera: %lus",
     [STR_FMT_PEERS_NOSYNC] = "%d/%d serv  poll %s  sem sinc",
     [STR_FMT_PEERS_AGO] = "%d/%d serv  poll %s  h" A_AC " %s",
@@ -474,7 +482,7 @@ static const char *const lang_it[STR_COUNT] = {
     [STR_NTS_REQUIRE] = "Richiedi",
     [STR_WAITING_NTP] = "Attesa NTP...",
     [STR_FMT_SYNCED] = "Sinc.: %s",
-    [STR_FMT_SYNCING] = "Sincr.: %s",
+    [STR_FMT_SYNCING] = "Sinc...: %s",
     [STR_FMT_WAITING] = "Attesa: %lus",
     [STR_FMT_PEERS_NOSYNC] = "%d/%d srv  poll %s  non sinc",
     [STR_FMT_PEERS_AGO] = "%d/%d srv  poll %s  %s fa",
@@ -512,7 +520,7 @@ static const char *const lang_it[STR_COUNT] = {
     [STR_UNSYNCED] = "non sinc",
     [STR_POLL_LABEL] = "  Poll: ",
     [STR_SYNCS_LABEL] = "  Sinc: ",
-    [STR_AGE_LABEL] = "  Eta: ",
+    [STR_AGE_LABEL] = "  Et" A_GR ": ",
     [STR_OFFSET_LABEL] = "Offset: ",
     [STR_JITTER_LABEL] = "  Jitter: ",
     [STR_NONE] = "nessuno",
@@ -597,7 +605,7 @@ static const char *const lang_sv[STR_COUNT] = {
     [STR_DONE] = "Klar",
     [STR_BACK] = "Tillb.",
     [STR_CANCEL] = "Avbryt",
-    [STR_DEL] = "Ta b",
+    [STR_DEL] = "Rad.",
     [STR_RUNNING] = "K" O_DI "r",
     [STR_ON] = "P" A_RG,
     [STR_OFF] = "Av",
@@ -816,8 +824,8 @@ static const char *const lang_fi[STR_COUNT] = {
     [STR_NO_NETWORKS] = "Ei verkkoja",
     [STR_NETWORK_LABEL] = "Verkko:",
     [STR_ENTER_PASSWORD] = "Salasana",
-    [STR_CONNECTING] = "Yhdist" A_DI A_DI,
-    [STR_CONNECTING_TO] = "Yhdist" A_DI A_DI,
+    [STR_CONNECTING] = "Yhdistet" A_DI A_DI "n",
+    [STR_CONNECTING_TO] = "Yhdistet" A_DI A_DI "n",
     [STR_CONNECTED] = "Yhdistetty!",
     [STR_CONNECTION_FAILED] = "Yhteys ep" A_DI "onnistui",
     [STR_KB_SHIFT] = "Vaiht",
@@ -829,7 +837,7 @@ static const char *const lang_fi[STR_COUNT] = {
     [STR_STATUS] = "Tila:",
     [STR_READ] = "Luettu:",
     [STR_UPDATE] = "P" A_DI "ivit" A_DI,
-    [STR_RESTARTING] = "Uudelleen",
+    [STR_RESTARTING] = "K" A_DI "ynnistyy",
     [STR_OTA_UPDATE] = "OTA-p" A_DI "ivitys",
     [STR_NTP_SERVER] = "NTP-palvelin",
     [STR_SERVER_LABEL] = "Palvelin:",
@@ -837,7 +845,7 @@ static const char *const lang_fi[STR_COUNT] = {
     [STR_NTP_PRESETS] = "NTP-esival.",
     [STR_PRESETS] = "Esivalinnat",
     [STR_BENCHMARK] = "Mittaa",
-    [STR_STOPPING] = "Pys" A_DI "ytt",
+    [STR_STOPPING] = "Pys" A_DI "ytys",
     [STR_NTP_STATS] = "NTP-tilastot",
     [STR_UNSYNCED] = "ei synk",
     [STR_POLL_LABEL] = "  Poll: ",
@@ -977,7 +985,7 @@ static const char *const lang_cs[STR_COUNT] = {
     [STR_AGE_LABEL] = "  V" E_CR "k: ",
     [STR_OFFSET_LABEL] = "Offset: ",
     [STR_JITTER_LABEL] = "  Jitter: ",
-    [STR_NONE] = Z_CR_UP A_AC "dn" E_AC,
+    [STR_NONE] = Z_CR A_AC "dn" A_AC,  // "zadna": the IPv6 address (feminine), lowercase like other langs
     [STR_SELECT_REGION] = "Vyber region",
 };
 
@@ -986,7 +994,7 @@ static const char *const lang_tr[STR_COUNT] = {
     [STR_FAIL] = "hata",
     [STR_TIMEZONE] = "Saat dilimi",
     [STR_BRIGHTNESS] = "Parlakl" I_DL "k",
-    [STR_LED_BLINK] = "LED Yan" I_DL "p",
+    [STR_LED_BLINK] = "LED Yan.S" O_DI "n",
     [STR_ROTATE] = "D" O_DI "nd" U_DI "r 180",
     [STR_ABOUT] = "Hakk" I_DL "nda",
     [STR_LANGUAGE] = "Dil",
@@ -996,8 +1004,8 @@ static const char *const lang_tr[STR_COUNT] = {
     [STR_DEL] = "Sil",
     [STR_RUNNING] = "Devam",
     [STR_ON] = "A" C_CE I_DL "k",
-    [STR_OFF] = "Kap",
-    [STR_NTS_NO] = "Kap",
+    [STR_OFF] = "Kapal" I_DL,
+    [STR_NTS_NO] = "Kapal" I_DL,
     [STR_NTS_ATTEMPT] = "Dene",
     [STR_NTS_REQUIRE] = "Zorunlu",
     [STR_WAITING_NTP] = "NTP bekleniyor...",
@@ -1027,7 +1035,7 @@ static const char *const lang_tr[STR_COUNT] = {
     [STR_STATUS] = "Durum:",
     [STR_READ] = "Okunan:",
     [STR_UPDATE] = "G" U_DI "ncelle",
-    [STR_RESTARTING] = "Yeniden",
+    [STR_RESTARTING] = "Ba" S_CE "lat" I_DL "l" I_DL "yor",
     [STR_OTA_UPDATE] = "OTA G" U_DI "nc.",
     [STR_NTP_SERVER] = "NTP Sunucu",
     [STR_SERVER_LABEL] = "Sunucu:",
@@ -1036,7 +1044,7 @@ static const char *const lang_tr[STR_COUNT] = {
     [STR_PRESETS] = "Profiller",
     [STR_BENCHMARK] = "Test",
     [STR_STOPPING] = "Durdur.",
-    [STR_NTP_STATS] = "NTP Istat.",
+    [STR_NTP_STATS] = "NTP " I_DOT "stat.",
     [STR_UNSYNCED] = "sync yok",
     [STR_POLL_LABEL] = "  Poll: ",
     [STR_SYNCS_LABEL] = "  Sync: ",
@@ -1142,11 +1150,11 @@ static const char *const lang_id[STR_COUNT] = {
     [STR_SCAN_FAILED] = "Pindai gagal",
     [STR_TAP_RETRY] = "Ketuk utk ulang",
     [STR_SELECT_NETWORK] = "Pilih jaringan",
-    [STR_NO_NETWORKS] = "Tiada jaringan",
+    [STR_NO_NETWORKS] = "Tidak ada jaringan",
     [STR_NETWORK_LABEL] = "Jaringan:",
     [STR_ENTER_PASSWORD] = "Kata sandi",
-    [STR_CONNECTING] = "Menghubung",
-    [STR_CONNECTING_TO] = "Menghubung ke",
+    [STR_CONNECTING] = "Menyambung",
+    [STR_CONNECTING_TO] = "Menyambung ke",
     [STR_CONNECTED] = "Terhubung!",
     [STR_CONNECTION_FAILED] = "Koneksi gagal",
     [STR_KB_SHIFT] = "Shift",
@@ -1168,7 +1176,7 @@ static const char *const lang_id[STR_COUNT] = {
     [STR_UNSYNCED] = "tdk sync",
     [STR_SYNCS_LABEL] = "  Sync: ",
     [STR_AGE_LABEL] = "  Usia: ",
-    [STR_NONE] = "tiada",
+    [STR_NONE] = "tidak ada",
     [STR_SELECT_REGION] = "Pilih wilayah",
     [STR_FAIL] = "gagal",
 };
@@ -1183,13 +1191,13 @@ static const char *const lang_hr[STR_COUNT] = {
     [STR_LANGUAGE] = "Jezik",
     [STR_DONE] = "Gotovo",
     [STR_BACK] = "Natrag",
-    [STR_CANCEL] = "Odbaci",
+    [STR_CANCEL] = "Otka" Z_CR "i",
     [STR_DEL] = "Bri" S_CR "i",
     [STR_RUNNING] = "Radi",
     [STR_ON] = "Uklj",
     [STR_OFF] = "Isklj",
     [STR_NTS_NO] = "Ne",
-    [STR_NTS_ATTEMPT] = "Pokus",
+    [STR_NTS_ATTEMPT] = "Poku" S_CR "aj",
     [STR_NTS_REQUIRE] = "Obvez.",
     [STR_WAITING_NTP] = CC_UP "ekam NTP...",
     [STR_FMT_SYNCED] = "Sink.: %s",
@@ -1274,6 +1282,7 @@ static const char *const lang_hu[STR_COUNT] = {
     [STR_KB_GO] = "OK",
     [STR_VERSION] = "Verzi" O_AC ":",
     [STR_FIRMWARE_URL] = "Firmware URL:",
+    [STR_STATUS] = "St" A_AC "tusz:",
     [STR_READ] = "Olvasva:",
     [STR_UPDATE] = "Friss" I_AC "t",
     [STR_RESTARTING] = "Restart",
@@ -1310,7 +1319,7 @@ static const char *const lang_ro[STR_COUNT] = {
     [STR_ON] = "Pornit",
     [STR_OFF] = "Oprit",
     [STR_NTS_NO] = "Nu",
-    [STR_NTS_ATTEMPT] = "Opt.",
+    [STR_NTS_ATTEMPT] = I_CI_UP "ncearc" A_BR,
     [STR_NTS_REQUIRE] = "Oblig.",
     [STR_WAITING_NTP] = "A" S_CM "teptare NTP...",
     [STR_FMT_SYNCED] = "Sincr.: %s",
@@ -1333,8 +1342,9 @@ static const char *const lang_ro[STR_COUNT] = {
     [STR_KB_SHIFT] = "Shift",
     [STR_KB_SPACE] = "Spa" T_CM "iu",
     [STR_KB_GO] = "OK",
-    [STR_VERSION] = "Versiune:",
+    [STR_VERSION] = "Vers.:",  // "Versiune:" (9 ch) collides with the value column at 8
     [STR_FIRMWARE_URL] = "URL firmware:",
+    [STR_STATUS] = "Stare:",
     [STR_READ] = "Citit:",
     [STR_UPDATE] = "Actualiz.",
     [STR_RESTARTING] = "Repornire",
@@ -1395,6 +1405,7 @@ static const char *const lang_bg[STR_COUNT] = {
     [STR_KB_GO] = "OK",
     [STR_VERSION] = Ru_VE ru_e ru_er ru_es ru_i ru_ya ":",
     [STR_FIRMWARE_URL] = "URL " ru_ef ru_hard ru_er ru_em ru_u ru_e ru_er ":",
+    [STR_STATUS] = Ru_ES ru_te ru_a ru_te ru_u ru_es ":",
     [STR_READ] = Ru_CH ru_e ru_te ru_e ru_en ru_o ":",
     [STR_UPDATE] = Ru_O ru_be ru_en ru_o ru_ve ru_i,
     [STR_RESTARTING] = Ru_ER ru_e ru_es ru_te ru_a ru_er ru_te,
@@ -1419,15 +1430,15 @@ static const char *const lang_uk[STR_COUNT] = {
     [STR_SETTINGS] = Ru_EN ru_a ru_el ru_a ru_sh ru_te ru_u ru_ve ru_a ru_en ru_en ru_ya,
     [STR_TIMEZONE] = Ru_CH ru_a ru_es ru_o ru_ve ru_i ru_iy " " ru_pe ru_o ru_ya ru_es,
     [STR_BRIGHTNESS] = Ru_YA ru_es ru_ka ru_er ru_a ru_ve ru_iukr ru_es ru_te ru_mz,
-    [STR_LED_BLINK] = "LED " ru_be ru_el ru_i ru_em ru_a ru_en ru_en ru_ya,
+    [STR_LED_BLINK] = "LED " ru_be ru_el ru_i ru_em ".",  // full "blymannia" overflows the 11-ch slider label
     [STR_ROTATE] = Ru_PE ru_o ru_ve ru_o ru_er ru_o ru_te " 180",
     [STR_ABOUT] = Ru_PE ru_er ru_o,
     [STR_LANGUAGE] = Ru_EM ru_o ru_ve ru_a,
     [STR_DONE] = Ru_GE ru_o ru_te ru_o ru_ve ru_o,
     [STR_BACK] = Ru_EN ru_a ru_ze ru_a ru_de,
-    [STR_CANCEL] = Ru_ES ru_ka ru_a ru_es ru_u ru_ve ".",
+    [STR_CANCEL] = Ru_ES ru_ka ru_a ru_es ".",  // 6-ch button
     [STR_DEL] = Ru_VE ru_i ru_de ru_a ru_el,
-    [STR_RUNNING] = Ru_ER ru_o ru_be ru_o ru_te ru_a,
+    [STR_RUNNING] = Ru_PE ru_er ru_a ru_tse ru_yu ru_ye,
     [STR_ON] = Ru_U ru_ve ru_iukr ru_em ru_ka,
     [STR_OFF] = Ru_VE ru_i ru_em ru_ka,
     [STR_NTS_NO] = Ru_EN ru_iukr,
@@ -1450,12 +1461,13 @@ static const char *const lang_uk[STR_COUNT] = {
     [STR_CONNECTING] = Ru_PE ru_iukr ru_de ru_ka ru_el ru_yu ru_ch ru_e ru_en ru_en ru_ya,
     [STR_CONNECTING_TO] = Ru_PE ru_iukr ru_de ru_ka ru_el ru_yu ru_ch ru_e ru_en ru_en ru_ya " " ru_de ru_o,
     [STR_CONNECTED] = Ru_PE ru_iukr ru_de ru_ka ru_el ru_yu ru_ch ru_e ru_en ru_o "!",
-    [STR_CONNECTION_FAILED] = Ru_EN ru_e ru_em ru_a ru_ye " " ru_ze ru_ve ru_ya ru_ze ru_ka ru_u,
+    [STR_CONNECTION_FAILED] = Ru_EN ru_e ru_em ru_a ru_ye " " ru_ze ru_ve "'" ru_ya ru_ze ru_ka ru_u,
     [STR_KB_SHIFT] = Ru_SH ru_i ru_ef ru_te,
     [STR_KB_SPACE] = Ru_PE ru_er ru_o ru_be ru_iukr ru_el,
     [STR_KB_GO] = "OK",
     [STR_VERSION] = Ru_VE ru_e ru_er ru_es ru_iukr ru_ya ":",
     [STR_FIRMWARE_URL] = "URL " ru_pe ru_er ru_o ru_sh ru_i ru_ve ru_ka ru_i ":",
+    [STR_STATUS] = Ru_ES ru_te ru_a ru_te ru_u ru_es ":",
     [STR_READ] = Ru_CH ru_i ru_te ru_a ru_en ru_o ":",
     [STR_UPDATE] = Ru_O ru_en ru_o ru_ve ru_i ru_te ru_i,
     [STR_RESTARTING] = Ru_PE ru_e ru_er ru_e ru_ze ru_a ru_pe ru_u ru_es ru_ka,
@@ -1512,8 +1524,8 @@ static const char *const weekdays[LANG_COUNT][7] = {
     [LANG_DA] = {"S" O_SL "n", "Man", "Tir", "Ons", "Tor", "Fre", "L" O_SL "r"},
     [LANG_NO] = {"S" O_SL "n", "Man", "Tir", "Ons", "Tor", "Fre", "L" O_SL "r"},
     [LANG_FI] = {"Su", "Ma", "Ti", "Ke", "To", "Pe", "La"},
-    [LANG_PL] = {"Nd", "Pn", "Wt", "Sr", "Cz", "Pt", "So"},
-    [LANG_CS] = {"Ne", "Po", "Ut", "St", "Ct", "Pa", "So"},
+    [LANG_PL] = {"Nd", "Pn", "Wt", S_AC_UP "r", "Cz", "Pt", "So"},
+    [LANG_CS] = {"Ne", "Po", U_AC_UP "t", "St", CC_UP "t", "P" A_AC, "So"},
     [LANG_TR] = {"Paz", "Pzt", "Sal", C_CE_UP "ar", "Per", "Cum", "Cmt"},
     [LANG_RU] = {Ru_VE ru_es, Ru_PE ru_en, Ru_VE ru_te, Ru_ES ru_er, Ru_CH ru_te, Ru_PE ru_te, Ru_ES ru_be},
     [LANG_ID] = {"Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"},
@@ -1536,15 +1548,15 @@ static const char *const months[LANG_COUNT][12] = {
     [LANG_DA] = {"Jan","Feb","Mar","Apr","Maj","Jun","Jul","Aug","Sep","Okt","Nov","Dec"},
     [LANG_NO] = {"Jan","Feb","Mar","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Des"},
     [LANG_FI] = {"Tam","Hel","Maa","Huh","Tou","Kes","Hei","Elo","Syy","Lok","Mar","Jou"},
-    [LANG_PL] = {"Sty","Lut","Mar","Kwi","Maj","Cze","Lip","Sie","Wrz","Paz","Lis","Gru"},
-    [LANG_CS] = {"Led","Uno","Bre","Dub","Kve","Cvn","Cvc","Srp","Zar","Rij","Lis","Pro"},
+    [LANG_PL] = {"Sty","Lut","Mar","Kwi","Maj","Cze","Lip","Sie","Wrz","Pa" Z_AC,"Lis","Gru"},
+    [LANG_CS] = {"Led",U_AC_UP "no","B" R_CR "e","Dub","Kv" E_CR,CC_UP "vn",CC_UP "vc","Srp","Z" A_AC R_CR,R_CR_UP "ij","Lis","Pro"},
     [LANG_TR] = {"Oca",S_CE_UP "ub","Mar","Nis","May","Haz","Tem","A" G_BR "u","Eyl","Eki","Kas","Ara"},
     [LANG_RU] = {Ru_YA ru_en ru_ve, Ru_EF ru_e ru_ve, Ru_EM ru_a ru_er, Ru_A ru_pe ru_er,
                  Ru_EM ru_a ru_iy, Ru_I ru_yu ru_en, Ru_I ru_yu ru_el, Ru_A ru_ve ru_ge,
                  Ru_ES ru_e ru_en, Ru_O ru_ka ru_te, Ru_EN ru_o ru_ya, Ru_DE ru_e ru_ka},
     [LANG_ID] = {"Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"},
     [LANG_HR] = {"Sij","Velj","O" Z_CR "u","Tra","Svi","Lip","Srp","Kol","Ruj","Lis","Stu","Pro"},
-    [LANG_HU] = {"Jan","Feb","M" A_AC "r","Apr","M" A_AC "j","Jun","Jul","Aug","Sze","Okt","Nov","Dec"},
+    [LANG_HU] = {"Jan","Feb","M" A_AC "r",A_AC_UP "pr","M" A_AC "j","J" U_AC "n","J" U_AC "l","Aug","Sze","Okt","Nov","Dec"},
     [LANG_RO] = {"Ian","Feb","Mar","Apr","Mai","Iun","Iul","Aug","Sep","Oct","Noi","Dec"},
     [LANG_BG] = {ru_ya ru_en ru_u, ru_ef ru_e ru_ve, ru_em ru_a ru_er, ru_a ru_pe ru_er,
                  ru_em ru_a ru_iy, ru_yu ru_en ru_i, ru_yu ru_el ru_i, ru_a ru_ve ru_ge,
