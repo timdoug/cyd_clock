@@ -16,6 +16,12 @@ execute_process(
     ERROR_QUIET
 )
 
+# Refresh cached stat info first: diff-index compares against the index's
+# cached mtimes and reports false +dirty after checkouts/clones otherwise.
+execute_process(
+    COMMAND git update-index -q --refresh
+    ERROR_QUIET
+)
 execute_process(
     COMMAND git diff-index --quiet HEAD --
     RESULT_VARIABLE GIT_DIRTY
@@ -27,6 +33,10 @@ if(GIT_DATE AND GIT_HASH)
         set(VERSION_STRING "${VERSION_STRING}+dirty")
     endif()
 else()
+    # Loud, not fatal: a container git that refuses the repo (e.g. dubious
+    # ownership under CI) would otherwise silently ship "unknown".
+    message(WARNING "version.cmake: git version lookup failed; "
+        "VERSION_STRING is \"unknown\"")
     set(VERSION_STRING "unknown")
 endif()
 

@@ -15,6 +15,13 @@ on:
 permissions:
   contents: write
 
+# Creating a release in the GitHub UI with a new r* tag fires both the tag
+# push and the release-published triggers; serialize them so two runs don't
+# race uploading the same assets.
+concurrency:
+  group: ota-release-${{ github.event.inputs.tag || github.event.release.tag_name || github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   build-and-upload:
     runs-on: ubuntu-latest
@@ -29,7 +36,7 @@ jobs:
       - name: Build esp32_2432s028 (default)
         uses: espressif/esp-idf-ci-action@v1
         with:
-          esp_idf_version: release-v6.0
+          esp_idf_version: v6.0.1
           target: esp32
           path: "."
           command: idf.py -B build -D CYD_BOARD=esp32_2432s028 build
@@ -37,7 +44,7 @@ jobs:
       - name: Build esp32_2432s024
         uses: espressif/esp-idf-ci-action@v1
         with:
-          esp_idf_version: release-v6.0
+          esp_idf_version: v6.0.1
           target: esp32
           path: "."
           command: idf.py -B build_024 -D CYD_BOARD=esp32_2432s024 build
@@ -60,12 +67,17 @@ jobs:
 
       - name: Resolve release tag
         id: release
+        # Tag names reach the shell via env, not template substitution, so a
+        # crafted tag cannot inject shell into a run with a write token.
+        env:
+          TAG_INPUT: ${{ github.event.inputs.tag }}
+          TAG_RELEASE: ${{ github.event.release.tag_name }}
         run: |
           set -eu
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            tag="${{ github.event.inputs.tag }}"
-          elif [ "${{ github.event_name }}" = "release" ]; then
-            tag="${{ github.event.release.tag_name }}"
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            tag="${TAG_INPUT}"
+          elif [ "${GITHUB_EVENT_NAME}" = "release" ]; then
+            tag="${TAG_RELEASE}"
           else
             tag="${GITHUB_REF_NAME}"
           fi
@@ -93,4 +105,3 @@ jobs:
             partition-table.bin \
             ota_data_initial.bin \
             --clobber
-          gh release edit "${TAG}" --latest
