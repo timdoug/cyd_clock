@@ -28,26 +28,50 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        # Pinned to the v4 commit; no later step pushes via these creds, so
+        # do not leave the token in .git/config for the rest of the job.
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
         with:
           fetch-depth: 0
           ref: ${{ github.event.inputs.tag || github.ref }}
+          persist-credentials: false
 
+      # esp-idf-ci-action is pinned to its v1 branch commit. The action builds
+      # the image as "<esp_idf_docker_image>:<esp_idf_version>", so appending
+      # "@sha256:..." to the version pins the espressif/idf image by digest
+      # (a name:tag@digest reference is valid and docker pulls by digest).
       - name: Build esp32_2432s028 (default)
-        uses: espressif/esp-idf-ci-action@v1
+        uses: espressif/esp-idf-ci-action@9d38657f3d789ca759b2b37aaf5ceffbc42c4f0d  # v1
         with:
-          esp_idf_version: v6.0.1
+          esp_idf_version: v6.0.1@sha256:efc19fae2f52fc6873630c668da26aa834139a063b5fb73a46ebc0dbd217b587
           target: esp32
           path: "."
           command: idf.py -B build -D CYD_BOARD=esp32_2432s028 build
 
       - name: Build esp32_2432s024
-        uses: espressif/esp-idf-ci-action@v1
+        uses: espressif/esp-idf-ci-action@9d38657f3d789ca759b2b37aaf5ceffbc42c4f0d  # v1
         with:
-          esp_idf_version: v6.0.1
+          esp_idf_version: v6.0.1@sha256:efc19fae2f52fc6873630c668da26aa834139a063b5fb73a46ebc0dbd217b587
           target: esp32
           path: "."
           command: idf.py -B build_024 -D CYD_BOARD=esp32_2432s024 build
+
+      - name: Verify version string is not "unknown"
+        # version.cmake only warns when git lookup fails; refuse to ship a
+        # build stamped "unknown" rather than publish an unidentifiable asset.
+        run: |
+          set -eu
+          for dir in build build_024; do
+            header="$(find "${dir}" -path '*/main/version.h' | head -n1)"
+            if [ -z "${header}" ]; then
+              echo "version.h not found under ${dir}" >&2
+              exit 1
+            fi
+            if grep -q '"unknown"' "${header}"; then
+              echo "Refusing to ship: VERSION_STRING is \"unknown\" (${header})" >&2
+              exit 1
+            fi
+          done
 
       - name: Prepare release assets
         run: |
@@ -59,6 +83,9 @@ jobs:
           # identity check verifies; asset names stay as devices expect.)
           test -s build/cyd_clock-esp32_2432s028.bin
           test -s build_024/cyd_clock-esp32_2432s024.bin
+          test -s build/bootloader/bootloader.bin
+          test -s build/partition_table/partition-table.bin
+          test -s build/ota_data_initial.bin
           cp build/cyd_clock-esp32_2432s028.bin cyd_clock.bin
           cp build_024/cyd_clock-esp32_2432s024.bin cyd_clock-esp32_2432s024.bin
           cp build/bootloader/bootloader.bin bootloader.bin
@@ -76,6 +103,17 @@ jobs:
           set -eu
           if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
             tag="${TAG_INPUT}"
+            # A hand-entered tag is untrusted: require the r* naming scheme and
+            # that the tag already exists, so a dispatch can only re-upload to a
+            # real release, never invent one.
+            case "${tag}" in
+              r*) ;;
+              *) echo "Refusing tag '${tag}': must start with 'r'" >&2; exit 1 ;;
+            esac
+            if ! git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+              echo "Refusing tag '${tag}': no such tag in the repository" >&2
+              exit 1
+            fi
           elif [ "${GITHUB_EVENT_NAME}" = "release" ]; then
             tag="${TAG_RELEASE}"
           else
@@ -83,14 +121,17 @@ jobs:
           fi
           echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
 
-      - name: Create release if needed
+      - name: Create draft release if needed
+        # Create as a draft with no assets so a half-finished or failed run
+        # never leaves a published (or "latest") release pointing at nothing.
+        # An already-published release (release-published trigger) is left as is.
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.release.outputs.tag }}
         run: |
           set -eu
           gh release view "${TAG}" >/dev/null 2>&1 || \
-            gh release create "${TAG}" --title "${TAG}" --notes "CYD Clock ${TAG}" --latest
+            gh release create "${TAG}" --title "${TAG}" --notes "CYD Clock ${TAG}" --draft
 
       - name: Upload firmware assets
         env:
@@ -105,3 +146,19 @@ jobs:
             partition-table.bin \
             ota_data_initial.bin \
             --clobber
+
+      - name: Publish release
+        # Assets are uploaded, so publish the draft. Only mark this release
+        # "latest" when its tag is actually the newest r* tag, so re-running an
+        # old tag cannot steal the "latest" pointer from a newer release.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -eu
+          newest="$(git tag --list 'r*' --sort=-version:refname | head -n1)"
+          if [ "${TAG}" = "${newest}" ]; then
+            gh release edit "${TAG}" --draft=false --latest
+          else
+            gh release edit "${TAG}" --draft=false --latest=false
+          fi

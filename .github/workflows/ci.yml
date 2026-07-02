@@ -1,0 +1,38 @@
+name: CI build
+
+# Build both boards on every push to main and on pull requests, so a broken
+# build is caught before a tag push kicks off the OTA release workflow.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          persist-credentials: false
+
+      # See ota-release.yml for why the digest is appended to esp_idf_version.
+      - name: Build esp32_2432s028 (default)
+        uses: espressif/esp-idf-ci-action@9d38657f3d789ca759b2b37aaf5ceffbc42c4f0d  # v1
+        with:
+          esp_idf_version: v6.0.1@sha256:efc19fae2f52fc6873630c668da26aa834139a063b5fb73a46ebc0dbd217b587
+          target: esp32
+          path: "."
+          command: idf.py -B build -D CYD_BOARD=esp32_2432s028 build
+
+      - name: Build esp32_2432s024
+        uses: espressif/esp-idf-ci-action@9d38657f3d789ca759b2b37aaf5ceffbc42c4f0d  # v1
+        with:
+          esp_idf_version: v6.0.1@sha256:efc19fae2f52fc6873630c668da26aa834139a063b5fb73a46ebc0dbd217b587
+          target: esp32
+          path: "."
+          command: idf.py -B build_024 -D CYD_BOARD=esp32_2432s024 build
