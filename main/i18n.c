@@ -1,4 +1,6 @@
 #include "i18n.h"
+#include "cjk_font.h"
+#include "display.h"
 #include <stddef.h>
 #include <stdio.h>
 
@@ -109,6 +111,10 @@
 #define ru_yi   "\xCD"   // Cyrillic yi (Ukrainian)
 #define ru_ye   "\xCE"   // Cyrillic ye (Ukrainian)
 #define Ru_BE   "\xCF"   // Cyrillic BE uppercase (Bulgarian)
+// Supplemental 16x16 glyph table token: DISPLAY_CJK_ESCAPE + 1-based glyph id.
+#define CJK_0 "\x1E\x01"
+#define CJK_1 "\x1E\x02"
+#define CJK_2 "\x1E\x03"
 // Uppercase accents and remaining extras
 #define A_AC_UP "\xC0"   // A acute uppercase (Hungarian)
 #define R_CR_UP "\xD0"   // R caron uppercase (Czech)
@@ -1488,6 +1494,8 @@ static const char *const lang_uk[STR_COUNT] = {
     [STR_FAIL] = ru_pe ru_o ru_em ru_i ru_el ru_ka ru_a,
 };
 
+#include "cjk_i18n.inc"
+
 static const char *const *const lang_tables[LANG_COUNT] = {
     [LANG_EN] = lang_en,
     [LANG_ES] = lang_es,
@@ -1510,6 +1518,10 @@ static const char *const *const lang_tables[LANG_COUNT] = {
     [LANG_RO] = lang_ro,
     [LANG_BG] = lang_bg,
     [LANG_UK] = lang_uk,
+    [LANG_JA] = lang_ja,
+    [LANG_ZH] = lang_zh,
+    [LANG_ZH_HANT] = lang_zh_hant,
+    [LANG_KO] = lang_ko,
 };
 
 static const char *const weekdays[LANG_COUNT][7] = {
@@ -1534,6 +1546,10 @@ static const char *const weekdays[LANG_COUNT][7] = {
     [LANG_RO] = {"Dum", "Lun", "Mar", "Mie", "Joi", "Vin", "S" A_CI "m"},
     [LANG_BG] = {Ru_EN ru_de, Ru_PE ru_en, Ru_VE ru_te, Ru_ES ru_er, Ru_CH ru_te, Ru_PE ru_te, Ru_ES ru_be},
     [LANG_UK] = {Ru_EN ru_de, Ru_PE ru_en, Ru_VE ru_te, Ru_ES ru_er, Ru_CH ru_te, Ru_PE ru_te, Ru_ES ru_be},
+    [LANG_JA] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"},
+    [LANG_ZH] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"},
+    [LANG_ZH_HANT] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"},
+    [LANG_KO] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"},
 };
 
 static const char *const months[LANG_COUNT][12] = {
@@ -1564,6 +1580,10 @@ static const char *const months[LANG_COUNT][12] = {
     [LANG_UK] = {ru_es ru_iukr ru_ch, ru_el ru_yu ru_te, ru_be ru_e ru_er, ru_ka ru_ve ru_iukr,
                  ru_te ru_er ru_a, ru_ch ru_e ru_er, ru_el ru_i ru_pe, ru_es ru_e ru_er,
                  ru_ve ru_e ru_er, ru_zh ru_o ru_ve, ru_el ru_i ru_es, ru_ge ru_er ru_u},
+    [LANG_JA] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"},
+    [LANG_ZH] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"},
+    [LANG_ZH_HANT] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"},
+    [LANG_KO] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"},
 };
 
 static const char *const lang_names[LANG_COUNT] = {
@@ -1588,6 +1608,10 @@ static const char *const lang_names[LANG_COUNT] = {
     [LANG_BG] = Ru_BE ru_hard ru_el ru_ge ru_a ru_er ru_es ru_ka ru_i,
     [LANG_UK] = Ru_U ru_ka ru_er ru_a ru_yi ru_en ru_es ru_mz ru_ka ru_a,
     [LANG_RU] = Ru_ER ru_u ru_es ru_es ru_ka ru_i ru_iy,
+    [LANG_JA] = lang_name_ja,
+    [LANG_ZH] = lang_name_zh,
+    [LANG_ZH_HANT] = lang_name_zh_hant,
+    [LANG_KO] = lang_name_ko,
 };
 
 static lang_t current_lang = LANG_EN;
@@ -1601,11 +1625,25 @@ const char *tr(str_id_t id) {
 
 const char *tr_weekday(int dow) {
     if (dow < 0 || dow > 6) return "";
+    switch (current_lang) {
+    case LANG_JA: return weekdays_ja[dow];
+    case LANG_ZH: return weekdays_zh[dow];
+    case LANG_ZH_HANT: return weekdays_zh_hant[dow];
+    case LANG_KO: return weekdays_ko[dow];
+    default: break;
+    }
     return weekdays[current_lang][dow];
 }
 
 const char *tr_month(int mon) {
     if (mon < 0 || mon > 11) return "";
+    switch (current_lang) {
+    case LANG_JA: return months_ja[mon];
+    case LANG_ZH: return months_zh[mon];
+    case LANG_ZH_HANT: return months_zh_hant[mon];
+    case LANG_KO: return months_ko[mon];
+    default: break;
+    }
     return months[current_lang][mon];
 }
 
@@ -1619,6 +1657,18 @@ void tr_date(char *buf, size_t len, int wday, int mon, int mday, int year) {
     case LANG_DE:
         snprintf(buf, len, "%s %d. %s %d", wd, mday, mo, year);
         break;
+    case LANG_JA:
+        snprintf(buf, len, "%d%s %s %d%s %s", year, date_year_ja, mo, mday, date_day_ja, wd);
+        break;
+    case LANG_ZH:
+        snprintf(buf, len, "%d%s %s %d%s %s", year, date_year_zh, mo, mday, date_day_zh, wd);
+        break;
+    case LANG_ZH_HANT:
+        snprintf(buf, len, "%d%s %s %d%s %s", year, date_year_zh_hant, mo, mday, date_day_zh_hant, wd);
+        break;
+    case LANG_KO:
+        snprintf(buf, len, "%d%s %s %d%s %s", year, date_year_ko, mo, mday, date_day_ko, wd);
+        break;
     default:  // most others: day-first, no comma
         snprintf(buf, len, "%s %d %s %d", wd, mday, mo, year);
         break;
@@ -1630,6 +1680,20 @@ const char *i18n_lang_name(lang_t lang) {
     return lang_names[lang];
 }
 
+const display_cjk_font_t *i18n_cjk_font(lang_t lang) {
+    switch (lang) {
+    case LANG_JA: return &font_ja;
+    case LANG_ZH: return &font_zh;
+    case LANG_ZH_HANT: return &font_zh_hant;
+    case LANG_KO: return &font_ko;
+    default: return NULL;
+    }
+}
+
+const display_cjk_font_t *i18n_lang_name_font(lang_t lang) {
+    return i18n_cjk_font(lang);
+}
+
 lang_t i18n_get_language(void) {
     return current_lang;
 }
@@ -1637,5 +1701,6 @@ lang_t i18n_get_language(void) {
 void i18n_set_language(lang_t lang) {
     if (lang >= 0 && lang < LANG_COUNT) {
         current_lang = lang;
+        display_set_cjk_font(i18n_cjk_font(lang));
     }
 }

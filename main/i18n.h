@@ -3,6 +3,8 @@
 
 #include <stddef.h>
 
+typedef struct display_cjk_font display_cjk_font_t;
+
 // UI localization. A single string table indexed by (language, string id).
 // The active language is loaded from NVS at boot and switched at runtime from
 // the settings Language picker. Translations are ASCII source: accented
@@ -34,6 +36,10 @@ typedef enum {
     LANG_RO,
     LANG_BG,
     LANG_UK,
+    LANG_JA,
+    LANG_ZH,
+    LANG_ZH_HANT,
+    LANG_KO,
     LANG_COUNT,
 } lang_t;
 
@@ -137,6 +143,8 @@ void tr_date(char *buf, size_t len, int wday, int mon, int mday, int year);
 
 // Native display name of a language, for the picker (e.g. "Espanol").
 const char *i18n_lang_name(lang_t lang);
+const display_cjk_font_t *i18n_lang_name_font(lang_t lang);
+const display_cjk_font_t *i18n_cjk_font(lang_t lang);
 
 lang_t i18n_get_language(void);
 void i18n_set_language(lang_t lang);

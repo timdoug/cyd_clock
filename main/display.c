@@ -9,6 +9,9 @@
 #include "config.h"
 
 static const char *TAG = "display";
+static const display_cjk_font_t *active_cjk_font = NULL;
+static uint8_t cjk_glyph_buf[DISPLAY_CJK_GLYPH_WIDTH * DISPLAY_CJK_GLYPH_HEIGHT * 2];
+static uint8_t cjk_glyph_2x_buf[DISPLAY_CJK_GLYPH_2X_WIDTH * DISPLAY_CJK_GLYPH_2X_HEIGHT * 2];
 
 // ILI9341 commands
 #define ILI9341_SWRESET    0x01
@@ -43,6 +46,19 @@ static const char *TAG = "display";
 
 static spi_device_handle_t spi_dev;
 static bool display_rotated = false;
+
+static inline bool cjk_token_glyph_id(unsigned char payload, unsigned int *glyph_id) {
+    if (payload >= 0x80) {
+        *glyph_id = payload - 0x80;
+        return true;
+    }
+    // Compatibility for early development builds that used 1-based payloads.
+    if (payload != 0) {
+        *glyph_id = (unsigned int)payload - 1;
+        return true;
+    }
+    return false;
+}
 
 // Basic 8x16 font (ASCII 32-127)
 static const uint8_t font_8x16[] = {
@@ -659,10 +675,140 @@ void display_char(int16_t x, int16_t y, char c, uint16_t fg, uint16_t bg) {
     spi_write_bytes(buf, sizeof(buf));
 }
 
+static void display_cjk_glyph(int16_t x, int16_t y, const uint8_t glyph[DISPLAY_CJK_GLYPH_BYTES],
+                              uint16_t fg, uint16_t bg) {
+    if (!glyph || x < 0 || y < 0 ||
+        x + DISPLAY_CJK_GLYPH_WIDTH > DISPLAY_WIDTH ||
+        y + DISPLAY_CJK_GLYPH_HEIGHT > DISPLAY_HEIGHT) {
+        return;
+    }
+
+    set_addr_window(x, y, DISPLAY_CJK_GLYPH_WIDTH, DISPLAY_CJK_GLYPH_HEIGHT);
+    dc_data();
+
+    int idx = 0;
+    for (int row = 0; row < DISPLAY_CJK_GLYPH_HEIGHT; row++) {
+        uint16_t bits = ((uint16_t)glyph[row * 2] << 8) | glyph[row * 2 + 1];
+        for (int col = 0; col < DISPLAY_CJK_GLYPH_WIDTH; col++) {
+            uint16_t color = (bits & 0x8000) ? fg : bg;
+            cjk_glyph_buf[idx++] = color >> 8;
+            cjk_glyph_buf[idx++] = color & 0xFF;
+            bits <<= 1;
+        }
+    }
+    spi_write_bytes(cjk_glyph_buf, sizeof(cjk_glyph_buf));
+}
+
+static void display_cjk_glyph_2x(int16_t x, int16_t y, const uint8_t glyph[DISPLAY_CJK_GLYPH_BYTES],
+                                 uint16_t fg, uint16_t bg) {
+    if (!glyph || x < 0 || y < 0 ||
+        x + DISPLAY_CJK_GLYPH_WIDTH * 2 > DISPLAY_WIDTH ||
+        y + DISPLAY_CJK_GLYPH_HEIGHT * 2 > DISPLAY_HEIGHT) {
+        return;
+    }
+
+    set_addr_window(x, y, DISPLAY_CJK_GLYPH_WIDTH * 2, DISPLAY_CJK_GLYPH_HEIGHT * 2);
+    dc_data();
+
+    int idx = 0;
+    for (int row = 0; row < DISPLAY_CJK_GLYPH_HEIGHT; row++) {
+        uint16_t bits = ((uint16_t)glyph[row * 2] << 8) | glyph[row * 2 + 1];
+        for (int dup = 0; dup < 2; dup++) {
+            uint16_t row_bits = bits;
+            for (int col = 0; col < DISPLAY_CJK_GLYPH_WIDTH; col++) {
+                uint16_t color = (row_bits & 0x8000) ? fg : bg;
+                cjk_glyph_2x_buf[idx++] = color >> 8;
+                cjk_glyph_2x_buf[idx++] = color & 0xFF;
+                cjk_glyph_2x_buf[idx++] = color >> 8;
+                cjk_glyph_2x_buf[idx++] = color & 0xFF;
+                row_bits <<= 1;
+            }
+        }
+    }
+    spi_write_bytes(cjk_glyph_2x_buf, sizeof(cjk_glyph_2x_buf));
+}
+
+static void display_cjk_glyph_32(int16_t x, int16_t y,
+                                 const uint8_t glyph[DISPLAY_CJK_GLYPH_2X_BYTES],
+                                 uint16_t fg, uint16_t bg) {
+    if (!glyph || x < 0 || y < 0 ||
+        x + DISPLAY_CJK_GLYPH_2X_WIDTH > DISPLAY_WIDTH ||
+        y + DISPLAY_CJK_GLYPH_2X_HEIGHT > DISPLAY_HEIGHT) {
+        return;
+    }
+
+    set_addr_window(x, y, DISPLAY_CJK_GLYPH_2X_WIDTH, DISPLAY_CJK_GLYPH_2X_HEIGHT);
+    dc_data();
+
+    int idx = 0;
+    for (int row = 0; row < DISPLAY_CJK_GLYPH_2X_HEIGHT; row++) {
+        uint32_t bits = ((uint32_t)glyph[row * 4] << 24) |
+                        ((uint32_t)glyph[row * 4 + 1] << 16) |
+                        ((uint32_t)glyph[row * 4 + 2] << 8) |
+                        glyph[row * 4 + 3];
+        for (int col = 0; col < DISPLAY_CJK_GLYPH_2X_WIDTH; col++) {
+            uint16_t color = (bits & 0x80000000U) ? fg : bg;
+            cjk_glyph_2x_buf[idx++] = color >> 8;
+            cjk_glyph_2x_buf[idx++] = color & 0xFF;
+            bits <<= 1;
+        }
+    }
+    spi_write_bytes(cjk_glyph_2x_buf, sizeof(cjk_glyph_2x_buf));
+}
+
+void display_set_cjk_font(const display_cjk_font_t *font) {
+    active_cjk_font = font;
+}
+
+int display_text_width_font(const char *str, const display_cjk_font_t *font) {
+    int width = 0;
+    const unsigned char *p = (const unsigned char *)str;
+    while (*p) {
+        if (*p == (unsigned char)DISPLAY_CJK_ESCAPE && p[1] != '\0') {
+            unsigned int glyph_id = 0;
+            bool valid_id = cjk_token_glyph_id(p[1], &glyph_id);
+            if (valid_id && font && glyph_id < font->count) {
+                width += DISPLAY_CJK_GLYPH_WIDTH;
+            } else {
+                width += FONT_CHAR_WIDTH;
+            }
+            p += 2;
+        } else {
+            width += FONT_CHAR_WIDTH;
+            p++;
+        }
+    }
+    return width;
+}
+
+int display_text_width(const char *str) {
+    return display_text_width_font(str, active_cjk_font);
+}
+
 void display_string(int16_t x, int16_t y, const char *str, uint16_t fg, uint16_t bg) {
-    while (*str) {
-        display_char(x, y, *str++, fg, bg);
-        x += FONT_CHAR_WIDTH;
+    display_string_font(x, y, str, active_cjk_font, fg, bg);
+}
+
+void display_string_font(int16_t x, int16_t y, const char *str,
+                         const display_cjk_font_t *font,
+                         uint16_t fg, uint16_t bg) {
+    const unsigned char *p = (const unsigned char *)str;
+    while (*p) {
+        if (*p == (unsigned char)DISPLAY_CJK_ESCAPE && p[1] != '\0') {
+            unsigned int glyph_id = 0;
+            bool valid_id = cjk_token_glyph_id(p[1], &glyph_id);
+            if (valid_id && font && glyph_id < font->count) {
+                display_cjk_glyph(x, y, font->glyphs[glyph_id], fg, bg);
+                x += DISPLAY_CJK_GLYPH_WIDTH;
+            } else {
+                display_char(x, y, '?', fg, bg);
+                x += FONT_CHAR_WIDTH;
+            }
+            p += 2;
+        } else {
+            display_char(x, y, (char)*p++, fg, bg);
+            x += FONT_CHAR_WIDTH;
+        }
     }
 }
 
@@ -734,8 +880,25 @@ static void display_char_2x(int16_t x, int16_t y, char c, uint16_t fg, uint16_t 
 
 void display_string_2x(int16_t x, int16_t y, const char *str, uint16_t fg, uint16_t bg) {
     while (*str) {
-        display_char_2x(x, y, *str++, fg, bg);
-        x += FONT_CHAR_WIDTH_2X;
+        if ((unsigned char)*str == (unsigned char)DISPLAY_CJK_ESCAPE && str[1] != '\0') {
+            unsigned int glyph_id = 0;
+            bool valid_id = cjk_token_glyph_id((unsigned char)str[1], &glyph_id);
+            if (valid_id && active_cjk_font && glyph_id < active_cjk_font->count) {
+                if (active_cjk_font->glyphs_2x) {
+                    display_cjk_glyph_32(x, y, active_cjk_font->glyphs_2x[glyph_id], fg, bg);
+                } else {
+                    display_cjk_glyph_2x(x, y, active_cjk_font->glyphs[glyph_id], fg, bg);
+                }
+                x += DISPLAY_CJK_GLYPH_2X_WIDTH;
+            } else {
+                display_char_2x(x, y, '?', fg, bg);
+                x += FONT_CHAR_WIDTH_2X;
+            }
+            str += 2;
+        } else {
+            display_char_2x(x, y, *str++, fg, bg);
+            x += FONT_CHAR_WIDTH_2X;
+        }
     }
 }
 

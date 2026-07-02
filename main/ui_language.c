@@ -34,6 +34,10 @@ static const lang_t lang_order[LANG_COUNT] = {
     LANG_FI,  // Suomi
     LANG_SV,  // Svenska
     LANG_TR,  // Turkce
+    LANG_JA,  // Japanese native name
+    LANG_ZH,  // Simplified Chinese native name
+    LANG_ZH_HANT,  // Traditional Chinese native name
+    LANG_KO,  // Korean native name
     LANG_BG,  // Bulgarski
     LANG_RU,  // Russkiy
     LANG_UK,  // Ukrainska
@@ -49,12 +53,14 @@ static int lang_row(lang_t lang) {
 
 static void draw_screen(void) {
     const char *labels[LANG_COUNT];
+    const display_cjk_font_t *fonts[LANG_COUNT];
     for (int i = 0; i < LANG_COUNT; i++) {
         labels[i] = i18n_lang_name(lang_order[i]);
+        fonts[i] = i18n_lang_name_font(lang_order[i]);
     }
     display_fill(COLOR_BLACK);
     ui_draw_header(tr(STR_LANGUAGE), true);
-    ui_draw_list(labels, LANG_COUNT, list_scroll, lang_row(i18n_get_language()));
+    ui_draw_list_fonts(labels, fonts, LANG_COUNT, list_scroll, lang_row(i18n_get_language()));
 }
 
 void ui_language_init(void) {

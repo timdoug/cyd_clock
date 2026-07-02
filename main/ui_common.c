@@ -53,7 +53,7 @@ static void draw_scroll_chevron(int cx, int y, bool up, uint16_t color) {
 void ui_draw_button(int x, int y, int w, int h, const char *label,
                     uint16_t fg, uint16_t bg) {
     display_fill_rect(x, y, w, h, bg);
-    int lx = x + (w - (int)strlen(label) * FONT_CHAR_WIDTH) / 2;
+    int lx = x + (w - display_text_width(label)) / 2;
     if (lx < x) lx = x;
     display_string(lx, y + (h - FONT_CHAR_HEIGHT) / 2, label, fg, bg);
 }
@@ -61,8 +61,7 @@ void ui_draw_button(int x, int y, int w, int h, const char *label,
 void ui_draw_header(const char *title, bool show_back) {
     display_fill_rect(0, 0, DISPLAY_WIDTH, UI_HEADER_HEIGHT, UI_COLOR_HEADER);
 
-    int len = strlen(title);
-    int x = (DISPLAY_WIDTH - len * FONT_CHAR_WIDTH) / 2;
+    int x = (DISPLAY_WIDTH - display_text_width(title)) / 2;
     display_string(x, UI_HEADER_TEXT_Y, title, COLOR_WHITE, UI_COLOR_HEADER);
 
     if (show_back) {
@@ -78,7 +77,9 @@ void ui_draw_centered_string(int16_t y, const char *str, uint16_t fg, uint16_t b
     char clipped[DISPLAY_WIDTH / FONT_CHAR_WIDTH + 1];
 
     int len = (int)strlen(str);
-    if (len > max_chars) {
+    int text_width = display_text_width(str);
+    if (scale_2x) text_width *= 2;
+    if (text_width > DISPLAY_WIDTH && len > max_chars) {
         if (max_chars > 3) {
             memcpy(clipped, str, (size_t)(max_chars - 3));
             memcpy(clipped + max_chars - 3, "...", 3);
@@ -88,9 +89,9 @@ void ui_draw_centered_string(int16_t y, const char *str, uint16_t fg, uint16_t b
         clipped[max_chars] = '\0';
         str = clipped;
         len = max_chars;
+        text_width = len * char_width;
     }
 
-    int text_width = len * char_width;
     int x = (DISPLAY_WIDTH - text_width) / 2;
 
     if (x > 0) {
@@ -133,6 +134,11 @@ void ui_draw_text_field(int box_x, int box_y, int box_w, int box_h,
 }
 
 void ui_draw_list(const char **labels, int count, int scroll_offset, int selected) {
+    ui_draw_list_fonts(labels, NULL, count, scroll_offset, selected);
+}
+
+void ui_draw_list_fonts(const char **labels, const display_cjk_font_t *const *fonts,
+                        int count, int scroll_offset, int selected) {
     int rows = 0;
     for (int i = 0; i < UI_LIST_VISIBLE && (i + scroll_offset) < count; i++, rows++) {
         int idx = i + scroll_offset;
@@ -142,7 +148,11 @@ void ui_draw_list(const char **labels, int count, int scroll_offset, int selecte
         uint16_t fg = (idx == selected) ? COLOR_BLACK : COLOR_WHITE;
 
         display_fill_rect(0, y, DISPLAY_WIDTH, UI_LIST_ITEM_H - 2, bg);
-        display_string(10, y + 6, labels[idx], fg, bg);
+        if (fonts) {
+            display_string_font(10, y + 6, labels[idx], fonts[idx], fg, bg);
+        } else {
+            display_string(10, y + 6, labels[idx], fg, bg);
+        }
     }
 
     // Scroll indicators: keep them inside the list gutter so they never
@@ -259,9 +269,136 @@ int ui_list_tap_to_item(const touch_point_t *tap, int scroll, int count) {
     return item < count ? item : -1;
 }
 
+static bool text_has_cjk_tokens(const char *s) {
+    while (*s) {
+        if ((unsigned char)*s == (unsigned char)DISPLAY_CJK_ESCAPE && s[1] != '\0') {
+            return true;
+        }
+        s++;
+    }
+    return false;
+}
+
+static void draw_encoded_colored(int x, int y, const char *text,
+                                 uint16_t fg, const uint16_t *colors,
+                                 uint16_t bg) {
+    const unsigned char *p = (const unsigned char *)text;
+    size_t i = 0;
+    while (*p) {
+        uint16_t cell_fg = colors ? colors[i] : fg;
+        if (*p == (unsigned char)DISPLAY_CJK_ESCAPE && p[1] != '\0') {
+            char tok[3] = {DISPLAY_CJK_ESCAPE, (char)p[1], '\0'};
+            display_string(x, y, tok, cell_fg, bg);
+            x += display_text_width(tok);
+            p += 2;
+            i += 2;
+        } else {
+            display_char(x, y, (char)*p, cell_fg, bg);
+            x += FONT_CHAR_WIDTH;
+            p++;
+            i++;
+        }
+    }
+}
+
+typedef struct {
+    const unsigned char *p;
+    size_t byte_idx;
+    size_t len;
+    int width;
+    bool cjk;
+} diff_cell_t;
+
+static diff_cell_t next_diff_cell(const unsigned char *p, size_t byte_idx) {
+    diff_cell_t cell = {
+        .p = p,
+        .byte_idx = byte_idx,
+        .len = 0,
+        .width = 0,
+        .cjk = false,
+    };
+    if (*p == '\0') return cell;
+
+    if (*p == (unsigned char)DISPLAY_CJK_ESCAPE && p[1] != '\0') {
+        cell.len = 2;
+        cell.width = display_text_width((char[]){DISPLAY_CJK_ESCAPE, (char)p[1], '\0'});
+        cell.cjk = true;
+    } else {
+        cell.len = 1;
+        cell.width = FONT_CHAR_WIDTH;
+    }
+    return cell;
+}
+
+static void draw_diff_cell(int x, int y, const diff_cell_t *cell,
+                           uint16_t fg, const uint16_t *colors, uint16_t bg) {
+    uint16_t cell_fg = colors ? colors[cell->byte_idx] : fg;
+    if (cell->cjk) {
+        char tok[3] = {DISPLAY_CJK_ESCAPE, (char)cell->p[1], '\0'};
+        display_string(x, y, tok, cell_fg, bg);
+    } else {
+        display_char(x, y, (char)cell->p[0], cell_fg, bg);
+    }
+}
+
+static bool diff_cells_equal(const diff_cell_t *old_cell,
+                             const diff_cell_t *new_cell) {
+    return old_cell->len == new_cell->len &&
+           old_cell->width == new_cell->width &&
+           memcmp(old_cell->p, new_cell->p, new_cell->len) == 0;
+}
+
 void ui_diff_paint(int x, int y, const char *old_text, const char *new_text,
                    uint16_t fg, const uint16_t *colors,
                    uint16_t bg, bool force_full) {
+    if (text_has_cjk_tokens(old_text) || text_has_cjk_tokens(new_text)) {
+        const unsigned char *old_p = (const unsigned char *)old_text;
+        const unsigned char *new_p = (const unsigned char *)new_text;
+        size_t old_i = 0;
+        size_t new_i = 0;
+        int px = x;
+
+        while (*old_p && *new_p) {
+            diff_cell_t old_cell = next_diff_cell(old_p, old_i);
+            diff_cell_t new_cell = next_diff_cell(new_p, new_i);
+
+            if (!diff_cells_equal(&old_cell, &new_cell)) {
+                if (old_cell.width != new_cell.width) {
+                    int old_w = display_text_width((const char *)old_p);
+                    int new_w = display_text_width((const char *)new_p);
+                    int clear_w = old_w > new_w ? old_w : new_w;
+                    display_fill_rect(px, y, clear_w, FONT_CHAR_HEIGHT, bg);
+                    draw_encoded_colored(px, y, (const char *)new_p, fg,
+                                         colors ? colors + new_i : NULL, bg);
+                    return;
+                }
+                draw_diff_cell(px, y, &new_cell, fg, colors, bg);
+            } else if (force_full) {
+                draw_diff_cell(px, y, &new_cell, fg, colors, bg);
+            }
+
+            old_p += old_cell.len;
+            new_p += new_cell.len;
+            old_i += old_cell.len;
+            new_i += new_cell.len;
+            px += new_cell.width;
+        }
+
+        while (*new_p) {
+            diff_cell_t new_cell = next_diff_cell(new_p, new_i);
+            draw_diff_cell(px, y, &new_cell, fg, colors, bg);
+            new_p += new_cell.len;
+            new_i += new_cell.len;
+            px += new_cell.width;
+        }
+
+        if (*old_p) {
+            display_fill_rect(px, y, display_text_width((const char *)old_p),
+                              FONT_CHAR_HEIGHT, bg);
+        }
+        return;
+    }
+
     size_t old_len = strlen(old_text);
     size_t new_len = strlen(new_text);
     size_t min_len = new_len < old_len ? new_len : old_len;
