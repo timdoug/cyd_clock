@@ -85,7 +85,9 @@ static void draw_menu(void) {
     ui_draw_slider(BRIGHTNESS_ROW_Y, tr(STR_BRIGHTNESS), brightness, BRIGHTNESS_MAX, UI_COLOR_SELECTED);
     ui_draw_slider(LED_ROW_Y, tr(STR_LED_BLINK), led_brightness, BRIGHTNESS_MAX, COLOR_RED);
 
-    char rotate_label[24];
+    // Sized for 3-byte-per-letter scripts: Georgian "rotate 180" is 31
+    // bytes before the degree sign.
+    char rotate_label[40];
     // \xC2\xB0 is the UTF-8 degree sign.
     snprintf(rotate_label, sizeof(rotate_label), "%s\xC2\xB0", tr(STR_ROTATE));
     display_fill_rect(0, ROTATION_ROW_Y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, UI_COLOR_ITEM_BG);

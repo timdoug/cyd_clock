@@ -3724,6 +3724,147 @@ static const char *const months_sw[12] = {
 
 static const char lang_name_sw[] = "Kiswahili";
 
+static const char *const lang_ka[STR_COUNT] = {
+    [STR_SETTINGS] = "პარამეტრები",
+    [STR_FAIL] = "შეცდომა",
+    [STR_TIMEZONE] = "სასაათო სარტყელი",
+    [STR_BRIGHTNESS] = "სიკაშკაშე",
+    [STR_LED_BLINK] = "ციმციმი",
+    [STR_ROTATE] = "შებრუნება 180",
+    [STR_ABOUT] = "შესახებ",
+    [STR_LANGUAGE] = "ენა",
+    [STR_DONE] = "მზად",
+    [STR_BACK] = "უკან",
+    [STR_CANCEL] = "უარი",
+    [STR_DEL] = "წაშ.",
+    [STR_RUNNING] = "მუშაობს",
+    [STR_ON] = "ჩართ.",
+    [STR_OFF] = "გამორთ.",
+    [STR_NTS_NO] = "არა",
+    [STR_NTS_ATTEMPT] = "ცდა",
+    [STR_NTS_REQUIRE] = "მოთხოვნა",
+    [STR_WAITING_NTP] = "ველოდები NTP...",
+    [STR_FMT_SYNCED] = "სინქრ.: %s",
+    [STR_FMT_SYNCING] = "სინქრონიზაცია: %s",
+    [STR_FMT_WAITING] = "ლოდინი: %lus",
+    [STR_FMT_PEERS_NOSYNC] = "%d/%d peers  poll %s  სინქრ. არაა",
+    [STR_FMT_PEERS_AGO] = "%d/%d peers  poll %s  %s წინ",
+    [STR_WIFI_SETUP] = "WiFi წყობა",
+    [STR_SCANNING] = "ძებნა...",
+    [STR_SCAN_FAILED] = "ძებნა ვერ მოხერხდა",
+    [STR_TAP_RETRY] = "შეეხეთ ხელახლა",
+    [STR_SELECT_NETWORK] = "აირჩიეთ ქსელი",
+    [STR_NO_NETWORKS] = "ქსელი ვერ მოიძებნა",
+    [STR_NETWORK_LABEL] = "ქსელი:",
+    [STR_ENTER_PASSWORD] = "შეიყვანეთ პაროლი",
+    [STR_CONNECTING] = "ვუკავშირდები",
+    [STR_CONNECTING_TO] = "ვუკავშირდები:",
+    [STR_CONNECTED] = "დაკავშირდა!",
+    [STR_CONNECTION_FAILED] = "კავშირი ვერ შედგა",
+    [STR_KB_SPACE] = "ჰარი",
+    [STR_KB_GO] = "OK",
+    [STR_VERSION] = "ვერს.:",
+    [STR_STATUS] = "სტატ.:",
+    [STR_READ] = "წაკ.:",
+    [STR_UPDATE] = "განახლება",
+    [STR_RESTARTING] = "გადატვირთვა",
+    [STR_OTA_UPDATE] = "OTA განახლება",
+    [STR_NTP_SERVER] = "NTP სერვერი",
+    [STR_SERVER_LABEL] = "სერვერი:",
+    [STR_NTP_SETTINGS] = "NTP წყობა",
+    [STR_NTP_PRESETS] = "NTP პროფილები",
+    [STR_PRESETS] = "პროფილები",
+    [STR_BENCHMARK] = "ტესტი",
+    [STR_STOPPING] = "ჩერდება",
+    [STR_NTP_STATS] = "NTP სტატისტიკა",
+    [STR_UNSYNCED] = "უსინქრო",
+    [STR_SYNCS_LABEL] = "  სინქ: ",
+    [STR_NONE] = "არაა",
+    [STR_SELECT_REGION] = "აირჩიეთ რეგიონი",
+};
+
+static const char *const weekdays_ka[7] = {
+    "კვი", "ორშ", "სამ", "ოთხ", "ხუთ", "პარ", "შაბ",
+};
+
+static const char *const months_ka[12] = {
+    "იან", "თებ", "მარ", "აპრ", "მაი", "ივნ",
+    "ივლ", "აგვ", "სექ", "ოქტ", "ნოე", "დეკ",
+};
+
+static const char lang_name_ka[] = "ქართული";
+
+static const char *const lang_hy[STR_COUNT] = {
+    [STR_SETTINGS] = "Կարգավորումներ",
+    [STR_FAIL] = "սխալ",
+    [STR_TIMEZONE] = "Ժամային գոտի",
+    [STR_BRIGHTNESS] = "Պայծառ.",
+    [STR_LED_BLINK] = "Թարթում",
+    [STR_ROTATE] = "Պտտել 180",
+    [STR_ABOUT] = "Մասին",
+    [STR_LANGUAGE] = "Լեզու",
+    [STR_DONE] = "Լավ",
+    [STR_BACK] = "Հետ",
+    [STR_CANCEL] = "Չեղ.",
+    [STR_DEL] = "Ջնջ.",
+    [STR_RUNNING] = "Աշխատում է",
+    [STR_ON] = "Միաց.",
+    [STR_OFF] = "Անջատ.",
+    [STR_NTS_NO] = "Ոչ",
+    [STR_NTS_ATTEMPT] = "Փորձել",
+    [STR_NTS_REQUIRE] = "Պահանջել",
+    [STR_WAITING_NTP] = "Սպասում եմ NTP...",
+    [STR_FMT_SYNCED] = "Համաժամ.: %s",
+    [STR_FMT_SYNCING] = "Համաժամացում: %s",
+    [STR_FMT_WAITING] = "Սպասում: %lus",
+    [STR_FMT_PEERS_NOSYNC] = "%d/%d peers  poll %s  սինխ չկա",
+    [STR_FMT_PEERS_AGO] = "%d/%d peers  poll %s  %s առաջ",
+    [STR_WIFI_SETUP] = "WiFi կարգ.",
+    [STR_SCANNING] = "Որոնում...",
+    [STR_SCAN_FAILED] = "Որոնումը ձախողվեց",
+    [STR_TAP_RETRY] = "Սեղմեք կրկին",
+    [STR_SELECT_NETWORK] = "Ընտրեք ցանցը",
+    [STR_NO_NETWORKS] = "Ցանցեր չկան",
+    [STR_NETWORK_LABEL] = "Ցանց:",
+    [STR_ENTER_PASSWORD] = "Մուտքագրեք գաղտնաբառը",
+    [STR_CONNECTING] = "Միանում եմ",
+    [STR_CONNECTING_TO] = "Միանում եմ",
+    [STR_CONNECTED] = "Միացված է!",
+    [STR_CONNECTION_FAILED] = "Կապը ձախողվեց",
+    [STR_KB_SPACE] = "Բացատ",
+    [STR_KB_GO] = "OK",
+    [STR_VERSION] = "Տարբ.:",
+    [STR_STATUS] = "Վիճակ:",
+    [STR_READ] = "Կարդ.:",
+    [STR_UPDATE] = "Թարմացնել",
+    [STR_RESTARTING] = "Վերագործարկում",
+    [STR_OTA_UPDATE] = "OTA թարմացում",
+    [STR_NTP_SERVER] = "NTP սերվեր",
+    [STR_SERVER_LABEL] = "Սերվեր:",
+    [STR_NTP_SETTINGS] = "NTP կարգեր",
+    [STR_NTP_PRESETS] = "NTP պրոֆիլներ",
+    [STR_PRESETS] = "Պրոֆիլներ",
+    [STR_BENCHMARK] = "Թեստ",
+    [STR_STOPPING] = "Կանգնում է",
+    [STR_NTP_STATS] = "NTP վիճակագրություն",
+    [STR_UNSYNCED] = "սինխ չկա",
+    [STR_STRATUM_LABEL] = "Շերտ: ",
+    [STR_SYNCS_LABEL] = "  Սինխ: ",
+    [STR_NONE] = "չկա",
+    [STR_SELECT_REGION] = "Ընտրեք տարածք",
+};
+
+static const char *const weekdays_hy[7] = {
+    "կիր", "երկ", "երք", "չրք", "հնգ", "ուր", "շբթ",
+};
+
+static const char *const months_hy[12] = {
+    "հնվ", "փտվ", "մրտ", "ապր", "մյս", "հնս",
+    "հլս", "օգս", "սեպ", "հոկ", "նոյ", "դեկ",
+};
+
+static const char lang_name_hy[] = "Հայերեն";
+
 static const char *const *const lang_tables[LANG_COUNT] = {
     [LANG_EN] = lang_en,
     [LANG_ES] = lang_es,
@@ -3774,6 +3915,8 @@ static const char *const *const lang_tables[LANG_COUNT] = {
     [LANG_MK] = lang_mk,
     [LANG_SQ] = lang_sq,
     [LANG_SW] = lang_sw,
+    [LANG_KA] = lang_ka,
+    [LANG_HY] = lang_hy,
 };
 
 static const char *const *const weekdays_by_lang[LANG_COUNT] = {
@@ -3826,6 +3969,8 @@ static const char *const *const weekdays_by_lang[LANG_COUNT] = {
     [LANG_MK] = weekdays_mk,
     [LANG_SQ] = weekdays_sq,
     [LANG_SW] = weekdays_sw,
+    [LANG_KA] = weekdays_ka,
+    [LANG_HY] = weekdays_hy,
 };
 
 static const char *const *const months_by_lang[LANG_COUNT] = {
@@ -3878,6 +4023,8 @@ static const char *const *const months_by_lang[LANG_COUNT] = {
     [LANG_MK] = months_mk,
     [LANG_SQ] = months_sq,
     [LANG_SW] = months_sw,
+    [LANG_KA] = months_ka,
+    [LANG_HY] = months_hy,
 };
 
 static const char *const lang_names[LANG_COUNT] = {
@@ -3930,4 +4077,6 @@ static const char *const lang_names[LANG_COUNT] = {
     [LANG_MK] = lang_name_mk,
     [LANG_SQ] = lang_name_sq,
     [LANG_SW] = lang_name_sw,
+    [LANG_KA] = lang_name_ka,
+    [LANG_HY] = lang_name_hy,
 };

@@ -34,6 +34,12 @@ let baseConfig = FontConfig(scope: "", fontObject: "", glyphArray: "",
 let cjkConfigs = [
     FontConfig(scope: "zh_hant", fontObject: "font_zh_hant", glyphArray: "zh_hant_glyphs",
                fontName: "PingFang TC", glyphWidth: 16, fontSize16: 13, fontSize32: 28),
+    // Not CJK, but the same per-language mechanism: scripts Menlo does not
+    // cover, in 10px cells (wide letters condense a touch).
+    FontConfig(scope: "ka", fontObject: "font_ka", glyphArray: "ka_glyphs",
+               fontName: "Helvetica", glyphWidth: 10, fontSize16: 13, fontSize32: 26),
+    FontConfig(scope: "hy", fontObject: "font_hy", glyphArray: "hy_glyphs",
+               fontName: "Noto Sans Armenian", glyphWidth: 10, fontSize16: 12, fontSize32: 24),
     FontConfig(scope: "ja", fontObject: "font_ja", glyphArray: "ja_glyphs",
                fontName: "Hiragino Sans GB", glyphWidth: 16, fontSize16: 14, fontSize32: 29),
     FontConfig(scope: "zh", fontObject: "font_zh", glyphArray: "zh_glyphs",

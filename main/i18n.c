@@ -75,6 +75,8 @@ const display_glyph_font_t *i18n_glyph_font(lang_t lang) {
     case LANG_ZH: return &font_zh;
     case LANG_ZH_HANT: return &font_zh_hant;
     case LANG_KO: return &font_ko;
+    case LANG_KA: return &font_ka;
+    case LANG_HY: return &font_hy;
     default: return NULL;
     }
 }

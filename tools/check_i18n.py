@@ -10,7 +10,7 @@ import unicodedata
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-CJK_SCOPES = ("zh_hant", "ja", "zh", "ko")  # longest first so zh_hant wins over zh
+CJK_SCOPES = ("zh_hant", "ja", "zh", "ko", "ka", "hy")  # longest first so zh_hant wins over zh
 
 
 def parse_enum_ids(i18n_h):
@@ -44,7 +44,9 @@ def main():
     coverage = {}
     for scope, table in [('', 'font_base_ext_cp')] + [(s, f'{s}_glyphs_cp') for s in CJK_SCOPES]:
         m = re.search(r'uint16_t ' + table + r'\[\] = \{(.*?)\};', fonts, re.S)
-        coverage[scope] = {int(x, 16) for x in re.findall(r'0x([0-9A-F]{4})', m.group(1))}
+        # a font not generated yet has no coverage at all
+        coverage[scope] = ({int(x, 16) for x in re.findall(r'0x([0-9A-F]{4})', m.group(1))}
+                           if m else set())
 
     # walk the data file: bucket string chars by declaration scope,
     # collect ids per lang table for dup/completeness checks

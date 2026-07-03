@@ -64,6 +64,8 @@ typedef enum {
     LANG_MK,
     LANG_SQ,
     LANG_SW,
+    LANG_KA,
+    LANG_HY,
     LANG_COUNT,
 } lang_t;
 
