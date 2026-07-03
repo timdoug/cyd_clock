@@ -148,6 +148,11 @@ func render(_ ch: String, cfg: FontConfig, pixels: Int, outputWidth: Int? = nil)
 
     NSGraphicsContext.saveGraphicsState()
     NSGraphicsContext.current = ctx
+    // No hinting exists on macOS, but snapping glyph positions to whole
+    // pixels keeps 1px stems from smearing across two columns at these
+    // sizes.
+    ctx.cgContext.setShouldSubpixelPositionFonts(false)
+    ctx.cgContext.setShouldSubpixelQuantizeFonts(true)
     NSColor.black.setFill()
     NSRect(x: 0, y: 0, width: renderWidth, height: pixels).fill()
 
@@ -612,6 +617,8 @@ struct ShapedFontBuilder {
                                   bitmapInfo: CGImageAlphaInfo.none.rawValue) else {
             fatalError("cg context")
         }
+        ctx.setShouldSubpixelPositionFonts(false)
+        ctx.setShouldSubpixelQuantizeFonts(true)
         ctx.setFillColor(gray: 0, alpha: 1)
         ctx.fill(CGRect(x: 0, y: 0, width: ctxW, height: 16))
         ctx.setFillColor(gray: 1, alpha: 1)
@@ -640,6 +647,8 @@ struct ShapedFontBuilder {
                                   bitmapInfo: CGImageAlphaInfo.none.rawValue) else {
             fatalError("cg context 2x")
         }
+        ctx.setShouldSubpixelPositionFonts(false)
+        ctx.setShouldSubpixelQuantizeFonts(true)
         ctx.setFillColor(gray: 0, alpha: 1)
         ctx.fill(CGRect(x: 0, y: 0, width: ctxW, height: 32))
         ctx.setFillColor(gray: 1, alpha: 1)
