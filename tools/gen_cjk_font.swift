@@ -17,19 +17,12 @@ struct Language {
     let glyphWidth: Int
     let fontSize16: CGFloat
     let fontSize32: CGFloat
-    let generateAsciiLetters: Bool
-    let generateAsciiDigits: Bool
     let nativeName: String
     let strings: [(String, String)]
     let weekdays: [String]
     let months: [String]
     let yearSuffix: String
     let daySuffix: String
-    // Extra upward shift, in 16px-cell pixels, applied after line-box
-    // centering so a font whose line box rounds differently from the
-    // built-in 8x16 font can sit on the same baseline. Doubled for the
-    // 32px cell.
-    var yNudge: CGFloat = 0
     // Alpha shaping exponent for the 4-bit antialiased coverage. Blending
     // happens in gamma-encoded RGB565 on the device, which makes linear
     // coverage read thin; values below 1.0 fatten the edge ramp.
@@ -67,8 +60,6 @@ let ja = Language(
     glyphWidth: 16,
     fontSize16: 14,
     fontSize32: 29,
-    generateAsciiLetters: false,
-    generateAsciiDigits: false,
     nativeName: "日本語",
     strings: [
         ("STR_SETTINGS", "設定"),
@@ -156,8 +147,6 @@ let zh = Language(
     glyphWidth: 16,
     fontSize16: 14,
     fontSize32: 29,
-    generateAsciiLetters: false,
-    generateAsciiDigits: false,
     nativeName: "简体中文",
     strings: [
         ("STR_SETTINGS", "设置"),
@@ -245,8 +234,6 @@ let zhHant = Language(
     glyphWidth: 16,
     fontSize16: 13,
     fontSize32: 28,
-    generateAsciiLetters: false,
-    generateAsciiDigits: false,
     nativeName: "繁體中文",
     strings: [
         ("STR_SETTINGS", "設定"),
@@ -334,8 +321,6 @@ let ko = Language(
     glyphWidth: 16,
     fontSize16: 14,
     fontSize32: 29,
-    generateAsciiLetters: false,
-    generateAsciiDigits: false,
     nativeName: "한국어",
     strings: [
         ("STR_SETTINGS", "설정"),
@@ -423,8 +408,6 @@ let el = Language(
     glyphWidth: 8,
     fontSize16: 13,
     fontSize32: 26,
-    generateAsciiLetters: false,
-    generateAsciiDigits: true,
     nativeName: "Ελληνικά",
     strings: [
         ("STR_SETTINGS", "Ρυθμίσεις"),
@@ -514,8 +497,6 @@ let sk = Language(
     glyphWidth: 0,
     fontSize16: 14,
     fontSize32: 29,
-    generateAsciiLetters: false,
-    generateAsciiDigits: false,
     nativeName: "Slovenčina",
     strings: [
         ("STR_SETTINGS", "Nastavenia"),
@@ -603,8 +584,6 @@ let sl = Language(
     glyphWidth: 0,
     fontSize16: 14,
     fontSize32: 29,
-    generateAsciiLetters: false,
-    generateAsciiDigits: false,
     nativeName: "Slovenščina",
     strings: [
         ("STR_SETTINGS", "Nastavitve"),
@@ -692,8 +671,6 @@ let lv = Language(
     glyphWidth: 0,
     fontSize16: 14,
     fontSize32: 29,
-    generateAsciiLetters: false,
-    generateAsciiDigits: false,
     nativeName: "Latviešu",
     strings: [
         ("STR_SETTINGS", "Iestatījumi"),
@@ -781,8 +758,6 @@ let lt = Language(
     glyphWidth: 0,
     fontSize16: 14,
     fontSize32: 29,
-    generateAsciiLetters: false,
-    generateAsciiDigits: false,
     nativeName: "Lietuvių",
     strings: [
         ("STR_SETTINGS", "Nustatymai"),
@@ -870,8 +845,6 @@ let et = Language(
     glyphWidth: 0,
     fontSize16: 14,
     fontSize32: 29,
-    generateAsciiLetters: false,
-    generateAsciiDigits: false,
     nativeName: "Eesti",
     strings: [
         ("STR_SETTINGS", "Seaded"),
@@ -959,8 +932,6 @@ let vi = Language(
     glyphWidth: 8,
     fontSize16: 13,
     fontSize32: 26,
-    generateAsciiLetters: true,
-    generateAsciiDigits: true,
     nativeName: "Tiếng Việt",
     strings: [
         ("STR_SETTINGS", "Cài đặt"),
@@ -1054,8 +1025,6 @@ let builtinFont = Language(
     glyphWidth: 8,
     fontSize16: 13,
     fontSize32: 26,
-    generateAsciiLetters: false,
-    generateAsciiDigits: false,
     nativeName: "",
     strings: [],
     weekdays: [],
@@ -1113,43 +1082,6 @@ func isAscii(_ ch: Character) -> Bool {
     return scalar.value >= 0x20 && scalar.value <= 0x7e
 }
 
-func isAsciiLetter(_ ch: Character) -> Bool {
-    guard ch.unicodeScalars.count == 1, let scalar = ch.unicodeScalars.first else { return false }
-    return (scalar.value >= 0x41 && scalar.value <= 0x5a)
-        || (scalar.value >= 0x61 && scalar.value <= 0x7a)
-}
-
-func isAsciiDigit(_ ch: Character) -> Bool {
-    guard ch.unicodeScalars.count == 1, let scalar = ch.unicodeScalars.first else { return false }
-    return scalar.value >= 0x30 && scalar.value <= 0x39
-}
-
-func shouldGenerateAscii(_ ch: Character, lang: Language) -> Bool {
-    return (lang.generateAsciiLetters && isAsciiLetter(ch))
-        || (lang.generateAsciiDigits && isAsciiDigit(ch))
-}
-
-func printfSpanEnd(_ chars: [Character], from start: Int) -> Int {
-    var index = start + 1
-    if index < chars.count && chars[index] == "%" {
-        return index + 1
-    }
-
-    let specifiers = Set("diuoxXfFeEgGaAcspn@")
-    let modifiers = Set("0123456789.*+-# 'lhLqjzt")
-    while index < chars.count {
-        if specifiers.contains(chars[index]) {
-            return index + 1
-        }
-        if !modifiers.contains(chars[index]) {
-            break
-        }
-        index += 1
-    }
-
-    return start + 1
-}
-
 func collectGlyphs(_ lang: Language) -> [String] {
     if lang.glyphWidth == 0 { return [] }
     var glyphs: [String] = []
@@ -1161,11 +1093,7 @@ func collectGlyphs(_ lang: Language) -> [String] {
         var index = 0
         while index < chars.count {
             let ch = chars[index]
-            if ch == "%" {
-                index = printfSpanEnd(chars, from: index)
-                continue
-            }
-            if isAscii(ch) && !shouldGenerateAscii(ch, lang: lang) {
+            if isAscii(ch) {
                 index += 1
                 continue
             }
@@ -1175,15 +1103,6 @@ func collectGlyphs(_ lang: Language) -> [String] {
                 glyphs.append(s)
             }
             index += 1
-        }
-    }
-    if lang.generateAsciiDigits {
-        for digit in "0123456789" {
-            let s = String(digit)
-            if !seen.contains(s) {
-                seen.insert(s)
-                glyphs.append(s)
-            }
         }
     }
     // Token payloads are emitted as one byte of 0x80 + index, so only 128
@@ -1255,7 +1174,6 @@ func render(_ ch: String, lang: Language, pixels: Int, outputWidth: Int? = nil) 
     ]
     let size = s.size(withAttributes: attrs)
     let y = floor((CGFloat(pixels) - size.height) / 2.0)
-        + (pixels == 16 ? lang.yNudge : lang.yNudge * 2)
     if size.width > CGFloat(renderWidth) {
         // Condense a glyph wider than its cell instead of clipping its
         // outer strokes (Helvetica Neue W/M/m overflow the 8px cell).
@@ -1328,13 +1246,7 @@ func cStringExpr(_ value: String, lang: Language, glyphIndex: [String: Int]) -> 
     var index = 0
     while index < chars.count {
         let ch = chars[index]
-        if ch == "%" {
-            let end = printfSpanEnd(chars, from: index)
-            ascii += String(chars[index..<end])
-            index = end
-            continue
-        }
-        if isAscii(ch) && !shouldGenerateAscii(ch, lang: lang) {
+        if isAscii(ch) {
             ascii.append(ch)
         } else if lang.glyphWidth == 0 {
             flushAscii()
@@ -1488,13 +1400,6 @@ func generateI18nInc(_ glyphsByLanguage: [(Language, [String])]) -> String {
             out += "static const char date_day_\(lang.code)[] = \(cStringExpr(lang.daySuffix, lang: lang, glyphIndex: index));\n\n"
         }
 
-        if lang.generateAsciiDigits {
-            out += "static const char *const digits_\(lang.code)[10] = {\n"
-            out += (0...9).map {
-                "    \(cStringExpr(String($0), lang: lang, glyphIndex: index))"
-            }.joined(separator: ",\n")
-            out += "\n};\n\n"
-        }
     }
     return out
 }

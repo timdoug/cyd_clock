@@ -1685,26 +1685,6 @@ const char *tr_month(int mon) {
     return months[current_lang][mon];
 }
 
-static void date_append(char *buf, size_t len, size_t *pos, const char *s) {
-    if (!buf || len == 0 || !pos || !s) return;
-    while (*s && *pos + 1 < len) {
-        buf[(*pos)++] = *s++;
-    }
-    buf[*pos] = '\0';
-}
-
-static void date_append_generated_uint(char *buf, size_t len, size_t *pos,
-                                       unsigned int value,
-                                       const char *const digits[10]) {
-    char tmp[12];
-    snprintf(tmp, sizeof(tmp), "%u", value);
-    for (const char *p = tmp; *p; p++) {
-        if (*p >= '0' && *p <= '9') {
-            date_append(buf, len, pos, digits[*p - '0']);
-        }
-    }
-}
-
 void tr_date(char *buf, size_t len, int wday, int mon, int mday, int year) {
     const char *wd = tr_weekday(wday);
     const char *mo = tr_month(mon);
@@ -1732,31 +1712,7 @@ void tr_date(char *buf, size_t len, int wday, int mon, int mday, int year) {
     case LANG_KO:
         snprintf(buf, len, "%d%s %s %d%s %s", year, date_year_ko, mo, mday, date_day_ko, wd);
         break;
-    case LANG_EL: {
-        size_t pos = 0;
-        if (len > 0) buf[0] = '\0';
-        date_append(buf, len, &pos, wd);
-        date_append(buf, len, &pos, " ");
-        date_append_generated_uint(buf, len, &pos, (unsigned int)mday, digits_el);
-        date_append(buf, len, &pos, " ");
-        date_append(buf, len, &pos, mo);
-        date_append(buf, len, &pos, " ");
-        date_append_generated_uint(buf, len, &pos, (unsigned int)year, digits_el);
-        break;
-    }
-    case LANG_VI: {
-        size_t pos = 0;
-        if (len > 0) buf[0] = '\0';
-        date_append(buf, len, &pos, wd);
-        date_append(buf, len, &pos, " ");
-        date_append_generated_uint(buf, len, &pos, (unsigned int)mday, digits_vi);
-        date_append(buf, len, &pos, " ");
-        date_append(buf, len, &pos, mo);
-        date_append(buf, len, &pos, " ");
-        date_append_generated_uint(buf, len, &pos, (unsigned int)year, digits_vi);
-        break;
-    }
-    default:  // most others: day-first, no comma
+    default:  // most others (incl. el/vi): day-first, no comma
         snprintf(buf, len, "%s %d %s %d", wd, mday, mo, year);
         break;
     }
