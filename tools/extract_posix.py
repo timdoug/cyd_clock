@@ -482,8 +482,10 @@ def parse_args():
     )
     parser.add_argument(
         "--srcdir",
-        default=os.path.dirname(os.path.abspath(__file__)),
-        help="directory containing extracted IANA tzdata source files",
+        help=(
+            "directory containing extracted IANA tzdata source files "
+            "(if omitted, --download is required)"
+        ),
     )
     parser.add_argument(
         "--update-ui",
@@ -505,12 +507,16 @@ def parse_args():
 
 def main():
     args = parse_args()
-    srcdir = os.path.abspath(args.srcdir)
     source_tempdir = None
 
     if args.download:
         source_tempdir = fetch_tzdata(args.download)
         srcdir = source_tempdir.name
+    elif args.srcdir:
+        srcdir = os.path.abspath(args.srcdir)
+    else:
+        print("Provide --download (fetch from IANA) or --srcdir DIR.", file=sys.stderr)
+        return 2
 
     try:
         missing = check_tzdata_sources(srcdir)

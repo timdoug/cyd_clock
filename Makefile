@@ -31,7 +31,7 @@ clean:                ; $(IDF) clean
 fullclean:            ; $(IDF) fullclean && rm -rf build sdkconfig
 menuconfig:           ; $(IDF) menuconfig
 setup:                ; $(IDF) set-target esp32
-update-tzdata:        ; python3 tzdata/extract_posix.py $(if $(TZDATA_VERSION),--download $(TZDATA_VERSION),--download) --update-ui main/ui_timezone.c
+update-tzdata:        ; python3 tools/extract_posix.py $(if $(TZDATA_VERSION),--download $(TZDATA_VERSION),--download) --update-ui main/ui_timezone.c
 
 help:
 	@echo "Usage: make [target]"
