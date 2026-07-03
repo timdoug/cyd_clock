@@ -31,7 +31,6 @@
 #define FONT_BASE_ASCII_FIRST 0x20
 #define FONT_BASE_ASCII_COUNT 95         // 0x20-0x7E
 #define FONT_BASE_GLYPH_BYTES 64         // 8x16 px at 4 bits each
-#define FONT_BASE_GLYPH_2X_BYTES 256     // 16x32 px at 4 bits each
 
 #define DISPLAY_GLYPH_WIDTH 16
 #define DISPLAY_GLYPH_HEIGHT 16
@@ -40,10 +39,14 @@
 #define DISPLAY_GLYPH_2X_HEIGHT 32
 #define DISPLAY_GLYPH_2X_BYTES (DISPLAY_GLYPH_2X_WIDTH * DISPLAY_GLYPH_2X_HEIGHT / 2)
 
+// 2x glyph bitmaps are PackBits-compressed: per font, a blob plus
+// count+1 offsets; an empty span (off[i] == off[i+1]) means the glyph has
+// no 2x bitmap and is pixel-doubled from 1x instead.
 typedef struct display_glyph_font {
     const uint16_t *codepoints;  // sorted ascending, parallel to glyphs
     const uint8_t (*glyphs)[DISPLAY_GLYPH_BYTES];
-    const uint8_t (*glyphs_2x)[DISPLAY_GLYPH_2X_BYTES];  // NULL: pixel-double 1x
+    const uint8_t *glyphs_2x_rle;
+    const uint16_t *glyphs_2x_off;
     const uint8_t *widths;       // per-glyph advances; NULL: uniform glyph_width
     uint16_t count;
     uint8_t glyph_width;

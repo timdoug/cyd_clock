@@ -103,12 +103,34 @@ static int cp_find(const uint16_t *cps, unsigned count, uint32_t cp) {
 }
 
 typedef struct {
-    const uint8_t *g16;  // 1x rows, 4bpp
-    const uint8_t *g32;  // 2x rows, 4bpp
-    uint8_t width;       // 1x advance in pixels
-    uint8_t stride16;    // bytes per 1x row
-    uint8_t stride32;    // bytes per 2x row
+    const uint8_t *g16;      // 1x rows, 4bpp
+    const uint8_t *g32_rle;  // PackBits-compressed 2x rows
+    unsigned g32_len;        // 0: no 2x bitmap, pixel-double g16
+    uint8_t width;           // 1x advance in pixels
+    uint8_t stride16;        // bytes per 1x row
+    uint8_t stride32;        // bytes per unpacked 2x row
 } glyph_ref_t;
+
+// PackBits: control < 128 copies control+1 literal bytes; control > 128
+// repeats the next byte 257-control times; 128 is a no-op.
+static void unpack_packbits(const uint8_t *src, unsigned len,
+                            uint8_t *dst, unsigned cap) {
+    unsigned si = 0, di = 0;
+    while (si < len && di < cap) {
+        uint8_t c = src[si++];
+        if (c < 128) {
+            unsigned n = c + 1u;
+            while (n-- && si < len && di < cap) dst[di++] = src[si++];
+        } else if (c > 128) {
+            unsigned n = 257u - c;
+            uint8_t v = (si < len) ? src[si++] : 0;
+            while (n-- && di < cap) dst[di++] = v;
+        }
+    }
+    while (di < cap) dst[di++] = 0;
+}
+
+static uint8_t glyph_2x_unpacked[DISPLAY_GLYPH_2X_BYTES];
 
 static uint8_t glyph_font_width(const display_glyph_font_t *font) {
     if (!font || font->glyph_width == 0 || font->glyph_width > DISPLAY_GLYPH_WIDTH) {
@@ -123,7 +145,8 @@ static void resolve_glyph(uint32_t cp, const display_glyph_font_t *font, glyph_r
     if (cp >= FONT_BASE_ASCII_FIRST && cp < FONT_BASE_ASCII_FIRST + FONT_BASE_ASCII_COUNT) {
         unsigned idx = cp - FONT_BASE_ASCII_FIRST;
         out->g16 = font_base_ascii[idx];
-        out->g32 = font_base_ascii_2x[idx];
+        out->g32_rle = font_base_ascii_2x_rle + font_base_ascii_2x_off[idx];
+        out->g32_len = (unsigned)(font_base_ascii_2x_off[idx + 1] - font_base_ascii_2x_off[idx]);
         out->width = FONT_CHAR_WIDTH;
         out->stride16 = FONT_CHAR_WIDTH / 2;
         out->stride32 = FONT_CHAR_WIDTH;
@@ -133,7 +156,8 @@ static void resolve_glyph(uint32_t cp, const display_glyph_font_t *font, glyph_r
         int i = cp_find(font->codepoints, font->count, cp);
         if (i >= 0) {
             out->g16 = font->glyphs[i];
-            out->g32 = font->glyphs_2x ? font->glyphs_2x[i] : NULL;
+            out->g32_rle = font->glyphs_2x_rle + font->glyphs_2x_off[i];
+            out->g32_len = (unsigned)(font->glyphs_2x_off[i + 1] - font->glyphs_2x_off[i]);
             out->width = font->widths ? font->widths[i] : glyph_font_width(font);
             out->stride16 = DISPLAY_GLYPH_WIDTH / 2;
             out->stride32 = DISPLAY_GLYPH_2X_WIDTH / 2;
@@ -144,7 +168,8 @@ static void resolve_glyph(uint32_t cp, const display_glyph_font_t *font, glyph_r
         int i = cp_find(font_base_ext_cp, font_base_ext_count, cp);
         if (i >= 0) {
             out->g16 = font_base_ext[i];
-            out->g32 = font_base_ext_2x[i];
+            out->g32_rle = font_base_ext_2x_rle + font_base_ext_2x_off[i];
+            out->g32_len = (unsigned)(font_base_ext_2x_off[i + 1] - font_base_ext_2x_off[i]);
             out->width = FONT_CHAR_WIDTH;
             out->stride16 = FONT_CHAR_WIDTH / 2;
             out->stride32 = FONT_CHAR_WIDTH;
@@ -471,8 +496,11 @@ void display_string_2x(int16_t x, int16_t y, const char *str, uint16_t fg, uint1
         glyph_ref_t g;
         p += utf8_decode(p, &cp);
         resolve_glyph(cp, active_glyph_font, &g);
-        if (g.g32) {
-            aa_blit(x, y, g.g32, g.width * 2, FONT_CHAR_HEIGHT_2X, g.stride32, fg, bg);
+        if (g.g32_len) {
+            unpack_packbits(g.g32_rle, g.g32_len, glyph_2x_unpacked,
+                            (unsigned)g.stride32 * FONT_CHAR_HEIGHT_2X);
+            aa_blit(x, y, glyph_2x_unpacked, g.width * 2, FONT_CHAR_HEIGHT_2X,
+                    g.stride32, fg, bg);
         } else {
             aa_blit_doubled(x, y, g.g16, g.width, FONT_CHAR_HEIGHT, g.stride16, fg, bg);
         }

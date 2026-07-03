@@ -237,8 +237,66 @@ func emitCodepointTable(_ name: String, _ chars: [Character]) -> String {
     return out
 }
 
+// PackBits (Apple RLE): control < 128 copies control+1 literals; control
+// > 128 repeats the next byte 257-control times.
+func packBits(_ data: [UInt8]) -> [UInt8] {
+    var out: [UInt8] = []
+    var i = 0
+    while i < data.count {
+        var j = i
+        while j + 1 < data.count, data[j + 1] == data[j], j - i < 127 { j += 1 }
+        let run = j - i + 1
+        if run >= 3 {
+            out.append(UInt8(257 - min(run, 128)))
+            out.append(data[i])
+            i += min(run, 128)
+            continue
+        }
+        var k = i
+        var lits = 0
+        while k < data.count, lits < 128 {
+            if k + 2 < data.count, data[k] == data[k + 1], data[k + 1] == data[k + 2] { break }
+            k += 1
+            lits += 1
+        }
+        out.append(UInt8(lits - 1))
+        out.append(contentsOf: data[i..<(i + lits)])
+        i += lits
+    }
+    return out
+}
+
+// Blob + count+1 offsets; a nil tile gets an empty span (pixel-doubled at
+// runtime).
+func emitCompressed2x(_ name: String, _ tiles: [[UInt8]?], storage: String) -> String {
+    var blob: [UInt8] = []
+    var offs: [Int] = [0]
+    for t in tiles {
+        if let t = t { blob += packBits(t) }
+        offs.append(blob.count)
+    }
+    guard blob.count <= 0xFFFF else { fatalError("\(name): 2x blob exceeds u16 offsets") }
+    var out = "\(storage)const uint8_t \(name)_rle[] = {\n"
+    var line = "   "
+    for b in blob {
+        line += String(format: " 0x%02X,", b)
+        if line.count > 100 { out += line + "\n"; line = "   " }
+    }
+    if line != "   " { out += line + "\n" }
+    out += "};\n"
+    out += "\(storage)const uint16_t \(name)_off[] = {\n"
+    line = "   "
+    for o in offs {
+        line += " \(o),"
+        if line.count > 100 { out += line + "\n"; line = "   " }
+    }
+    if line != "   " { out += line + "\n" }
+    out += "};\n"
+    return out
+}
+
 func emitGlyphArrays(_ prefix: String, _ chars: [Character], cfg: FontConfig,
-                     storage: String, bytes16: String, bytes32: String,
+                     storage: String, bytes16: String,
                      out16: Int, out32: Int) -> String {
     var out = ""
     out += "\(storage)const uint8_t \(prefix)[][\(bytes16)] = {\n"
@@ -247,12 +305,9 @@ func emitGlyphArrays(_ prefix: String, _ chars: [Character], cfg: FontConfig,
         out += "    {\(hex)}, // U+\(String(format: "%04X", codepoint(ch)))\n"
     }
     out += "};\n\n"
-    out += "\(storage)const uint8_t \(prefix)_2x[][\(bytes32)] = {\n"
-    for ch in chars {
-        let hex = hexRow(render(String(ch), cfg: cfg, pixels: 32, outputWidth: out32))
-        out += "    {\(hex)}, // U+\(String(format: "%04X", codepoint(ch)))\n"
-    }
-    out += "};\n\n"
+    let tiles: [[UInt8]?] = chars.map { render(String($0), cfg: cfg, pixels: 32, outputWidth: out32) }
+    out += emitCompressed2x("\(prefix)_2x", tiles, storage: storage)
+    out += "\n"
     return out
 }
 
@@ -273,13 +328,14 @@ for cfg in cjkConfigs.sorted(by: { $0.scope < $1.scope }) {
     out += "// \(cfg.scope): \(chars.count) glyphs (\(cfg.fontName))\n"
     out += emitCodepointTable("\(cfg.glyphArray)_cp", chars)
     out += emitGlyphArrays(cfg.glyphArray, chars, cfg: cfg, storage: "static ",
-                           bytes16: "DISPLAY_GLYPH_BYTES", bytes32: "DISPLAY_GLYPH_2X_BYTES",
+                           bytes16: "DISPLAY_GLYPH_BYTES",
                            out16: 16, out32: 32)
     out += """
     const display_glyph_font_t \(cfg.fontObject) = {
         .codepoints = \(cfg.glyphArray)_cp,
         .glyphs = \(cfg.glyphArray),
-        .glyphs_2x = \(cfg.glyphArray)_2x,
+        .glyphs_2x_rle = \(cfg.glyphArray)_2x_rle,
+        .glyphs_2x_off = \(cfg.glyphArray)_2x_off,
         .count = sizeof(\(cfg.glyphArray)) / sizeof(\(cfg.glyphArray)[0]),
         .glyph_width = \(cfg.glyphWidth),
     };
@@ -306,19 +362,17 @@ for code in 0x20...0x7E {
     out += "    {\(hex)}, // \(label)\n"
 }
 out += "};\n\n"
-out += "const uint8_t font_base_ascii_2x[][FONT_BASE_GLYPH_2X_BYTES] = {\n"
-for code in 0x20...0x7E {
-    let ch = String(UnicodeScalar(code)!)
-    let hex = hexRow(render(ch, cfg: baseConfig, pixels: 32, outputWidth: 16))
-    out += "    {\(hex)},\n"
+let baseAscii2x: [[UInt8]?] = (0x20...0x7E).map {
+    render(String(UnicodeScalar($0)!), cfg: baseConfig, pixels: 32, outputWidth: 16)
 }
-out += "};\n\n"
+out += emitCompressed2x("font_base_ascii_2x", baseAscii2x, storage: "")
+out += "\n"
 out += emitCodepointTable("font_base_ext_cp_table", baseSorted)
     .replacingOccurrences(of: "static const uint16_t font_base_ext_cp_table",
                           with: "const uint16_t font_base_ext_cp")
 out += "\n"
 out += emitGlyphArrays("font_base_ext", baseSorted, cfg: baseConfig, storage: "",
-                       bytes16: "FONT_BASE_GLYPH_BYTES", bytes32: "FONT_BASE_GLYPH_2X_BYTES",
+                       bytes16: "FONT_BASE_GLYPH_BYTES",
                        out16: 8, out32: 16)
 out += "const uint16_t font_base_ext_count = sizeof(font_base_ext) / sizeof(font_base_ext[0]);\n"
 
@@ -469,6 +523,7 @@ struct ShapedFontBuilder {
     let font: NSFont
     var baselineY: CGFloat = 0
     var glyphs: [[UInt8]] = []      // 1x bitmaps, 16px-wide rows
+    var glyphs2x: [[UInt8]] = []    // 2x bitmaps, 32px-wide rows
     var widths: [Int] = []
     var keyToIndex: [String: Int] = [:]
 
@@ -569,6 +624,51 @@ struct ShapedFontBuilder {
         return out
     }
 
+    // Render the same cluster at doubled size: identical glyph ids and
+    // scaled positions, so the 2x tile is an exact high-resolution twin of
+    // the 1x tile's window.
+    func renderClusterStrip2x(_ cluster: [PlacedGlyph], width: Int, origin: CGFloat) -> [UInt8] {
+        let ctxW = max(32, ((width * 2 + 31) / 32) * 32)
+        guard let ctx = CGContext(data: nil, width: ctxW, height: 32,
+                                  bitsPerComponent: 8, bytesPerRow: ctxW,
+                                  space: CGColorSpaceCreateDeviceGray(),
+                                  bitmapInfo: CGImageAlphaInfo.none.rawValue) else {
+            fatalError("cg context 2x")
+        }
+        ctx.setFillColor(gray: 0, alpha: 1)
+        ctx.fill(CGRect(x: 0, y: 0, width: ctxW, height: 32))
+        ctx.setFillColor(gray: 1, alpha: 1)
+        for g in cluster {
+            let big = CTFontCreateCopyWithAttributes(g.font, CTFontGetSize(g.font) * 2, nil, nil)
+            var glyph = g.glyph
+            var pos = CGPoint(x: (g.x - origin) * 2, y: (g.y + baselineY) * 2)
+            CTFontDrawGlyphs(big, &glyph, &pos, 1, ctx)
+        }
+        guard let data = ctx.data else { fatalError("cg data 2x") }
+        let px = data.bindMemory(to: UInt8.self, capacity: ctxW * 32)
+        var out = [UInt8](repeating: 0, count: ctxW * 32)
+        for i in 0..<(ctxW * 32) { out[i] = px[i] }
+        return out
+    }
+
+    // Pack one <=32px-wide window of a 2x strip into the 512-byte format.
+    func packTile2x(_ strip: [UInt8], stripW: Int, from: Int, width: Int) -> [UInt8] {
+        var out = [UInt8](repeating: 0, count: 32 * 16)
+        for row in 0..<32 {
+            for col in 0..<32 {
+                var level = 0
+                if col < width, from + col < stripW {
+                    let lum = CGFloat(strip[row * stripW + from + col]) / 255.0
+                    level = min(15, Int((pow(lum, cfg.aaGamma) * 15.0).rounded()))
+                }
+                let idx = row * 16 + col / 2
+                if col % 2 == 0 { out[idx] = UInt8(level << 4) }
+                else { out[idx] |= UInt8(level) }
+            }
+        }
+        return out
+    }
+
     // Pack one <=16px-wide window of a strip into the 4bpp glyph format.
     func packTile(_ strip: [UInt8], stripW: Int, from: Int, width: Int) -> [UInt8] {
         var out = [UInt8](repeating: 0, count: DISPLAY_GLYPH_BYTES_SWIFT)
@@ -606,6 +706,8 @@ struct ShapedFontBuilder {
             }
             let strip = renderClusterStrip(cluster, width: w, origin: qs)
             let stripW = max(16, ((w + 15) / 16) * 16)
+            let strip2x = renderClusterStrip2x(cluster, width: w, origin: qs)
+            let strip2xW = max(32, ((w * 2 + 31) / 32) * 32)
             // Slice wide clusters (conjunct chains) into <=16px tiles.
             var from = 0
             while from < w {
@@ -620,6 +722,7 @@ struct ShapedFontBuilder {
                     if idx >= 0x1000 { fatalError("\(cfg.scope): PUA space exhausted") }
                     keyToIndex[key] = idx
                     glyphs.append(bitmap)
+                    glyphs2x.append(packTile2x(strip2x, stripW: strip2xW, from: from * 2, width: tileW * 2))
                     widths.append(tileW)
                 }
                 out.append(Character(UnicodeScalar(0xE000 + idx)!))
@@ -748,11 +851,25 @@ func generateShapedC(_ source: String) -> String {
             out += "    {" + g.map { String(format: "0x%02X", $0) }.joined(separator: ",") + "},\n"
         }
         out += "};\n"
+        // Full-resolution 2x only for glyphs the 2x paths can reach: the
+        // clock date (weekdays, months) and the waiting banner. Everything
+        // else pixel-doubles.
+        var reachable2x = Set<Int>()
+        for text in shapedWk + shapedMo + [shapedStrings.first(where: { $0.0 == "STR_WAITING_NTP" })?.1 ?? ""] {
+            for sc in text.unicodeScalars where sc.value >= 0xE000 {
+                reachable2x.insert(Int(sc.value) - 0xE000)
+            }
+        }
+        let tiles2x: [[UInt8]?] = (0..<builder.glyphs.count).map {
+            reachable2x.contains($0) ? builder.glyphs2x[$0] : nil
+        }
+        out += emitCompressed2x("\(cfg.glyphArray)_2x", tiles2x, storage: "static ")
         out += """
         const display_glyph_font_t \(cfg.fontObject) = {
             .codepoints = \(cfg.glyphArray)_cp,
             .glyphs = \(cfg.glyphArray),
-            .glyphs_2x = NULL,
+            .glyphs_2x_rle = \(cfg.glyphArray)_2x_rle,
+            .glyphs_2x_off = \(cfg.glyphArray)_2x_off,
             .widths = \(cfg.glyphArray)_w,
             .count = sizeof(\(cfg.glyphArray)) / sizeof(\(cfg.glyphArray)[0]),
             .glyph_width = 16,
