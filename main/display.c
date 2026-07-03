@@ -198,15 +198,39 @@ static void unpack_packbits(const uint8_t *src, unsigned len,
     while (di < cap) dst[di++] = 0;
 }
 
-static uint8_t glyph_1x_unpacked[DISPLAY_GLYPH_BYTES];
 static uint8_t glyph_2x_unpacked[DISPLAY_GLYPH_2X_BYTES];
 
-// Decompress a glyph's 1x bitmap into the staging buffer (~2us, noise
-// next to the 50us+ of SPI a glyph blit costs).
+// Recently decoded 1x glyphs, keyed by compressed-stream address (which
+// uniquely identifies a glyph: dedup gives repeated glyphs the same
+// offset). The centisecond fraction and the stats rows redraw the same
+// handful of glyphs every tick; a hit skips the ~20us inflate. 2x is not
+// cached - it only draws for the date and the waiting banner.
+#define GLYPH_CACHE_SLOTS 24
+static struct {
+    const uint8_t *key;
+    uint32_t stamp;
+    uint8_t data[DISPLAY_GLYPH_BYTES];
+} glyph_cache[GLYPH_CACHE_SLOTS];
+static uint32_t glyph_cache_clock;
+
 static const uint8_t *unpack_1x(const glyph_ref_t *g) {
-    unpack_packbits(g->g16_rle, g->g16_len, glyph_1x_unpacked,
+    int victim = 0;
+    uint32_t oldest = UINT32_MAX;
+    for (int i = 0; i < GLYPH_CACHE_SLOTS; i++) {
+        if (glyph_cache[i].key == g->g16_rle) {
+            glyph_cache[i].stamp = ++glyph_cache_clock;
+            return glyph_cache[i].data;
+        }
+        if (glyph_cache[i].stamp < oldest) {
+            oldest = glyph_cache[i].stamp;
+            victim = i;
+        }
+    }
+    unpack_packbits(g->g16_rle, g->g16_len, glyph_cache[victim].data,
                     (unsigned)g->stride16 * FONT_CHAR_HEIGHT);
-    return glyph_1x_unpacked;
+    glyph_cache[victim].key = g->g16_rle;
+    glyph_cache[victim].stamp = ++glyph_cache_clock;
+    return glyph_cache[victim].data;
 }
 
 static uint8_t glyph_font_width(const display_glyph_font_t *font) {
