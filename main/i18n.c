@@ -31,6 +31,51 @@ const char *tr_month(int mon) {
     return months_by_lang[current_lang][mon];
 }
 
+// Gregorian to Solar Hijri (Jalali), the calendar Persian devices show.
+// Arithmetic 33-year-cycle algorithm (jalaali-js lineage), exact for the
+// clock's era.
+static void gregorian_to_jalali(int gy, int gm, int gd, int *jy, int *jm, int *jd) {
+    static const int gdm[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    int gy2 = gy - 1600;
+    long g_day_no = 365L * gy2 + (gy2 + 3) / 4 - (gy2 + 99) / 100 + (gy2 + 399) / 400;
+    for (int i = 0; i < gm - 1; i++) g_day_no += gdm[i];
+    if (gm > 2 && ((gy % 4 == 0 && gy % 100 != 0) || gy % 400 == 0)) g_day_no++;
+    g_day_no += gd - 1;
+    long j_day_no = g_day_no - 79;
+    long j_np = j_day_no / 12053;
+    j_day_no %= 12053;
+    int y = (int)(979 + 33 * j_np + 4 * (j_day_no / 1461));
+    j_day_no %= 1461;
+    if (j_day_no >= 366) {
+        y += (int)((j_day_no - 366) / 365 + 1);
+        j_day_no = (j_day_no - 366) % 365;
+    }
+    int i;
+    for (i = 0; i < 11 && j_day_no >= (i < 6 ? 31 : 30); i++) {
+        j_day_no -= (i < 6 ? 31 : 30);
+    }
+    *jy = y;
+    *jm = i + 1;
+    *jd = (int)j_day_no + 1;
+}
+
+// Replace ASCII digits with Persian digits (U+06F0.., two UTF-8 bytes).
+static void fa_digits(char *dst, size_t len, const char *src) {
+    size_t pos = 0;
+    for (const char *p = src; *p != '\0'; p++) {
+        if (*p >= '0' && *p <= '9') {
+            if (pos + 3 > len) break;
+            unsigned cp = 0x6F0u + (unsigned)(*p - '0');
+            dst[pos++] = (char)(0xC0 | (cp >> 6));
+            dst[pos++] = (char)(0x80 | (cp & 0x3F));
+        } else {
+            if (pos + 2 > len) break;
+            dst[pos++] = *p;
+        }
+    }
+    dst[pos] = '\0';
+}
+
 void tr_date(char *buf, size_t len, int wday, int mon, int mday, int year) {
     const char *wd = tr_weekday(wday);
     const char *mo = tr_month(mon);
@@ -38,8 +83,41 @@ void tr_date(char *buf, size_t len, int wday, int mon, int mday, int year) {
     case LANG_EN:
         snprintf(buf, len, "%s %s %d, %d", wd, mo, mday, year);
         break;
+    // Day takes a period in German, Czech, Slovak, and Finnish.
     case LANG_DE:
+    case LANG_CS:
+    case LANG_SK:
+    case LANG_FI:
         snprintf(buf, len, "%s %d. %s %d", wd, mday, mo, year);
+        break;
+    // Hungarian and Lithuanian dates are year-first.
+    case LANG_HU:
+        // CLDR also puts a comma before the weekday, but September
+        // ("szept.") would then exceed the panel at 2x.
+        snprintf(buf, len, "%d. %s %d. %s", year, mo, mday, wd);
+        break;
+    case LANG_LT:
+        snprintf(buf, len, "%d %s %d, %s", year, mo, mday, wd);
+        break;
+    // Assembled in visual order (every fragment renders left to right):
+    // year month day weekday reads correctly right-to-left.
+    case LANG_AR:
+    case LANG_HE:
+        snprintf(buf, len, "%d %s %d %s", year, mo, mday, wd);
+        break;
+    case LANG_FA: {
+        // Solar Hijri with Persian digits, visual RTL order like ar/he.
+        int jy, jm, jd;
+        gregorian_to_jalali(year, mon + 1, mday, &jy, &jm, &jd);
+        char tmp[48];
+        snprintf(tmp, sizeof(tmp), "%d %s %d %s",
+                 jy, months_by_lang[LANG_FA][jm - 1], jd, wd);
+        fa_digits(buf, len, tmp);
+        break;
+    }
+    // Thai uses the Buddhist Era, 543 years ahead of Gregorian.
+    case LANG_TH:
+        snprintf(buf, len, "%s %d %s %d", wd, mday, mo, year + 543);
         break;
     // No spaces inside the ja/zh numeral+suffix run: that is the native
     // convention, and it keeps the worst case (zh year+YEAR month+MONTH

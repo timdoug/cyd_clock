@@ -399,13 +399,18 @@ struct ShapedConfig {
     let fontSize: CGFloat
     let rtl: Bool
     var aaGamma: CGFloat = 0.7
+    // Characters the C side composes at runtime (outside the pre-shaped
+    // strings), emitted at their real codepoints: Persian digits for the
+    // Jalali date.
+    var extraChars: String = ""
 }
 
 let shapedConfigs = [
     ShapedConfig(scope: "ar", fontObject: "font_ar", glyphArray: "ar_glyphs",
                  fontName: "Geeza Pro", fontSize: 13, rtl: true),
     ShapedConfig(scope: "fa", fontObject: "font_fa", glyphArray: "fa_glyphs",
-                 fontName: "Geeza Pro", fontSize: 13, rtl: true),
+                 fontName: "Geeza Pro", fontSize: 13, rtl: true,
+                 extraChars: "\u{06F0}\u{06F1}\u{06F2}\u{06F3}\u{06F4}\u{06F5}\u{06F6}\u{06F7}\u{06F8}\u{06F9}"),
     ShapedConfig(scope: "he", fontObject: "font_he", glyphArray: "he_glyphs",
                  fontName: "Arial Hebrew", fontSize: 14, rtl: true),
     ShapedConfig(scope: "hi", fontObject: "font_hi", glyphArray: "hi_glyphs",
@@ -824,31 +829,58 @@ func generateShapedC(_ source: String) -> String {
         let shapedMo = src.months.map { builder.shapeString($0, context: "\(cfg.scope)/month") }
         let shapedName = builder.shapeString(src.name, context: "\(cfg.scope)/name")
 
+        // Runtime-composed characters (Persian digits): standalone glyph
+        // entries at their real codepoints, never deduped into the PUA
+        // tile namespace.
+        var realCps: [(UInt32, Int)] = []  // (codepoint, glyph index)
+        for ch in cfg.extraChars {
+            let line = builder.makeLine(String(ch))
+            let placed = builder.placedGlyphs(line)
+            guard !placed.isEmpty else { fatalError("\(cfg.scope): no glyph for extra char") }
+            let xs = placed.map { $0.x }.min()!
+            let xe = placed.map { $0.x + $0.advance }.max()!
+            let w = max(1, min(16, Int((xe - xs).rounded())))
+            let strip = builder.renderClusterStrip(placed, width: w, origin: xs.rounded())
+            let strip2x = builder.renderClusterStrip2x(placed, width: w, origin: xs.rounded())
+            let idx = builder.glyphs.count
+            builder.glyphs.append(builder.packTile(strip, stripW: max(16, ((w + 15) / 16) * 16), from: 0, width: w))
+            builder.glyphs2x.append(builder.packTile2x(strip2x, stripW: max(32, ((w * 2 + 31) / 32) * 32), from: 0, width: w * 2))
+            builder.widths.append(w)
+            realCps.append((codepoint(ch), idx))
+        }
+
         let hash = SHA256.hash(data: Data(src.raw.utf8)).prefix(8)
             .map { String(format: "%02x", $0) }.joined()
         print("\(cfg.scope): \(builder.glyphs.count) cluster glyphs (\(cfg.fontName))")
+
+        // The codepoint table must be sorted for the runtime binary
+        // search; extra chars carry real codepoints below the PUA block,
+        // so emit through a sort permutation.
+        var cpOf = (0..<builder.glyphs.count).map { UInt32(0xE000 + $0) }
+        for (cp, idx) in realCps { cpOf[idx] = cp }
+        let perm = (0..<cpOf.count).sorted { cpOf[$0] < cpOf[$1] }
 
         out += "// \(cfg.scope): \(builder.glyphs.count) shaped cluster glyphs (\(cfg.fontName))\n"
         out += "// shaped-source-hash \(cfg.scope) \(hash)\n"
         out += "static const uint16_t \(cfg.glyphArray)_cp[] = {\n"
         var lineBuf = "   "
-        for i in 0..<builder.glyphs.count {
-            lineBuf += String(format: " 0x%04X,", 0xE000 + i)
+        for i in perm {
+            lineBuf += String(format: " 0x%04X,", cpOf[i])
             if lineBuf.count > 90 { out += lineBuf + "\n"; lineBuf = "   " }
         }
         if lineBuf != "   " { out += lineBuf + "\n" }
         out += "};\n"
         out += "static const uint8_t \(cfg.glyphArray)_w[] = {\n"
         lineBuf = "   "
-        for w in builder.widths {
-            lineBuf += String(format: " %d,", w)
+        for i in perm {
+            lineBuf += String(format: " %d,", builder.widths[i])
             if lineBuf.count > 90 { out += lineBuf + "\n"; lineBuf = "   " }
         }
         if lineBuf != "   " { out += lineBuf + "\n" }
         out += "};\n"
         out += "static const uint8_t \(cfg.glyphArray)[][DISPLAY_GLYPH_BYTES] = {\n"
-        for g in builder.glyphs {
-            out += "    {" + g.map { String(format: "0x%02X", $0) }.joined(separator: ",") + "},\n"
+        for i in perm {
+            out += "    {" + builder.glyphs[i].map { String(format: "0x%02X", $0) }.joined(separator: ",") + "},\n"
         }
         out += "};\n"
         // Full-resolution 2x only for glyphs the 2x paths can reach: the
@@ -860,7 +892,8 @@ func generateShapedC(_ source: String) -> String {
                 reachable2x.insert(Int(sc.value) - 0xE000)
             }
         }
-        let tiles2x: [[UInt8]?] = (0..<builder.glyphs.count).map {
+        for (_, idx) in realCps { reachable2x.insert(idx) }  // date digits
+        let tiles2x: [[UInt8]?] = perm.map {
             reachable2x.contains($0) ? builder.glyphs2x[$0] : nil
         }
         out += emitCompressed2x("\(cfg.glyphArray)_2x", tiles2x, storage: "static ")

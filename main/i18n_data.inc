@@ -164,12 +164,12 @@ static const char *const lang_es[STR_COUNT] = {
 };
 
 static const char *const weekdays_es[7] = {
-    "Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb",
+    "dom", "lun", "mar", "mié", "jue", "vie", "sáb",
 };
 
 static const char *const months_es[12] = {
-    "Ene", "Feb", "Mar", "Abr", "May", "Jun",
-    "Jul", "Ago", "Sep", "Oct", "Nov", "Dic",
+    "ene", "feb", "mar", "abr", "may", "jun",
+    "jul", "ago", "sept", "oct", "nov", "dic",
 };
 
 static const char lang_name_es[] = "Español";
@@ -241,12 +241,12 @@ static const char *const lang_fr[STR_COUNT] = {
 };
 
 static const char *const weekdays_fr[7] = {
-    "Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam",
+    "dim.", "lun.", "mar.", "mer.", "jeu.", "ven.", "sam.",
 };
 
 static const char *const months_fr[12] = {
-    "Jan", "Fév", "Mar", "Avr", "Mai", "Jun",
-    "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc",
+    "janv.", "févr.", "mars", "avr.", "mai", "juin",
+    "juil.", "août", "sept.", "oct.", "nov.", "déc.",
 };
 
 static const char lang_name_fr[] = "Français";
@@ -395,12 +395,12 @@ static const char *const lang_pt[STR_COUNT] = {
 };
 
 static const char *const weekdays_pt[7] = {
-    "Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb",
+    "dom.", "seg.", "ter.", "qua.", "qui.", "sex.", "sáb.",
 };
 
 static const char *const months_pt[12] = {
-    "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
-    "Jul", "Ago", "Set", "Out", "Nov", "Dez",
+    "jan.", "fev.", "mar.", "abr.", "mai.", "jun.",
+    "jul.", "ago.", "set.", "out.", "nov.", "dez.",
 };
 
 static const char lang_name_pt[] = "Português";
@@ -472,12 +472,12 @@ static const char *const lang_it[STR_COUNT] = {
 };
 
 static const char *const weekdays_it[7] = {
-    "Dom", "Lun", "Mar", "Mer", "Gio", "Ven", "Sab",
+    "dom", "lun", "mar", "mer", "gio", "ven", "sab",
 };
 
 static const char *const months_it[12] = {
-    "Gen", "Feb", "Mar", "Apr", "Mag", "Giu",
-    "Lug", "Ago", "Set", "Ott", "Nov", "Dic",
+    "gen", "feb", "mar", "apr", "mag", "giu",
+    "lug", "ago", "set", "ott", "nov", "dic",
 };
 
 static const char lang_name_it[] = "Italiano";
@@ -857,12 +857,12 @@ static const char *const lang_fi[STR_COUNT] = {
 };
 
 static const char *const weekdays_fi[7] = {
-    "Su", "Ma", "Ti", "Ke", "To", "Pe", "La",
+    "su", "ma", "ti", "ke", "to", "pe", "la",
 };
 
 static const char *const months_fi[12] = {
-    "Tam", "Hel", "Maa", "Huh", "Tou", "Kes",
-    "Hei", "Elo", "Syy", "Lok", "Mar", "Jou",
+    "tammik.", "helmik.", "maalisk.", "huhtik.", "toukok.", "kesäk.",
+    "heinäk.", "elok.", "syysk.", "lokak.", "marrask.", "jouluk.",
 };
 
 static const char lang_name_fi[] = "Suomi";
@@ -1011,12 +1011,12 @@ static const char *const lang_cs[STR_COUNT] = {
 };
 
 static const char *const weekdays_cs[7] = {
-    "Ne", "Po", "Út", "St", "Čt", "Pá", "So",
+    "ne", "po", "út", "st", "čt", "pá", "so",
 };
 
 static const char *const months_cs[12] = {
-    "Led", "Úno", "Bře", "Dub", "Kvě", "Čvn",
-    "Čvc", "Srp", "Zář", "Řij", "Lis", "Pro",
+    "led", "úno", "bře", "dub", "kvě", "čvn",
+    "čvc", "srp", "zář", "říj", "lis", "pro",
 };
 
 static const char lang_name_cs[] = "Čeština";
@@ -1381,12 +1381,12 @@ static const char *const lang_hu[STR_COUNT] = {
 };
 
 static const char *const weekdays_hu[7] = {
-    "Vas", "Hét", "Ked", "Sze", "Csü", "Pén", "Szo",
+    "V", "H", "K", "Sze", "Cs", "P", "Szo",
 };
 
 static const char *const months_hu[12] = {
-    "Jan", "Feb", "Már", "Ápr", "Máj", "Jún",
-    "Júl", "Aug", "Sze", "Okt", "Nov", "Dec",
+    "jan.", "febr.", "márc.", "ápr.", "máj.", "jún.",
+    "júl.", "aug.", "szept.", "okt.", "nov.", "dec.",
 };
 
 static const char lang_name_hu[] = "Magyar";
@@ -2107,12 +2107,12 @@ static const char *const lang_sk[STR_COUNT] = {
 };
 
 static const char *const weekdays_sk[7] = {
-    "Ne", "Po", "Ut", "St", "Št", "Pi", "So",
+    "ne", "po", "ut", "st", "št", "pi", "so",
 };
 
 static const char *const months_sk[12] = {
-    "Jan", "Feb", "Mar", "Apr", "Máj", "Jún",
-    "Júl", "Aug", "Sep", "Okt", "Nov", "Dec",
+    "jan.", "feb.", "mar.", "apr.", "máj", "jún",
+    "júl", "aug.", "sep.", "okt.", "nov.", "dec.",
 };
 
 static const char lang_name_sk[] = "Slovenčina";
@@ -2356,12 +2356,12 @@ static const char *const lang_lt[STR_COUNT] = {
 };
 
 static const char *const weekdays_lt[7] = {
-    "Sk", "Pr", "An", "Tr", "Kt", "Pn", "Št",
+    "sk", "pr", "an", "tr", "kt", "pn", "št",
 };
 
 static const char *const months_lt[12] = {
-    "Sau", "Vas", "Kov", "Bal", "Geg", "Bir",
-    "Lie", "Rgp", "Rgs", "Spa", "Lap", "Grd",
+    "saus.", "vas.", "kov.", "bal.", "geg.", "birž.",
+    "liep.", "rugp.", "rugs.", "spal.", "lapkr.", "gruod.",
 };
 
 static const char lang_name_lt[] = "Lietuvių";
@@ -3997,11 +3997,11 @@ static const char *const lang_fa[STR_COUNT] = {
     [STR_SELECT_REGION] = "انتخاب منطقه",
 };
 static const char *const weekdays_fa[7] = {
-    "یک", "دو", "سه", "چها", "پنج", "جمع", "شنب",
+    "یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه", "شنبه",
 };
 static const char *const months_fa[12] = {
-    "ژان", "فور", "مار", "آور", "مه", "ژوئن",
-    "ژوئی", "اوت", "سپت", "اکت", "نوا", "دسا",
+    "فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
+    "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند",
 };
 static const char lang_name_fa[] = "فارسی";
 // <<< shaped-source fa
