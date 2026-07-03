@@ -70,12 +70,13 @@ static esp_timer_handle_t clock_tick_timer;
 // repaint"; bucket 7 is the once-a-day date rollover (6 digits plus the date
 // string), which would otherwise pollute the 6-digit bucket with its extra
 // ~4 ms.
-// Seeds assume the single-transaction digit renderer: ~1.4 ms per digit
-// (5.7 KB pixel push at 40 MHz + compose) plus ~0.4 ms fixed per tick
-// (timekeeping, colon). The EMA refines them within ~8 ticks.
+// Seeds measured on-device (2026-07, DEFLATE glyph storage + decoded-glyph
+// cache): ~1.3 ms per 7-seg digit plus ~0.4 ms for a fraction-only tick;
+// buckets 5-6 extrapolate the slope, bucket 7 includes the date string's
+// 2x glyph decode. The EMA refines them within ~8 ticks either way.
 volatile uint32_t clock_latency_us = 2000;
 static uint32_t clock_latency_by_digits[8] = {
-    900, 1800, 3200, 4600, 6000, 7400, 8800, 12800
+    420, 2200, 3400, 4650, 6000, 7300, 8600, 13300
 };
 
 // Stamped by the tick ISR at fire time; the latency EMA measures from here
