@@ -164,9 +164,9 @@ void ui_draw_list_fonts(const char **labels, const display_glyph_font_t *const *
 
         display_fill_rect(0, y, DISPLAY_WIDTH, UI_LIST_ITEM_H - 2, bg);
         if (fonts) {
-            display_string_font(10, y + 6, labels[idx], fonts[idx], fg, bg);
+            display_string_font(10, y + 5, labels[idx], fonts[idx], fg, bg);
         } else {
-            display_string(10, y + 6, labels[idx], fg, bg);
+            display_string(10, y + 5, labels[idx], fg, bg);
         }
     }
 
@@ -466,20 +466,20 @@ void ui_draw_slider(int y, const char *label, uint8_t value, uint8_t max_value, 
     display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, UI_COLOR_ITEM_BG);
     display_string(10, y + UI_TEXT_Y_OFFSET, label, UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
 
-    int bar_y = y + UI_TEXT_Y_OFFSET;
+    int bar_y = y + UI_SLIDER_BAR_Y_OFF;
     display_fill_rect(UI_SLIDER_BAR_X, bar_y, UI_SLIDER_BAR_W, UI_SLIDER_BAR_H, COLOR_BLACK);
     display_rect(UI_SLIDER_BAR_X, bar_y, UI_SLIDER_BAR_W, UI_SLIDER_BAR_H, COLOR_GRAY);
     ui_draw_slider_value(y, value, max_value, fill_color);
 
     display_fill_rect(UI_SLIDER_BTN_X1, y + 3, UI_SLIDER_BTN_W, UI_SLIDER_BTN_H, COLOR_GRAY);
-    display_string(UI_SLIDER_BTN_X1 + 6, y + 4, "-", COLOR_WHITE, COLOR_GRAY);
+    display_string(UI_SLIDER_BTN_X1 + 6, y + 3, "-", COLOR_WHITE, COLOR_GRAY);
 
     display_fill_rect(UI_SLIDER_BTN_X2, y + 3, UI_SLIDER_BTN_W, UI_SLIDER_BTN_H, COLOR_GRAY);
-    display_string(UI_SLIDER_BTN_X2 + 6, y + 4, "+", COLOR_WHITE, COLOR_GRAY);
+    display_string(UI_SLIDER_BTN_X2 + 6, y + 3, "+", COLOR_WHITE, COLOR_GRAY);
 }
 
 void ui_draw_slider_value(int y, uint8_t value, uint8_t max_value, uint16_t fill_color) {
-    int bar_y = y + UI_TEXT_Y_OFFSET;
+    int bar_y = y + UI_SLIDER_BAR_Y_OFF;
     int inner_x = UI_SLIDER_BAR_X + 2;
     int inner_y = bar_y + 2;
     int inner_w = UI_SLIDER_BAR_W - 4;
@@ -496,7 +496,7 @@ void ui_draw_slider_value_delta(int y, uint8_t old_value, uint8_t new_value,
                                 uint8_t max_value, uint16_t fill_color) {
     if (old_value == new_value) return;
 
-    int bar_y = y + UI_TEXT_Y_OFFSET;
+    int bar_y = y + UI_SLIDER_BAR_Y_OFF;
     int inner_x = UI_SLIDER_BAR_X + 2;
     int inner_y = bar_y + 2;
     int inner_w = UI_SLIDER_BAR_W - 4;

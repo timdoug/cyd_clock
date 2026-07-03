@@ -117,7 +117,7 @@ static void draw_network_list(void) {
         }
 
         if (networks[idx].authmode) {
-            display_char(DISPLAY_WIDTH - 50, y + 6, '*', fg, bg);
+            display_char(DISPLAY_WIDTH - 50, y + 5, '*', fg, bg);
         }
     }
 }
@@ -147,9 +147,9 @@ static void draw_password_input(void) {
         }
     }
     display_pwd[shown] = '\0';
-    display_string(10, UI_LIST_START_Y + 35, display_pwd, COLOR_GREEN, COLOR_DARKGRAY);
+    display_string(10, UI_LIST_START_Y + 33, display_pwd, COLOR_GREEN, COLOR_DARKGRAY);
 
-    display_char(10 + shown * FONT_CHAR_WIDTH, UI_LIST_START_Y + 35, '_', COLOR_GREEN, COLOR_DARKGRAY);
+    display_char(10 + shown * FONT_CHAR_WIDTH, UI_LIST_START_Y + 33, '_', COLOR_GREEN, COLOR_DARKGRAY);
 }
 
 // Bottom keyboard row: draw geometry and hit testing share this table so

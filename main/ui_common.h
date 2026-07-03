@@ -8,8 +8,12 @@
 
 #define UI_HEADER_HEIGHT    30
 #define UI_ITEM_HEIGHT      26
-#define UI_TEXT_Y_OFFSET    5
-#define UI_HEADER_TEXT_Y    8
+// Text-cell y offsets center the ink, not the cell: Latin ink sits about
+// a pixel below the 16px cell's center (the top rows are reserved for
+// accented capitals), the CJK fonts about half a pixel above. Offsets
+// split the difference, biased toward Latin.
+#define UI_TEXT_Y_OFFSET    3
+#define UI_HEADER_TEXT_Y    7
 
 #define UI_BACK_BTN_X       5
 #define UI_BACK_BTN_W       70
@@ -54,6 +58,7 @@ typedef struct {
 #define VKEY_ESCAPE     '\x1B'
 
 #define UI_SLIDER_BAR_X     100
+#define UI_SLIDER_BAR_Y_OFF 5    // from row top; centers the 14px bar in the row
 #define UI_SLIDER_BAR_W     150
 #define UI_SLIDER_BAR_H     14
 #define UI_SLIDER_BTN_X1    260

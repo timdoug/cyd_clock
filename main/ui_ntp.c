@@ -26,7 +26,7 @@ static const char *TAG = "ui_ntp";
 #define SERVER_BOX_W    (DISPLAY_WIDTH - 20)
 #define SERVER_BOX_H    28
 #define SERVER_TEXT_X   (SERVER_BOX_X + 5)
-#define SERVER_TEXT_Y   (SERVER_BOX_Y + 7)
+#define SERVER_TEXT_Y   (SERVER_BOX_Y + 5)
 #define SERVER_TEXT_CHARS 35
 #define ROW_GAP         8
 #define SECTION_GAP     18   // extra gap before the toggle row
