@@ -310,15 +310,11 @@ func emitCompressed2x(_ name: String, _ tiles: [[UInt8]?], storage: String) -> S
 }
 
 func emitGlyphArrays(_ prefix: String, _ chars: [Character], cfg: FontConfig,
-                     storage: String, bytes16: String,
+                     storage: String,
                      out16: Int, out32: Int) -> String {
     var out = ""
-    out += "\(storage)const uint8_t \(prefix)[][\(bytes16)] = {\n"
-    for ch in chars {
-        let hex = hexRow(render(String(ch), cfg: cfg, pixels: 16, outputWidth: out16))
-        out += "    {\(hex)}, // U+\(String(format: "%04X", codepoint(ch)))\n"
-    }
-    out += "};\n\n"
+    let tiles1x: [[UInt8]?] = chars.map { render(String($0), cfg: cfg, pixels: 16, outputWidth: out16) }
+    out += emitCompressed2x(prefix, tiles1x, storage: storage)
     let tiles: [[UInt8]?] = chars.map { render(String($0), cfg: cfg, pixels: 32, outputWidth: out32) }
     out += emitCompressed2x("\(prefix)_2x", tiles, storage: storage)
     out += "\n"
@@ -342,15 +338,15 @@ for cfg in cjkConfigs.sorted(by: { $0.scope < $1.scope }) {
     out += "// \(cfg.scope): \(chars.count) glyphs (\(cfg.fontName))\n"
     out += emitCodepointTable("\(cfg.glyphArray)_cp", chars)
     out += emitGlyphArrays(cfg.glyphArray, chars, cfg: cfg, storage: "static ",
-                           bytes16: "DISPLAY_GLYPH_BYTES",
                            out16: 16, out32: 32)
     out += """
     const display_glyph_font_t \(cfg.fontObject) = {
         .codepoints = \(cfg.glyphArray)_cp,
-        .glyphs = \(cfg.glyphArray),
+        .glyphs_rle = \(cfg.glyphArray)_rle,
+        .glyphs_off = \(cfg.glyphArray)_off,
         .glyphs_2x_rle = \(cfg.glyphArray)_2x_rle,
         .glyphs_2x_off = \(cfg.glyphArray)_2x_off,
-        .count = sizeof(\(cfg.glyphArray)) / sizeof(\(cfg.glyphArray)[0]),
+        .count = \(chars.count),
         .glyph_width = \(cfg.glyphWidth),
     };
 
@@ -363,19 +359,11 @@ let baseSorted = baseChars.sorted { codepoint($0) < codepoint($1) }
 print("base: \(baseSorted.count) supplementary glyphs")
 
 out += "// base: ASCII plus \(baseSorted.count) supplementary glyphs (\(baseConfig.fontName))\n"
-out += "const uint8_t font_base_ascii[][FONT_BASE_GLYPH_BYTES] = {\n"
-for code in 0x20...0x7E {
-    let ch = String(UnicodeScalar(code)!)
-    let label: String
-    switch code {
-    case 0x20: label = "space"
-    case 0x5C: label = "backslash"  // a bare one would splice the next line into this comment
-    default: label = ch
-    }
-    let hex = hexRow(render(ch, cfg: baseConfig, pixels: 16, outputWidth: 8))
-    out += "    {\(hex)}, // \(label)\n"
+let baseAscii1x: [[UInt8]?] = (0x20...0x7E).map {
+    render(String(UnicodeScalar($0)!), cfg: baseConfig, pixels: 16, outputWidth: 8)
 }
-out += "};\n\n"
+out += emitCompressed2x("font_base_ascii", baseAscii1x, storage: "")
+out += "\n"
 let baseAscii2x: [[UInt8]?] = (0x20...0x7E).map {
     render(String(UnicodeScalar($0)!), cfg: baseConfig, pixels: 32, outputWidth: 16)
 }
@@ -386,9 +374,8 @@ out += emitCodepointTable("font_base_ext_cp_table", baseSorted)
                           with: "const uint16_t font_base_ext_cp")
 out += "\n"
 out += emitGlyphArrays("font_base_ext", baseSorted, cfg: baseConfig, storage: "",
-                       bytes16: "FONT_BASE_GLYPH_BYTES",
                        out16: 8, out32: 16)
-out += "const uint16_t font_base_ext_count = sizeof(font_base_ext) / sizeof(font_base_ext[0]);\n"
+out += "const uint16_t font_base_ext_count = \(baseSorted.count);\n"
 
 try out.write(to: root.appendingPathComponent("main/fonts.c"), atomically: true, encoding: .utf8)
 
@@ -908,11 +895,8 @@ func generateShapedC(_ source: String) -> String {
         }
         if lineBuf != "   " { out += lineBuf + "\n" }
         out += "};\n"
-        out += "static const uint8_t \(cfg.glyphArray)[][DISPLAY_GLYPH_BYTES] = {\n"
-        for i in perm {
-            out += "    {" + builder.glyphs[i].map { String(format: "0x%02X", $0) }.joined(separator: ",") + "},\n"
-        }
-        out += "};\n"
+        out += emitCompressed2x(cfg.glyphArray, perm.map { Optional(builder.glyphs[$0]) },
+                                storage: "static ")
         // Full-resolution 2x only for glyphs the 2x paths can reach: the
         // clock date (weekdays, months) and the waiting banner. Everything
         // else pixel-doubles.
@@ -930,11 +914,12 @@ func generateShapedC(_ source: String) -> String {
         out += """
         const display_glyph_font_t \(cfg.fontObject) = {
             .codepoints = \(cfg.glyphArray)_cp,
-            .glyphs = \(cfg.glyphArray),
+            .glyphs_rle = \(cfg.glyphArray)_rle,
+            .glyphs_off = \(cfg.glyphArray)_off,
             .glyphs_2x_rle = \(cfg.glyphArray)_2x_rle,
             .glyphs_2x_off = \(cfg.glyphArray)_2x_off,
             .widths = \(cfg.glyphArray)_w,
-            .count = sizeof(\(cfg.glyphArray)) / sizeof(\(cfg.glyphArray)[0]),
+            .count = \(builder.glyphs.count),
             .glyph_width = 16,
         };
 

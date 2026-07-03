@@ -39,12 +39,13 @@
 #define DISPLAY_GLYPH_2X_HEIGHT 32
 #define DISPLAY_GLYPH_2X_BYTES (DISPLAY_GLYPH_2X_WIDTH * DISPLAY_GLYPH_2X_HEIGHT / 2)
 
-// 2x glyph bitmaps are PackBits-compressed: per font, a blob plus
-// count+1 offsets; an empty span (off[i] == off[i+1]) means the glyph has
-// no 2x bitmap and is pixel-doubled from 1x instead.
+// Glyph bitmaps are PackBits-compressed at both sizes: per font, a blob
+// plus count+1 offsets; an empty 2x span (off[i] == off[i+1]) means the
+// glyph has no 2x bitmap and is pixel-doubled from 1x instead.
 typedef struct display_glyph_font {
     const uint16_t *codepoints;  // sorted ascending, parallel to glyphs
-    const uint8_t (*glyphs)[DISPLAY_GLYPH_BYTES];
+    const uint8_t *glyphs_rle;
+    const uint16_t *glyphs_off;
     const uint8_t *glyphs_2x_rle;
     const uint16_t *glyphs_2x_off;
     const uint8_t *widths;       // per-glyph advances; NULL: uniform glyph_width

@@ -7,11 +7,13 @@
 // Base Menlo font: printable ASCII indexed by codepoint - 0x20, plus a
 // sorted supplementary codepoint table for everything else the non-CJK
 // languages use (Latin extensions, Cyrillic, Greek, Vietnamese, degree).
-extern const uint8_t font_base_ascii[][FONT_BASE_GLYPH_BYTES];
+extern const uint8_t font_base_ascii_rle[];
+extern const uint16_t font_base_ascii_off[];
 extern const uint8_t font_base_ascii_2x_rle[];
 extern const uint16_t font_base_ascii_2x_off[];
 extern const uint16_t font_base_ext_cp[];
-extern const uint8_t font_base_ext[][FONT_BASE_GLYPH_BYTES];
+extern const uint8_t font_base_ext_rle[];
+extern const uint16_t font_base_ext_off[];
 extern const uint8_t font_base_ext_2x_rle[];
 extern const uint16_t font_base_ext_2x_off[];
 extern const uint16_t font_base_ext_count;

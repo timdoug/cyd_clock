@@ -103,11 +103,12 @@ static int cp_find(const uint16_t *cps, unsigned count, uint32_t cp) {
 }
 
 typedef struct {
-    const uint8_t *g16;      // 1x rows, 4bpp
+    const uint8_t *g16_rle;  // PackBits-compressed 1x rows
+    unsigned g16_len;
     const uint8_t *g32_rle;  // PackBits-compressed 2x rows
-    unsigned g32_len;        // 0: no 2x bitmap, pixel-double g16
+    unsigned g32_len;        // 0: no 2x bitmap, pixel-double 1x
     uint8_t width;           // 1x advance in pixels
-    uint8_t stride16;        // bytes per 1x row
+    uint8_t stride16;        // bytes per unpacked 1x row
     uint8_t stride32;        // bytes per unpacked 2x row
 } glyph_ref_t;
 
@@ -130,7 +131,16 @@ static void unpack_packbits(const uint8_t *src, unsigned len,
     while (di < cap) dst[di++] = 0;
 }
 
+static uint8_t glyph_1x_unpacked[DISPLAY_GLYPH_BYTES];
 static uint8_t glyph_2x_unpacked[DISPLAY_GLYPH_2X_BYTES];
+
+// Decompress a glyph's 1x bitmap into the staging buffer (~2us, noise
+// next to the 50us+ of SPI a glyph blit costs).
+static const uint8_t *unpack_1x(const glyph_ref_t *g) {
+    unpack_packbits(g->g16_rle, g->g16_len, glyph_1x_unpacked,
+                    (unsigned)g->stride16 * FONT_CHAR_HEIGHT);
+    return glyph_1x_unpacked;
+}
 
 static uint8_t glyph_font_width(const display_glyph_font_t *font) {
     if (!font || font->glyph_width == 0 || font->glyph_width > DISPLAY_GLYPH_WIDTH) {
@@ -144,7 +154,8 @@ static uint8_t glyph_font_width(const display_glyph_font_t *font) {
 static void resolve_glyph(uint32_t cp, const display_glyph_font_t *font, glyph_ref_t *out) {
     if (cp >= FONT_BASE_ASCII_FIRST && cp < FONT_BASE_ASCII_FIRST + FONT_BASE_ASCII_COUNT) {
         unsigned idx = cp - FONT_BASE_ASCII_FIRST;
-        out->g16 = font_base_ascii[idx];
+        out->g16_rle = font_base_ascii_rle + font_base_ascii_off[idx];
+        out->g16_len = (unsigned)(font_base_ascii_off[idx + 1] - font_base_ascii_off[idx]);
         out->g32_rle = font_base_ascii_2x_rle + font_base_ascii_2x_off[idx];
         out->g32_len = (unsigned)(font_base_ascii_2x_off[idx + 1] - font_base_ascii_2x_off[idx]);
         out->width = FONT_CHAR_WIDTH;
@@ -155,7 +166,8 @@ static void resolve_glyph(uint32_t cp, const display_glyph_font_t *font, glyph_r
     if (font && font->codepoints) {
         int i = cp_find(font->codepoints, font->count, cp);
         if (i >= 0) {
-            out->g16 = font->glyphs[i];
+            out->g16_rle = font->glyphs_rle + font->glyphs_off[i];
+            out->g16_len = (unsigned)(font->glyphs_off[i + 1] - font->glyphs_off[i]);
             out->g32_rle = font->glyphs_2x_rle + font->glyphs_2x_off[i];
             out->g32_len = (unsigned)(font->glyphs_2x_off[i + 1] - font->glyphs_2x_off[i]);
             out->width = font->widths ? font->widths[i] : glyph_font_width(font);
@@ -167,7 +179,8 @@ static void resolve_glyph(uint32_t cp, const display_glyph_font_t *font, glyph_r
     {
         int i = cp_find(font_base_ext_cp, font_base_ext_count, cp);
         if (i >= 0) {
-            out->g16 = font_base_ext[i];
+            out->g16_rle = font_base_ext_rle + font_base_ext_off[i];
+            out->g16_len = (unsigned)(font_base_ext_off[i + 1] - font_base_ext_off[i]);
             out->g32_rle = font_base_ext_2x_rle + font_base_ext_2x_off[i];
             out->g32_len = (unsigned)(font_base_ext_2x_off[i + 1] - font_base_ext_2x_off[i]);
             out->width = FONT_CHAR_WIDTH;
@@ -379,7 +392,7 @@ void display_char(int16_t x, int16_t y, char c, uint16_t fg, uint16_t bg) {
                    uc < FONT_BASE_ASCII_FIRST + FONT_BASE_ASCII_COUNT) ? uc : '?';
     glyph_ref_t g;
     resolve_glyph(cp, NULL, &g);
-    aa_blit(x, y, g.g16, g.width, FONT_CHAR_HEIGHT, g.stride16, fg, bg);
+    aa_blit(x, y, unpack_1x(&g), g.width, FONT_CHAR_HEIGHT, g.stride16, fg, bg);
 }
 
 // Blit one 4bpp glyph as a single address window write.
@@ -484,7 +497,7 @@ void display_string_font(int16_t x, int16_t y, const char *str,
         glyph_ref_t g;
         p += utf8_decode(p, &cp);
         resolve_glyph(cp, font, &g);
-        aa_blit(x, y, g.g16, g.width, FONT_CHAR_HEIGHT, g.stride16, fg, bg);
+        aa_blit(x, y, unpack_1x(&g), g.width, FONT_CHAR_HEIGHT, g.stride16, fg, bg);
         x += g.width;
     }
 }
@@ -502,7 +515,7 @@ void display_string_2x(int16_t x, int16_t y, const char *str, uint16_t fg, uint1
             aa_blit(x, y, glyph_2x_unpacked, g.width * 2, FONT_CHAR_HEIGHT_2X,
                     g.stride32, fg, bg);
         } else {
-            aa_blit_doubled(x, y, g.g16, g.width, FONT_CHAR_HEIGHT, g.stride16, fg, bg);
+            aa_blit_doubled(x, y, unpack_1x(&g), g.width, FONT_CHAR_HEIGHT, g.stride16, fg, bg);
         }
         x += g.width * 2;
     }
