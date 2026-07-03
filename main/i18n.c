@@ -168,6 +168,14 @@ const display_glyph_font_t *i18n_glyph_font(lang_t lang) {
     case LANG_TE: return &font_te;
     case LANG_PA: return &font_pa;
     case LANG_GU: return &font_gu;
+    case LANG_KN: return &font_kn;
+    case LANG_ML: return &font_ml;
+    case LANG_NE: return &font_ne;
+    case LANG_SI: return &font_si;
+    case LANG_KM: return &font_km;
+    case LANG_LO: return &font_lo;
+    case LANG_MY: return &font_my;
+    case LANG_AM: return &font_am;
     default: return NULL;
     }
 }

@@ -59,18 +59,26 @@ static const lang_t lang_order[LANG_COUNT] = {
     LANG_EL,  // Ellinika
     LANG_HY,  // Hayeren
     LANG_KA,  // Kartuli
+    LANG_AM,  // Amharic
     LANG_AR,  // al-Arabiyya
     LANG_FA,  // Farsi
     LANG_UR,  // Urdu
     LANG_HE,  // Ivrit
     LANG_HI,  // Hindi
     LANG_MR,  // Marathi
+    LANG_NE,  // Nepali
     LANG_BN,  // Bangla
     LANG_GU,  // Gujarati
     LANG_PA,  // Punjabi
+    LANG_KN,  // Kannada
+    LANG_ML,  // Malayalam
+    LANG_SI,  // Sinhala
     LANG_TA,  // Tamil
     LANG_TE,  // Telugu
     LANG_TH,  // Thai
+    LANG_KM,  // Khmer
+    LANG_LO,  // Lao
+    LANG_MY,  // Myanmar
     LANG_JA,  // Japanese native name
     LANG_ZH,  // Simplified Chinese native name
     LANG_ZH_HANT,  // Traditional Chinese native name

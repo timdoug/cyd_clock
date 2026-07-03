@@ -83,6 +83,14 @@ typedef enum {
     LANG_TE,
     LANG_PA,
     LANG_GU,
+    LANG_KN,
+    LANG_ML,
+    LANG_NE,
+    LANG_SI,
+    LANG_KM,
+    LANG_LO,
+    LANG_MY,
+    LANG_AM,
     LANG_COUNT,
 } lang_t;
 

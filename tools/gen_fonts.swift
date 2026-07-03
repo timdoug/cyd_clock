@@ -432,6 +432,22 @@ let shapedConfigs = [
                  fontName: "Gurmukhi Sangam MN", fontSize: 12, rtl: false),
     ShapedConfig(scope: "gu", fontObject: "font_gu", glyphArray: "gu_glyphs",
                  fontName: "Kohinoor Gujarati", fontSize: 12, rtl: false),
+    ShapedConfig(scope: "kn", fontObject: "font_kn", glyphArray: "kn_glyphs",
+                 fontName: "Kannada Sangam MN", fontSize: 12, rtl: false),
+    ShapedConfig(scope: "ml", fontObject: "font_ml", glyphArray: "ml_glyphs",
+                 fontName: "Malayalam Sangam MN", fontSize: 12, rtl: false),
+    ShapedConfig(scope: "ne", fontObject: "font_ne", glyphArray: "ne_glyphs",
+                 fontName: "Kohinoor Devanagari", fontSize: 12, rtl: false),
+    ShapedConfig(scope: "si", fontObject: "font_si", glyphArray: "si_glyphs",
+                 fontName: "Sinhala Sangam MN", fontSize: 12, rtl: false),
+    ShapedConfig(scope: "km", fontObject: "font_km", glyphArray: "km_glyphs",
+                 fontName: "Khmer Sangam MN", fontSize: 9.5, rtl: false),
+    ShapedConfig(scope: "lo", fontObject: "font_lo", glyphArray: "lo_glyphs",
+                 fontName: "Lao Sangam MN", fontSize: 12, rtl: false),
+    ShapedConfig(scope: "my", fontObject: "font_my", glyphArray: "my_glyphs",
+                 fontName: "Myanmar Sangam MN", fontSize: 10, rtl: false),
+    ShapedConfig(scope: "am", fontObject: "font_am", glyphArray: "am_glyphs",
+                 fontName: "Kefa", fontSize: 12, rtl: false),
 ]
 
 func cUnescape(_ lit: String) -> String {
