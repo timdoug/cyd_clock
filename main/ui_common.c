@@ -10,8 +10,8 @@
 #include "touch.h"
 
 // Byte-oriented windowing: assumes ASCII input (peer addresses, server
-// names). A tokenized translated string must fit in the window, or its
-// two-byte glyph tokens would be split at the wrap point.
+// names). A UTF-8 string that overflows the window would have sequences
+// split at the wrap point and render '?' cells at the window edges.
 int ui_marquee_window(char *out, int width, const char *s, int scroll) {
     int len = (int)strlen(s);
     if (len <= width) {
@@ -83,20 +83,17 @@ void ui_draw_centered_string(int16_t y, const char *str, uint16_t fg, uint16_t b
     int text_width = display_text_width(str);
     if (scale_2x) text_width *= 2;
     if (text_width > DISPLAY_WIDTH && len > max_chars) {
-        // Byte-count clip, but never through the middle of a two-byte glyph
-        // token: a dangling escape would render as a bogus glyph. Every
-        // token's pixel width is at most 2x the byte-cell width, so a byte
-        // budget of max_chars always fits the panel.
+        // Byte-count clip, but never through the middle of a UTF-8
+        // sequence: a split sequence would render as stray '?' cells.
+        // No cell is wider than 8px per byte (a 3-byte CJK sequence is
+        // 16px), so a byte budget of max_chars always fits the panel.
         int keep = 0;
         int budget = max_chars > 3 ? max_chars - 3 : max_chars;
         while (keep < budget && str[keep] != '\0') {
-            if ((unsigned char)str[keep] == (unsigned char)DISPLAY_GLYPH_ESCAPE &&
-                str[keep + 1] != '\0') {
-                if (keep + 2 > budget) break;
-                keep += 2;
-            } else {
-                keep++;
-            }
+            int cell_w;
+            int cell_len = display_cell_at(str + keep, &cell_w);
+            if (keep + cell_len > budget) break;
+            keep += cell_len;
         }
         memcpy(clipped, str, (size_t)keep);
         if (max_chars > 3) {
@@ -287,11 +284,9 @@ int ui_list_tap_to_item(const touch_point_t *tap, int scroll, int count) {
     return item < count ? item : -1;
 }
 
-static bool text_has_glyph_tokens(const char *s) {
+static bool text_has_non_ascii(const char *s) {
     while (*s) {
-        if ((unsigned char)*s == (unsigned char)DISPLAY_GLYPH_ESCAPE && s[1] != '\0') {
-            return true;
-        }
+        if ((unsigned char)*s >= 0x80) return true;
         s++;
     }
     return false;
@@ -304,18 +299,15 @@ static void draw_encoded_colored(int x, int y, const char *text,
     size_t i = 0;
     while (*p) {
         uint16_t cell_fg = colors ? colors[i] : fg;
-        if (*p == (unsigned char)DISPLAY_GLYPH_ESCAPE && p[1] != '\0') {
-            char tok[3] = {DISPLAY_GLYPH_ESCAPE, (char)p[1], '\0'};
-            display_string(x, y, tok, cell_fg, bg);
-            x += display_text_width(tok);
-            p += 2;
-            i += 2;
-        } else {
-            display_char(x, y, (char)*p, cell_fg, bg);
-            x += FONT_CHAR_WIDTH;
-            p++;
-            i++;
-        }
+        int cell_w;
+        int cell_len = display_cell_at((const char *)p, &cell_w);
+        char cell[5];
+        memcpy(cell, p, (size_t)cell_len);
+        cell[cell_len] = '\0';
+        display_string(x, y, cell, cell_fg, bg);
+        x += cell_w;
+        p += cell_len;
+        i += (size_t)cell_len;
     }
 }
 
@@ -324,7 +316,6 @@ typedef struct {
     size_t byte_idx;
     size_t len;
     int width;
-    bool token;
 } diff_cell_t;
 
 static diff_cell_t next_diff_cell(const unsigned char *p, size_t byte_idx) {
@@ -333,30 +324,22 @@ static diff_cell_t next_diff_cell(const unsigned char *p, size_t byte_idx) {
         .byte_idx = byte_idx,
         .len = 0,
         .width = 0,
-        .token = false,
     };
     if (*p == '\0') return cell;
 
-    if (*p == (unsigned char)DISPLAY_GLYPH_ESCAPE && p[1] != '\0') {
-        cell.len = 2;
-        cell.width = display_text_width((char[]){DISPLAY_GLYPH_ESCAPE, (char)p[1], '\0'});
-        cell.token = true;
-    } else {
-        cell.len = 1;
-        cell.width = FONT_CHAR_WIDTH;
-    }
+    int cell_w;
+    cell.len = (size_t)display_cell_at((const char *)p, &cell_w);
+    cell.width = cell_w;
     return cell;
 }
 
 static void draw_diff_cell(int x, int y, const diff_cell_t *cell,
                            uint16_t fg, const uint16_t *colors, uint16_t bg) {
     uint16_t cell_fg = colors ? colors[cell->byte_idx] : fg;
-    if (cell->token) {
-        char tok[3] = {DISPLAY_GLYPH_ESCAPE, (char)cell->p[1], '\0'};
-        display_string(x, y, tok, cell_fg, bg);
-    } else {
-        display_char(x, y, (char)cell->p[0], cell_fg, bg);
-    }
+    char buf[5];
+    memcpy(buf, cell->p, cell->len);
+    buf[cell->len] = '\0';
+    display_string(x, y, buf, cell_fg, bg);
 }
 
 static bool diff_cells_equal(const diff_cell_t *old_cell,
@@ -369,7 +352,7 @@ static bool diff_cells_equal(const diff_cell_t *old_cell,
 void ui_diff_paint(int x, int y, const char *old_text, const char *new_text,
                    uint16_t fg, const uint16_t *colors,
                    uint16_t bg, bool force_full) {
-    if (text_has_glyph_tokens(old_text) || text_has_glyph_tokens(new_text)) {
+    if (text_has_non_ascii(old_text) || text_has_non_ascii(new_text)) {
         const unsigned char *old_p = (const unsigned char *)old_text;
         const unsigned char *new_p = (const unsigned char *)new_text;
         size_t old_i = 0;

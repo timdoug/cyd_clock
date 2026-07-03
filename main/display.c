@@ -11,8 +11,7 @@
 
 static const char *TAG = "display";
 static const display_glyph_font_t *active_glyph_font = NULL;
-static uint8_t glyph_buf[DISPLAY_GLYPH_WIDTH * DISPLAY_GLYPH_HEIGHT * 2];
-static uint8_t glyph_2x_buf[DISPLAY_GLYPH_2X_WIDTH * DISPLAY_GLYPH_2X_HEIGHT * 2];
+static uint8_t glyph_stage_buf[DISPLAY_GLYPH_2X_WIDTH * DISPLAY_GLYPH_2X_HEIGHT * 2];
 
 // ILI9341 commands
 #define ILI9341_SWRESET    0x01
@@ -48,22 +47,11 @@ static uint8_t glyph_2x_buf[DISPLAY_GLYPH_2X_WIDTH * DISPLAY_GLYPH_2X_HEIGHT * 2
 static spi_device_handle_t spi_dev;
 static bool display_rotated = false;
 
-// Payloads below 0x80 are rejected so a token pair mangled by byte-oriented
-// truncation (escape + stray ASCII byte) degrades to the '?' fallback
-// instead of indexing an arbitrary glyph.
-static inline bool glyph_token_id(unsigned char payload, unsigned int *glyph_id) {
-    if (payload >= 0x80) {
-        *glyph_id = payload - 0x80;
-        return true;
-    }
-    return false;
-}
 
-// Antialiased glyph support: all glyph bitmaps (built-in and supplemental)
-// store 4-bit alpha per pixel, two pixels per byte, high nibble = left
-// pixel. Each blit builds a 16-entry bg-to-fg ramp once and indexes it per
-// pixel; the perceptual (gamma) shaping of the levels is baked into the
-// generated tables.
+// Antialiased glyph support: all glyph bitmaps store 4-bit alpha per
+// pixel, two pixels per byte, high nibble = left pixel. Each blit builds a
+// 16-entry bg-to-fg ramp once and indexes it per pixel; the perceptual
+// (gamma) shaping of the levels is baked into the generated tables.
 static void aa_build_palette(uint16_t fg, uint16_t bg, uint16_t palette[16]) {
     int fr = (fg >> 11) & 0x1F, fgr = (fg >> 5) & 0x3F, fb = fg & 0x1F;
     int br = (bg >> 11) & 0x1F, bgr = (bg >> 5) & 0x3F, bb = bg & 0x1F;
@@ -80,22 +68,90 @@ static inline uint8_t aa_alpha_at(const uint8_t *row, int col) {
     return (col & 1) ? (b & 0x0F) : (b >> 4);
 }
 
-// Resolve a byte to its glyph index in the generated built-in font:
-// printable ASCII plus the populated high slots; empty high slots and
-// control bytes fall back to '?'.
-static int font_glyph_index(char c) {
-    unsigned char uc = (unsigned char)c;
-    if (uc < FONT_BUILTIN_FIRST) return '?' - FONT_BUILTIN_FIRST;
-    int idx = uc - FONT_BUILTIN_FIRST;
-    if (uc >= 0x80) {
-        const uint8_t *glyph = font_builtin[idx];
-        bool populated = false;
-        for (int i = 0; i < FONT_BUILTIN_GLYPH_BYTES; i++) {
-            if (glyph[i] != 0) { populated = true; break; }
-        }
-        if (!populated) idx = '?' - FONT_BUILTIN_FIRST;
+static void aa_blit(int16_t x, int16_t y, const uint8_t *glyph,
+                    int width, int height, int stride,
+                    uint16_t fg, uint16_t bg);
+
+// Decode the UTF-8 sequence at s. Writes the codepoint and returns the
+// byte length (1-4). Malformed input yields U+FFFD with length 1, so
+// rendering degrades to one '?' per bad byte and always makes progress.
+static int utf8_decode(const unsigned char *s, uint32_t *cp) {
+    unsigned char c = s[0];
+    if (c < 0x80) { *cp = c; return 1; }
+    int len;
+    uint32_t v;
+    if ((c & 0xE0) == 0xC0)      { len = 2; v = c & 0x1F; }
+    else if ((c & 0xF0) == 0xE0) { len = 3; v = c & 0x0F; }
+    else if ((c & 0xF8) == 0xF0) { len = 4; v = c & 0x07; }
+    else { *cp = 0xFFFD; return 1; }
+    for (int i = 1; i < len; i++) {
+        if ((s[i] & 0xC0) != 0x80) { *cp = 0xFFFD; return 1; }
+        v = (v << 6) | (uint32_t)(s[i] & 0x3F);
     }
-    return idx;
+    *cp = v;
+    return len;
+}
+
+static int cp_find(const uint16_t *cps, unsigned count, uint32_t cp) {
+    if (cp > 0xFFFF) return -1;
+    unsigned lo = 0, hi = count;
+    while (lo < hi) {
+        unsigned mid = (lo + hi) / 2;
+        if (cps[mid] < cp) lo = mid + 1; else hi = mid;
+    }
+    return (lo < count && cps[lo] == cp) ? (int)lo : -1;
+}
+
+typedef struct {
+    const uint8_t *g16;  // 1x rows, 4bpp
+    const uint8_t *g32;  // 2x rows, 4bpp
+    uint8_t width;       // 1x advance in pixels
+    uint8_t stride16;    // bytes per 1x row
+    uint8_t stride32;    // bytes per 2x row
+} glyph_ref_t;
+
+static uint8_t glyph_font_width(const display_glyph_font_t *font) {
+    if (!font || font->glyph_width == 0 || font->glyph_width > DISPLAY_GLYPH_WIDTH) {
+        return DISPLAY_GLYPH_WIDTH;
+    }
+    return font->glyph_width;
+}
+
+// Codepoint to glyph: ASCII directly, then the given per-language font,
+// then the base supplementary table, then '?'.
+static void resolve_glyph(uint32_t cp, const display_glyph_font_t *font, glyph_ref_t *out) {
+    if (cp >= FONT_BASE_ASCII_FIRST && cp < FONT_BASE_ASCII_FIRST + FONT_BASE_ASCII_COUNT) {
+        unsigned idx = cp - FONT_BASE_ASCII_FIRST;
+        out->g16 = font_base_ascii[idx];
+        out->g32 = font_base_ascii_2x[idx];
+        out->width = FONT_CHAR_WIDTH;
+        out->stride16 = FONT_CHAR_WIDTH / 2;
+        out->stride32 = FONT_CHAR_WIDTH;
+        return;
+    }
+    if (font && font->codepoints) {
+        int i = cp_find(font->codepoints, font->count, cp);
+        if (i >= 0) {
+            out->g16 = font->glyphs[i];
+            out->g32 = font->glyphs_2x[i];
+            out->width = glyph_font_width(font);
+            out->stride16 = DISPLAY_GLYPH_WIDTH / 2;
+            out->stride32 = DISPLAY_GLYPH_2X_WIDTH / 2;
+            return;
+        }
+    }
+    {
+        int i = cp_find(font_base_ext_cp, font_base_ext_count, cp);
+        if (i >= 0) {
+            out->g16 = font_base_ext[i];
+            out->g32 = font_base_ext_2x[i];
+            out->width = FONT_CHAR_WIDTH;
+            out->stride16 = FONT_CHAR_WIDTH / 2;
+            out->stride32 = FONT_CHAR_WIDTH;
+            return;
+        }
+    }
+    resolve_glyph('?', NULL, out);
 }
 
 // 7-segment patterns for digits 0-9 and dash
@@ -293,122 +349,39 @@ void display_rect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) {
 }
 
 void display_char(int16_t x, int16_t y, char c, uint16_t fg, uint16_t bg) {
-    if (x < 0 || y < 0 ||
-        x + FONT_CHAR_WIDTH > DISPLAY_WIDTH ||
-        y + FONT_CHAR_HEIGHT > DISPLAY_HEIGHT) {
-        return;
-    }
-    const uint8_t *glyph = font_builtin[font_glyph_index(c)];
-
-    uint16_t palette[16];
-    aa_build_palette(fg, bg, palette);
-
-    set_addr_window(x, y, FONT_CHAR_WIDTH, FONT_CHAR_HEIGHT);
-    dc_data();
-
-    uint8_t buf[FONT_CHAR_WIDTH * FONT_CHAR_HEIGHT * 2];
-    int idx = 0;
-    for (int row = 0; row < FONT_CHAR_HEIGHT; row++) {
-        const uint8_t *row_px = glyph + row * (FONT_CHAR_WIDTH / 2);
-        for (int col = 0; col < FONT_CHAR_WIDTH; col++) {
-            uint16_t color = palette[aa_alpha_at(row_px, col)];
-            buf[idx++] = color >> 8;
-            buf[idx++] = color & 0xFF;
-        }
-    }
-    spi_write_bytes(buf, sizeof(buf));
+    unsigned char uc = (unsigned char)c;
+    uint32_t cp = (uc >= FONT_BASE_ASCII_FIRST &&
+                   uc < FONT_BASE_ASCII_FIRST + FONT_BASE_ASCII_COUNT) ? uc : '?';
+    glyph_ref_t g;
+    resolve_glyph(cp, NULL, &g);
+    aa_blit(x, y, g.g16, g.width, FONT_CHAR_HEIGHT, g.stride16, fg, bg);
 }
 
-static uint8_t glyph_font_width(const display_glyph_font_t *font) {
-    if (!font || font->glyph_width == 0 || font->glyph_width > DISPLAY_GLYPH_WIDTH) {
-        return DISPLAY_GLYPH_WIDTH;
-    }
-    return font->glyph_width;
-}
-
-static void display_glyph(int16_t x, int16_t y, const uint8_t glyph[DISPLAY_GLYPH_BYTES],
-                              uint8_t glyph_width, uint16_t fg, uint16_t bg) {
+// Blit one 4bpp glyph as a single address window write.
+static void aa_blit(int16_t x, int16_t y, const uint8_t *glyph,
+                    int width, int height, int stride,
+                    uint16_t fg, uint16_t bg) {
     if (!glyph || x < 0 || y < 0 ||
-        x + glyph_width > DISPLAY_WIDTH ||
-        y + DISPLAY_GLYPH_HEIGHT > DISPLAY_HEIGHT) {
+        x + width > DISPLAY_WIDTH || y + height > DISPLAY_HEIGHT) {
         return;
     }
 
     uint16_t palette[16];
     aa_build_palette(fg, bg, palette);
 
-    set_addr_window(x, y, glyph_width, DISPLAY_GLYPH_HEIGHT);
+    set_addr_window(x, y, width, height);
     dc_data();
 
     int idx = 0;
-    for (int row = 0; row < DISPLAY_GLYPH_HEIGHT; row++) {
-        const uint8_t *row_px = glyph + row * (DISPLAY_GLYPH_WIDTH / 2);
-        for (int col = 0; col < glyph_width; col++) {
+    for (int row = 0; row < height; row++) {
+        const uint8_t *row_px = glyph + row * stride;
+        for (int col = 0; col < width; col++) {
             uint16_t color = palette[aa_alpha_at(row_px, col)];
-            glyph_buf[idx++] = color >> 8;
-            glyph_buf[idx++] = color & 0xFF;
+            glyph_stage_buf[idx++] = color >> 8;
+            glyph_stage_buf[idx++] = color & 0xFF;
         }
     }
-    spi_write_bytes(glyph_buf, glyph_width * DISPLAY_GLYPH_HEIGHT * 2);
-}
-
-static void display_glyph_2x(int16_t x, int16_t y, const uint8_t glyph[DISPLAY_GLYPH_BYTES],
-                                 uint8_t glyph_width, uint16_t fg, uint16_t bg) {
-    uint8_t width_2x = glyph_width * 2;
-    if (!glyph || x < 0 || y < 0 ||
-        x + width_2x > DISPLAY_WIDTH ||
-        y + DISPLAY_GLYPH_HEIGHT * 2 > DISPLAY_HEIGHT) {
-        return;
-    }
-
-    uint16_t palette[16];
-    aa_build_palette(fg, bg, palette);
-
-    set_addr_window(x, y, width_2x, DISPLAY_GLYPH_HEIGHT * 2);
-    dc_data();
-
-    int idx = 0;
-    for (int row = 0; row < DISPLAY_GLYPH_HEIGHT; row++) {
-        const uint8_t *row_px = glyph + row * (DISPLAY_GLYPH_WIDTH / 2);
-        for (int dup = 0; dup < 2; dup++) {
-            for (int col = 0; col < glyph_width; col++) {
-                uint16_t color = palette[aa_alpha_at(row_px, col)];
-                glyph_2x_buf[idx++] = color >> 8;
-                glyph_2x_buf[idx++] = color & 0xFF;
-                glyph_2x_buf[idx++] = color >> 8;
-                glyph_2x_buf[idx++] = color & 0xFF;
-            }
-        }
-    }
-    spi_write_bytes(glyph_2x_buf, width_2x * DISPLAY_GLYPH_HEIGHT * 2 * 2);
-}
-
-static void display_glyph_32(int16_t x, int16_t y,
-                                 const uint8_t glyph[DISPLAY_GLYPH_2X_BYTES],
-                                 uint8_t glyph_width, uint16_t fg, uint16_t bg) {
-    uint8_t width_2x = glyph_width * 2;
-    if (!glyph || x < 0 || y < 0 ||
-        x + width_2x > DISPLAY_WIDTH ||
-        y + DISPLAY_GLYPH_2X_HEIGHT > DISPLAY_HEIGHT) {
-        return;
-    }
-
-    uint16_t palette[16];
-    aa_build_palette(fg, bg, palette);
-
-    set_addr_window(x, y, width_2x, DISPLAY_GLYPH_2X_HEIGHT);
-    dc_data();
-
-    int idx = 0;
-    for (int row = 0; row < DISPLAY_GLYPH_2X_HEIGHT; row++) {
-        const uint8_t *row_px = glyph + row * (DISPLAY_GLYPH_2X_WIDTH / 2);
-        for (int col = 0; col < width_2x; col++) {
-            uint16_t color = palette[aa_alpha_at(row_px, col)];
-            glyph_2x_buf[idx++] = color >> 8;
-            glyph_2x_buf[idx++] = color & 0xFF;
-        }
-    }
-    spi_write_bytes(glyph_2x_buf, width_2x * DISPLAY_GLYPH_2X_HEIGHT * 2);
+    spi_write_bytes(glyph_stage_buf, width * height * 2);
 }
 
 void display_set_glyph_font(const display_glyph_font_t *font) {
@@ -419,25 +392,26 @@ int display_text_width_font(const char *str, const display_glyph_font_t *font) {
     int width = 0;
     const unsigned char *p = (const unsigned char *)str;
     while (*p) {
-        if (*p == (unsigned char)DISPLAY_GLYPH_ESCAPE && p[1] != '\0') {
-            unsigned int glyph_id = 0;
-            bool valid_id = glyph_token_id(p[1], &glyph_id);
-            if (valid_id && font && glyph_id < font->count) {
-                width += glyph_font_width(font);
-            } else {
-                width += FONT_CHAR_WIDTH;
-            }
-            p += 2;
-        } else {
-            width += FONT_CHAR_WIDTH;
-            p++;
-        }
+        uint32_t cp;
+        glyph_ref_t g;
+        p += utf8_decode(p, &cp);
+        resolve_glyph(cp, font, &g);
+        width += g.width;
     }
     return width;
 }
 
 int display_text_width(const char *str) {
     return display_text_width_font(str, active_glyph_font);
+}
+
+int display_cell_at(const char *s, int *width_px) {
+    uint32_t cp;
+    glyph_ref_t g;
+    int len = utf8_decode((const unsigned char *)s, &cp);
+    resolve_glyph(cp, active_glyph_font, &g);
+    *width_px = g.width;
+    return len;
 }
 
 void display_string(int16_t x, int16_t y, const char *str, uint16_t fg, uint16_t bg) {
@@ -449,76 +423,24 @@ void display_string_font(int16_t x, int16_t y, const char *str,
                          uint16_t fg, uint16_t bg) {
     const unsigned char *p = (const unsigned char *)str;
     while (*p) {
-        if (*p == (unsigned char)DISPLAY_GLYPH_ESCAPE && p[1] != '\0') {
-            unsigned int glyph_id = 0;
-            bool valid_id = glyph_token_id(p[1], &glyph_id);
-            if (valid_id && font && glyph_id < font->count) {
-                uint8_t glyph_width = glyph_font_width(font);
-                display_glyph(x, y, font->glyphs[glyph_id], glyph_width, fg, bg);
-                x += glyph_width;
-            } else {
-                display_char(x, y, '?', fg, bg);
-                x += FONT_CHAR_WIDTH;
-            }
-            p += 2;
-        } else {
-            display_char(x, y, (char)*p++, fg, bg);
-            x += FONT_CHAR_WIDTH;
-        }
+        uint32_t cp;
+        glyph_ref_t g;
+        p += utf8_decode(p, &cp);
+        resolve_glyph(cp, font, &g);
+        aa_blit(x, y, g.g16, g.width, FONT_CHAR_HEIGHT, g.stride16, fg, bg);
+        x += g.width;
     }
-}
-
-static void display_char_2x(int16_t x, int16_t y, char c, uint16_t fg, uint16_t bg) {
-    if (x < 0 || y < 0 ||
-        x + FONT_CHAR_WIDTH_2X > DISPLAY_WIDTH ||
-        y + FONT_CHAR_HEIGHT_2X > DISPLAY_HEIGHT) {
-        return;
-    }
-    const uint8_t *glyph = font_builtin_2x[font_glyph_index(c)];
-
-    uint16_t palette[16];
-    aa_build_palette(fg, bg, palette);
-
-    set_addr_window(x, y, FONT_CHAR_WIDTH_2X, FONT_CHAR_HEIGHT_2X);
-    dc_data();
-
-    uint8_t buf[FONT_CHAR_WIDTH_2X * FONT_CHAR_HEIGHT_2X * 2];
-    int idx = 0;
-    for (int row = 0; row < FONT_CHAR_HEIGHT_2X; row++) {
-        const uint8_t *row_px = glyph + row * (FONT_CHAR_WIDTH_2X / 2);
-        for (int col = 0; col < FONT_CHAR_WIDTH_2X; col++) {
-            uint16_t color = palette[aa_alpha_at(row_px, col)];
-            buf[idx++] = color >> 8;
-            buf[idx++] = color & 0xFF;
-        }
-    }
-    spi_write_bytes(buf, sizeof(buf));
 }
 
 void display_string_2x(int16_t x, int16_t y, const char *str, uint16_t fg, uint16_t bg) {
-    while (*str) {
-        if ((unsigned char)*str == (unsigned char)DISPLAY_GLYPH_ESCAPE && str[1] != '\0') {
-            unsigned int glyph_id = 0;
-            bool valid_id = glyph_token_id((unsigned char)str[1], &glyph_id);
-            if (valid_id && active_glyph_font && glyph_id < active_glyph_font->count) {
-                uint8_t glyph_width = glyph_font_width(active_glyph_font);
-                if (active_glyph_font->glyphs_2x) {
-                    display_glyph_32(x, y, active_glyph_font->glyphs_2x[glyph_id],
-                                         glyph_width, fg, bg);
-                } else {
-                    display_glyph_2x(x, y, active_glyph_font->glyphs[glyph_id],
-                                         glyph_width, fg, bg);
-                }
-                x += glyph_width * 2;
-            } else {
-                display_char_2x(x, y, '?', fg, bg);
-                x += FONT_CHAR_WIDTH_2X;
-            }
-            str += 2;
-        } else {
-            display_char_2x(x, y, *str++, fg, bg);
-            x += FONT_CHAR_WIDTH_2X;
-        }
+    const unsigned char *p = (const unsigned char *)str;
+    while (*p) {
+        uint32_t cp;
+        glyph_ref_t g;
+        p += utf8_decode(p, &cp);
+        resolve_glyph(cp, active_glyph_font, &g);
+        aa_blit(x, y, g.g32, g.width * 2, FONT_CHAR_HEIGHT_2X, g.stride32, fg, bg);
+        x += g.width * 2;
     }
 }
 

@@ -86,7 +86,8 @@ static void draw_menu(void) {
     ui_draw_slider(LED_ROW_Y, tr(STR_LED_BLINK), led_brightness, BRIGHTNESS_MAX, COLOR_RED);
 
     char rotate_label[24];
-    snprintf(rotate_label, sizeof(rotate_label), "%s\x7F", tr(STR_ROTATE));
+    // \xC2\xB0 is the UTF-8 degree sign.
+    snprintf(rotate_label, sizeof(rotate_label), "%s\xC2\xB0", tr(STR_ROTATE));
     display_fill_rect(0, ROTATION_ROW_Y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, UI_COLOR_ITEM_BG);
     display_string(10, ROTATION_ROW_Y + UI_TEXT_Y_OFFSET, rotate_label, UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
     uint16_t rot_bg = rotation ? COLOR_GREEN : COLOR_GRAY;
