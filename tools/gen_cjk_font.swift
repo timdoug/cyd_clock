@@ -1,5 +1,12 @@
 import AppKit
+import CoreText
 import Foundation
+
+func fontHasGlyphs(_ font: NSFont, _ s: String) -> Bool {
+    let utf16 = Array(s.utf16)
+    var glyphs = [CGGlyph](repeating: 0, count: utf16.count)
+    return CTFontGetGlyphsForCharacters(font as CTFont, utf16, &glyphs, utf16.count)
+}
 
 struct Language {
     let code: String
@@ -412,10 +419,10 @@ let el = Language(
     enumName: "LANG_EL",
     fontObject: "font_el",
     glyphArray: "el_glyphs",
-    fontName: "Helvetica Neue",
-    glyphWidth: 10,
-    fontSize16: 14,
-    fontSize32: 29,
+    fontName: "Menlo",
+    glyphWidth: 8,
+    fontSize16: 13,
+    fontSize32: 26,
     generateAsciiLetters: false,
     generateAsciiDigits: true,
     nativeName: "Ελληνικά",
@@ -495,8 +502,7 @@ let el = Language(
     weekdays: ["Κυρ", "Δευ", "Τρι", "Τετ", "Πεμ", "Παρ", "Σαβ"],
     months: ["Ιαν","Φεβ","Μαρ","Απρ","Μαϊ","Ιουν","Ιουλ","Αυγ","Σεπ","Οκτ","Νοε","Δεκ"],
     yearSuffix: "",
-    daySuffix: "",
-    yNudge: 1
+    daySuffix: ""
 )
 
 let sk = Language(
@@ -515,7 +521,7 @@ let sk = Language(
         ("STR_SETTINGS", "Nastavenia"),
         ("STR_TIMEZONE", "Časové pásmo"),
         ("STR_BRIGHTNESS", "Jas"),
-        ("STR_LED_BLINK", "Blikanie LED"),
+        ("STR_LED_BLINK", "LED blik."),
         ("STR_ROTATE", "Otočiť 180"),
         ("STR_ABOUT", "O zariadení"),
         ("STR_LANGUAGE", "Jazyk"),
@@ -693,7 +699,7 @@ let lv = Language(
         ("STR_SETTINGS", "Iestatījumi"),
         ("STR_TIMEZONE", "Laika josla"),
         ("STR_BRIGHTNESS", "Spilgtums"),
-        ("STR_LED_BLINK", "LED mirgošana"),
+        ("STR_LED_BLINK", "LED mirg."),
         ("STR_ROTATE", "Pagriezt 180"),
         ("STR_ABOUT", "Par"),
         ("STR_LANGUAGE", "Valoda"),
@@ -782,7 +788,7 @@ let lt = Language(
         ("STR_SETTINGS", "Nustatymai"),
         ("STR_TIMEZONE", "Laiko juosta"),
         ("STR_BRIGHTNESS", "Ryškumas"),
-        ("STR_LED_BLINK", "LED mirksėjimas"),
+        ("STR_LED_BLINK", "LED mirks."),
         ("STR_ROTATE", "Pasukti 180"),
         ("STR_ABOUT", "Apie"),
         ("STR_LANGUAGE", "Kalba"),
@@ -871,7 +877,7 @@ let et = Language(
         ("STR_SETTINGS", "Seaded"),
         ("STR_TIMEZONE", "Ajavöönd"),
         ("STR_BRIGHTNESS", "Heledus"),
-        ("STR_LED_BLINK", "LED vilkumine"),
+        ("STR_LED_BLINK", "LED vilgub"),
         ("STR_ROTATE", "Pööra 180"),
         ("STR_ABOUT", "Teave"),
         ("STR_LANGUAGE", "Keel"),
@@ -949,10 +955,10 @@ let vi = Language(
     enumName: "LANG_VI",
     fontObject: "font_vi",
     glyphArray: "vi_glyphs",
-    fontName: "Helvetica Neue",
+    fontName: "Menlo",
     glyphWidth: 8,
-    fontSize16: 12,
-    fontSize32: 27,
+    fontSize16: 13,
+    fontSize32: 26,
     generateAsciiLetters: true,
     generateAsciiDigits: true,
     nativeName: "Tiếng Việt",
@@ -960,7 +966,7 @@ let vi = Language(
         ("STR_SETTINGS", "Cài đặt"),
         ("STR_TIMEZONE", "Múi giờ"),
         ("STR_BRIGHTNESS", "Độ sáng"),
-        ("STR_LED_BLINK", "LED nhấp nháy"),
+        ("STR_LED_BLINK", "LED nháy"),
         ("STR_ROTATE", "Xoay 180"),
         ("STR_ABOUT", "Giới thiệu"),
         ("STR_LANGUAGE", "Ngôn ngữ"),
@@ -1034,6 +1040,73 @@ let vi = Language(
 )
 
 let languages = [ja, zh, zhHant, ko, el, sk, sl, lv, lt, et, vi]
+
+// The built-in 8x16 UI font. Menlo is genuinely monospaced, so every
+// glyph natively fits the 8px cell and inter-character spacing is
+// correct by construction; the Greek and Vietnamese generated fonts use
+// the same face and size, putting every script on one baseline.
+let builtinFont = Language(
+    code: "builtin",
+    enumName: "",
+    fontObject: "",
+    glyphArray: "",
+    fontName: "Menlo",
+    glyphWidth: 8,
+    fontSize16: 13,
+    fontSize32: 26,
+    generateAsciiLetters: false,
+    generateAsciiDigits: false,
+    nativeName: "",
+    strings: [],
+    weekdays: [],
+    months: [],
+    yearSuffix: "",
+    daySuffix: ""
+)
+
+// Single-byte high slots for the byte-encoded languages. The assignments
+// mirror the private encoding documented in main/i18n.c; a slot missing
+// here renders as '?' on the device.
+let builtinHighSlots: [(Int, Character)] = [
+    // Polish / Czech / Turkish extended Latin
+    (0x80, "ą"), (0x81, "ć"), (0x82, "ę"), (0x83, "ł"), (0x84, "ń"),
+    (0x85, "ś"), (0x86, "č"), (0x87, "ě"), (0x88, "ř"), (0x89, "š"),
+    (0x8A, "ž"), (0x8B, "ť"), (0x8C, "ğ"), (0x8D, "ı"), (0x8E, "ş"),
+    (0x8F, "Č"),
+    // Cyrillic uppercase
+    (0x90, "А"), (0x91, "В"), (0x92, "Г"), (0x93, "Д"), (0x94, "И"),
+    (0x95, "М"), (0x96, "Н"), (0x97, "О"), (0x98, "П"), (0x99, "Р"),
+    (0x9A, "С"), (0x9B, "Т"), (0x9C, "У"), (0x9D, "Ф"), (0x9E, "Ч"),
+    (0x9F, "Ш"), (0xA0, "Я"),
+    // Inverted exclamation (Spanish)
+    (0xA1, "¡"),
+    // Cyrillic lowercase
+    (0xA2, "а"), (0xA3, "б"), (0xA4, "в"), (0xA5, "г"), (0xA6, "д"),
+    (0xA7, "е"), (0xA8, "ж"), (0xA9, "з"), (0xAA, "и"), (0xAB, "й"),
+    (0xAC, "к"), (0xAD, "л"), (0xAE, "м"), (0xAF, "н"), (0xB0, "о"),
+    (0xB1, "п"), (0xB2, "р"), (0xB3, "с"), (0xB4, "т"), (0xB5, "у"),
+    (0xB6, "ф"), (0xB7, "х"), (0xB8, "ч"), (0xB9, "ш"), (0xBA, "ы"),
+    (0xBB, "ь"), (0xBC, "ю"), (0xBD, "я"),
+    // Turkish uppercase cedillas
+    (0xBE, "Ç"), (0xBF, "Ş"),
+    // Croatian / Hungarian / Romanian extended Latin
+    (0xC0, "Á"), (0xC1, "ő"), (0xC2, "ű"), (0xC3, "ă"), (0xC4, "â"),
+    (0xC5, "î"), (0xC6, "ș"), (0xC7, "ț"), (0xC8, "Î"), (0xC9, "đ"),
+    // Bulgarian / Ukrainian Cyrillic extras
+    (0xCA, "ъ"), (0xCB, "Э"), (0xCC, "і"), (0xCD, "ї"), (0xCE, "є"),
+    (0xCF, "Б"),
+    // Uppercase accents and remaining extras
+    (0xD0, "Ř"), (0xD1, "Ś"), (0xD2, "ź"), (0xD3, "İ"), (0xD4, "ц"),
+    (0xD5, "Š"), (0xD6, "Ť"), (0xD7, "ā"), (0xD8, "ē"), (0xD9, "ģ"),
+    (0xDA, "Ú"), (0xDB, "ī"), (0xDC, "Ü"), (0xDD, "ļ"), (0xDE, "ū"),
+    (0xDF, "ė"),
+    // True Latin-1 slots
+    (0xE0, "à"), (0xE1, "á"), (0xE3, "ã"), (0xE4, "ä"), (0xE5, "å"),
+    (0xE6, "æ"), (0xE7, "ç"), (0xE9, "é"), (0xEA, "ê"), (0xEC, "ì"),
+    (0xED, "í"),
+    (0xF0, "Į"), (0xF1, "ñ"), (0xF2, "ų"), (0xF3, "ó"), (0xF5, "õ"),
+    (0xF6, "ö"), (0xF8, "ø"), (0xFA, "ú"), (0xFB, "û"), (0xFC, "ü"),
+]
 
 func isAscii(_ ch: Character) -> Bool {
     guard ch.unicodeScalars.count == 1, let scalar = ch.unicodeScalars.first else { return false }
@@ -1130,8 +1203,8 @@ let latinByteMap: [Character: UInt8] = [
     "õ": 0xF5, "ö": 0xF6, "ü": 0xFC,
 ]
 
-func render(_ ch: String, lang: Language, pixels: Int) -> [UInt8] {
-    let outputWidth = pixels
+func render(_ ch: String, lang: Language, pixels: Int, outputWidth: Int? = nil) -> [UInt8] {
+    let outputWidth = outputWidth ?? pixels
     let renderWidth = pixels == 16 ? lang.glyphWidth : lang.glyphWidth * 2
     guard let rep = NSBitmapImageRep(
         bitmapDataPlanes: nil,
@@ -1163,7 +1236,19 @@ func render(_ ch: String, lang: Language, pixels: Int) -> [UInt8] {
         // table with different metrics.
         fatalError("font \(lang.fontName) is not installed")
     }
-    let s = ch as NSString
+    var text = ch
+    if !fontHasGlyphs(font, text) {
+        // Menlo lacks some precomposed Vietnamese vowels but has every
+        // combining mark; draw the decomposed sequence so CoreText
+        // composes base + marks in the same face. Anything else missing
+        // fails loudly rather than silently borrowing a fallback font.
+        let nfd = text.decomposedStringWithCanonicalMapping
+        guard fontHasGlyphs(font, nfd) else {
+            fatalError("\(lang.fontName) has no glyph for \(text)")
+        }
+        text = nfd
+    }
+    let s = text as NSString
     let attrs: [NSAttributedString.Key: Any] = [
         .font: font,
         .foregroundColor: NSColor.white,
@@ -1329,6 +1414,52 @@ func generateFontC(_ glyphsByLanguage: [(Language, [String])]) -> String {
     return out
 }
 
+func generateBuiltinFontC() -> String {
+    var out = """
+    // Built-in 8x16 UI font: printable ASCII, degree sign at 0x7F, and the
+    // single-byte high slots used by the byte-encoded languages (slot
+    // assignments mirror main/i18n.c). Same 4-bit alpha format as the
+    // supplemental glyph tables; unlisted slots stay zero and render '?'.
+
+    """
+    let variants: [(Int, Int, String, String)] = [
+        (16, 8, "font_builtin", "FONT_BUILTIN_GLYPH_BYTES"),
+        (32, 16, "font_builtin_2x", "FONT_BUILTIN_GLYPH_2X_BYTES"),
+    ]
+    for (pixels, outWidth, name, bytesMacro) in variants {
+        out += "const uint8_t \(name)[FONT_BUILTIN_COUNT][\(bytesMacro)] = {\n"
+        for code in 0x20...0x7F {
+            let ch: String
+            let label: String
+            if code == 0x7F {
+                // The original hand font kept a degree sign here (used by
+                // the rotation label); preserve that.
+                ch = "\u{00B0}"
+                label = "degree"
+            } else {
+                ch = String(UnicodeScalar(code)!)
+                switch code {
+                case 0x20: label = "space"
+                case 0x5C: label = "backslash"  // a bare one would splice the next line into this comment
+                default: label = ch
+                }
+            }
+            let bytes = render(ch, lang: builtinFont, pixels: pixels, outputWidth: outWidth)
+            let hex = bytes.map { String(format: "0x%02X", $0) }.joined(separator: ",")
+            out += "    [0x\(String(format: "%02X", code)) - 0x20] = {\(hex)}, // \(label)\n"
+        }
+        for (code, ch) in builtinHighSlots {
+            let scalars = String(ch).unicodeScalars
+                .map { String(format: "U+%04X", $0.value) }.joined(separator: " ")
+            let bytes = render(String(ch), lang: builtinFont, pixels: pixels, outputWidth: outWidth)
+            let hex = bytes.map { String(format: "0x%02X", $0) }.joined(separator: ",")
+            out += "    [0x\(String(format: "%02X", code)) - 0x20] = {\(hex)}, // \(scalars)\n"
+        }
+        out += "};\n\n"
+    }
+    return out
+}
+
 func generateI18nInc(_ glyphsByLanguage: [(Language, [String])]) -> String {
     var out = """
     // Generated by tools/gen_cjk_font.swift; do not edit by hand.
@@ -1377,7 +1508,7 @@ for lang in languages {
 }
 
 let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-try generateFontC(glyphsByLanguage)
+try (generateFontC(glyphsByLanguage) + generateBuiltinFontC())
     .write(to: root.appendingPathComponent("main/cjk_font.c"), atomically: true, encoding: .utf8)
 try generateI18nInc(glyphsByLanguage)
     .write(to: root.appendingPathComponent("main/cjk_i18n.inc"), atomically: true, encoding: .utf8)

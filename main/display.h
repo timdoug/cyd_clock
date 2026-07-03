@@ -25,6 +25,14 @@
 // byte, high nibble = left pixel, rows packed top to bottom. Draw paths
 // blend fg toward bg through a 16-entry palette, which is why glyphs
 // always repaint their full cell background.
+// Generated antialiased built-in font: printable ASCII 0x20-0x7E, the
+// degree sign at 0x7F, and the populated single-byte high slots (see
+// i18n.c). 4-bit alpha, two pixels per byte, indexed by byte - 0x20.
+#define FONT_BUILTIN_FIRST 0x20
+#define FONT_BUILTIN_COUNT 224
+#define FONT_BUILTIN_GLYPH_BYTES 64      // 8x16 px at 4 bits each
+#define FONT_BUILTIN_GLYPH_2X_BYTES 256  // 16x32 px at 4 bits each
+
 #define DISPLAY_CJK_ESCAPE '\x1E'
 #define DISPLAY_CJK_GLYPH_WIDTH 16
 #define DISPLAY_CJK_GLYPH_HEIGHT 16

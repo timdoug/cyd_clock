@@ -3,6 +3,9 @@
 
 #include "display.h"
 
+extern const uint8_t font_builtin[FONT_BUILTIN_COUNT][FONT_BUILTIN_GLYPH_BYTES];
+extern const uint8_t font_builtin_2x[FONT_BUILTIN_COUNT][FONT_BUILTIN_GLYPH_2X_BYTES];
+
 extern const display_cjk_font_t font_ja;
 extern const display_cjk_font_t font_zh;
 extern const display_cjk_font_t font_zh_hant;

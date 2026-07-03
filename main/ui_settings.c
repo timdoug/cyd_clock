@@ -15,9 +15,9 @@
 static const char *TAG = "ui_settings";
 
 #define ITEM_START_Y        32
-// Sized for the widest translated On/Off label: the Greek "off" is
-// 8 glyphs x 10px = 80px.
-#define ROTATION_TOGGLE_W   88
+// Sized for the widest translated On/Off label: the Greek "off" and
+// Lithuanian "Isjungta" are 8 glyphs x 8px = 64px.
+#define ROTATION_TOGGLE_W   72
 #define ROTATION_TOGGLE_X   (DISPLAY_WIDTH - ROTATION_TOGGLE_W - 8)
 
 #define TZ_ROW_Y            (ITEM_START_Y)
