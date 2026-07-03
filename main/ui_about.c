@@ -19,10 +19,10 @@
 static const char *TAG = "ui_about";
 
 #define URL "github.com/timdoug/cyd_clock"
-#define OTA_BTN_X 260
-#define OTA_BTN_Y 5
-#define OTA_BTN_W 55
-#define OTA_BTN_H 20
+#define OTA_BTN_X UI_HEADER_RBTN_X
+#define OTA_BTN_Y UI_HEADER_BTN_Y
+#define OTA_BTN_W UI_BACK_BTN_W
+#define OTA_BTN_H UI_HEADER_BTN_H
 #define OTA_URL_BOX_Y 58
 #define OTA_URL_BOX_H 60
 #define OTA_UPDATE_BTN_X 10
@@ -30,9 +30,9 @@ static const char *TAG = "ui_about";
 #define OTA_UPDATE_BTN_Y 134
 #define OTA_UPDATE_BTN_H 28
 #define OTA_KEYBOARD_Y 84
-// Bottom-row keys draw and hit-test at the same height (drawn 2px short of a
-// full key row for a visual gap; the hit region must match, no dead strip).
-#define OTA_KB_BTN_H (KB_KEY_HEIGHT - 2)
+// Bottom-row keys draw and hit-test at the same height, matching the
+// wifi keyboard's bottom row.
+#define OTA_KB_BTN_H KB_KEY_HEIGHT
 
 // The IPv6 value sits at x=90; a full address overruns the screen, so it scrolls.
 #define IP6_VAL_X       90

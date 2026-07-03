@@ -471,10 +471,10 @@ void ui_draw_slider(int y, const char *label, uint8_t value, uint8_t max_value, 
     display_rect(UI_SLIDER_BAR_X, bar_y, UI_SLIDER_BAR_W, UI_SLIDER_BAR_H, COLOR_GRAY);
     ui_draw_slider_value(y, value, max_value, fill_color);
 
-    display_fill_rect(UI_SLIDER_BTN_X1, y + 3, UI_SLIDER_BTN_W, UI_SLIDER_BTN_H, COLOR_GRAY);
+    display_fill_rect(UI_SLIDER_BTN_X1, y + 2, UI_SLIDER_BTN_W, UI_SLIDER_BTN_H, COLOR_GRAY);
     display_string(UI_SLIDER_BTN_X1 + 6, y + 3, "-", COLOR_WHITE, COLOR_GRAY);
 
-    display_fill_rect(UI_SLIDER_BTN_X2, y + 3, UI_SLIDER_BTN_W, UI_SLIDER_BTN_H, COLOR_GRAY);
+    display_fill_rect(UI_SLIDER_BTN_X2, y + 2, UI_SLIDER_BTN_W, UI_SLIDER_BTN_H, COLOR_GRAY);
     display_string(UI_SLIDER_BTN_X2 + 6, y + 3, "+", COLOR_WHITE, COLOR_GRAY);
 }
 

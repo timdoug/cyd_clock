@@ -17,12 +17,16 @@
 
 #define UI_BACK_BTN_X       5
 #define UI_BACK_BTN_W       70
-// Geometry shared by all buttons that sit in the header bar.
+// Geometry shared by all buttons that sit in the header bar. RBTN_X is
+// the right-edge slot, mirroring the back button.
 #define UI_HEADER_BTN_Y     5
 #define UI_HEADER_BTN_H     20
+#define UI_HEADER_RBTN_X    (DISPLAY_WIDTH - UI_BACK_BTN_X - UI_BACK_BTN_W)
 
 #define UI_LIST_ITEM_H      28
-#define UI_LIST_START_Y     35
+// Header ends at row 29; start 2px below it to match the 2px gap the
+// 26px-tall fills leave between successive 28px-pitch rows.
+#define UI_LIST_START_Y     32
 #define UI_LIST_VISIBLE     7
 #define UI_LIST_SCROLL_REDRAW_MS 60
 #define UI_MARQUEE_GAP      3
@@ -64,7 +68,7 @@ typedef struct {
 #define UI_SLIDER_BTN_X1    260
 #define UI_SLIDER_BTN_X2    288
 #define UI_SLIDER_BTN_W     22
-#define UI_SLIDER_BTN_H     18
+#define UI_SLIDER_BTN_H     19   // odd: centers exactly in the 23px row at y+2
 
 void ui_draw_header(const char *title, bool show_back);
 

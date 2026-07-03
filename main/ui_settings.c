@@ -14,7 +14,9 @@
 
 static const char *TAG = "ui_settings";
 
-#define ITEM_START_Y        32
+// Header ends at row 29; start 3px below it to match the 3px gap the
+// 23px-tall fills leave between successive 26px-pitch rows.
+#define ITEM_START_Y        33
 // Sized for the widest translated On/Off label: the Greek "off" and
 // Lithuanian "Isjungta" are 8 glyphs x 8px = 64px.
 #define ROTATION_TOGGLE_W   72
@@ -93,10 +95,10 @@ static void draw_menu(void) {
     display_fill_rect(0, ROTATION_ROW_Y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, UI_COLOR_ITEM_BG);
     display_string(10, ROTATION_ROW_Y + UI_TEXT_Y_OFFSET, rotate_label, UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
     uint16_t rot_bg = rotation ? COLOR_GREEN : COLOR_GRAY;
-    display_fill_rect(ROTATION_TOGGLE_X, ROTATION_ROW_Y + 3, ROTATION_TOGGLE_W, 18, rot_bg);
+    display_fill_rect(ROTATION_TOGGLE_X, ROTATION_ROW_Y + 2, ROTATION_TOGGLE_W, 19, rot_bg);
     const char *rot_label = rotation ? tr(STR_ON) : tr(STR_OFF);
     int rot_text_x = ROTATION_TOGGLE_X + (ROTATION_TOGGLE_W - display_text_width(rot_label)) / 2;
-    display_string(rot_text_x, ROTATION_ROW_Y + 4, rot_label, rotation ? COLOR_BLACK : COLOR_WHITE, rot_bg);
+    display_string(rot_text_x, ROTATION_ROW_Y + 3, rot_label, rotation ? COLOR_BLACK : COLOR_WHITE, rot_bg);
 
     ui_draw_menu_item(ABOUT_ROW_Y, tr(STR_ABOUT));
     ui_draw_menu_item(LANGUAGE_ROW_Y, tr(STR_LANGUAGE));
