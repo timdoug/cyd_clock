@@ -84,13 +84,20 @@ func codepoint(_ ch: Character) -> UInt32 {
 // i18n_data.inc, bucketed by which font must render them. A declaration
 // whose symbol ends in _<scope> (lang_ja, weekdays_ja, date_year_ja, ...)
 // belongs to that CJK font; everything else is base-font text.
+// 2x bitmaps are only reachable from the clock date and the waiting
+// banner, so alongside the full character buckets we track the subset
+// used by weekday/month/date-suffix tables and STR_WAITING_NTP; every
+// other glyph pixel-doubles at 2x (which nothing renders).
+var dateBuckets: [String: Set<Character>] = ["": Set("0123456789 .,-")]
+
 func collectChars(_ source: String) -> [String: Set<Character>] {
     var buckets: [String: Set<Character>] = ["": []]
-    for cfg in cjkConfigs { buckets[cfg.scope] = [] }
+    for cfg in cjkConfigs { buckets[cfg.scope] = []; dateBuckets[cfg.scope] = [] }
 
     var scope = ""
     var inShaped = false
     var inBlock = false
+    var inDateTable = false
     for line in source.split(separator: "\n", omittingEmptySubsequences: false) {
         // shaped-script sources are consumed by the shaping pipeline, not
         // the plain character collector
@@ -99,6 +106,7 @@ func collectChars(_ source: String) -> [String: Set<Character>] {
         if inShaped { continue }
         if !inBlock {
             scope = ""
+            inDateTable = false
             // declaration line: pick scope from the symbol name
             if let m = line.range(of: #"(lang|weekdays|months|lang_name|date_year|date_day)_[a-z_]+"#,
                                   options: .regularExpression) {
@@ -106,6 +114,10 @@ func collectChars(_ source: String) -> [String: Set<Character>] {
                 for cfg in cjkConfigs where sym.hasSuffix("_" + cfg.scope) {
                     scope = cfg.scope
                     break
+                }
+                if sym.hasPrefix("weekdays_") || sym.hasPrefix("months_")
+                    || sym.hasPrefix("date_year_") || sym.hasPrefix("date_day_") {
+                    inDateTable = true
                 }
             }
             if line.contains("= {") { inBlock = true }
@@ -122,8 +134,11 @@ func collectChars(_ source: String) -> [String: Set<Character>] {
                 else { lit.append(rest[i]) }
                 i = rest.index(after: i)
             }
-            for ch in lit where !isAscii(ch) {
-                buckets[scope]!.insert(ch)
+            for ch in lit {
+                if !isAscii(ch) { buckets[scope]!.insert(ch) }
+                if inDateTable || line.contains("[STR_WAITING_NTP]") {
+                    dateBuckets[scope]!.insert(ch)
+                }
             }
             if i >= rest.endIndex { break }
             rest = rest[rest.index(after: i)...]
@@ -310,12 +325,15 @@ func blobPtr(_ off: Int) -> String { "fonts_blob + \(off)" }
 func blobPtr16(_ off: Int) -> String { "(const uint16_t *)(const void *)(fonts_blob + \(off))" }
 
 // Pack a font's 1x and 2x tiles; returns (rle1x, off1x, rle2x, off2x).
+// 2x tiles are emitted only for date-reachable characters.
 func packGlyphArrays(_ prefix: String, _ chars: [Character], cfg: FontConfig,
-                     out16: Int, out32: Int) -> (Int, Int, Int, Int) {
+                     out16: Int, out32: Int, reach2x: Set<Character>) -> (Int, Int, Int, Int) {
     let tiles1x: [[UInt8]?] = chars.map { render(String($0), cfg: cfg, pixels: 16, outputWidth: out16) }
     let (r1, o1) = packTiles(prefix, tiles1x)
-    let tiles: [[UInt8]?] = chars.map { render(String($0), cfg: cfg, pixels: 32, outputWidth: out32) }
-    let (r2, o2) = packTiles("\(prefix)_2x", tiles, )
+    let tiles: [[UInt8]?] = chars.map {
+        reach2x.contains($0) ? render(String($0), cfg: cfg, pixels: 32, outputWidth: out32) : nil
+    }
+    let (r2, o2) = packTiles("\(prefix)_2x", tiles)
     return (r1, o1, r2, o2)
 }
 
@@ -344,7 +362,8 @@ for cfg in cjkConfigs.sorted(by: { $0.scope < $1.scope }) {
     out += "// \(cfg.scope): \(chars.count) glyphs (\(cfg.fontName))\n"
     let cpOff = packCodepoints(chars)
     let (r1, o1, r2, o2) = packGlyphArrays(cfg.glyphArray, chars, cfg: cfg,
-                                           out16: 16, out32: 32)
+                                           out16: 16, out32: 32,
+                                           reach2x: dateBuckets[cfg.scope] ?? [])
     out += """
     const display_glyph_font_t \(cfg.fontObject) = {
         .codepoints = \(blobPtr16(cpOff)),
@@ -369,13 +388,16 @@ let baseAscii1x: [[UInt8]?] = (0x20...0x7E).map {
     render(String(UnicodeScalar($0)!), cfg: baseConfig, pixels: 16, outputWidth: 8)
 }
 let (bar1, bao1) = packTiles("font_base_ascii", baseAscii1x)
+let baseReach = dateBuckets[""] ?? []
 let baseAscii2x: [[UInt8]?] = (0x20...0x7E).map {
-    render(String(UnicodeScalar($0)!), cfg: baseConfig, pixels: 32, outputWidth: 16)
+    baseReach.contains(Character(UnicodeScalar($0)!))
+        ? render(String(UnicodeScalar($0)!), cfg: baseConfig, pixels: 32, outputWidth: 16)
+        : nil
 }
 let (bar2, bao2) = packTiles("font_base_ascii_2x", baseAscii2x)
 let bExtCp = packCodepoints(baseSorted)
 let (ber1, beo1, ber2, beo2) = packGlyphArrays("font_base_ext", baseSorted, cfg: baseConfig,
-                                               out16: 8, out32: 16)
+                                               out16: 8, out32: 16, reach2x: baseReach)
 out += """
 const uint8_t *const font_base_ascii_rle = \(blobPtr(bar1));
 const uint16_t *const font_base_ascii_off = \(blobPtr16(bao1));
