@@ -16,19 +16,28 @@ static int list_scroll = 0;
 // with the Cyrillic-script names grouped at the end. Rows map to languages
 // through this table, so add new languages in their sorted position here.
 static const lang_t lang_order[LANG_COUNT] = {
+    LANG_AZ,  // Azerbaycan
     LANG_MS,  // Bahasa Melayu
     LANG_CA,  // Catala
     LANG_CS,  // Cestina
+    LANG_CY,  // Cymraeg
     LANG_DA,  // Dansk
     LANG_DE,  // Deutsch
     LANG_ET,  // Eesti
     LANG_EN,  // English
     LANG_ES,  // Espanol
+    LANG_EO,  // Esperanto
+    LANG_EU,  // Euskara
+    LANG_FIL,  // Filipino
+    LANG_FO,  // Foroyskt
     LANG_FR,  // Francais
+    LANG_GA,  // Gaeilge
+    LANG_GL,  // Galego
     LANG_HR,  // Hrvatski
     LANG_ID,  // Indonesia
     LANG_IS,  // Islenska
     LANG_IT,  // Italiano
+    LANG_SW,  // Kiswahili
     LANG_LV,  // Latviesu
     LANG_LT,  // Lietuviu
     LANG_HU,  // Magyar
@@ -37,6 +46,7 @@ static const lang_t lang_order[LANG_COUNT] = {
     LANG_PL,  // Polski
     LANG_PT,  // Portugues
     LANG_RO,  // Romana
+    LANG_SQ,  // Shqip
     LANG_SK,  // Slovencina
     LANG_SL,  // Slovenscina
     LANG_FI,  // Suomi
@@ -48,7 +58,10 @@ static const lang_t lang_order[LANG_COUNT] = {
     LANG_ZH,  // Simplified Chinese native name
     LANG_ZH_HANT,  // Traditional Chinese native name
     LANG_KO,  // Korean native name
+    LANG_BE,  // Belaruskaya
     LANG_BG,  // Bulgarski
+    LANG_KK,  // Qazaqsha
+    LANG_MK,  // Makedonski
     LANG_RU,  // Russkiy
     LANG_SR,  // Srpski
     LANG_UK,  // Ukrainska
