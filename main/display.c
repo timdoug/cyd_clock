@@ -746,8 +746,14 @@ void display_colon_7seg(int16_t x, int16_t y, uint8_t size, uint16_t color) {
         default: seg_len = 48; seg_thick = 8; dot_size = 8; break;
     }
 
-    display_fill_rect(x + 2, y + seg_len / 2 + seg_thick / 2, dot_size, dot_size, color);
-    display_fill_rect(x + 2, y + seg_len + seg_len / 2 + seg_thick, dot_size, dot_size, color);
+    // Dots centered in the COLON_7SEG_WIDTH slot, the pair symmetric
+    // within the digit bounding box (dot-to-top-segment distance equals
+    // dot-to-middle and mirrors below).
+    int16_t h = 2 * seg_len + 2 * seg_thick - 1;
+    int16_t dot_x = x + (COLON_7SEG_WIDTH - dot_size) / 2;
+    int16_t upper = seg_len / 2 + seg_thick / 2 - 2;
+    display_fill_rect(dot_x, y + upper, dot_size, dot_size, color);
+    display_fill_rect(dot_x, y + h - upper - dot_size, dot_size, dot_size, color);
 }
 
 void display_set_backlight(uint8_t brightness) {
