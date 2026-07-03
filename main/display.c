@@ -112,20 +112,87 @@ typedef struct {
     uint8_t stride32;        // bytes per unpacked 2x row
 } glyph_ref_t;
 
-// PackBits: control < 128 copies control+1 literal bytes; control > 128
-// repeats the next byte 257-control times; 128 is a no-op.
+// Raw-DEFLATE inflater restricted to what the generator emits: one
+// stored or fixed-Huffman block per glyph. No dynamic-Huffman support
+// and no window buffer (the output itself is the window; matches never
+// reach back further than the glyph).
+typedef struct {
+    const uint8_t *src;
+    unsigned len;
+    unsigned pos;   // byte position
+    unsigned bit;   // bit position within src[pos]
+} bit_reader_t;
+
+static unsigned get_bits(bit_reader_t *br, unsigned n) {
+    unsigned v = 0;
+    for (unsigned k = 0; k < n; k++) {
+        unsigned b = 0;
+        if (br->pos < br->len) {
+            b = (br->src[br->pos] >> br->bit) & 1u;
+        }
+        if (++br->bit == 8) { br->bit = 0; br->pos++; }
+        v |= b << k;
+    }
+    return v;
+}
+
+// Fixed-Huffman literal/length symbol: codes are read MSB-first.
+static unsigned get_fixed_litlen(bit_reader_t *br) {
+    unsigned code = 0;
+    for (int k = 0; k < 7; k++) code = (code << 1) | get_bits(br, 1);
+    if (code <= 0x17) return 256 + code;
+    code = (code << 1) | get_bits(br, 1);
+    if (code >= 0x30 && code <= 0xBF) return code - 0x30;
+    if (code >= 0xC0 && code <= 0xC7) return 280 + code - 0xC0;
+    code = (code << 1) | get_bits(br, 1);
+    return 144 + code - 0x190;
+}
+
+static const uint16_t inflate_len_base[29] = {
+    3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31,
+    35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258,
+};
+static const uint8_t inflate_len_extra[29] = {
+    0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2,
+    3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0,
+};
+static const uint16_t inflate_dist_base[20] = {
+    1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193,
+    257, 385, 513, 769,
+};
+static const uint8_t inflate_dist_extra[20] = {
+    0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8,
+};
+
 static void unpack_packbits(const uint8_t *src, unsigned len,
                             uint8_t *dst, unsigned cap) {
-    unsigned si = 0, di = 0;
-    while (si < len && di < cap) {
-        uint8_t c = src[si++];
-        if (c < 128) {
-            unsigned n = c + 1u;
-            while (n-- && si < len && di < cap) dst[di++] = src[si++];
-        } else if (c > 128) {
-            unsigned n = 257u - c;
-            uint8_t v = (si < len) ? src[si++] : 0;
-            while (n-- && di < cap) dst[di++] = v;
+    bit_reader_t br = { src, len, 0, 0 };
+    unsigned di = 0;
+
+    get_bits(&br, 1);                 // BFINAL (single block per glyph)
+    unsigned btype = get_bits(&br, 2);
+    if (btype == 0) {                 // stored
+        if (br.bit) { br.bit = 0; br.pos++; }
+        unsigned n = get_bits(&br, 16);
+        get_bits(&br, 16);            // NLEN, trusted (generated data)
+        while (n-- && br.pos < br.len && di < cap) dst[di++] = src[br.pos++];
+    } else if (btype == 1) {          // fixed Huffman
+        for (;;) {
+            unsigned sym = get_fixed_litlen(&br);
+            if (sym == 256 || br.pos >= br.len) break;
+            if (sym < 256) {
+                if (di < cap) dst[di++] = (uint8_t)sym;
+                continue;
+            }
+            unsigned ls = sym - 257;
+            if (ls >= 29) break;
+            unsigned mlen = inflate_len_base[ls] + get_bits(&br, inflate_len_extra[ls]);
+            unsigned ds = 0;
+            for (int k = 0; k < 5; k++) ds = (ds << 1) | get_bits(&br, 1);
+            if (ds >= 20) break;
+            unsigned dist = inflate_dist_base[ds] + get_bits(&br, inflate_dist_extra[ds]);
+            if (dist > di) break;
+            while (mlen-- && di < cap) { dst[di] = dst[di - dist]; di++; }
         }
     }
     while (di < cap) dst[di++] = 0;
