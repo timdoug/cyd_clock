@@ -103,6 +103,7 @@ void tr_date(char *buf, size_t len, int wday, int mon, int mday, int year) {
     // year month day weekday reads correctly right-to-left.
     case LANG_AR:
     case LANG_HE:
+    case LANG_UR:
         snprintf(buf, len, "%d %s %d %s", year, mo, mday, wd);
         break;
     case LANG_FA: {
@@ -161,6 +162,12 @@ const display_glyph_font_t *i18n_glyph_font(lang_t lang) {
     case LANG_HI: return &font_hi;
     case LANG_BN: return &font_bn;
     case LANG_TH: return &font_th;
+    case LANG_UR: return &font_ur;
+    case LANG_MR: return &font_mr;
+    case LANG_TA: return &font_ta;
+    case LANG_TE: return &font_te;
+    case LANG_PA: return &font_pa;
+    case LANG_GU: return &font_gu;
     default: return NULL;
     }
 }
