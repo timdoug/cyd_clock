@@ -133,8 +133,8 @@ static void resolve_glyph(uint32_t cp, const display_glyph_font_t *font, glyph_r
         int i = cp_find(font->codepoints, font->count, cp);
         if (i >= 0) {
             out->g16 = font->glyphs[i];
-            out->g32 = font->glyphs_2x[i];
-            out->width = glyph_font_width(font);
+            out->g32 = font->glyphs_2x ? font->glyphs_2x[i] : NULL;
+            out->width = font->widths ? font->widths[i] : glyph_font_width(font);
             out->stride16 = DISPLAY_GLYPH_WIDTH / 2;
             out->stride32 = DISPLAY_GLYPH_2X_WIDTH / 2;
             return;
@@ -384,6 +384,38 @@ static void aa_blit(int16_t x, int16_t y, const uint8_t *glyph,
     spi_write_bytes(glyph_stage_buf, width * height * 2);
 }
 
+// Pixel-double a 1x glyph for 2x contexts when a font carries no 2x
+// table (the pre-shaped scripts skip 2x bitmaps to save flash).
+static void aa_blit_doubled(int16_t x, int16_t y, const uint8_t *glyph,
+                            int width, int height, int stride,
+                            uint16_t fg, uint16_t bg) {
+    if (!glyph || x < 0 || y < 0 ||
+        x + width * 2 > DISPLAY_WIDTH || y + height * 2 > DISPLAY_HEIGHT) {
+        return;
+    }
+
+    uint16_t palette[16];
+    aa_build_palette(fg, bg, palette);
+
+    set_addr_window(x, y, width * 2, height * 2);
+    dc_data();
+
+    int idx = 0;
+    for (int row = 0; row < height; row++) {
+        const uint8_t *row_px = glyph + row * stride;
+        for (int dup = 0; dup < 2; dup++) {
+            for (int col = 0; col < width; col++) {
+                uint16_t color = palette[aa_alpha_at(row_px, col)];
+                glyph_stage_buf[idx++] = color >> 8;
+                glyph_stage_buf[idx++] = color & 0xFF;
+                glyph_stage_buf[idx++] = color >> 8;
+                glyph_stage_buf[idx++] = color & 0xFF;
+            }
+        }
+    }
+    spi_write_bytes(glyph_stage_buf, width * 2 * height * 2 * 2);
+}
+
 void display_set_glyph_font(const display_glyph_font_t *font) {
     active_glyph_font = font;
 }
@@ -439,7 +471,11 @@ void display_string_2x(int16_t x, int16_t y, const char *str, uint16_t fg, uint1
         glyph_ref_t g;
         p += utf8_decode(p, &cp);
         resolve_glyph(cp, active_glyph_font, &g);
-        aa_blit(x, y, g.g32, g.width * 2, FONT_CHAR_HEIGHT_2X, g.stride32, fg, bg);
+        if (g.g32) {
+            aa_blit(x, y, g.g32, g.width * 2, FONT_CHAR_HEIGHT_2X, g.stride32, fg, bg);
+        } else {
+            aa_blit_doubled(x, y, g.g16, g.width, FONT_CHAR_HEIGHT, g.stride16, fg, bg);
+        }
         x += g.width * 2;
     }
 }

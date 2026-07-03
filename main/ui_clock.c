@@ -434,7 +434,9 @@ void ui_clock_update(void) {
         }
 
         if (timeinfo.tm_yday != last_day || last_day < 0) {
-            char date_str[32];
+            // Sized for 3-byte-per-cluster scripts: Bengali and Thai dates
+            // reach 33 bytes.
+            char date_str[48];
             tr_date(date_str, sizeof(date_str),
                     timeinfo.tm_wday, timeinfo.tm_mon,
                     timeinfo.tm_mday, timeinfo.tm_year + 1900);

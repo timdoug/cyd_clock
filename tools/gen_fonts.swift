@@ -9,6 +9,7 @@
 import AppKit
 import CoreText
 import Foundation
+setvbuf(stdout, nil, _IONBF, 0)
 
 struct FontConfig {
     let scope: String       // symbol suffix in i18n_data.inc, "" = base
@@ -79,8 +80,14 @@ func collectChars(_ source: String) -> [String: Set<Character>] {
     for cfg in cjkConfigs { buckets[cfg.scope] = [] }
 
     var scope = ""
+    var inShaped = false
     var inBlock = false
     for line in source.split(separator: "\n", omittingEmptySubsequences: false) {
+        // shaped-script sources are consumed by the shaping pipeline, not
+        // the plain character collector
+        if line.hasPrefix("// >>> shaped-source") { inShaped = true }
+        if line.hasPrefix("// <<< shaped-source") { inShaped = false; continue }
+        if inShaped { continue }
         if !inBlock {
             scope = ""
             // declaration line: pick scope from the symbol name
@@ -316,3 +323,458 @@ out += emitGlyphArrays("font_base_ext", baseSorted, cfg: baseConfig, storage: ""
 out += "const uint16_t font_base_ext_count = sizeof(font_base_ext) / sizeof(font_base_ext[0]);\n"
 
 try out.write(to: root.appendingPathComponent("main/fonts.c"), atomically: true, encoding: .utf8)
+
+// ---------------------------------------------------------------------------
+// Pre-shaped scripts: Arabic, Persian, Hebrew, Hindi, Bengali, Thai.
+// CoreText shapes each string at generation time (joining, ligatures,
+// conjuncts, mark stacking, bidi); the visual result is grouped into
+// cluster glyphs (a base plus any marks that overlap it), deduplicated,
+// and re-encoded as private-use codepoints (U+E000 + index) in visual
+// order. The device renders these as plain left-to-right glyph runs with
+// per-glyph widths - no runtime shaping or bidi. Format specifiers pass
+// through as literal ASCII segments, with segment order reversed for RTL
+// so snprintf-substituted values land in the visually correct place.
+
+import CryptoKit
+
+struct ShapedConfig {
+    let scope: String
+    let fontObject: String
+    let glyphArray: String
+    let fontName: String
+    let fontSize: CGFloat
+    let rtl: Bool
+    var aaGamma: CGFloat = 0.7
+}
+
+let shapedConfigs = [
+    ShapedConfig(scope: "ar", fontObject: "font_ar", glyphArray: "ar_glyphs",
+                 fontName: "Geeza Pro", fontSize: 13, rtl: true),
+    ShapedConfig(scope: "fa", fontObject: "font_fa", glyphArray: "fa_glyphs",
+                 fontName: "Geeza Pro", fontSize: 13, rtl: true),
+    ShapedConfig(scope: "he", fontObject: "font_he", glyphArray: "he_glyphs",
+                 fontName: "Arial Hebrew", fontSize: 14, rtl: true),
+    ShapedConfig(scope: "hi", fontObject: "font_hi", glyphArray: "hi_glyphs",
+                 fontName: "Kohinoor Devanagari", fontSize: 12, rtl: false),
+    ShapedConfig(scope: "bn", fontObject: "font_bn", glyphArray: "bn_glyphs",
+                 fontName: "Kohinoor Bangla", fontSize: 12, rtl: false),
+    ShapedConfig(scope: "th", fontObject: "font_th", glyphArray: "th_glyphs",
+                 fontName: "Thonburi", fontSize: 11, rtl: false),
+]
+
+func cUnescape(_ lit: String) -> String {
+    var out = ""
+    var esc = false
+    for ch in lit {
+        if esc { out.append(ch); esc = false }
+        else if ch == "\\" { esc = true }
+        else { out.append(ch) }
+    }
+    return out
+}
+
+struct ShapedSource {
+    let raw: String                     // marker-delimited section text (hashed)
+    let strings: [(String, String)]     // (STR_id, text)
+    let weekdays: [String]
+    let months: [String]
+    let name: String
+}
+
+func parseShapedSource(_ source: String, scope: String) -> ShapedSource {
+    guard let a = source.range(of: "// >>> shaped-source \(scope)\n"),
+          let b = source.range(of: "// <<< shaped-source \(scope)") else {
+        fatalError("shaped-source markers for \(scope) not found in i18n_data.inc")
+    }
+    let section = String(source[a.upperBound..<b.lowerBound])
+
+    func literals(_ block: String) -> [String] {
+        var out: [String] = []
+        var rest = Substring(block)
+        while let q1 = rest.firstIndex(of: "\"") {
+            var i = rest.index(after: q1)
+            var lit = ""
+            while i < rest.endIndex, rest[i] != "\"" {
+                if rest[i] == "\\" {
+                    lit.append(rest[i]); i = rest.index(after: i)
+                    if i < rest.endIndex { lit.append(rest[i]); i = rest.index(after: i) }
+                } else {
+                    lit.append(rest[i]); i = rest.index(after: i)
+                }
+            }
+            out.append(cUnescape(lit))
+            if i >= rest.endIndex { break }
+            rest = rest[rest.index(after: i)...]
+        }
+        return out
+    }
+    func block(_ name: String) -> String {
+        guard let s = section.range(of: name),
+              let e = section.range(of: "\n};", range: s.upperBound..<section.endIndex) else {
+            fatalError("\(scope): table \(name) not found")
+        }
+        return String(section[s.upperBound..<e.lowerBound])
+    }
+
+    var strings: [(String, String)] = []
+    let langBlock = block("lang_\(scope)[STR_COUNT] = {")
+    for line in langBlock.split(separator: "\n") {
+        guard let idStart = line.range(of: "[STR_"),
+              let idEnd = line.range(of: "]", range: idStart.upperBound..<line.endIndex) else { continue }
+        let id = "STR_" + line[idStart.upperBound..<idEnd.lowerBound]
+        let lits = literals(String(line))
+        guard lits.count == 1 else { fatalError("\(scope)/\(id): expected one literal") }
+        strings.append((id, lits[0]))
+    }
+    let wk = literals(block("weekdays_\(scope)[7] = {"))
+    let mo = literals(block("months_\(scope)[12] = {"))
+    guard wk.count == 7, mo.count == 12 else { fatalError("\(scope): weekday/month count") }
+    guard let n = section.range(of: "lang_name_\(scope)[] = ") else { fatalError("\(scope): name") }
+    let nameLine = section[n.upperBound...].prefix(while: { $0 != "\n" })
+    let name = literals(String(nameLine)).first ?? ""
+    return ShapedSource(raw: section, strings: strings, weekdays: wk, months: mo, name: name)
+}
+
+// Split a template into text segments and verbatim format-specifier
+// segments. Text segments containing non-ASCII get shaped; pure-ASCII
+// ones stay ASCII.
+enum Seg { case text(String), spec(String) }
+func segment(_ s: String) -> [Seg] {
+    var segs: [Seg] = []
+    var text = ""
+    let chars = Array(s)
+    var i = 0
+    let specifiers = Set("diuoxXfFeEgGaAcspn%")
+    let modifiers = Set("0123456789.*+-# 'lhLqjzt")
+    while i < chars.count {
+        if chars[i] == "%" {
+            var j = i + 1
+            while j < chars.count, modifiers.contains(chars[j]) { j += 1 }
+            if j < chars.count, specifiers.contains(chars[j]) {
+                if !text.isEmpty { segs.append(.text(text)); text = "" }
+                segs.append(.spec(String(chars[i...j])))
+                i = j + 1
+                continue
+            }
+        }
+        text.append(chars[i])
+        i += 1
+    }
+    if !text.isEmpty { segs.append(.text(text)) }
+    return segs
+}
+
+struct ShapedFontBuilder {
+    let cfg: ShapedConfig
+    let font: NSFont
+    var baselineY: CGFloat = 0
+    var glyphs: [[UInt8]] = []      // 1x bitmaps, 16px-wide rows
+    var widths: [Int] = []
+    var keyToIndex: [String: Int] = [:]
+
+    init(cfg: ShapedConfig) {
+        self.cfg = cfg
+        guard let f = NSFont(name: cfg.fontName, size: cfg.fontSize) else {
+            fatalError("font \(cfg.fontName) is not installed")
+        }
+        self.font = f
+    }
+
+    func makeLine(_ text: String) -> CTLine {
+        let para = NSMutableParagraphStyle()
+        para.baseWritingDirection = cfg.rtl ? .rightToLeft : .leftToRight
+        let attr = NSAttributedString(string: text, attributes: [
+            .font: font, .paragraphStyle: para,
+        ])
+        return CTLineCreateWithAttributedString(attr)
+    }
+
+    // One glyph as laid out by CoreText, in visual (line) coordinates.
+    struct PlacedGlyph {
+        let glyph: CGGlyph
+        let font: CTFont
+        let x: CGFloat
+        let y: CGFloat
+        let advance: CGFloat
+    }
+
+    func placedGlyphs(_ line: CTLine) -> [PlacedGlyph] {
+        var out: [PlacedGlyph] = []
+        let runs = CTLineGetGlyphRuns(line) as! [CTRun]
+        for run in runs {
+            let count = CTRunGetGlyphCount(run)
+            if count == 0 { continue }
+            var glyphs = [CGGlyph](repeating: 0, count: count)
+            var positions = [CGPoint](repeating: .zero, count: count)
+            var advances = [CGSize](repeating: .zero, count: count)
+            CTRunGetGlyphs(run, CFRange(location: 0, length: 0), &glyphs)
+            CTRunGetPositions(run, CFRange(location: 0, length: 0), &positions)
+            CTRunGetAdvances(run, CFRange(location: 0, length: 0), &advances)
+            let attrs = CTRunGetAttributes(run)
+            let fontKey = unsafeBitCast(kCTFontAttributeName, to: UnsafeRawPointer.self)
+            let runFont = unsafeBitCast(CFDictionaryGetValue(attrs, fontKey), to: CTFont.self)
+            for i in 0..<count {
+                out.append(PlacedGlyph(glyph: glyphs[i], font: runFont,
+                                       x: positions[i].x, y: positions[i].y,
+                                       advance: advances[i].width))
+            }
+        }
+        return out.sorted { $0.x < $1.x }
+    }
+
+    // Group glyphs whose horizontal extents overlap (base + attached marks).
+    func clusters(_ glyphs: [PlacedGlyph]) -> [[PlacedGlyph]] {
+        var out: [[PlacedGlyph]] = []
+        var cur: [PlacedGlyph] = []
+        var curEnd: CGFloat = -1e9
+        for g in glyphs {
+            let inkEnd = g.x + max(g.advance, 0.5)
+            if cur.isEmpty || g.x < curEnd - 0.25 || g.advance < 0.5 {
+                cur.append(g)
+            } else {
+                out.append(cur)
+                cur = [g]
+                curEnd = -1e9
+            }
+            curEnd = max(curEnd, inkEnd)
+        }
+        if !cur.isEmpty { out.append(cur) }
+        return out
+    }
+
+    // Render a cluster into a grayscale strip (top-down rows), then let
+    // the caller slice it into <=16px tiles.
+    func renderClusterStrip(_ cluster: [PlacedGlyph], width: Int, origin: CGFloat) -> [UInt8] {
+        let ctxW = max(16, ((width + 15) / 16) * 16)
+        guard let ctx = CGContext(data: nil, width: ctxW, height: 16,
+                                  bitsPerComponent: 8, bytesPerRow: ctxW,
+                                  space: CGColorSpaceCreateDeviceGray(),
+                                  bitmapInfo: CGImageAlphaInfo.none.rawValue) else {
+            fatalError("cg context")
+        }
+        ctx.setFillColor(gray: 0, alpha: 1)
+        ctx.fill(CGRect(x: 0, y: 0, width: ctxW, height: 16))
+        ctx.setFillColor(gray: 1, alpha: 1)
+        for g in cluster {
+            var glyph = g.glyph
+            var pos = CGPoint(x: g.x - origin, y: g.y + baselineY)
+            CTFontDrawGlyphs(g.font, &glyph, &pos, 1, ctx)
+        }
+        guard let data = ctx.data else { fatalError("cg data") }
+        let px = data.bindMemory(to: UInt8.self, capacity: ctxW * 16)
+        // CGBitmapContext memory is top-down already (row 0 = top scanline;
+        // only the drawing coordinate origin is bottom-left).
+        var out = [UInt8](repeating: 0, count: ctxW * 16)
+        for i in 0..<(ctxW * 16) { out[i] = px[i] }
+        return out
+    }
+
+    // Pack one <=16px-wide window of a strip into the 4bpp glyph format.
+    func packTile(_ strip: [UInt8], stripW: Int, from: Int, width: Int) -> [UInt8] {
+        var out = [UInt8](repeating: 0, count: DISPLAY_GLYPH_BYTES_SWIFT)
+        for row in 0..<16 {
+            for col in 0..<16 {
+                var level = 0
+                if col < width, from + col < stripW {
+                    let lum = CGFloat(strip[row * stripW + from + col]) / 255.0
+                    level = min(15, Int((pow(lum, cfg.aaGamma) * 15.0).rounded()))
+                }
+                let idx = row * 8 + col / 2
+                if col % 2 == 0 { out[idx] = UInt8(level << 4) }
+                else { out[idx] |= UInt8(level) }
+            }
+        }
+        return out
+    }
+
+    // Shape one text run into PUA codepoints, registering new glyphs.
+    mutating func shapeRun(_ text: String, context: String) -> String {
+        let line = makeLine(text)
+        let placed = placedGlyphs(line)
+        var out = ""
+        for cluster in clusters(placed) {
+            // Quantize on the line's absolute positions so adjacent
+            // clusters telescope: the sum of widths tracks the true line
+            // width and connected scripts keep their baseline stroke.
+            let xs = cluster.map { $0.x }.min() ?? 0
+            let xe = cluster.map { $0.x + $0.advance }.max() ?? xs
+            let qs = xs.rounded()
+            let qe = xe.rounded()
+            let w = max(1, Int(qe - qs))
+            if w > 64 {
+                fatalError("\(cfg.scope): cluster wider than 64px (\(w)) in \(context)")
+            }
+            let strip = renderClusterStrip(cluster, width: w, origin: qs)
+            let stripW = max(16, ((w + 15) / 16) * 16)
+            // Slice wide clusters (conjunct chains) into <=16px tiles.
+            var from = 0
+            while from < w {
+                let tileW = min(16, w - from)
+                let bitmap = packTile(strip, stripW: stripW, from: from, width: tileW)
+                let key = "\(tileW):" + bitmap.map { String(format: "%02X", $0) }.joined()
+                let idx: Int
+                if let existing = keyToIndex[key] {
+                    idx = existing
+                } else {
+                    idx = glyphs.count
+                    if idx >= 0x1000 { fatalError("\(cfg.scope): PUA space exhausted") }
+                    keyToIndex[key] = idx
+                    glyphs.append(bitmap)
+                    widths.append(tileW)
+                }
+                out.append(Character(UnicodeScalar(0xE000 + idx)!))
+                from += tileW
+            }
+        }
+        return out
+    }
+
+    mutating func shapeString(_ s: String, context: String) -> String {
+        var segs = segment(s)
+        if cfg.rtl { segs.reverse() }
+        var out = ""
+        for seg in segs {
+            switch seg {
+            case .spec(let sp):
+                out += sp
+            case .text(let t):
+                if t.unicodeScalars.allSatisfy({ $0.value < 0x80 }) {
+                    out += t
+                } else {
+                    out += shapeRun(t, context: context)
+                }
+            }
+        }
+        return out
+    }
+}
+
+let DISPLAY_GLYPH_BYTES_SWIFT = 16 * 16 / 2
+
+// UTF-8 with every non-ASCII byte as its own \xNN literal so a hex escape
+// can never swallow a following letter.
+func cStringExpr(_ value: String) -> String {
+    var parts: [String] = []
+    var ascii = ""
+    func flushAscii() {
+        if !ascii.isEmpty {
+            let esc = ascii.replacingOccurrences(of: "\\", with: "\\\\")
+                           .replacingOccurrences(of: "\"", with: "\\\"")
+            parts.append("\"\(esc)\"")
+            ascii = ""
+        }
+    }
+    for ch in value {
+        if ch.unicodeScalars.count == 1, let sc = ch.unicodeScalars.first,
+           sc.value >= 0x20, sc.value <= 0x7e {
+            ascii.append(ch)
+        } else {
+            flushAscii()
+            for b in String(ch).utf8 {
+                parts.append(String(format: "\"\\x%02X\"", b))
+            }
+        }
+    }
+    flushAscii()
+    if parts.isEmpty { return "\"\"" }
+    if parts.count == 1 { return parts[0] }
+    return "(" + parts.joined(separator: " ") + ")"
+}
+
+func generateShapedC(_ source: String) -> String {
+    var out = ""
+    for cfg in shapedConfigs {
+        fputs("shaping \(cfg.scope)...\n", stderr)
+        let src = parseShapedSource(source, scope: cfg.scope)
+        fputs("  parsed \(src.strings.count) strings\n", stderr)
+        var builder = ShapedFontBuilder(cfg: cfg)
+
+        // Common baseline for the language: center the union ink box of
+        // every text run in the 16px cell.
+        var minY: CGFloat = 1e9
+        var maxY: CGFloat = -1e9
+        var runs: [String] = []
+        for (_, text) in src.strings { runs.append(text) }
+        runs += src.weekdays + src.months + [src.name]
+        for text in runs {
+            for seg in segment(text) {
+                if case .text(let t) = seg, !t.unicodeScalars.allSatisfy({ $0.value < 0x80 }) {
+                    let b = CTLineGetImageBounds(builder.makeLine(t), nil)
+                    if b.isNull { continue }
+                    minY = min(minY, b.minY)
+                    maxY = max(maxY, b.maxY)
+                }
+            }
+        }
+        let inkH = maxY - minY
+        if inkH > 16 {
+            fatalError("\(cfg.scope): ink height \(inkH) exceeds 16px at \(cfg.fontSize)pt - reduce fontSize")
+        }
+        builder.baselineY = ((16 - inkH) / 2 - minY).rounded()
+        fputs("  ink \(minY)..\(maxY) baseline \(builder.baselineY)\n", stderr)
+
+        var shapedStrings: [(String, String)] = []
+        for (id, text) in src.strings {
+            shapedStrings.append((id, builder.shapeString(text, context: "\(cfg.scope)/\(id)")))
+        }
+        let shapedWk = src.weekdays.map { builder.shapeString($0, context: "\(cfg.scope)/weekday") }
+        let shapedMo = src.months.map { builder.shapeString($0, context: "\(cfg.scope)/month") }
+        let shapedName = builder.shapeString(src.name, context: "\(cfg.scope)/name")
+
+        let hash = SHA256.hash(data: Data(src.raw.utf8)).prefix(8)
+            .map { String(format: "%02x", $0) }.joined()
+        print("\(cfg.scope): \(builder.glyphs.count) cluster glyphs (\(cfg.fontName))")
+
+        out += "// \(cfg.scope): \(builder.glyphs.count) shaped cluster glyphs (\(cfg.fontName))\n"
+        out += "// shaped-source-hash \(cfg.scope) \(hash)\n"
+        out += "static const uint16_t \(cfg.glyphArray)_cp[] = {\n"
+        var lineBuf = "   "
+        for i in 0..<builder.glyphs.count {
+            lineBuf += String(format: " 0x%04X,", 0xE000 + i)
+            if lineBuf.count > 90 { out += lineBuf + "\n"; lineBuf = "   " }
+        }
+        if lineBuf != "   " { out += lineBuf + "\n" }
+        out += "};\n"
+        out += "static const uint8_t \(cfg.glyphArray)_w[] = {\n"
+        lineBuf = "   "
+        for w in builder.widths {
+            lineBuf += String(format: " %d,", w)
+            if lineBuf.count > 90 { out += lineBuf + "\n"; lineBuf = "   " }
+        }
+        if lineBuf != "   " { out += lineBuf + "\n" }
+        out += "};\n"
+        out += "static const uint8_t \(cfg.glyphArray)[][DISPLAY_GLYPH_BYTES] = {\n"
+        for g in builder.glyphs {
+            out += "    {" + g.map { String(format: "0x%02X", $0) }.joined(separator: ",") + "},\n"
+        }
+        out += "};\n"
+        out += """
+        const display_glyph_font_t \(cfg.fontObject) = {
+            .codepoints = \(cfg.glyphArray)_cp,
+            .glyphs = \(cfg.glyphArray),
+            .glyphs_2x = NULL,
+            .widths = \(cfg.glyphArray)_w,
+            .count = sizeof(\(cfg.glyphArray)) / sizeof(\(cfg.glyphArray)[0]),
+            .glyph_width = 16,
+        };
+
+        """
+        out += "const char *const lang_\(cfg.scope)_shaped[STR_COUNT] = {\n"
+        for (id, text) in shapedStrings {
+            out += "    [\(id)] = \(cStringExpr(text)),\n"
+        }
+        out += "};\n"
+        out += "const char *const weekdays_\(cfg.scope)_shaped[7] = {\n"
+        out += shapedWk.map { "    \(cStringExpr($0))" }.joined(separator: ",\n")
+        out += "\n};\n"
+        out += "const char *const months_\(cfg.scope)_shaped[12] = {\n"
+        out += shapedMo.map { "    \(cStringExpr($0))" }.joined(separator: ",\n")
+        out += "\n};\n"
+        out += "const char lang_name_\(cfg.scope)_shaped[] = \(cStringExpr(shapedName));\n\n"
+    }
+    return out
+}
+
+try (String(contentsOf: root.appendingPathComponent("main/fonts.c"), encoding: .utf8)
+     + generateShapedC(dataSource))
+    .write(to: root.appendingPathComponent("main/fonts.c"), atomically: true, encoding: .utf8)

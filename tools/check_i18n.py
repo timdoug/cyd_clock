@@ -11,6 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CJK_SCOPES = ("zh_hant", "ja", "zh", "ko", "ka", "hy")  # longest first so zh_hant wins over zh
+SHAPED_SCOPES = ("ar", "fa", "he", "hi", "bn", "th")  # pre-shaped by the generator
 
 
 def parse_enum_ids(i18n_h):
@@ -52,10 +53,18 @@ def main():
     # collect ids per lang table for dup/completeness checks
     scope = ''
     in_block = False
+    in_shaped = False
     table_ids = {}
     cur_table = None
     used = {s: set() for s in coverage}
     for lineno, line in enumerate(inc.split('\n'), 1):
+        # shaped-source sections are generator input: their characters are
+        # rasterized to cluster glyphs, never rendered from codepoints, so
+        # coverage does not apply (ids are still collected below)
+        if line.startswith('// >>> shaped-source'):
+            in_shaped = True
+        if line.startswith('// <<< shaped-source'):
+            in_shaped = False
         if not in_block:
             scope = ''
             cur_table = None
@@ -71,9 +80,10 @@ def main():
             sid = re.search(r'\[(STR_\w+)\]', line)
             if sid and sid.group(1) != 'STR_COUNT':
                 table_ids[cur_table].append(sid.group(1))
-        for ch in unicodedata.normalize('NFC', literal_chars(line)):
-            if ord(ch) > 0x7E:
-                used[scope].add((ch, lineno))
+        if not in_shaped:
+            for ch in unicodedata.normalize('NFC', literal_chars(line)):
+                if ord(ch) > 0x7E:
+                    used[scope].add((ch, lineno))
         if in_block and line.startswith('};'):
             in_block = False
             cur_table = None
@@ -106,6 +116,28 @@ def main():
     if unknown:
         print(f"unknown string ids: {sorted(set(unknown))}")
         errors += 1
+
+    # stale shaped tables: fonts.c records a hash of each shaped-source
+    # section; a mismatch means the raw text was edited without a macOS
+    # regeneration pass
+    import hashlib
+    for scope in SHAPED_SCOPES:
+        a = inc.find(f'// >>> shaped-source {scope}\n')
+        b = inc.find(f'// <<< shaped-source {scope}')
+        if a < 0 or b < 0:
+            print(f"shaped-source markers for {scope} missing from i18n_data.inc")
+            errors += 1
+            continue
+        section = inc[a + len(f'// >>> shaped-source {scope}\n'):b]
+        want = hashlib.sha256(section.encode()).hexdigest()[:16]
+        m = re.search(r'// shaped-source-hash ' + scope + r' ([0-9a-f]+)', fonts)
+        if not m:
+            print(f"{scope}: no shaped tables in fonts.c - run tools/gen_fonts.swift on macOS")
+            errors += 1
+        elif m.group(1) != want:
+            print(f"{scope}: shaped tables in fonts.c are STALE - the source in "
+                  f"i18n_data.inc changed; rerun tools/gen_fonts.swift on macOS")
+            errors += 1
 
     if errors:
         print(f"{errors} problem(s)")

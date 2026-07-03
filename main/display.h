@@ -43,7 +43,8 @@
 typedef struct display_glyph_font {
     const uint16_t *codepoints;  // sorted ascending, parallel to glyphs
     const uint8_t (*glyphs)[DISPLAY_GLYPH_BYTES];
-    const uint8_t (*glyphs_2x)[DISPLAY_GLYPH_2X_BYTES];
+    const uint8_t (*glyphs_2x)[DISPLAY_GLYPH_2X_BYTES];  // NULL: pixel-double 1x
+    const uint8_t *widths;       // per-glyph advances; NULL: uniform glyph_width
     uint16_t count;
     uint8_t glyph_width;
 } display_glyph_font_t;
