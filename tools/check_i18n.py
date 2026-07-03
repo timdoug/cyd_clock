@@ -140,6 +140,17 @@ def main():
                   f"i18n_data.inc changed; rerun tools/gen_fonts.swift on macOS")
             errors += 1
 
+    # picker order file must list every language exactly once
+    order = re.findall(r'(LANG_\w+),', (ROOT / 'main' / 'lang_order.inc').read_text())
+    enum_langs = re.findall(r'(LANG_\w+),', re.search(r'typedef enum \{(.*?)\} lang_t;', 
+                            (ROOT / 'main' / 'i18n.h').read_text(), re.S).group(1))
+    enum_langs = [x for x in enum_langs if x != 'LANG_COUNT']
+    if sorted(order) != sorted(enum_langs):
+        missing = set(enum_langs) - set(order)
+        extra = set(order) - set(enum_langs)
+        print(f"lang_order.inc out of sync: missing={sorted(missing)} extra={sorted(extra)} - rerun tools/gen_fonts.swift")
+        errors += 1
+
     if errors:
         print(f"{errors} problem(s)")
         return 1

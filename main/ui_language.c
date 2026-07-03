@@ -12,87 +12,9 @@ static const char *TAG = "ui_language";
 static ui_list_touch_t list_touch;
 static int list_scroll = 0;
 
-// Display order for the picker: native names sorted A-Z (diacritics folded),
-// with the Cyrillic-script names grouped at the end. Rows map to languages
-// through this table, so add new languages in their sorted position here.
-static const lang_t lang_order[LANG_COUNT] = {
-    LANG_AF,  // Afrikaans
-    LANG_AZ,  // Azerbaycan
-    LANG_MS,  // Bahasa Melayu
-    LANG_JV,  // Basa Jawa
-    LANG_CA,  // Catala
-    LANG_CS,  // Cestina
-    LANG_CY,  // Cymraeg
-    LANG_DA,  // Dansk
-    LANG_DE,  // Deutsch
-    LANG_ET,  // Eesti
-    LANG_EN,  // English
-    LANG_ES,  // Espanol
-    LANG_EO,  // Esperanto
-    LANG_EU,  // Euskara
-    LANG_FIL,  // Filipino
-    LANG_FO,  // Foroyskt
-    LANG_FR,  // Francais
-    LANG_GA,  // Gaeilge
-    LANG_GL,  // Galego
-    LANG_HR,  // Hrvatski
-    LANG_ID,  // Indonesia
-    LANG_IS,  // Islenska
-    LANG_IT,  // Italiano
-    LANG_SW,  // Kiswahili
-    LANG_LV,  // Latviesu
-    LANG_LT,  // Lietuviu
-    LANG_HU,  // Magyar
-    LANG_NL,  // Nederlands
-    LANG_NO,  // Norsk
-    LANG_UZ,  // Ozbekcha
-    LANG_PL,  // Polski
-    LANG_PT,  // Portugues
-    LANG_RO,  // Romana
-    LANG_SQ,  // Shqip
-    LANG_SK,  // Slovencina
-    LANG_SL,  // Slovenscina
-    LANG_FI,  // Suomi
-    LANG_SV,  // Svenska
-    LANG_VI,  // Tieng Viet
-    LANG_TR,  // Turkce
-    LANG_EL,  // Ellinika
-    LANG_HY,  // Hayeren
-    LANG_KA,  // Kartuli
-    LANG_AM,  // Amharic
-    LANG_AR,  // al-Arabiyya
-    LANG_FA,  // Farsi
-    LANG_UR,  // Urdu
-    LANG_HE,  // Ivrit
-    LANG_HI,  // Hindi
-    LANG_MR,  // Marathi
-    LANG_NE,  // Nepali
-    LANG_BN,  // Bangla
-    LANG_GU,  // Gujarati
-    LANG_PA,  // Punjabi
-    LANG_KN,  // Kannada
-    LANG_ML,  // Malayalam
-    LANG_SI,  // Sinhala
-    LANG_TA,  // Tamil
-    LANG_TE,  // Telugu
-    LANG_TH,  // Thai
-    LANG_KM,  // Khmer
-    LANG_LO,  // Lao
-    LANG_MY,  // Myanmar
-    LANG_JA,  // Japanese native name
-    LANG_ZH,  // Simplified Chinese native name
-    LANG_ZH_HANT,  // Traditional Chinese native name
-    LANG_KO,  // Korean native name
-    LANG_BE,  // Belaruskaya
-    LANG_BG,  // Bulgarski
-    LANG_KK,  // Qazaqsha
-    LANG_KY,  // Kyrgyzcha
-    LANG_MK,  // Makedonski
-    LANG_MN,  // Mongol
-    LANG_RU,  // Russkiy
-    LANG_SR,  // Srpski
-    LANG_UK,  // Ukrainska
-};
+// Picker display order is generated: native names sorted by Unicode root
+// collation (see tools/gen_fonts.swift), the same order OS pickers use.
+#include "lang_order.inc"
 
 // Row index in lang_order for a given language (0 if not found).
 static int lang_row(lang_t lang) {
