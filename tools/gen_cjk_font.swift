@@ -10,8 +10,6 @@ struct Language {
     let glyphWidth: Int
     let fontSize16: CGFloat
     let fontSize32: CGFloat
-    let alphaThreshold: UInt8
-    let brightnessThreshold: UInt16
     let generateAsciiLetters: Bool
     let generateAsciiDigits: Bool
     let nativeName: String
@@ -25,6 +23,10 @@ struct Language {
     // built-in 8x16 font can sit on the same baseline. Doubled for the
     // 32px cell.
     var yNudge: CGFloat = 0
+    // Alpha shaping exponent for the 4-bit antialiased coverage. Blending
+    // happens in gamma-encoded RGB565 on the device, which makes linear
+    // coverage read thin; values below 1.0 fatten the edge ramp.
+    var aaGamma: CGFloat = 0.7
 }
 
 let stringIds = [
@@ -58,8 +60,6 @@ let ja = Language(
     glyphWidth: 16,
     fontSize16: 14,
     fontSize32: 29,
-    alphaThreshold: 96,
-    brightnessThreshold: 384,
     generateAsciiLetters: false,
     generateAsciiDigits: false,
     nativeName: "日本語",
@@ -149,8 +149,6 @@ let zh = Language(
     glyphWidth: 16,
     fontSize16: 14,
     fontSize32: 29,
-    alphaThreshold: 96,
-    brightnessThreshold: 384,
     generateAsciiLetters: false,
     generateAsciiDigits: false,
     nativeName: "简体中文",
@@ -240,8 +238,6 @@ let zhHant = Language(
     glyphWidth: 16,
     fontSize16: 13,
     fontSize32: 28,
-    alphaThreshold: 120,
-    brightnessThreshold: 448,
     generateAsciiLetters: false,
     generateAsciiDigits: false,
     nativeName: "繁體中文",
@@ -331,8 +327,6 @@ let ko = Language(
     glyphWidth: 16,
     fontSize16: 14,
     fontSize32: 29,
-    alphaThreshold: 96,
-    brightnessThreshold: 384,
     generateAsciiLetters: false,
     generateAsciiDigits: false,
     nativeName: "한국어",
@@ -422,8 +416,6 @@ let el = Language(
     glyphWidth: 10,
     fontSize16: 14,
     fontSize32: 29,
-    alphaThreshold: 96,
-    brightnessThreshold: 384,
     generateAsciiLetters: false,
     generateAsciiDigits: true,
     nativeName: "Ελληνικά",
@@ -516,8 +508,6 @@ let sk = Language(
     glyphWidth: 0,
     fontSize16: 14,
     fontSize32: 29,
-    alphaThreshold: 96,
-    brightnessThreshold: 384,
     generateAsciiLetters: false,
     generateAsciiDigits: false,
     nativeName: "Slovenčina",
@@ -607,8 +597,6 @@ let sl = Language(
     glyphWidth: 0,
     fontSize16: 14,
     fontSize32: 29,
-    alphaThreshold: 96,
-    brightnessThreshold: 384,
     generateAsciiLetters: false,
     generateAsciiDigits: false,
     nativeName: "Slovenščina",
@@ -698,8 +686,6 @@ let lv = Language(
     glyphWidth: 0,
     fontSize16: 14,
     fontSize32: 29,
-    alphaThreshold: 96,
-    brightnessThreshold: 384,
     generateAsciiLetters: false,
     generateAsciiDigits: false,
     nativeName: "Latviešu",
@@ -789,8 +775,6 @@ let lt = Language(
     glyphWidth: 0,
     fontSize16: 14,
     fontSize32: 29,
-    alphaThreshold: 96,
-    brightnessThreshold: 384,
     generateAsciiLetters: false,
     generateAsciiDigits: false,
     nativeName: "Lietuvių",
@@ -880,8 +864,6 @@ let et = Language(
     glyphWidth: 0,
     fontSize16: 14,
     fontSize32: 29,
-    alphaThreshold: 96,
-    brightnessThreshold: 384,
     generateAsciiLetters: false,
     generateAsciiDigits: false,
     nativeName: "Eesti",
@@ -971,8 +953,6 @@ let vi = Language(
     glyphWidth: 8,
     fontSize16: 12,
     fontSize32: 27,
-    alphaThreshold: 104,
-    brightnessThreshold: 416,
     generateAsciiLetters: true,
     generateAsciiDigits: true,
     nativeName: "Tiếng Việt",
@@ -1208,25 +1188,26 @@ func render(_ ch: String, lang: Language, pixels: Int) -> [UInt8] {
         fatalError("bitmap data unavailable")
     }
 
-    let bytesPerGlyphRow = outputWidth / 8
+    // 4-bit alpha, two pixels per byte, high nibble = left pixel. The cell
+    // is filled opaque black before the white glyph is drawn, so coverage
+    // is the pixel's luminance, not its alpha channel.
+    let bytesPerGlyphRow = outputWidth / 2
     var out = [UInt8](repeating: 0, count: pixels * bytesPerGlyphRow)
     for row in 0..<pixels {
-        var bits: UInt32 = 0
         for col in 0..<outputWidth {
-            if col >= renderWidth { continue }
-            let p = row * rep.bytesPerRow + col * 4
-            let r = data[p]
-            let g = data[p + 1]
-            let b = data[p + 2]
-            let a = data[p + 3]
-            if a > lang.alphaThreshold &&
-               (UInt16(r) + UInt16(g) + UInt16(b)) > lang.brightnessThreshold {
-                bits |= UInt32(1) << UInt32(outputWidth - 1 - col)
+            var level = 0
+            if col < renderWidth {
+                let p = row * rep.bytesPerRow + col * 4
+                let lum = (CGFloat(data[p]) + CGFloat(data[p + 1]) + CGFloat(data[p + 2]))
+                    / (3.0 * 255.0)
+                level = min(15, Int((pow(lum, lang.aaGamma) * 15.0).rounded()))
             }
-        }
-        for byte in 0..<bytesPerGlyphRow {
-            let shift = UInt32((bytesPerGlyphRow - 1 - byte) * 8)
-            out[row * bytesPerGlyphRow + byte] = UInt8((bits >> shift) & 0xFF)
+            let idx = row * bytesPerGlyphRow + col / 2
+            if col % 2 == 0 {
+                out[idx] = UInt8(level << 4)
+            } else {
+                out[idx] |= UInt8(level)
+            }
         }
     }
     return out

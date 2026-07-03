@@ -704,6 +704,26 @@ static uint8_t cjk_font_glyph_width(const display_cjk_font_t *font) {
     return font->glyph_width;
 }
 
+// Antialiased glyph support: glyph bitmaps store 4-bit alpha per pixel
+// (two pixels per byte, high nibble = left pixel). Each blit builds a
+// 16-entry bg-to-fg ramp once and indexes it per pixel; the perceptual
+// (gamma) shaping of the levels is baked into the generated tables.
+static void cjk_build_palette(uint16_t fg, uint16_t bg, uint16_t palette[16]) {
+    int fr = (fg >> 11) & 0x1F, fgr = (fg >> 5) & 0x3F, fb = fg & 0x1F;
+    int br = (bg >> 11) & 0x1F, bgr = (bg >> 5) & 0x3F, bb = bg & 0x1F;
+    for (int i = 0; i < 16; i++) {
+        int r = (br * (15 - i) + fr * i + 7) / 15;
+        int g = (bgr * (15 - i) + fgr * i + 7) / 15;
+        int b = (bb * (15 - i) + fb * i + 7) / 15;
+        palette[i] = (uint16_t)((r << 11) | (g << 5) | b);
+    }
+}
+
+static inline uint8_t cjk_alpha_at(const uint8_t *row, int col) {
+    uint8_t b = row[col >> 1];
+    return (col & 1) ? (b & 0x0F) : (b >> 4);
+}
+
 static void display_cjk_glyph(int16_t x, int16_t y, const uint8_t glyph[DISPLAY_CJK_GLYPH_BYTES],
                               uint8_t glyph_width, uint16_t fg, uint16_t bg) {
     if (!glyph || x < 0 || y < 0 ||
@@ -712,17 +732,19 @@ static void display_cjk_glyph(int16_t x, int16_t y, const uint8_t glyph[DISPLAY_
         return;
     }
 
+    uint16_t palette[16];
+    cjk_build_palette(fg, bg, palette);
+
     set_addr_window(x, y, glyph_width, DISPLAY_CJK_GLYPH_HEIGHT);
     dc_data();
 
     int idx = 0;
     for (int row = 0; row < DISPLAY_CJK_GLYPH_HEIGHT; row++) {
-        uint16_t bits = ((uint16_t)glyph[row * 2] << 8) | glyph[row * 2 + 1];
+        const uint8_t *row_px = glyph + row * (DISPLAY_CJK_GLYPH_WIDTH / 2);
         for (int col = 0; col < glyph_width; col++) {
-            uint16_t color = (bits & 0x8000) ? fg : bg;
+            uint16_t color = palette[cjk_alpha_at(row_px, col)];
             cjk_glyph_buf[idx++] = color >> 8;
             cjk_glyph_buf[idx++] = color & 0xFF;
-            bits <<= 1;
         }
     }
     spi_write_bytes(cjk_glyph_buf, glyph_width * DISPLAY_CJK_GLYPH_HEIGHT * 2);
@@ -737,21 +759,22 @@ static void display_cjk_glyph_2x(int16_t x, int16_t y, const uint8_t glyph[DISPL
         return;
     }
 
+    uint16_t palette[16];
+    cjk_build_palette(fg, bg, palette);
+
     set_addr_window(x, y, width_2x, DISPLAY_CJK_GLYPH_HEIGHT * 2);
     dc_data();
 
     int idx = 0;
     for (int row = 0; row < DISPLAY_CJK_GLYPH_HEIGHT; row++) {
-        uint16_t bits = ((uint16_t)glyph[row * 2] << 8) | glyph[row * 2 + 1];
+        const uint8_t *row_px = glyph + row * (DISPLAY_CJK_GLYPH_WIDTH / 2);
         for (int dup = 0; dup < 2; dup++) {
-            uint16_t row_bits = bits;
             for (int col = 0; col < glyph_width; col++) {
-                uint16_t color = (row_bits & 0x8000) ? fg : bg;
+                uint16_t color = palette[cjk_alpha_at(row_px, col)];
                 cjk_glyph_2x_buf[idx++] = color >> 8;
                 cjk_glyph_2x_buf[idx++] = color & 0xFF;
                 cjk_glyph_2x_buf[idx++] = color >> 8;
                 cjk_glyph_2x_buf[idx++] = color & 0xFF;
-                row_bits <<= 1;
             }
         }
     }
@@ -768,20 +791,19 @@ static void display_cjk_glyph_32(int16_t x, int16_t y,
         return;
     }
 
+    uint16_t palette[16];
+    cjk_build_palette(fg, bg, palette);
+
     set_addr_window(x, y, width_2x, DISPLAY_CJK_GLYPH_2X_HEIGHT);
     dc_data();
 
     int idx = 0;
     for (int row = 0; row < DISPLAY_CJK_GLYPH_2X_HEIGHT; row++) {
-        uint32_t bits = ((uint32_t)glyph[row * 4] << 24) |
-                        ((uint32_t)glyph[row * 4 + 1] << 16) |
-                        ((uint32_t)glyph[row * 4 + 2] << 8) |
-                        glyph[row * 4 + 3];
+        const uint8_t *row_px = glyph + row * (DISPLAY_CJK_GLYPH_2X_WIDTH / 2);
         for (int col = 0; col < width_2x; col++) {
-            uint16_t color = (bits & 0x80000000U) ? fg : bg;
+            uint16_t color = palette[cjk_alpha_at(row_px, col)];
             cjk_glyph_2x_buf[idx++] = color >> 8;
             cjk_glyph_2x_buf[idx++] = color & 0xFF;
-            bits <<= 1;
         }
     }
     spi_write_bytes(cjk_glyph_2x_buf, width_2x * DISPLAY_CJK_GLYPH_2X_HEIGHT * 2);

@@ -20,13 +20,18 @@
 // Strings reference these glyphs with DISPLAY_CJK_ESCAPE followed by
 // 0x80 + glyph-index. Keeping payload bytes out of ASCII avoids accidental
 // '%' format specifiers in translated snprintf format strings.
+//
+// Glyph bitmaps are antialiased: 4-bit alpha per pixel, two pixels per
+// byte, high nibble = left pixel, rows packed top to bottom. Draw paths
+// blend fg toward bg through a 16-entry palette, which is why glyphs
+// always repaint their full cell background.
 #define DISPLAY_CJK_ESCAPE '\x1E'
 #define DISPLAY_CJK_GLYPH_WIDTH 16
 #define DISPLAY_CJK_GLYPH_HEIGHT 16
-#define DISPLAY_CJK_GLYPH_BYTES 32
+#define DISPLAY_CJK_GLYPH_BYTES (DISPLAY_CJK_GLYPH_WIDTH * DISPLAY_CJK_GLYPH_HEIGHT / 2)
 #define DISPLAY_CJK_GLYPH_2X_WIDTH 32
 #define DISPLAY_CJK_GLYPH_2X_HEIGHT 32
-#define DISPLAY_CJK_GLYPH_2X_BYTES 128
+#define DISPLAY_CJK_GLYPH_2X_BYTES (DISPLAY_CJK_GLYPH_2X_WIDTH * DISPLAY_CJK_GLYPH_2X_HEIGHT / 2)
 
 typedef struct display_cjk_font {
     const uint8_t (*glyphs)[DISPLAY_CJK_GLYPH_BYTES];
