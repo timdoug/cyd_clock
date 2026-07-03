@@ -52,6 +52,7 @@ idf_component_register(
         esp_wifi
         lwip
         nvs_flash
+    EMBED_FILES "fonts.bin"
 )
 
 # Board selection: -DCYD_BOARD=<name> picks a profile under main/boards/ and

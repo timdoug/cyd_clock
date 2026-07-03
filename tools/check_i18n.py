@@ -42,13 +42,23 @@ def main():
     i18n_h = (ROOT / 'main' / 'i18n.h').read_text(encoding='utf-8')
     errors = 0
 
-    # glyph coverage tables from fonts.c
+    # glyph coverage: codepoint tables live in fonts.bin; fonts.c holds
+    # fonts_blob + offset pointers and counts
+    blob = (ROOT / 'main' / 'fonts.bin').read_bytes()
+
+    def cps_at(offset, count):
+        return {int.from_bytes(blob[offset + 2*i:offset + 2*i + 2], 'little')
+                for i in range(count)}
+
     coverage = {}
-    for scope, table in [('', 'font_base_ext_cp')] + [(s, f'{s}_glyphs_cp') for s in CJK_SCOPES]:
-        m = re.search(r'uint16_t ' + table + r'\[\] = \{(.*?)\};', fonts, re.S)
-        # a font not generated yet has no coverage at all
-        coverage[scope] = ({int(x, 16) for x in re.findall(r'0x([0-9A-F]{4})', m.group(1))}
-                           if m else set())
+    m = re.search(r'font_base_ext_cp = \(const uint16_t \*\)\(const void \*\)\(fonts_blob \+ (\d+)\)', fonts)
+    n = re.search(r'font_base_ext_count = (\d+)', fonts)
+    coverage[''] = cps_at(int(m.group(1)), int(n.group(1))) if m and n else set()
+    for scope in CJK_SCOPES:
+        fm = re.search(r'font_' + scope + r' = \{\s*'
+                       r'\.codepoints = \(const uint16_t \*\)\(const void \*\)\(fonts_blob \+ (\d+)\),'
+                       r'[\s\S]*?\.count = (\d+),', fonts)
+        coverage[scope] = cps_at(int(fm.group(1)), int(fm.group(2))) if fm else set()
 
     # walk the data file: bucket string chars by declaration scope,
     # collect ids per lang table for dup/completeness checks

@@ -7,15 +7,16 @@
 // Base Menlo font: printable ASCII indexed by codepoint - 0x20, plus a
 // sorted supplementary codepoint table for everything else the non-CJK
 // languages use (Latin extensions, Cyrillic, Greek, Vietnamese, degree).
-extern const uint8_t font_base_ascii_rle[];
-extern const uint16_t font_base_ascii_off[];
-extern const uint8_t font_base_ascii_2x_rle[];
-extern const uint16_t font_base_ascii_2x_off[];
-extern const uint16_t font_base_ext_cp[];
-extern const uint8_t font_base_ext_rle[];
-extern const uint16_t font_base_ext_off[];
-extern const uint8_t font_base_ext_2x_rle[];
-extern const uint16_t font_base_ext_2x_off[];
+// Pointers into the embedded fonts.bin blob.
+extern const uint8_t *const font_base_ascii_rle;
+extern const uint16_t *const font_base_ascii_off;
+extern const uint8_t *const font_base_ascii_2x_rle;
+extern const uint16_t *const font_base_ascii_2x_off;
+extern const uint16_t *const font_base_ext_cp;
+extern const uint8_t *const font_base_ext_rle;
+extern const uint16_t *const font_base_ext_off;
+extern const uint8_t *const font_base_ext_2x_rle;
+extern const uint16_t *const font_base_ext_2x_off;
 extern const uint16_t font_base_ext_count;
 
 // Per-language glyph fonts: CJK (so shared Han codepoints render in the
