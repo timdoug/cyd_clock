@@ -90,7 +90,7 @@ void ui_draw_centered_string(int16_t y, const char *str, uint16_t fg, uint16_t b
         int keep = 0;
         int budget = max_chars > 3 ? max_chars - 3 : max_chars;
         while (keep < budget && str[keep] != '\0') {
-            if ((unsigned char)str[keep] == (unsigned char)DISPLAY_CJK_ESCAPE &&
+            if ((unsigned char)str[keep] == (unsigned char)DISPLAY_GLYPH_ESCAPE &&
                 str[keep + 1] != '\0') {
                 if (keep + 2 > budget) break;
                 keep += 2;
@@ -155,7 +155,7 @@ void ui_draw_list(const char **labels, int count, int scroll_offset, int selecte
     ui_draw_list_fonts(labels, NULL, count, scroll_offset, selected);
 }
 
-void ui_draw_list_fonts(const char **labels, const display_cjk_font_t *const *fonts,
+void ui_draw_list_fonts(const char **labels, const display_glyph_font_t *const *fonts,
                         int count, int scroll_offset, int selected) {
     int rows = 0;
     for (int i = 0; i < UI_LIST_VISIBLE && (i + scroll_offset) < count; i++, rows++) {
@@ -287,9 +287,9 @@ int ui_list_tap_to_item(const touch_point_t *tap, int scroll, int count) {
     return item < count ? item : -1;
 }
 
-static bool text_has_cjk_tokens(const char *s) {
+static bool text_has_glyph_tokens(const char *s) {
     while (*s) {
-        if ((unsigned char)*s == (unsigned char)DISPLAY_CJK_ESCAPE && s[1] != '\0') {
+        if ((unsigned char)*s == (unsigned char)DISPLAY_GLYPH_ESCAPE && s[1] != '\0') {
             return true;
         }
         s++;
@@ -304,8 +304,8 @@ static void draw_encoded_colored(int x, int y, const char *text,
     size_t i = 0;
     while (*p) {
         uint16_t cell_fg = colors ? colors[i] : fg;
-        if (*p == (unsigned char)DISPLAY_CJK_ESCAPE && p[1] != '\0') {
-            char tok[3] = {DISPLAY_CJK_ESCAPE, (char)p[1], '\0'};
+        if (*p == (unsigned char)DISPLAY_GLYPH_ESCAPE && p[1] != '\0') {
+            char tok[3] = {DISPLAY_GLYPH_ESCAPE, (char)p[1], '\0'};
             display_string(x, y, tok, cell_fg, bg);
             x += display_text_width(tok);
             p += 2;
@@ -324,7 +324,7 @@ typedef struct {
     size_t byte_idx;
     size_t len;
     int width;
-    bool cjk;
+    bool token;
 } diff_cell_t;
 
 static diff_cell_t next_diff_cell(const unsigned char *p, size_t byte_idx) {
@@ -333,14 +333,14 @@ static diff_cell_t next_diff_cell(const unsigned char *p, size_t byte_idx) {
         .byte_idx = byte_idx,
         .len = 0,
         .width = 0,
-        .cjk = false,
+        .token = false,
     };
     if (*p == '\0') return cell;
 
-    if (*p == (unsigned char)DISPLAY_CJK_ESCAPE && p[1] != '\0') {
+    if (*p == (unsigned char)DISPLAY_GLYPH_ESCAPE && p[1] != '\0') {
         cell.len = 2;
-        cell.width = display_text_width((char[]){DISPLAY_CJK_ESCAPE, (char)p[1], '\0'});
-        cell.cjk = true;
+        cell.width = display_text_width((char[]){DISPLAY_GLYPH_ESCAPE, (char)p[1], '\0'});
+        cell.token = true;
     } else {
         cell.len = 1;
         cell.width = FONT_CHAR_WIDTH;
@@ -351,8 +351,8 @@ static diff_cell_t next_diff_cell(const unsigned char *p, size_t byte_idx) {
 static void draw_diff_cell(int x, int y, const diff_cell_t *cell,
                            uint16_t fg, const uint16_t *colors, uint16_t bg) {
     uint16_t cell_fg = colors ? colors[cell->byte_idx] : fg;
-    if (cell->cjk) {
-        char tok[3] = {DISPLAY_CJK_ESCAPE, (char)cell->p[1], '\0'};
+    if (cell->token) {
+        char tok[3] = {DISPLAY_GLYPH_ESCAPE, (char)cell->p[1], '\0'};
         display_string(x, y, tok, cell_fg, bg);
     } else {
         display_char(x, y, (char)cell->p[0], cell_fg, bg);
@@ -369,7 +369,7 @@ static bool diff_cells_equal(const diff_cell_t *old_cell,
 void ui_diff_paint(int x, int y, const char *old_text, const char *new_text,
                    uint16_t fg, const uint16_t *colors,
                    uint16_t bg, bool force_full) {
-    if (text_has_cjk_tokens(old_text) || text_has_cjk_tokens(new_text)) {
+    if (text_has_glyph_tokens(old_text) || text_has_glyph_tokens(new_text)) {
         const unsigned char *old_p = (const unsigned char *)old_text;
         const unsigned char *new_p = (const unsigned char *)new_text;
         size_t old_i = 0;

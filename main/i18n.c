@@ -1,5 +1,5 @@
 #include "i18n.h"
-#include "cjk_font.h"
+#include "fonts.h"
 #include "display.h"
 #include <stddef.h>
 #include <stdio.h>
@@ -1490,7 +1490,7 @@ static const char *const lang_uk[STR_COUNT] = {
     [STR_FAIL] = ru_pe ru_o ru_em ru_i ru_el ru_ka ru_a,
 };
 
-#include "cjk_i18n.inc"
+#include "i18n_gen.inc"
 
 static const char *const *const lang_tables[LANG_COUNT] = {
     [LANG_EN] = lang_en,
@@ -1723,7 +1723,7 @@ const char *i18n_lang_name(lang_t lang) {
     return lang_names[lang];
 }
 
-const display_cjk_font_t *i18n_cjk_font(lang_t lang) {
+const display_glyph_font_t *i18n_glyph_font(lang_t lang) {
     switch (lang) {
     case LANG_JA: return &font_ja;
     case LANG_ZH: return &font_zh;
@@ -1735,8 +1735,8 @@ const display_cjk_font_t *i18n_cjk_font(lang_t lang) {
     }
 }
 
-const display_cjk_font_t *i18n_lang_name_font(lang_t lang) {
-    return i18n_cjk_font(lang);
+const display_glyph_font_t *i18n_lang_name_font(lang_t lang) {
+    return i18n_glyph_font(lang);
 }
 
 lang_t i18n_get_language(void) {
@@ -1746,6 +1746,6 @@ lang_t i18n_get_language(void) {
 void i18n_set_language(lang_t lang) {
     if (lang >= 0 && lang < LANG_COUNT) {
         current_lang = lang;
-        display_set_cjk_font(i18n_cjk_font(lang));
+        display_set_glyph_font(i18n_glyph_font(lang));
     }
 }

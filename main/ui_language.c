@@ -60,7 +60,7 @@ static int lang_row(lang_t lang) {
 
 static void draw_screen(void) {
     const char *labels[LANG_COUNT];
-    const display_cjk_font_t *fonts[LANG_COUNT];
+    const display_glyph_font_t *fonts[LANG_COUNT];
     for (int i = 0; i < LANG_COUNT; i++) {
         labels[i] = i18n_lang_name(lang_order[i]);
         fonts[i] = i18n_lang_name_font(lang_order[i]);

@@ -98,7 +98,7 @@ int ui_marquee_window(char *out, int width, const char *s, int scroll);
 bool ui_marquee_advance(int *scroll, int *dwell, int width, const char *s);
 
 void ui_draw_list(const char **labels, int count, int scroll_offset, int selected);
-void ui_draw_list_fonts(const char **labels, const display_cjk_font_t *const *fonts,
+void ui_draw_list_fonts(const char **labels, const display_glyph_font_t *const *fonts,
                         int count, int scroll_offset, int selected);
 
 int ui_list_clamp_scroll(int scroll, int count);

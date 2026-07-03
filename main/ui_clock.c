@@ -40,7 +40,7 @@ extern volatile uint32_t clock_latency_us;
 #define FRACTION_X          (TIME_START_X + 5 * TIME_DIGIT_STEP + 2 * COLON_7SEG_WIDTH + TIME_DIGIT_WIDTH - FRACTION_WIDTH)
 
 // ASCII stats lines are drawn on a fixed 40-column character grid (see
-// draw_line_cached). Encoded CJK rows use pixel-width centering instead.
+// draw_line_cached). Tokenized rows use pixel-width centering instead.
 #define STATS_COLS (DISPLAY_WIDTH / FONT_CHAR_WIDTH)
 #define STATS_CACHE_BYTES 128
 
@@ -213,9 +213,9 @@ static void fmt_pm_us(char *buf, size_t len, int64_t us) {
     snprintf(buf, len, "+/-%s", t + 1);
 }
 
-static bool clock_text_has_cjk_tokens(const char *s) {
+static bool clock_text_has_glyph_tokens(const char *s) {
     while (*s) {
-        if ((unsigned char)*s == (unsigned char)DISPLAY_CJK_ESCAPE && s[1] != '\0') {
+        if ((unsigned char)*s == (unsigned char)DISPLAY_GLYPH_ESCAPE && s[1] != '\0') {
             return true;
         }
         s++;
@@ -225,13 +225,13 @@ static bool clock_text_has_cjk_tokens(const char *s) {
 
 // ASCII draw path: the line is centered into a fixed 40-column field (space
 // padded, clipped if a long custom server name overflows it) and diffed
-// cell-by-cell against what is on the glass. Encoded CJK strings cannot use
+// cell-by-cell against what is on the glass. Tokenized strings cannot use
 // this byte-grid path because their two-byte glyph tokens must stay intact;
 // those rows are repainted as pixel-centered strings.
 static void draw_line_cached(int y, char *cache, size_t cache_len,
                              const char *line, uint16_t fg, bool force) {
-    bool line_cjk = clock_text_has_cjk_tokens(line);
-    if (line_cjk || clock_text_has_cjk_tokens(cache)) {
+    bool line_tokens = clock_text_has_glyph_tokens(line);
+    if (line_tokens || clock_text_has_glyph_tokens(cache)) {
         bool blank = (cache[0] == '\0');
         if (!blank && !force && strcmp(cache, line) == 0) return;
 
@@ -239,7 +239,7 @@ static void draw_line_cached(int y, char *cache, size_t cache_len,
         int old_x = (DISPLAY_WIDTH - old_width) / 2;
         if (old_x < 0) old_x = 0;
 
-        if (!line_cjk) {
+        if (!line_tokens) {
             // The row lost its tokens: erase the pixel-centered rendering
             // and rebuild below with an empty cache, so the grid path never
             // diffs against a raw token-path cache (the two cache formats

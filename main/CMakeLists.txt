@@ -21,7 +21,7 @@ idf_component_register(
         "ota_update.c"
         "nvs_config.c"
         "i18n.c"
-        "cjk_font.c"
+        "fonts.c"
         "ui_common.c"
         "ui_language.c"
         "ui_keyboard.c"

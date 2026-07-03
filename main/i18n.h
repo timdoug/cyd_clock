@@ -3,7 +3,7 @@
 
 #include <stddef.h>
 
-typedef struct display_cjk_font display_cjk_font_t;
+typedef struct display_glyph_font display_glyph_font_t;
 
 // UI localization. A single string table indexed by (language, string id).
 // The active language is loaded from NVS at boot and switched at runtime from
@@ -150,8 +150,8 @@ void tr_date(char *buf, size_t len, int wday, int mon, int mday, int year);
 
 // Native display name of a language, for the picker (e.g. "Espanol").
 const char *i18n_lang_name(lang_t lang);
-const display_cjk_font_t *i18n_lang_name_font(lang_t lang);
-const display_cjk_font_t *i18n_cjk_font(lang_t lang);
+const display_glyph_font_t *i18n_lang_name_font(lang_t lang);
+const display_glyph_font_t *i18n_glyph_font(lang_t lang);
 
 lang_t i18n_get_language(void);
 void i18n_set_language(lang_t lang);
