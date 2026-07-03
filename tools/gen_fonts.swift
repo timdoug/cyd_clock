@@ -49,6 +49,15 @@ let cjkConfigs = [
                fontName: "Apple SD Gothic Neo", glyphWidth: 16, fontSize16: 14, fontSize32: 29),
 ]
 
+// Coverage -> 4-bit level: a contrast stretch kills the faint halo below
+// 10% coverage and saturates above 90% (sharper edges), the gamma shaping
+// compensates for blending in gamma-encoded RGB565 (fatter ramps), and
+// the mid-range stays graded so text remains antialiased.
+func quantizeCoverage(_ lum: CGFloat, gamma: CGFloat) -> Int {
+    let t = min(1.0, max(0.0, (lum - 0.10) / 0.80))
+    return min(15, Int((pow(t, gamma) * 15.0).rounded()))
+}
+
 func fontHasGlyphs(_ font: NSFont, _ s: String) -> Bool {
     let utf16 = Array(s.utf16)
     var glyphs = [CGGlyph](repeating: 0, count: utf16.count)
@@ -210,7 +219,7 @@ func render(_ ch: String, cfg: FontConfig, pixels: Int, outputWidth: Int? = nil)
                 let p = row * rep.bytesPerRow + col * 4
                 let lum = (CGFloat(data[p]) + CGFloat(data[p + 1]) + CGFloat(data[p + 2]))
                     / (3.0 * 255.0)
-                level = min(15, Int((pow(lum, cfg.aaGamma) * 15.0).rounded()))
+                level = quantizeCoverage(lum, gamma: cfg.aaGamma)
             }
             let idx = row * bytesPerGlyphRow + col / 2
             if col % 2 == 0 {
@@ -673,7 +682,7 @@ struct ShapedFontBuilder {
                 var level = 0
                 if col < width, from + col < stripW {
                     let lum = CGFloat(strip[row * stripW + from + col]) / 255.0
-                    level = min(15, Int((pow(lum, cfg.aaGamma) * 15.0).rounded()))
+                    level = quantizeCoverage(lum, gamma: cfg.aaGamma)
                 }
                 let idx = row * 16 + col / 2
                 if col % 2 == 0 { out[idx] = UInt8(level << 4) }
@@ -691,7 +700,7 @@ struct ShapedFontBuilder {
                 var level = 0
                 if col < width, from + col < stripW {
                     let lum = CGFloat(strip[row * stripW + from + col]) / 255.0
-                    level = min(15, Int((pow(lum, cfg.aaGamma) * 15.0).rounded()))
+                    level = quantizeCoverage(lum, gamma: cfg.aaGamma)
                 }
                 let idx = row * 8 + col / 2
                 if col % 2 == 0 { out[idx] = UInt8(level << 4) }
