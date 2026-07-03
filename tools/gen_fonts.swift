@@ -19,10 +19,6 @@ struct FontConfig {
     let glyphWidth: Int
     let fontSize16: CGFloat
     let fontSize32: CGFloat
-    // Alpha shaping exponent for the 4-bit antialiased coverage. Blending
-    // happens in gamma-encoded RGB565 on the device, which makes linear
-    // coverage read thin; values below 1.0 fatten the edge ramp.
-    var aaGamma: CGFloat = 0.7
 }
 
 // The base Menlo font carries ASCII plus every non-ASCII character used by
@@ -50,12 +46,12 @@ let cjkConfigs = [
 ]
 
 // Coverage -> 4-bit level: a contrast stretch kills the faint halo below
-// 10% coverage and saturates above 90% (sharper edges), the gamma shaping
-// compensates for blending in gamma-encoded RGB565 (fatter ramps), and
-// the mid-range stays graded so text remains antialiased.
-func quantizeCoverage(_ lum: CGFloat, gamma: CGFloat) -> Int {
-    let t = min(1.0, max(0.0, (lum - 0.10) / 0.80))
-    return min(15, Int((pow(t, gamma) * 15.0).rounded()))
+// 15% coverage and saturates above 85% (sharper edges); in between the
+// level is linear coverage. No gamma shaping: the device blends the
+// palette in linear light, which is correct for any fg/bg pair.
+func quantizeCoverage(_ lum: CGFloat) -> Int {
+    let t = min(1.0, max(0.0, (lum - 0.15) / 0.70))
+    return min(15, Int((t * 15.0).rounded()))
 }
 
 func fontHasGlyphs(_ font: NSFont, _ s: String) -> Bool {
@@ -234,7 +230,7 @@ func render(_ ch: String, cfg: FontConfig, pixels: Int, outputWidth: Int? = nil)
                 let p = row * rep.bytesPerRow + col * 4
                 let lum = (CGFloat(data[p]) + CGFloat(data[p + 1]) + CGFloat(data[p + 2]))
                     / (3.0 * 255.0)
-                level = quantizeCoverage(lum, gamma: cfg.aaGamma)
+                level = quantizeCoverage(lum)
             }
             let idx = row * bytesPerGlyphRow + col / 2
             if col % 2 == 0 {
@@ -533,7 +529,6 @@ struct ShapedConfig {
     let fontName: String
     let fontSize: CGFloat
     let rtl: Bool
-    var aaGamma: CGFloat = 0.7
     // Characters the C side composes at runtime (outside the pre-shaped
     // strings), emitted at their real codepoints: Persian digits for the
     // Jalali date.
@@ -831,7 +826,7 @@ struct ShapedFontBuilder {
                 var level = 0
                 if col < width, from + col < stripW {
                     let lum = CGFloat(strip[row * stripW + from + col]) / 255.0
-                    level = quantizeCoverage(lum, gamma: cfg.aaGamma)
+                    level = quantizeCoverage(lum)
                 }
                 let idx = row * 16 + col / 2
                 if col % 2 == 0 { out[idx] = UInt8(level << 4) }
@@ -849,7 +844,7 @@ struct ShapedFontBuilder {
                 var level = 0
                 if col < width, from + col < stripW {
                     let lum = CGFloat(strip[row * stripW + from + col]) / 255.0
-                    level = quantizeCoverage(lum, gamma: cfg.aaGamma)
+                    level = quantizeCoverage(lum)
                 }
                 let idx = row * 8 + col / 2
                 if col % 2 == 0 { out[idx] = UInt8(level << 4) }

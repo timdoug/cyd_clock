@@ -48,17 +48,51 @@ static spi_device_handle_t spi_dev;
 static bool display_rotated = false;
 
 
-// Antialiased glyph support: all glyph bitmaps store 4-bit alpha per
-// pixel, two pixels per byte, high nibble = left pixel. Each blit builds a
-// 16-entry bg-to-fg ramp once and indexes it per pixel; the perceptual
-// (gamma) shaping of the levels is baked into the generated tables.
+// Antialiased glyph support: all glyph bitmaps store 4-bit linear
+// coverage per pixel, two pixels per byte, high nibble = left pixel.
+// Each blit builds a 16-entry bg-to-fg ramp once and indexes it per
+// pixel. The ramp is mixed in linear light (panel gamma ~2.2): lerping
+// the gamma-encoded RGB565 channels directly puts mid-coverage pixels
+// at the wrong brightness by an amount that depends on the fg/bg pair,
+// which no fixed shaping baked into the glyph data can compensate for
+// every background color.
+
+// Gamma-encoded 5/6-bit channel -> linear light, round(16383*(i/max)^2.2).
+static const uint16_t aa_lin5[32] = {
+    0, 9, 39, 96, 181, 296, 442, 620,
+    832, 1078, 1360, 1677, 2030, 2421, 2850, 3317,
+    3824, 4369, 4954, 5580, 6247, 6955, 7704, 8496,
+    9330, 10206, 11126, 12089, 13096, 14147, 15243, 16383,
+};
+static const uint16_t aa_lin6[64] = {
+    0, 2, 8, 20, 38, 62, 93, 130,
+    175, 227, 286, 352, 427, 509, 599, 697,
+    803, 918, 1041, 1172, 1313, 1461, 1619, 1785,
+    1960, 2144, 2338, 2540, 2752, 2972, 3203, 3442,
+    3691, 3950, 4218, 4496, 4783, 5080, 5387, 5704,
+    6031, 6367, 6714, 7071, 7438, 7815, 8202, 8599,
+    9007, 9425, 9853, 10292, 10741, 11201, 11671, 12152,
+    12643, 13145, 13658, 14181, 14716, 15261, 15816, 16383,
+};
+
+// Nearest gamma-encoded channel value for a linear-light target.
+static int aa_encode(const uint16_t *tab, int n, int lin) {
+    int lo = 0, hi = n - 1;
+    while (lo < hi) {
+        int mid = (lo + hi) / 2;
+        if (tab[mid] < lin) lo = mid + 1; else hi = mid;
+    }
+    if (lo > 0 && lin - tab[lo - 1] < tab[lo] - lin) lo--;
+    return lo;
+}
+
 static void aa_build_palette(uint16_t fg, uint16_t bg, uint16_t palette[16]) {
-    int fr = (fg >> 11) & 0x1F, fgr = (fg >> 5) & 0x3F, fb = fg & 0x1F;
-    int br = (bg >> 11) & 0x1F, bgr = (bg >> 5) & 0x3F, bb = bg & 0x1F;
+    int fr = aa_lin5[(fg >> 11) & 0x1F], fgr = aa_lin6[(fg >> 5) & 0x3F], fb = aa_lin5[fg & 0x1F];
+    int br = aa_lin5[(bg >> 11) & 0x1F], bgr = aa_lin6[(bg >> 5) & 0x3F], bb = aa_lin5[bg & 0x1F];
     for (int i = 0; i < 16; i++) {
-        int r = (br * (15 - i) + fr * i + 7) / 15;
-        int g = (bgr * (15 - i) + fgr * i + 7) / 15;
-        int b = (bb * (15 - i) + fb * i + 7) / 15;
+        int r = aa_encode(aa_lin5, 32, (br * (15 - i) + fr * i + 7) / 15);
+        int g = aa_encode(aa_lin6, 64, (bgr * (15 - i) + fgr * i + 7) / 15);
+        int b = aa_encode(aa_lin5, 32, (bb * (15 - i) + fb * i + 7) / 15);
         palette[i] = (uint16_t)((r << 11) | (g << 5) | b);
     }
 }
