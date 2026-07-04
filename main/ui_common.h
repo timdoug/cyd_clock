@@ -53,7 +53,21 @@ typedef struct {
     int drag_start_scroll;
     uint32_t last_redraw_ticks;
     touch_point_t tap_start;
+    // Flick momentum: finger velocity is EMA-filtered while dragging;
+    // a release above UI_LIST_FLICK_MIN_V starts a coast that decays
+    // exponentially and keeps emitting SCROLLED results until it fades
+    // or hits an end of the list.
+    int vel_y;              // px/s, positive = finger moving down
+    int last_y;
+    uint32_t last_move_ticks;
+    bool coasting;
+    int32_t coast_acc;      // finger travel not yet scrolled, px * 256
+    uint32_t coast_ticks;   // last coast integration time
 } ui_list_touch_t;
+
+#define UI_LIST_FLICK_MIN_V   150   // finger px/s needed to start a coast
+#define UI_LIST_COAST_STOP_V  50    // coast ends below this speed
+#define UI_LIST_COAST_TAU_MS  350   // velocity decay time constant
 
 #define VKEY_SHIFT      '\x01'
 #define VKEY_MODE       '\x02'

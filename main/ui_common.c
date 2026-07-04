@@ -236,6 +236,9 @@ void ui_list_touch_reset(ui_list_touch_t *state) {
     state->drag_moved = false;
     state->redraw_pending = false;
     state->last_redraw_ticks = 0;
+    state->vel_y = 0;
+    state->coasting = false;
+    state->coast_acc = 0;
 }
 
 static int list_drag_scroll_delta(int delta_y) {
@@ -254,10 +257,16 @@ ui_list_touch_result_t ui_list_touch_update(ui_list_touch_t *state,
         state->was_pressed = true;
         state->drag_tracking = touch && touch->y >= UI_LIST_START_Y
                                && touch->y < UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H;
-        state->drag_moved = false;
+        // Touching a coasting list catches it: the coast stops and the
+        // release is not a tap, matching the usual momentum-scroll feel.
+        state->drag_moved = state->coasting;
+        state->coasting = false;
         state->redraw_pending = false;
         state->drag_start_y = touch ? touch->y : 0;
         state->drag_start_scroll = *scroll_offset;
+        state->vel_y = 0;
+        state->last_y = touch ? touch->y : 0;
+        state->last_move_ticks = xTaskGetTickCount();
         if (touch) state->tap_start = *touch;
         return UI_LIST_TOUCH_PRESSED;
     }
@@ -265,9 +274,23 @@ ui_list_touch_result_t ui_list_touch_update(ui_list_touch_t *state,
     if (pressed) {
         if (!touch || !state->drag_tracking) return UI_LIST_TOUCH_PRESSED;
 
+        uint32_t now = xTaskGetTickCount();
         int delta_y = touch->y - state->drag_start_y;
         if (delta_y < -8 || delta_y > 8) {
             state->drag_moved = true;
+        }
+
+        // Filtered finger velocity; a still finger decays it toward 0,
+        // so pause-then-lift does not coast.
+        uint32_t dt = now - state->last_move_ticks;
+        if (dt > 0) {
+            int dt_ms = (int)(dt * portTICK_PERIOD_MS);
+            int v_inst = (touch->y - state->last_y) * 1000 / dt_ms;
+            if (v_inst > 5000) v_inst = 5000;
+            if (v_inst < -5000) v_inst = -5000;
+            state->vel_y = (state->vel_y + v_inst) / 2;
+            state->last_y = touch->y;
+            state->last_move_ticks = now;
         }
 
         int new_scroll = state->drag_start_scroll - list_drag_scroll_delta(delta_y);
@@ -276,7 +299,6 @@ ui_list_touch_result_t ui_list_touch_update(ui_list_touch_t *state,
             *scroll_offset = new_scroll;
             state->redraw_pending = true;
 
-            uint32_t now = xTaskGetTickCount();
             if (state->last_redraw_ticks == 0
                 || now - state->last_redraw_ticks >= pdMS_TO_TICKS(UI_LIST_SCROLL_REDRAW_MS)) {
                 state->last_redraw_ticks = now;
@@ -287,16 +309,57 @@ ui_list_touch_result_t ui_list_touch_update(ui_list_touch_t *state,
         return UI_LIST_TOUCH_PRESSED;
     }
 
-    if (!state->was_pressed) return UI_LIST_TOUCH_NONE;
-
-    state->was_pressed = false;
-    state->drag_tracking = false;
-    if (state->drag_moved) {
-        bool needs_redraw = state->redraw_pending;
-        state->redraw_pending = false;
-        return needs_redraw ? UI_LIST_TOUCH_SCROLLED : UI_LIST_TOUCH_NONE;
+    if (state->was_pressed) {
+        state->was_pressed = false;
+        state->drag_tracking = false;
+        if (state->drag_moved) {
+            if (state->vel_y >= UI_LIST_FLICK_MIN_V || state->vel_y <= -UI_LIST_FLICK_MIN_V) {
+                state->coasting = true;
+                state->coast_acc = 0;
+                state->coast_ticks = xTaskGetTickCount();
+            }
+            bool needs_redraw = state->redraw_pending;
+            state->redraw_pending = false;
+            return needs_redraw ? UI_LIST_TOUCH_SCROLLED : UI_LIST_TOUCH_NONE;
+        }
+        return UI_LIST_TOUCH_TAPPED;
     }
-    return UI_LIST_TOUCH_TAPPED;
+
+    // No touch and none before: integrate any coast in progress.
+    if (!state->coasting) return UI_LIST_TOUCH_NONE;
+    uint32_t now = xTaskGetTickCount();
+    int dt_ms = (int)((now - state->coast_ticks) * portTICK_PERIOD_MS);
+    if (dt_ms <= 0) return UI_LIST_TOUCH_NONE;
+    state->coast_ticks = now;
+
+    state->coast_acc += (int32_t)state->vel_y * dt_ms * 256 / 1000;
+    state->vel_y -= state->vel_y * dt_ms / UI_LIST_COAST_TAU_MS;
+    if (state->vel_y > -UI_LIST_COAST_STOP_V && state->vel_y < UI_LIST_COAST_STOP_V) {
+        state->coasting = false;
+    }
+
+    int rows = state->coast_acc / (256 * UI_LIST_ITEM_H);
+    if (rows != 0) {
+        state->coast_acc -= rows * 256 * UI_LIST_ITEM_H;
+        int new_scroll = ui_list_clamp_scroll(*scroll_offset - rows, count);
+        if (new_scroll == *scroll_offset) {
+            state->coasting = false;    // ran into an end of the list
+        } else {
+            *scroll_offset = new_scroll;
+            state->redraw_pending = true;
+        }
+    }
+
+    if (state->redraw_pending) {
+        // Same throttle as dragging; always flush when the coast ends.
+        if (!state->coasting || state->last_redraw_ticks == 0
+            || now - state->last_redraw_ticks >= pdMS_TO_TICKS(UI_LIST_SCROLL_REDRAW_MS)) {
+            state->last_redraw_ticks = now;
+            state->redraw_pending = false;
+            return UI_LIST_TOUCH_SCROLLED;
+        }
+    }
+    return UI_LIST_TOUCH_NONE;
 }
 
 int ui_list_tap_to_item(const touch_point_t *tap, int scroll, int count) {
