@@ -97,6 +97,7 @@ void tr_date(char *buf, size_t len, int wday, int mon, int mday, int year) {
         snprintf(buf, len, "%d. %s %d. %s", year, mo, mday, wd);
         break;
     case LANG_LT:
+    case LANG_BHO:
         snprintf(buf, len, "%d %s %d, %s", year, mo, mday, wd);
         break;
     // Assembled in visual order (every fragment renders left to right):
@@ -104,6 +105,8 @@ void tr_date(char *buf, size_t len, int wday, int mon, int mday, int year) {
     case LANG_AR:
     case LANG_HE:
     case LANG_UR:
+    case LANG_PA_ARAB:
+    case LANG_PS:
         snprintf(buf, len, "%d %s %d %s", year, mo, mday, wd);
         break;
     case LANG_FA: {
@@ -133,6 +136,9 @@ void tr_date(char *buf, size_t len, int wday, int mon, int mday, int year) {
         break;
     case LANG_ZH_HANT:
         snprintf(buf, len, "%d%s%s%d%s %s", year, date_year_zh_hant, mo, mday, date_day_zh_hant, wd);
+        break;
+    case LANG_YUE:
+        snprintf(buf, len, "%d%s%s%d%s %s", year, date_year_yue, mo, mday, date_day_yue, wd);
         break;
     case LANG_KO:
         snprintf(buf, len, "%d%s %s %d%s %s", year, date_year_ko, mo, mday, date_day_ko, wd);
@@ -181,6 +187,10 @@ const display_glyph_font_t *i18n_glyph_font(lang_t lang) {
     case LANG_TI: return &font_ti;
     case LANG_YO: return &font_yo;
     case LANG_PCM: return &font_pcm;
+    case LANG_YUE: return &font_yue;
+    case LANG_PA_ARAB: return &font_pa_arab;
+    case LANG_BHO: return &font_bho;
+    case LANG_PS: return &font_ps;
     default: return NULL;
     }
 }

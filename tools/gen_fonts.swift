@@ -43,6 +43,8 @@ let cjkConfigs = [
                fontName: "Hiragino Sans GB", glyphWidth: 16, fontSize16: 14, fontSize32: 29),
     FontConfig(scope: "ko", fontObject: "font_ko", glyphArray: "ko_glyphs",
                fontName: "Apple SD Gothic Neo", glyphWidth: 16, fontSize16: 14, fontSize32: 29),
+    FontConfig(scope: "yue", fontObject: "font_yue", glyphArray: "yue_glyphs",
+               fontName: "PingFang HK", glyphWidth: 16, fontSize16: 13, fontSize32: 28),
 ]
 
 // Coverage -> 4-bit level: a contrast stretch kills the faint halo below
@@ -616,6 +618,12 @@ let shapedConfigs = [
                  fontName: "Menlo", fontSize: 12, rtl: false),
     ShapedConfig(scope: "pcm", fontObject: "font_pcm", glyphArray: "pcm_glyphs",
                  fontName: "Menlo", fontSize: 12, rtl: false),
+    ShapedConfig(scope: "pa_arab", fontObject: "font_pa_arab", glyphArray: "pa_arab_glyphs",
+                 fontName: "Geeza Pro", fontSize: 12, rtl: true),
+    ShapedConfig(scope: "bho", fontObject: "font_bho", glyphArray: "bho_glyphs",
+                 fontName: "Kohinoor Devanagari", fontSize: 12, rtl: false),
+    ShapedConfig(scope: "ps", fontObject: "font_ps", glyphArray: "ps_glyphs",
+                 fontName: "Geeza Pro", fontSize: 12, rtl: true),
 ]
 
 func cUnescape(_ lit: String) -> String {

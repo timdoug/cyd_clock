@@ -27,6 +27,7 @@ extern const display_glyph_font_t font_zh_hant;
 extern const display_glyph_font_t font_ko;
 extern const display_glyph_font_t font_ka;
 extern const display_glyph_font_t font_hy;
+extern const display_glyph_font_t font_yue;
 
 // Pre-shaped scripts: CoreText shapes these languages' strings at
 // generation time (joining, ligatures, conjuncts, mark stacking, RTL
@@ -59,6 +60,9 @@ extern const display_glyph_font_t font_as;
 extern const display_glyph_font_t font_ti;
 extern const display_glyph_font_t font_yo;
 extern const display_glyph_font_t font_pcm;
+extern const display_glyph_font_t font_pa_arab;
+extern const display_glyph_font_t font_bho;
+extern const display_glyph_font_t font_ps;
 
 extern const char *const lang_ar_shaped[];
 extern const char *const weekdays_ar_shaped[7];
@@ -160,5 +164,17 @@ extern const char *const lang_pcm_shaped[];
 extern const char *const weekdays_pcm_shaped[7];
 extern const char *const months_pcm_shaped[12];
 extern const char lang_name_pcm_shaped[];
+extern const char *const lang_pa_arab_shaped[];
+extern const char *const weekdays_pa_arab_shaped[7];
+extern const char *const months_pa_arab_shaped[12];
+extern const char lang_name_pa_arab_shaped[];
+extern const char *const lang_bho_shaped[];
+extern const char *const weekdays_bho_shaped[7];
+extern const char *const months_bho_shaped[12];
+extern const char lang_name_bho_shaped[];
+extern const char *const lang_ps_shaped[];
+extern const char *const weekdays_ps_shaped[7];
+extern const char *const months_ps_shaped[12];
+extern const char lang_name_ps_shaped[];
 
 #endif

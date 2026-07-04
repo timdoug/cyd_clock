@@ -112,6 +112,10 @@ typedef enum {
     LANG_TI,
     LANG_YO,
     LANG_PCM,
+    LANG_YUE,
+    LANG_PA_ARAB,
+    LANG_BHO,
+    LANG_PS,
     LANG_COUNT,
 } lang_t;
 
