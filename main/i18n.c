@@ -107,6 +107,7 @@ void tr_date(char *buf, size_t len, int wday, int mon, int mday, int year) {
     case LANG_UR:
     case LANG_PA_ARAB:
     case LANG_PS:
+    case LANG_SD:
         snprintf(buf, len, "%d %s %d %s", year, mo, mday, wd);
         break;
     case LANG_FA: {
@@ -191,6 +192,9 @@ const display_glyph_font_t *i18n_glyph_font(lang_t lang) {
     case LANG_PA_ARAB: return &font_pa_arab;
     case LANG_BHO: return &font_bho;
     case LANG_PS: return &font_ps;
+    case LANG_OR: return &font_or;
+    case LANG_SD: return &font_sd;
+    case LANG_MAI: return &font_mai;
     default: return NULL;
     }
 }

@@ -1,0 +1,77 @@
+// Editable source of truth for the pre-shaped strings; never compiled.
+// Editing REQUIRES a macOS font regeneration (swift tools/gen_fonts.swift);
+// tools/check_i18n.py catches staleness via source hashes in fonts.c.
+#if 0
+// >>> shaped-source sd
+static const char *const lang_sd[STR_COUNT] = {
+    [STR_WIFI] = "Wi-Fi",
+    [STR_SETTINGS] = "سيٽنگون",
+    [STR_FAIL] = "ناڪام",
+    [STR_TIMEZONE] = "وقت جو علائقو",
+    [STR_BRIGHTNESS] = "چمڪ",
+    [STR_LED_BLINK] = "LED جهلڪ",
+    [STR_ROTATE] = "180 ڦيرايو",
+    [STR_ABOUT] = "بابت",
+    [STR_LANGUAGE] = "ٻولي",
+    [STR_DONE] = "ٿي ويو",
+    [STR_BACK] = "پوئتي",
+    [STR_CANCEL] = "منسوخ",
+    [STR_DEL] = "مٽايو",
+    [STR_RUNNING] = "هلي رهيو آهي",
+    [STR_ON] = "چالو",
+    [STR_OFF] = "بند",
+    [STR_NTS_NO] = "نه",
+    [STR_NTS_ATTEMPT] = "ڪوشش",
+    [STR_NTS_REQUIRE] = "لازمي",
+    [STR_WAITING_NTP] = "NTP جو انتظار...",
+    [STR_FMT_SYNCED] = "هم وقت: %s",
+    [STR_FMT_SYNCING] = "هم وقت ٿي رهيو: %s",
+    [STR_FMT_WAITING] = "انتظار: %lus",
+    [STR_FMT_PEERS_NOSYNC] = "%d/%d سرور  poll %s  هم وقت ناهي",
+    [STR_FMT_PEERS_AGO] = "%d/%d سرور  poll %s  %s اڳ",
+    [STR_WIFI_SETUP] = "Wi-Fi سيٽ اپ",
+    [STR_SCANNING] = "ڳولي رهيو...",
+    [STR_SCAN_FAILED] = "ڳولا ناڪام",
+    [STR_TAP_RETRY] = "ٻيهر ڪوشش لاءِ ڇهو",
+    [STR_SELECT_NETWORK] = "نيٽ ورڪ چونڊيو",
+    [STR_NO_NETWORKS] = "ڪو نيٽ ورڪ ناهي",
+    [STR_NETWORK_LABEL] = "نيٽ ورڪ:",
+    [STR_ENTER_PASSWORD] = "پاس ورڊ داخل ڪريو",
+    [STR_CONNECTING] = "ڳنڍجي رهيو",
+    [STR_CONNECTING_TO] = "سان ڳنڍجي رهيو:",
+    [STR_CONNECTED] = "ڳنڍجي ويو!",
+    [STR_CONNECTION_FAILED] = "ڪنيڪشن ناڪام",
+    [STR_KB_SPACE] = "اسپيس",
+    [STR_KB_GO] = "OK",
+    [STR_VERSION] = "ورجن:",
+    [STR_STATUS] = "حالت:",
+    [STR_READ] = "پڙهيو ويو:",
+    [STR_UPDATE] = "اپڊيٽ",
+    [STR_RESTARTING] = "ٻيهر شروع ٿئي ٿو",
+    [STR_OTA_UPDATE] = "OTA اپڊيٽ",
+    [STR_NTP_SERVER] = "NTP سرور",
+    [STR_SERVER_LABEL] = "سرور:",
+    [STR_NTP_SETTINGS] = "NTP سيٽنگون",
+    [STR_NTP_PRESETS] = "NTP چونڊون",
+    [STR_PRESETS] = "چونڊون",
+    [STR_BENCHMARK] = "ٽيسٽ",
+    [STR_STOPPING] = "رڪجي رهيو",
+    [STR_NTP_STATS] = "NTP انگ اکر",
+    [STR_UNSYNCED] = "هم وقت ناهي",
+    [STR_SYNCS_LABEL] = "  Sync: ",
+    [STR_NONE] = "ڪوبه ناهي",
+    [STR_SELECT_REGION] = "علائقو چونڊيو",
+    [STR_AGE_LABEL] = "  عمر: ",
+    [STR_DST] = "اونهاري جو وقت",
+    [STR_NO_DST] = "اونهاري وقت ناهي",
+};
+static const char *const weekdays_sd[7] = {
+    "آچر", "سومر", "اڱارو", "اربع", "خميس", "جمعو", "ڇنڇر",
+};
+static const char *const months_sd[12] = {
+    "جنوري", "فيبروري", "مارچ", "اپريل", "مئي", "جون",
+    "جولاءِ", "آگسٽ", "سيپٽمبر", "آڪٽوبر", "نومبر", "ڊسمبر",
+};
+static const char lang_name_sd[] = "سنڌي";
+// <<< shaped-source sd
+#endif

@@ -1,0 +1,77 @@
+// Editable source of truth for the pre-shaped strings; never compiled.
+// Editing REQUIRES a macOS font regeneration (swift tools/gen_fonts.swift);
+// tools/check_i18n.py catches staleness via source hashes in fonts.c.
+#if 0
+// >>> shaped-source or
+static const char *const lang_or[STR_COUNT] = {
+    [STR_WIFI] = "Wi-Fi",
+    [STR_SETTINGS] = "ସେଟିଂ",
+    [STR_FAIL] = "ବିଫଳ",
+    [STR_TIMEZONE] = "ସମୟ ଅଞ୍ଚଳ",
+    [STR_BRIGHTNESS] = "ଉଜ୍ଜ୍ୱଳତା",
+    [STR_LED_BLINK] = "LED ଝଲକ",
+    [STR_ROTATE] = "180 ବୁଲାନ୍ତୁ",
+    [STR_ABOUT] = "ବିଷୟରେ",
+    [STR_LANGUAGE] = "ଭାଷା",
+    [STR_DONE] = "ହୋଇଗଲା",
+    [STR_BACK] = "ପଛକୁ",
+    [STR_CANCEL] = "ବାତିଲ",
+    [STR_DEL] = "ଲିଭାଅ",
+    [STR_RUNNING] = "ଚାଲୁଛି",
+    [STR_ON] = "ଚାଲୁ",
+    [STR_OFF] = "ବନ୍ଦ",
+    [STR_NTS_NO] = "ନାହିଁ",
+    [STR_NTS_ATTEMPT] = "ଚେଷ୍ଟା",
+    [STR_NTS_REQUIRE] = "ଆବଶ୍ୟକ",
+    [STR_WAITING_NTP] = "NTP ପାଇଁ ଅପେକ୍ଷା...",
+    [STR_FMT_SYNCED] = "ସିଙ୍କ ହେଲା: %s",
+    [STR_FMT_SYNCING] = "ସିଙ୍କ ହେଉଛି: %s",
+    [STR_FMT_WAITING] = "ଅପେକ୍ଷା: %lus",
+    [STR_FMT_PEERS_NOSYNC] = "%d/%d ସର୍ଭର  poll %s  ସିଙ୍କ ନାହିଁ",
+    [STR_FMT_PEERS_AGO] = "%d/%d ସର୍ଭର  poll %s  %s ପୂର୍ବେ",
+    [STR_WIFI_SETUP] = "Wi-Fi ସେଟଅପ",
+    [STR_SCANNING] = "ଖୋଜୁଛି...",
+    [STR_SCAN_FAILED] = "ଖୋଜା ବିଫଳ",
+    [STR_TAP_RETRY] = "ପୁଣି ଚେଷ୍ଟା ପାଇଁ ଛୁଅଁନ୍ତୁ",
+    [STR_SELECT_NETWORK] = "ନେଟୱର୍କ ବାଛନ୍ତୁ",
+    [STR_NO_NETWORKS] = "ନେଟୱର୍କ ମିଳିଲା ନାହିଁ",
+    [STR_NETWORK_LABEL] = "ନେଟୱର୍କ:",
+    [STR_ENTER_PASSWORD] = "ପାସୱାର୍ଡ ଦିଅନ୍ତୁ",
+    [STR_CONNECTING] = "ସଂଯୋଗ ହେଉଛି",
+    [STR_CONNECTING_TO] = "ସହ ସଂଯୋଗ:",
+    [STR_CONNECTED] = "ସଂଯୁକ୍ତ!",
+    [STR_CONNECTION_FAILED] = "ସଂଯୋଗ ବିଫଳ",
+    [STR_KB_SPACE] = "ସ୍ପେସ",
+    [STR_KB_GO] = "OK",
+    [STR_VERSION] = "ସଂସ୍କରଣ:",
+    [STR_STATUS] = "ସ୍ଥିତି:",
+    [STR_READ] = "ପଢ଼ାଗଲା:",
+    [STR_UPDATE] = "ଅପଡେଟ",
+    [STR_RESTARTING] = "ପୁନଃ ଆରମ୍ଭ",
+    [STR_OTA_UPDATE] = "OTA ଅପଡେଟ",
+    [STR_NTP_SERVER] = "NTP ସର୍ଭର",
+    [STR_SERVER_LABEL] = "ସର୍ଭର:",
+    [STR_NTP_SETTINGS] = "NTP ସେଟିଂ",
+    [STR_NTP_PRESETS] = "NTP ବିକଳ୍ପ",
+    [STR_PRESETS] = "ବିକଳ୍ପ",
+    [STR_BENCHMARK] = "ପରୀକ୍ଷା",
+    [STR_STOPPING] = "ଅଟକୁଛି",
+    [STR_NTP_STATS] = "NTP ପରିସଂଖ୍ୟାନ",
+    [STR_UNSYNCED] = "ସିଙ୍କ ନାହିଁ",
+    [STR_SYNCS_LABEL] = "  ସିଙ୍କ: ",
+    [STR_NONE] = "ନାହିଁ",
+    [STR_SELECT_REGION] = "ଅଞ୍ଚଳ ବାଛନ୍ତୁ",
+    [STR_AGE_LABEL] = "  ବୟସ: ",
+    [STR_DST] = "ଗ୍ରୀଷ୍ମ ସମୟ",
+    [STR_NO_DST] = "ଗ୍ରୀଷ୍ମ ସମୟ ନାହିଁ",
+};
+static const char *const weekdays_or[7] = {
+    "ରବି", "ସୋମ", "ମଙ୍ଗଳ", "ବୁଧ", "ଗୁରୁ", "ଶୁକ୍ର", "ଶନି",
+};
+static const char *const months_or[12] = {
+    "ଜାନୁଆରୀ", "ଫେବୃଆରୀ", "ମାର୍ଚ୍ଚ", "ଅପ୍ରେଲ", "ମଇ", "ଜୁନ",
+    "ଜୁଲାଇ", "ଅଗଷ୍ଟ", "ସେପ୍ଟେମ୍ବର", "ଅକ୍ଟୋବର", "ନଭେମ୍ବର", "ଡିସେମ୍ବର",
+};
+static const char lang_name_or[] = "ଓଡ଼ିଆ";
+// <<< shaped-source or
+#endif

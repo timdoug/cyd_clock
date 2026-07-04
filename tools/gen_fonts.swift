@@ -630,6 +630,12 @@ let shapedConfigs = [
                  fontName: "Kohinoor Devanagari", fontSize: 12, rtl: false),
     ShapedConfig(scope: "ps", fontObject: "font_ps", glyphArray: "ps_glyphs",
                  fontName: "Geeza Pro", fontSize: 12, rtl: true),
+    ShapedConfig(scope: "or", fontObject: "font_or", glyphArray: "or_glyphs",
+                 fontName: "Oriya Sangam MN", fontSize: 11, rtl: false),
+    ShapedConfig(scope: "sd", fontObject: "font_sd", glyphArray: "sd_glyphs",
+                 fontName: "Geeza Pro", fontSize: 12, rtl: true),
+    ShapedConfig(scope: "mai", fontObject: "font_mai", glyphArray: "mai_glyphs",
+                 fontName: "Kohinoor Devanagari", fontSize: 12, rtl: false),
 ]
 
 func cUnescape(_ lit: String) -> String {

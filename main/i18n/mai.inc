@@ -1,0 +1,77 @@
+// Editable source of truth for the pre-shaped strings; never compiled.
+// Editing REQUIRES a macOS font regeneration (swift tools/gen_fonts.swift);
+// tools/check_i18n.py catches staleness via source hashes in fonts.c.
+#if 0
+// >>> shaped-source mai
+static const char *const lang_mai[STR_COUNT] = {
+    [STR_WIFI] = "Wi-Fi",
+    [STR_SETTINGS] = "सेटिंग",
+    [STR_FAIL] = "विफल",
+    [STR_TIMEZONE] = "समय क्षेत्र",
+    [STR_BRIGHTNESS] = "चमक",
+    [STR_LED_BLINK] = "LED झलक",
+    [STR_ROTATE] = "180 घुमाउ",
+    [STR_ABOUT] = "बारेमे",
+    [STR_LANGUAGE] = "भाषा",
+    [STR_DONE] = "भऽ गेल",
+    [STR_BACK] = "पाछाँ",
+    [STR_CANCEL] = "रद्द",
+    [STR_DEL] = "मेटाउ",
+    [STR_RUNNING] = "चलि रहल अछि",
+    [STR_ON] = "चालू",
+    [STR_OFF] = "बन्द",
+    [STR_NTS_NO] = "नहि",
+    [STR_NTS_ATTEMPT] = "प्रयास",
+    [STR_NTS_REQUIRE] = "आवश्यक",
+    [STR_WAITING_NTP] = "NTP क प्रतीक्षा...",
+    [STR_FMT_SYNCED] = "सिंक भेल: %s",
+    [STR_FMT_SYNCING] = "सिंक भऽ रहल: %s",
+    [STR_FMT_WAITING] = "प्रतीक्षा: %lus",
+    [STR_FMT_PEERS_NOSYNC] = "%d/%d सर्वर  poll %s  सिंक नहि",
+    [STR_FMT_PEERS_AGO] = "%d/%d सर्वर  poll %s  %s पहिने",
+    [STR_WIFI_SETUP] = "Wi-Fi सेटअप",
+    [STR_SCANNING] = "ताकि रहल...",
+    [STR_SCAN_FAILED] = "खोज विफल",
+    [STR_TAP_RETRY] = "फेर प्रयास लेल छूबि",
+    [STR_SELECT_NETWORK] = "नेटवर्क चुनू",
+    [STR_NO_NETWORKS] = "नेटवर्क नहि भेटल",
+    [STR_NETWORK_LABEL] = "नेटवर्क:",
+    [STR_ENTER_PASSWORD] = "पासवर्ड दिअ",
+    [STR_CONNECTING] = "जुड़ि रहल",
+    [STR_CONNECTING_TO] = "सँ जुड़ि रहल:",
+    [STR_CONNECTED] = "जुड़ि गेल!",
+    [STR_CONNECTION_FAILED] = "कनेक्शन विफल",
+    [STR_KB_SPACE] = "स्पेस",
+    [STR_KB_GO] = "OK",
+    [STR_VERSION] = "संस्करण:",
+    [STR_STATUS] = "स्थिति:",
+    [STR_READ] = "पढ़ल गेल:",
+    [STR_UPDATE] = "अपडेट",
+    [STR_RESTARTING] = "फेर शुरू भऽ रहल",
+    [STR_OTA_UPDATE] = "OTA अपडेट",
+    [STR_NTP_SERVER] = "NTP सर्वर",
+    [STR_SERVER_LABEL] = "सर्वर:",
+    [STR_NTP_SETTINGS] = "NTP सेटिंग",
+    [STR_NTP_PRESETS] = "NTP विकल्प",
+    [STR_PRESETS] = "विकल्प",
+    [STR_BENCHMARK] = "जाँच",
+    [STR_STOPPING] = "रुकि रहल",
+    [STR_NTP_STATS] = "NTP आँकड़ा",
+    [STR_UNSYNCED] = "सिंक नहि",
+    [STR_SYNCS_LABEL] = "  सिंक: ",
+    [STR_NONE] = "किछु नहि",
+    [STR_SELECT_REGION] = "क्षेत्र चुनू",
+    [STR_AGE_LABEL] = "  आयु: ",
+    [STR_DST] = "ग्रीष्म समय",
+    [STR_NO_DST] = "ग्रीष्म समय नहि",
+};
+static const char *const weekdays_mai[7] = {
+    "रवि", "सोम", "मंगल", "बुध", "गुरु", "शुक्र", "शनि",
+};
+static const char *const months_mai[12] = {
+    "जन॰", "फ़र॰", "मार्च", "अप्रैल", "मई", "जून",
+    "जुल॰", "अग॰", "सित॰", "अक्तू॰", "नव॰", "दिस॰",
+};
+static const char lang_name_mai[] = "मैथिली";
+// <<< shaped-source mai
+#endif

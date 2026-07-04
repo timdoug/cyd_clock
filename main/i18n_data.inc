@@ -119,6 +119,13 @@
 #include "i18n/pa_arab.inc"
 #include "i18n/bho.inc"
 #include "i18n/ps.inc"
+#include "i18n/or.inc"
+#include "i18n/sd.inc"
+#include "i18n/om.inc"
+#include "i18n/su.inc"
+#include "i18n/ceb.inc"
+#include "i18n/mg.inc"
+#include "i18n/mai.inc"
 
 static const char *const *const lang_tables[LANG_COUNT] = {
 #define I18N_PLAIN(id, up)  [LANG_##up] = lang_##id,

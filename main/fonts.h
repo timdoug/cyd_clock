@@ -63,6 +63,9 @@ extern const display_glyph_font_t font_pcm;
 extern const display_glyph_font_t font_pa_arab;
 extern const display_glyph_font_t font_bho;
 extern const display_glyph_font_t font_ps;
+extern const display_glyph_font_t font_or;
+extern const display_glyph_font_t font_sd;
+extern const display_glyph_font_t font_mai;
 
 extern const char *const lang_ar_shaped[];
 extern const char *const weekdays_ar_shaped[7];
@@ -176,5 +179,17 @@ extern const char *const lang_ps_shaped[];
 extern const char *const weekdays_ps_shaped[7];
 extern const char *const months_ps_shaped[12];
 extern const char lang_name_ps_shaped[];
+extern const char *const lang_or_shaped[];
+extern const char *const weekdays_or_shaped[7];
+extern const char *const months_or_shaped[12];
+extern const char lang_name_or_shaped[];
+extern const char *const lang_sd_shaped[];
+extern const char *const weekdays_sd_shaped[7];
+extern const char *const months_sd_shaped[12];
+extern const char lang_name_sd_shaped[];
+extern const char *const lang_mai_shaped[];
+extern const char *const weekdays_mai_shaped[7];
+extern const char *const months_mai_shaped[12];
+extern const char lang_name_mai_shaped[];
 
 #endif

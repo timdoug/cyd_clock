@@ -14,7 +14,8 @@ CJK_SCOPES = ("zh_hant", "yue", "ja", "zh", "ko", "ka", "hy")  # longest first s
 SHAPED_SCOPES = ("ar", "fa", "he", "hi", "bn", "th", "ur", "mr", "ta", "te", "pa", "gu",
                  "kn", "ml", "ne", "si", "km", "lo", "my", "am",
                  "kok", "as", "ti", "yo", "pcm",
-                 "pa_arab", "bho", "ps")  # pre-shaped by the generator
+                 "pa_arab", "bho", "ps",
+                 "or", "sd", "mai")  # pre-shaped by the generator
 
 
 def parse_enum_ids(i18n_h):
