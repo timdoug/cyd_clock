@@ -329,7 +329,7 @@ static void draw_ntp_stats(time_t now, int sec) {
         peers_total++;
         if (peers[i].reach) peers_reach++;
     }
-    char poll_buf[16], ago_buf[16];
+    char poll_buf[24], ago_buf[24];  // CJK unit words: up to 3 UTF-8 bytes each
     ui_fmt_duration_full(poll_buf, sizeof(poll_buf), sys.current_poll_s);
     char line2[80];
     if (sys.sync_count == 0) {

@@ -279,7 +279,7 @@ bool ota_update_start(const char *url, bool force, char *err_buf, size_t err_len
     if (!url || url[0] == '\0') {
         precheck_err = "Missing URL";
     } else if (!wifi_is_connected()) {
-        precheck_err = "WiFi offline";
+        precheck_err = "Wi-Fi offline";
     }
     if (precheck_err) {
         current_status.state = OTA_UPDATE_FAILED;

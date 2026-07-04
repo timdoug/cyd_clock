@@ -82,7 +82,7 @@ static bool handle_slider_touch(int touch_x, uint8_t *value, uint8_t min_val) {
 
 static void draw_menu(void) {
     ui_draw_menu_item(TZ_ROW_Y, tr(STR_TIMEZONE));
-    ui_draw_menu_item(WIFI_ROW_Y, "WiFi");
+    ui_draw_menu_item(WIFI_ROW_Y, tr(STR_WIFI));
     ui_draw_menu_item(NTP_ROW_Y, "NTP");
     ui_draw_slider(BRIGHTNESS_ROW_Y, tr(STR_BRIGHTNESS), brightness, BRIGHTNESS_MAX, UI_COLOR_SELECTED);
     ui_draw_slider(LED_ROW_Y, tr(STR_LED_BLINK), led_brightness, BRIGHTNESS_MAX, COLOR_RED);

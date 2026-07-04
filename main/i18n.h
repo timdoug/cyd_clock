@@ -97,6 +97,20 @@ typedef enum {
 typedef enum {
     // Settings menu + shared chrome
     STR_SETTINGS,
+    // The settings-row label for the wifi screen: locales name the
+    // technology differently (de: WLAN), so even this "acronym" row
+    // goes through tr().
+    STR_WIFI,
+    // Duration unit suffixes for ui_fmt_duration_full ("10s", "5m 3s").
+    // SI symbols everywhere except CJK, where the native second/minute/
+    // hour/day words read more naturally; other languages fall back to
+    // English.
+    // Offset/jitter values keep SI ms/us unconditionally: they render
+    // in width-capped columns where 2-cell units would not fit.
+    STR_UNIT_S,
+    STR_UNIT_M,
+    STR_UNIT_H,
+    STR_UNIT_D,
     STR_TIMEZONE,
     STR_BRIGHTNESS,
     STR_LED_BLINK,

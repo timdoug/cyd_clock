@@ -598,19 +598,21 @@ void ui_fmt_signed_x1000(char *buf, size_t len, int32_t val_x1000, const char *u
 }
 
 void ui_fmt_duration_full(char *buf, size_t len, uint32_t seconds) {
+    // Unit suffixes go through tr(): CJK shows native units, everyone
+    // else falls back to the English SI-style symbols.
     if (seconds < 60) {
-        snprintf(buf, len, "%lus", (unsigned long)seconds);
+        snprintf(buf, len, "%lu%s", (unsigned long)seconds, tr(STR_UNIT_S));
     } else if (seconds < 3600) {
-        snprintf(buf, len, "%lum %lus",
-                 (unsigned long)(seconds / 60),
-                 (unsigned long)(seconds % 60));
+        snprintf(buf, len, "%lu%s %lu%s",
+                 (unsigned long)(seconds / 60), tr(STR_UNIT_M),
+                 (unsigned long)(seconds % 60), tr(STR_UNIT_S));
     } else if (seconds < 86400) {
-        snprintf(buf, len, "%luh %lum",
-                 (unsigned long)(seconds / 3600),
-                 (unsigned long)((seconds % 3600) / 60));
+        snprintf(buf, len, "%lu%s %lu%s",
+                 (unsigned long)(seconds / 3600), tr(STR_UNIT_H),
+                 (unsigned long)((seconds % 3600) / 60), tr(STR_UNIT_M));
     } else {
-        snprintf(buf, len, "%lud %luh",
-                 (unsigned long)(seconds / 86400),
-                 (unsigned long)((seconds % 86400) / 3600));
+        snprintf(buf, len, "%lu%s %lu%s",
+                 (unsigned long)(seconds / 86400), tr(STR_UNIT_D),
+                 (unsigned long)((seconds % 86400) / 3600), tr(STR_UNIT_H));
     }
 }

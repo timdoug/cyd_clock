@@ -261,7 +261,7 @@ static void refresh_dynamic(void) {
         // per glyph in the generated-font languages (widest today: the
         // pre-shaped scripts at 3 bytes per cluster, ar/he 30 bytes);
         // keep headroom so it never truncates.
-        char poll_buf[16], syncs_buf[16], strat_buf[40];
+        char poll_buf[24], syncs_buf[16], strat_buf[40];
         ui_fmt_duration_full(poll_buf, sizeof(poll_buf), sys.current_poll_s);
         snprintf(syncs_buf, sizeof(syncs_buf), "%lu", (unsigned long)sys.sync_count);
         if (sys.synced) {
@@ -287,7 +287,7 @@ static void refresh_dynamic(void) {
     // sets the clock (sync_count >= 1).
     {
         int y = SYS_Y_START + 2 * SYS_LINE_H;
-        char drift_buf[16], age_buf[16];
+        char drift_buf[16], age_buf[24];
         if (!sys.freq_known) {
             snprintf(drift_buf, sizeof(drift_buf), "---");
         } else {
