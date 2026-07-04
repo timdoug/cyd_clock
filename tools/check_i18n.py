@@ -51,12 +51,12 @@ def main():
                 for i in range(count)}
 
     coverage = {}
-    m = re.search(r'font_base_ext_cp = \(const uint16_t \*\)\(const void \*\)\(fonts_blob \+ (\d+)\)', fonts)
+    m = re.search(r'font_base_ext_cp = FB16\((\d+)\)', fonts)
     n = re.search(r'font_base_ext_count = (\d+)', fonts)
     coverage[''] = cps_at(int(m.group(1)), int(n.group(1))) if m and n else set()
     for scope in CJK_SCOPES:
         fm = re.search(r'font_' + scope + r' = \{\s*'
-                       r'\.codepoints = \(const uint16_t \*\)\(const void \*\)\(fonts_blob \+ (\d+)\),'
+                       r'\.codepoints = FB16\((\d+)\),'
                        r'[\s\S]*?\.count = (\d+),', fonts)
         coverage[scope] = cps_at(int(fm.group(1)), int(fm.group(2))) if fm else set()
 

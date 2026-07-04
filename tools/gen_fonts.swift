@@ -375,7 +375,23 @@ func packTiles(_ name: String, _ tiles: [[UInt8]?]) -> (Int, Int) {
 }
 
 func blobPtr(_ off: Int) -> String { "fonts_blob + \(off)" }
-func blobPtr16(_ off: Int) -> String { "(const uint16_t *)(const void *)(fonts_blob + \(off))" }
+func blobPtr16(_ off: Int) -> String { "FB16(\(off))" }
+
+// Pack initializer entries onto shared lines instead of one per line.
+func chunkLines(_ items: [String], width: Int = 96) -> String {
+    var lines: [String] = []
+    var cur = ""
+    for item in items {
+        let piece = item + ","
+        if !cur.isEmpty && cur.count + piece.count + 1 > width {
+            lines.append(cur)
+            cur = ""
+        }
+        cur += (cur.isEmpty ? "    " : " ") + piece
+    }
+    if !cur.isEmpty { lines.append(cur) }
+    return lines.joined(separator: "\n")
+}
 
 // Pack a font's 1x and 2x tiles; returns (rle1x, off1x, rle2x, off2x).
 // 2x tiles are emitted only for date-reachable characters.
@@ -406,6 +422,10 @@ extern const uint8_t fonts_blob[] __asm__("_binary_fonts_bin_start");
 #else
 extern const uint8_t fonts_blob[];  // host harness provides the blob
 #endif
+
+// Pointer-into-blob shorthands: FB is a string, FB16 a uint16 table.
+#define FB(off)   ((const char *)(fonts_blob + (off)))
+#define FB16(off) ((const uint16_t *)(const void *)(fonts_blob + (off)))
 
 """
 
@@ -1058,15 +1078,13 @@ func generateShapedC(_ source: String) -> String {
             return blobAppend(Array(text.utf8) + [0])
         }
         out += "const char *const lang_\(cfg.scope)_shaped[STR_COUNT] = {\n"
-        for (id, text) in shapedStrings {
-            out += "    [\(id)] = (const char *)(\(blobPtr(strOff(text)))),\n"
-        }
-        out += "};\n"
+        out += chunkLines(shapedStrings.map { "[\($0.0)] = FB(\(strOff($0.1)))" })
+        out += "\n};\n"
         out += "const char *const weekdays_\(cfg.scope)_shaped[7] = {\n"
-        out += shapedWk.map { "    (const char *)(\(blobPtr(strOff($0))))" }.joined(separator: ",\n")
+        out += chunkLines(shapedWk.map { "FB(\(strOff($0)))" })
         out += "\n};\n"
         out += "const char *const months_\(cfg.scope)_shaped[12] = {\n"
-        out += shapedMo.map { "    (const char *)(\(blobPtr(strOff($0))))" }.joined(separator: ",\n")
+        out += chunkLines(shapedMo.map { "FB(\(strOff($0)))" })
         out += "\n};\n"
         out += "const char lang_name_\(cfg.scope)_shaped[] = \(cStringExpr(shapedName));\n\n"
     }
