@@ -5524,8 +5524,10 @@ static const char *const lang_yue[STR_COUNT] = {
     [STR_UNIT_H] = "小時",
     [STR_UNIT_D] = "日",
 };
+// CLDR yue "short" weekday width; the abbreviated forms (three chars,
+// 星期日) overflow the 320px 2x date line.
 static const char *const weekdays_yue[7] = {
-    "週日", "週一", "週二", "週三", "週四", "週五", "週六",
+    "日", "一", "二", "三", "四", "五", "六",
 };
 static const char *const months_yue[12] = {
     "1月", "2月", "3月", "4月", "5月", "6月",
@@ -7064,7 +7066,7 @@ static const char *const lang_kok[STR_COUNT] = {
     [STR_NO_DST] = "गिम्हाचो वेळ ना",
 };
 static const char *const weekdays_kok[7] = {
-    "आयत", "सोम", "मंगळ", "बुध", "बिरे", "शुक्र", "शेन",
+    "आयतार", "सोमार", "मंगळार", "बुधवार", "बिरेस्तार", "शुक्रार", "शेनवार",
 };
 static const char *const months_kok[12] = {
     "जाने", "फेब्रु", "मार्च", "एप्री", "मे", "जून",
@@ -7501,8 +7503,11 @@ static const char *const lang_bho[STR_COUNT] = {
     [STR_DST] = "गरमी के समय",
     [STR_NO_DST] = "गरमी समय नइखे",
 };
+// CLDR abbreviated, except Thursday: CLDR's form overflows the 320px
+// 2x date line (its short width is no shorter), so the attested
+// Bhojpuri short form substitutes.
 static const char *const weekdays_bho[7] = {
-    "रबी", "सोम", "मंगल", "बुध", "बिफे", "शुक्र", "सनी",
+    "रबीबार", "सोमबार", "मंगलबार", "बुधबार", "बिफे", "शुक्रबार", "सनीचर",
 };
 static const char *const months_bho[12] = {
     "जनवरी", "फरवरी", "मार्च", "अप्रैल", "मई", "जून",
