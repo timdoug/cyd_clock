@@ -84,6 +84,8 @@ static const char *const lang_en[STR_COUNT] = {
     [STR_PEER_HEADER] = "Peer            R  Offset  Delay Jitter",
     [STR_NONE] = "none",
     [STR_SELECT_REGION] = "Select Region",
+    [STR_DST] = "DST",
+    [STR_NO_DST] = "no DST",
 };
 
 static const char *const weekdays_en[7] = {
@@ -161,6 +163,8 @@ static const char *const lang_es[STR_COUNT] = {
     [STR_JITTER_LABEL] = "  Jitter: ",
     [STR_NONE] = "ninguna",
     [STR_SELECT_REGION] = "Elige región",
+    [STR_DST] = "hora de verano",
+    [STR_NO_DST] = "sin h. verano",
 };
 
 static const char *const weekdays_es[7] = {
@@ -238,6 +242,8 @@ static const char *const lang_fr[STR_COUNT] = {
     [STR_JITTER_LABEL] = "  Jitter: ",
     [STR_NONE] = "aucune",  // refers to the IPv6 address (feminine)
     [STR_SELECT_REGION] = "Choisir région",
+    [STR_DST] = "heure d'été",
+    [STR_NO_DST] = "sans h. d'été",
 };
 
 static const char *const weekdays_fr[7] = {
@@ -315,6 +321,8 @@ static const char *const lang_de[STR_COUNT] = {
     [STR_JITTER_LABEL] = "  Jitter: ",
     [STR_NONE] = "keine",
     [STR_SELECT_REGION] = "Region wählen",
+    [STR_DST] = "Sommerzeit",
+    [STR_NO_DST] = "ohne Sommerzeit",
 };
 
 static const char *const weekdays_de[7] = {
@@ -392,6 +400,8 @@ static const char *const lang_pt[STR_COUNT] = {
     [STR_JITTER_LABEL] = "  Jitter: ",
     [STR_NONE] = "nenhum",
     [STR_SELECT_REGION] = "Escolha região",
+    [STR_DST] = "h. de verão",
+    [STR_NO_DST] = "sem h. de verão",
 };
 
 static const char *const weekdays_pt[7] = {
@@ -469,6 +479,8 @@ static const char *const lang_it[STR_COUNT] = {
     [STR_JITTER_LABEL] = "  Jitter: ",
     [STR_NONE] = "nessuno",
     [STR_SELECT_REGION] = "Scegli regione",
+    [STR_DST] = "ora legale",
+    [STR_NO_DST] = "no ora legale",
 };
 
 static const char *const weekdays_it[7] = {
@@ -546,6 +558,8 @@ static const char *const lang_nl[STR_COUNT] = {
     [STR_JITTER_LABEL] = "  Jitter: ",
     [STR_NONE] = "geen",
     [STR_SELECT_REGION] = "Kies regio",
+    [STR_DST] = "zomertijd",
+    [STR_NO_DST] = "geen zomertijd",
 };
 
 static const char *const weekdays_nl[7] = {
@@ -623,6 +637,8 @@ static const char *const lang_sv[STR_COUNT] = {
     [STR_JITTER_LABEL] = "  Jitter: ",
     [STR_NONE] = "ingen",
     [STR_SELECT_REGION] = "Välj region",
+    [STR_DST] = "sommartid",
+    [STR_NO_DST] = "ej sommartid",
 };
 
 static const char *const weekdays_sv[7] = {
@@ -700,6 +716,8 @@ static const char *const lang_da[STR_COUNT] = {
     [STR_JITTER_LABEL] = "  Jitter: ",
     [STR_NONE] = "ingen",
     [STR_SELECT_REGION] = "Vælg region",
+    [STR_DST] = "sommertid",
+    [STR_NO_DST] = "ingen sommertid",
 };
 
 static const char *const weekdays_da[7] = {
@@ -777,6 +795,8 @@ static const char *const lang_no[STR_COUNT] = {
     [STR_JITTER_LABEL] = "  Jitter: ",
     [STR_NONE] = "ingen",
     [STR_SELECT_REGION] = "Velg region",
+    [STR_DST] = "sommertid",
+    [STR_NO_DST] = "uten sommertid",
 };
 
 static const char *const weekdays_no[7] = {
@@ -854,6 +874,8 @@ static const char *const lang_fi[STR_COUNT] = {
     [STR_JITTER_LABEL] = "  Jitter: ",
     [STR_NONE] = "ei ole",
     [STR_SELECT_REGION] = "Valitse alue",
+    [STR_DST] = "kesäaika",
+    [STR_NO_DST] = "ei kesäaikaa",
 };
 
 static const char *const weekdays_fi[7] = {
@@ -931,6 +953,8 @@ static const char *const lang_pl[STR_COUNT] = {
     [STR_JITTER_LABEL] = "  Jitter: ",
     [STR_NONE] = "brak",
     [STR_SELECT_REGION] = "Wybierz region",
+    [STR_DST] = "czas letni",
+    [STR_NO_DST] = "bez czasu letn.",
 };
 
 static const char *const weekdays_pl[7] = {
@@ -1008,6 +1032,8 @@ static const char *const lang_cs[STR_COUNT] = {
     [STR_JITTER_LABEL] = "  Jitter: ",
     [STR_NONE] = "žádná",  // "zadna": the IPv6 address (feminine), lowercase like other langs
     [STR_SELECT_REGION] = "Vyber region",
+    [STR_DST] = "letní čas",
+    [STR_NO_DST] = "bez let. času",
 };
 
 static const char *const weekdays_cs[7] = {
@@ -1085,6 +1111,8 @@ static const char *const lang_tr[STR_COUNT] = {
     [STR_JITTER_LABEL] = "  Jitter: ",
     [STR_NONE] = "yok",
     [STR_SELECT_REGION] = "Bölge seç",
+    [STR_DST] = "yaz saati",
+    [STR_NO_DST] = "yaz saati yok",
 };
 
 static const char *const weekdays_tr[7] = {
@@ -1162,6 +1190,8 @@ static const char *const lang_ru[STR_COUNT] = {
     [STR_JITTER_LABEL] = "  Jitter: ",
     [STR_NONE] = "нет",
     [STR_SELECT_REGION] = "Выбор региона",
+    [STR_DST] = "летнее время",
+    [STR_NO_DST] = "без летнего вр.",
 };
 
 static const char *const weekdays_ru[7] = {
@@ -1232,6 +1262,8 @@ static const char *const lang_id[STR_COUNT] = {
     [STR_AGE_LABEL] = "  Usia: ",
     [STR_NONE] = "tidak ada",
     [STR_SELECT_REGION] = "Pilih wilayah",
+    [STR_DST] = "DST",
+    [STR_NO_DST] = "tanpa DST",
     [STR_FAIL] = "gagal",
 };
 
@@ -1303,6 +1335,8 @@ static const char *const lang_hr[STR_COUNT] = {
     [STR_AGE_LABEL] = "  Dob: ",
     [STR_NONE] = "ništa",
     [STR_SELECT_REGION] = "Odaberi regiju",
+    [STR_DST] = "ljetno vrijeme",
+    [STR_NO_DST] = "bez ljetnog vr.",
     [STR_FAIL] = "greška",
 };
 
@@ -1377,6 +1411,8 @@ static const char *const lang_hu[STR_COUNT] = {
     [STR_AGE_LABEL] = "  Kor: ",
     [STR_NONE] = "nincs",
     [STR_SELECT_REGION] = "Válassz régiót",
+    [STR_DST] = "nyári idő",
+    [STR_NO_DST] = "nincs nyári idő",
     [STR_FAIL] = "hiba",
 };
 
@@ -1449,6 +1485,8 @@ static const char *const lang_ro[STR_COUNT] = {
     [STR_AGE_LABEL] = "  Vârstă: ",
     [STR_NONE] = "niciuna",
     [STR_SELECT_REGION] = "Alege regiunea",
+    [STR_DST] = "ora de vară",
+    [STR_NO_DST] = "fără o. de vară",
     [STR_FAIL] = "eroare",
 };
 
@@ -1523,6 +1561,8 @@ static const char *const lang_bg[STR_COUNT] = {
     [STR_AGE_LABEL] = "  Възр: ",
     [STR_NONE] = "няма",
     [STR_SELECT_REGION] = "Избери регион",
+    [STR_DST] = "лятно време",
+    [STR_NO_DST] = "без лятно време",
     [STR_FAIL] = "грешка",
 };
 
@@ -1597,6 +1637,8 @@ static const char *const lang_uk[STR_COUNT] = {
     [STR_AGE_LABEL] = "  Вік: ",
     [STR_NONE] = "немає",
     [STR_SELECT_REGION] = "Вибір регіону",
+    [STR_DST] = "літній час",
+    [STR_NO_DST] = "без літ. часу",
     [STR_FAIL] = "помилка",
 };
 
@@ -1681,6 +1723,8 @@ static const char *const lang_ja[STR_COUNT] = {
     [STR_PEER_HEADER] = "Peer            R  Offset  Delay Jitter",
     [STR_NONE] = "なし",
     [STR_SELECT_REGION] = "地域を選択",
+    [STR_DST] = "夏時間",
+    [STR_NO_DST] = "夏時間なし",
 };
 
 static const char *const weekdays_ja[7] = {
@@ -1766,6 +1810,8 @@ static const char *const lang_zh[STR_COUNT] = {
     [STR_PEER_HEADER] = "Peer            R  Offset  Delay Jitter",
     [STR_NONE] = "无",
     [STR_SELECT_REGION] = "选择地区",
+    [STR_DST] = "夏令时",
+    [STR_NO_DST] = "无夏令时",
 };
 
 static const char *const weekdays_zh[7] = {
@@ -1851,6 +1897,8 @@ static const char *const lang_zh_hant[STR_COUNT] = {
     [STR_PEER_HEADER] = "Peer            R  Offset  Delay Jitter",
     [STR_NONE] = "無",
     [STR_SELECT_REGION] = "選擇地區",
+    [STR_DST] = "夏令時間",
+    [STR_NO_DST] = "無夏令時間",
 };
 
 static const char *const weekdays_zh_hant[7] = {
@@ -1936,6 +1984,8 @@ static const char *const lang_ko[STR_COUNT] = {
     [STR_PEER_HEADER] = "Peer            R  Offset  Delay Jitter",
     [STR_NONE] = "없음",
     [STR_SELECT_REGION] = "지역 선택",
+    [STR_DST] = "서머타임",
+    [STR_NO_DST] = "서머타임 없음",
 };
 
 static const char *const weekdays_ko[7] = {
@@ -2021,6 +2071,8 @@ static const char *const lang_el[STR_COUNT] = {
     [STR_PEER_HEADER] = "Peer            R  Offset  Delay Jitter",
     [STR_NONE] = "κανένα",
     [STR_SELECT_REGION] = "Επιλογή περιοχής",
+    [STR_DST] = "θερινή ώρα",
+    [STR_NO_DST] = "χωρίς θερ. ώρα",
 };
 
 static const char *const weekdays_el[7] = {
@@ -2104,6 +2156,8 @@ static const char *const lang_sk[STR_COUNT] = {
     [STR_PEER_HEADER] = "Peer            R  Offset  Delay Jitter",
     [STR_NONE] = "žiadne",
     [STR_SELECT_REGION] = "Vyberte región",
+    [STR_DST] = "letný čas",
+    [STR_NO_DST] = "bez let. času",
 };
 
 static const char *const weekdays_sk[7] = {
@@ -2187,6 +2241,8 @@ static const char *const lang_sl[STR_COUNT] = {
     [STR_PEER_HEADER] = "Peer            R  Offset  Delay Jitter",
     [STR_NONE] = "brez",
     [STR_SELECT_REGION] = "Izberite regijo",
+    [STR_DST] = "poletni čas",
+    [STR_NO_DST] = "brez pol. časa",
 };
 
 static const char *const weekdays_sl[7] = {
@@ -2270,6 +2326,8 @@ static const char *const lang_lv[STR_COUNT] = {
     [STR_PEER_HEADER] = "Peer            R  Offset  Delay Jitter",
     [STR_NONE] = "nav",
     [STR_SELECT_REGION] = "Izvēlieties reģionu",
+    [STR_DST] = "vasaras laiks",
+    [STR_NO_DST] = "bez vas. laika",
 };
 
 static const char *const weekdays_lv[7] = {
@@ -2353,6 +2411,8 @@ static const char *const lang_lt[STR_COUNT] = {
     [STR_PEER_HEADER] = "Peer            R  Offset  Delay Jitter",
     [STR_NONE] = "nėra",
     [STR_SELECT_REGION] = "Pasirinkite regioną",
+    [STR_DST] = "vasaros laikas",
+    [STR_NO_DST] = "be vas. laiko",
 };
 
 static const char *const weekdays_lt[7] = {
@@ -2436,6 +2496,8 @@ static const char *const lang_et[STR_COUNT] = {
     [STR_PEER_HEADER] = "Peer            R  Offset  Delay Jitter",
     [STR_NONE] = "puudub",
     [STR_SELECT_REGION] = "Vali piirkond",
+    [STR_DST] = "suveaeg",
+    [STR_NO_DST] = "suveaega pole",
 };
 
 static const char *const weekdays_et[7] = {
@@ -2519,6 +2581,8 @@ static const char *const lang_vi[STR_COUNT] = {
     [STR_PEER_HEADER] = "Peer            R  Offset  Delay Jitter",
     [STR_NONE] = "không có",
     [STR_SELECT_REGION] = "Chọn khu vực",
+    [STR_DST] = "giờ mùa hè",
+    [STR_NO_DST] = "không giờ hè",
 };
 
 static const char *const weekdays_vi[7] = {
@@ -2589,6 +2653,8 @@ static const char *const lang_ms[STR_COUNT] = {
     [STR_SYNCS_LABEL] = "  Sync: ",
     [STR_NONE] = "tiada",
     [STR_SELECT_REGION] = "Pilih wilayah",
+    [STR_DST] = "DST",
+    [STR_NO_DST] = "tiada DST",
 };
 
 static const char *const weekdays_ms[7] = {
@@ -2606,6 +2672,8 @@ static const char *const lang_ca[STR_COUNT] = {
     [STR_SETTINGS] = "Ajustos",
     [STR_FAIL] = "error",
     [STR_TIMEZONE] = "Fus horari",
+    [STR_DST] = "horari d'estiu",
+    [STR_NO_DST] = "sense h. estiu",
     [STR_BRIGHTNESS] = "Brillantor",
     [STR_LED_BLINK] = "Parpelleig",  // LED blink; "Parpelleig LED" overflows the slider label
     [STR_ROTATE] = "Gira 180",
@@ -2729,6 +2797,8 @@ static const char *const lang_is[STR_COUNT] = {
     [STR_SYNCS_LABEL] = "  Samst: ",
     [STR_NONE] = "ekkert",
     [STR_SELECT_REGION] = "Veldu svæði",
+    [STR_DST] = "sumartími",
+    [STR_NO_DST] = "án sumartíma",
 };
 
 static const char *const weekdays_is[7] = {
@@ -2800,6 +2870,8 @@ static const char *const lang_sr[STR_COUNT] = {
     [STR_SYNCS_LABEL] = "  Синх: ",
     [STR_NONE] = "нема",
     [STR_SELECT_REGION] = "Изабери регион",
+    [STR_DST] = "летње време",
+    [STR_NO_DST] = "без летњег вр.",
 };
 
 static const char *const weekdays_sr[7] = {
@@ -2870,6 +2942,8 @@ static const char *const lang_az[STR_COUNT] = {
     [STR_SYNCS_LABEL] = "  Sinx: ",
     [STR_NONE] = "yox",
     [STR_SELECT_REGION] = "Region seç",
+    [STR_DST] = "yay vaxtı",
+    [STR_NO_DST] = "yay vaxtı yox",
 };
 
 static const char *const weekdays_az[7] = {
@@ -2940,6 +3014,8 @@ static const char *const lang_be[STR_COUNT] = {
     [STR_SYNCS_LABEL] = "  Сінх: ",
     [STR_NONE] = "няма",
     [STR_SELECT_REGION] = "Выберыце рэгіён",
+    [STR_DST] = "летні час",
+    [STR_NO_DST] = "без лет. часу",
 };
 
 static const char *const weekdays_be[7] = {
@@ -3010,6 +3086,8 @@ static const char *const lang_cy[STR_COUNT] = {
     [STR_SYNCS_LABEL] = "  Cys.: ",
     [STR_NONE] = "dim",
     [STR_SELECT_REGION] = "Dewis rhanbarth",
+    [STR_DST] = "amser haf",
+    [STR_NO_DST] = "dim amser haf",
 };
 
 static const char *const weekdays_cy[7] = {
@@ -3080,6 +3158,8 @@ static const char *const lang_eo[STR_COUNT] = {
     [STR_SYNCS_LABEL] = "  Sinkr: ",
     [STR_NONE] = "neniu",
     [STR_SELECT_REGION] = "Elektu regionon",
+    [STR_DST] = "somertempo",
+    [STR_NO_DST] = "sen somertempo",
 };
 
 static const char *const weekdays_eo[7] = {
@@ -3150,6 +3230,8 @@ static const char *const lang_eu[STR_COUNT] = {
     [STR_SYNCS_LABEL] = "  Sink: ",
     [STR_NONE] = "ezer ez",
     [STR_SELECT_REGION] = "Aukeratu eskualdea",
+    [STR_DST] = "udako ordua",
+    [STR_NO_DST] = "ud. ordurik ez",
 };
 
 static const char *const weekdays_eu[7] = {
@@ -3220,6 +3302,8 @@ static const char *const lang_fil[STR_COUNT] = {
     [STR_SYNCS_LABEL] = "  Sync: ",
     [STR_NONE] = "wala",
     [STR_SELECT_REGION] = "Pumili ng Rehiyon",
+    [STR_DST] = "DST",
+    [STR_NO_DST] = "walang DST",
 };
 
 static const char *const weekdays_fil[7] = {
@@ -3290,6 +3374,8 @@ static const char *const lang_fo[STR_COUNT] = {
     [STR_SYNCS_LABEL] = "  Samst: ",
     [STR_NONE] = "einki",
     [STR_SELECT_REGION] = "Vel øki",
+    [STR_DST] = "summartíð",
+    [STR_NO_DST] = "uttan summartíð",
 };
 
 static const char *const weekdays_fo[7] = {
@@ -3360,6 +3446,8 @@ static const char *const lang_ga[STR_COUNT] = {
     [STR_SYNCS_LABEL] = "  Sionc: ",
     [STR_NONE] = "dada",
     [STR_SELECT_REGION] = "Roghnaigh réigiún",
+    [STR_DST] = "am samhraidh",
+    [STR_NO_DST] = "gan am samhr.",
 };
 
 static const char *const weekdays_ga[7] = {
@@ -3430,6 +3518,8 @@ static const char *const lang_gl[STR_COUNT] = {
     [STR_SYNCS_LABEL] = "  Sinc: ",
     [STR_NONE] = "ningunha",
     [STR_SELECT_REGION] = "Escolle rexión",
+    [STR_DST] = "hora de verán",
+    [STR_NO_DST] = "sen h. de verán",
 };
 
 static const char *const weekdays_gl[7] = {
@@ -3500,6 +3590,8 @@ static const char *const lang_kk[STR_COUNT] = {
     [STR_SYNCS_LABEL] = "  Синх: ",
     [STR_NONE] = "жоқ",
     [STR_SELECT_REGION] = "Аймақты таңдаңыз",
+    [STR_DST] = "жазғы уақыт",
+    [STR_NO_DST] = "жазғы уақыт жоқ",
 };
 
 static const char *const weekdays_kk[7] = {
@@ -3571,6 +3663,8 @@ static const char *const lang_mk[STR_COUNT] = {
     [STR_SYNCS_LABEL] = "  Синх: ",
     [STR_NONE] = "нема",
     [STR_SELECT_REGION] = "Избери регион",
+    [STR_DST] = "летно време",
+    [STR_NO_DST] = "без летно време",
 };
 
 static const char *const weekdays_mk[7] = {
@@ -3641,6 +3735,8 @@ static const char *const lang_sq[STR_COUNT] = {
     [STR_SYNCS_LABEL] = "  Sink: ",
     [STR_NONE] = "asnjë",
     [STR_SELECT_REGION] = "Zgjidh rajonin",
+    [STR_DST] = "ora verore",
+    [STR_NO_DST] = "pa orë verore",
 };
 
 static const char *const weekdays_sq[7] = {
@@ -3711,6 +3807,8 @@ static const char *const lang_sw[STR_COUNT] = {
     [STR_SYNCS_LABEL] = "  Sync: ",
     [STR_NONE] = "hakuna",
     [STR_SELECT_REGION] = "Chagua eneo",
+    [STR_DST] = "DST",
+    [STR_NO_DST] = "hakuna DST",
 };
 
 static const char *const weekdays_sw[7] = {
@@ -3781,6 +3879,8 @@ static const char *const lang_ka[STR_COUNT] = {
     [STR_SYNCS_LABEL] = "  სინქ: ",
     [STR_NONE] = "არაა",
     [STR_SELECT_REGION] = "აირჩიეთ რეგიონი",
+    [STR_DST] = "ზაფხ. დრო",
+    [STR_NO_DST] = "არა ზაფხ. დრო",
 };
 
 static const char *const weekdays_ka[7] = {
@@ -3852,6 +3952,8 @@ static const char *const lang_hy[STR_COUNT] = {
     [STR_SYNCS_LABEL] = "  Սինխ: ",
     [STR_NONE] = "չկա",
     [STR_SELECT_REGION] = "Ընտրեք տարածք",
+    [STR_DST] = "ամառային ժամ",
+    [STR_NO_DST] = "ոչ ամառ. ժամ",
 };
 
 static const char *const weekdays_hy[7] = {
@@ -3920,6 +4022,8 @@ static const char *const lang_af[STR_COUNT] = {
     [STR_SYNCS_LABEL] = "  Sink: ",
     [STR_NONE] = "geen",
     [STR_SELECT_REGION] = "Kies streek",
+    [STR_DST] = "somertyd",
+    [STR_NO_DST] = "geen somertyd",
 };
 static const char *const weekdays_af[7] = {
     "So.", "Ma.", "Di.", "Wo.", "Do.", "Vr.", "Sa.",
@@ -3985,6 +4089,8 @@ static const char *const lang_uz[STR_COUNT] = {
     [STR_SYNCS_LABEL] = "  Sinx: ",
     [STR_NONE] = "yoʻq",
     [STR_SELECT_REGION] = "Mintaqani tanlang",
+    [STR_DST] = "yozgi vaqt",
+    [STR_NO_DST] = "yozgi vaqt yo'q",
 };
 static const char *const weekdays_uz[7] = {
     "Yak", "Dush", "Sesh", "Chor", "Pay", "Jum", "Shan",
@@ -4050,6 +4156,8 @@ static const char *const lang_jv[STR_COUNT] = {
     [STR_SYNCS_LABEL] = "  Sink: ",
     [STR_NONE] = "ora ana",
     [STR_SELECT_REGION] = "Pilih wilayah",
+    [STR_DST] = "DST",
+    [STR_NO_DST] = "tanpa DST",
 };
 static const char *const weekdays_jv[7] = {
     "Ahad", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab",
@@ -4115,6 +4223,8 @@ static const char *const lang_ky[STR_COUNT] = {
     [STR_SYNCS_LABEL] = "  Синх: ",
     [STR_NONE] = "жок",
     [STR_SELECT_REGION] = "Аймакты тандаңыз",
+    [STR_DST] = "жайкы убакыт",
+    [STR_NO_DST] = "жайкы убак. жок",
 };
 static const char *const weekdays_ky[7] = {
     "жек.", "дүй.", "шейш.", "шарш.", "бейш.", "жума", "ишм.",
@@ -4180,6 +4290,8 @@ static const char *const lang_mn[STR_COUNT] = {
     [STR_SYNCS_LABEL] = "  Синх: ",
     [STR_NONE] = "байхгүй",
     [STR_SELECT_REGION] = "Бүс сонгох",
+    [STR_DST] = "зуны цаг",
+    [STR_NO_DST] = "зуны цаггүй",
 };
 static const char *const weekdays_mn[7] = {
     "Ня", "Да", "Мя", "Лх", "Пү", "Ба", "Бя",
@@ -4255,6 +4367,8 @@ static const char *const lang_ar[STR_COUNT] = {
     [STR_UNSYNCED] = "غير متزامن",
     [STR_NONE] = "لا شيء",
     [STR_SELECT_REGION] = "اختر المنطقة",
+    [STR_DST] = "توقيت صيفي",
+    [STR_NO_DST] = "بلا توقيت صيفي",
 };
 static const char *const weekdays_ar[7] = {
     "الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت",
@@ -4321,6 +4435,8 @@ static const char *const lang_fa[STR_COUNT] = {
     [STR_UNSYNCED] = "ناهمگام",
     [STR_NONE] = "هیچ",
     [STR_SELECT_REGION] = "انتخاب منطقه",
+    [STR_DST] = "ساعت تابستانی",
+    [STR_NO_DST] = "بدون ساعت تابستانی",
 };
 static const char *const weekdays_fa[7] = {
     "یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه", "شنبه",
@@ -4387,6 +4503,8 @@ static const char *const lang_he[STR_COUNT] = {
     [STR_UNSYNCED] = "לא מסונכרן",
     [STR_NONE] = "אין",
     [STR_SELECT_REGION] = "בחר אזור",
+    [STR_DST] = "שעון קיץ",
+    [STR_NO_DST] = "ללא שעון קיץ",
 };
 static const char *const weekdays_he[7] = {
     "יום א׳", "יום ב׳", "יום ג׳", "יום ד׳", "יום ה׳", "יום ו׳", "שבת",
@@ -4453,6 +4571,8 @@ static const char *const lang_hi[STR_COUNT] = {
     [STR_UNSYNCED] = "सिंक नहीं",
     [STR_NONE] = "कोई नहीं",
     [STR_SELECT_REGION] = "क्षेत्र चुनें",
+    [STR_DST] = "ग्रीष्म समय",
+    [STR_NO_DST] = "ग्रीष्म समय नहीं",
 };
 static const char *const weekdays_hi[7] = {
     "रवि", "सोम", "मंगल", "बुध", "गुरु", "शुक्र", "शनि",
@@ -4519,6 +4639,8 @@ static const char *const lang_bn[STR_COUNT] = {
     [STR_UNSYNCED] = "সিংক নেই",
     [STR_NONE] = "কিছু নেই",
     [STR_SELECT_REGION] = "অঞ্চল বাছুন",
+    [STR_DST] = "গ্রীষ্ম সময়",
+    [STR_NO_DST] = "গ্রীষ্ম সময় নেই",
 };
 static const char *const weekdays_bn[7] = {
     "রবি", "সোম", "মঙ্গল", "বুধ", "বৃহ", "শুক্র", "শনি",
@@ -4585,6 +4707,8 @@ static const char *const lang_th[STR_COUNT] = {
     [STR_UNSYNCED] = "ไม่ซิงค์",
     [STR_NONE] = "ไม่มี",
     [STR_SELECT_REGION] = "เลือกภูมิภาค",
+    [STR_DST] = "เวลาออมแสง",
+    [STR_NO_DST] = "ไม่มีเวลาออมแสง",
 };
 static const char *const weekdays_th[7] = {
     "อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส.",
@@ -4651,6 +4775,8 @@ static const char *const lang_ur[STR_COUNT] = {
     [STR_UNSYNCED] = "غیر ہم آہنگ",
     [STR_NONE] = "کچھ نہیں",
     [STR_SELECT_REGION] = "خطہ چنیں",
+    [STR_DST] = "گرمائی وقت",
+    [STR_NO_DST] = "بغیر گرمائی وقت",
 };
 static const char *const weekdays_ur[7] = {
     "اتوار", "پیر", "منگل", "بدھ", "جمعرات", "جمعہ", "ہفتہ",
@@ -4717,6 +4843,8 @@ static const char *const lang_mr[STR_COUNT] = {
     [STR_UNSYNCED] = "सिंक नाही",
     [STR_NONE] = "काही नाही",
     [STR_SELECT_REGION] = "प्रदेश निवडा",
+    [STR_DST] = "उन्हाळी वेळ",
+    [STR_NO_DST] = "उन्हाळी वेळ नाही",
 };
 static const char *const weekdays_mr[7] = {
     "रवि", "सोम", "मंगळ", "बुध", "गुरु", "शुक्र", "शनि",
@@ -4783,6 +4911,8 @@ static const char *const lang_ta[STR_COUNT] = {
     [STR_UNSYNCED] = "இல்லை",
     [STR_NONE] = "ஏதுமில்லை",
     [STR_SELECT_REGION] = "பகுதி தேர்வு",
+    [STR_DST] = "கோடை நேரம்",
+    [STR_NO_DST] = "கோடை நேரம் இல்லை",
 };
 static const char *const weekdays_ta[7] = {
     "ஞாயி.", "திங்.", "செவ்.", "புத.", "வியா.", "வெள்.", "சனி",
@@ -4849,6 +4979,8 @@ static const char *const lang_te[STR_COUNT] = {
     [STR_UNSYNCED] = "సింక్ లేదు",
     [STR_NONE] = "ఏమీ లేదు",
     [STR_SELECT_REGION] = "ప్రాంతం ఎంచుకోండి",
+    [STR_DST] = "వేసవి సమయం",
+    [STR_NO_DST] = "వేసవి సమయం లేదు",
 };
 static const char *const weekdays_te[7] = {
     "ఆది", "సోమ", "మంగళ", "బుధ", "గురు", "శుక్ర", "శని",
@@ -4915,6 +5047,8 @@ static const char *const lang_pa[STR_COUNT] = {
     [STR_UNSYNCED] = "ਸਿੰਕ ਨਹੀਂ",
     [STR_NONE] = "ਕੁਝ ਨਹੀਂ",
     [STR_SELECT_REGION] = "ਖੇਤਰ ਚੁਣੋ",
+    [STR_DST] = "ਗਰਮੀ ਸਮਾਂ",
+    [STR_NO_DST] = "ਗਰਮੀ ਸਮਾਂ ਨਹੀਂ",
 };
 static const char *const weekdays_pa[7] = {
     "ਐਤ", "ਸੋਮ", "ਮੰਗਲ", "ਬੁੱਧ", "ਵੀਰ", "ਸ਼ੁੱਕਰ", "ਸ਼ਨੀ",
@@ -4981,6 +5115,8 @@ static const char *const lang_gu[STR_COUNT] = {
     [STR_UNSYNCED] = "સિંક નથી",
     [STR_NONE] = "કંઈ નથી",
     [STR_SELECT_REGION] = "પ્રદેશ પસંદ કરો",
+    [STR_DST] = "ઉનાળુ સમય",
+    [STR_NO_DST] = "ઉનાળુ સમય નથી",
 };
 static const char *const weekdays_gu[7] = {
     "રવિ", "સોમ", "મંગળ", "બુધ", "ગુરુ", "શુક્ર", "શનિ",
@@ -5047,6 +5183,8 @@ static const char *const lang_kn[STR_COUNT] = {
     [STR_UNSYNCED] = "ಸಿಂಕ್ ಇಲ್ಲ",
     [STR_NONE] = "ಏನೂ ಇಲ್ಲ",
     [STR_SELECT_REGION] = "ಪ್ರದೇಶ ಆರಿಸಿ",
+    [STR_DST] = "ಬೇಸಿಗೆ ಸಮಯ",
+    [STR_NO_DST] = "ಬೇಸಿಗೆ ಸಮಯ ಇಲ್ಲ",
 };
 static const char *const weekdays_kn[7] = {
     "ಭಾನು", "ಸೋಮ", "ಮಂಗಳ", "ಬುಧ", "ಗುರು", "ಶುಕ್ರ", "ಶನಿ",
@@ -5113,6 +5251,8 @@ static const char *const lang_ml[STR_COUNT] = {
     [STR_UNSYNCED] = "സിങ്ക് ഇല്ല",
     [STR_NONE] = "ഒന്നുമില്ല",
     [STR_SELECT_REGION] = "പ്രദേശം തിരയുക",
+    [STR_DST] = "വേനൽ സമയം",
+    [STR_NO_DST] = "വേനൽ സമയം ഇല്ല",
 };
 static const char *const weekdays_ml[7] = {
     "ഞായർ", "തിങ്കൾ", "ചൊവ്വ", "ബുധൻ", "വ്യാഴം", "വെള്ളി", "ശനി",
@@ -5179,6 +5319,8 @@ static const char *const lang_ne[STR_COUNT] = {
     [STR_UNSYNCED] = "सिंक छैन",
     [STR_NONE] = "केही छैन",
     [STR_SELECT_REGION] = "क्षेत्र छान्नुहोस्",
+    [STR_DST] = "ग्रीष्म समय",
+    [STR_NO_DST] = "ग्रीष्म समय छैन",
 };
 static const char *const weekdays_ne[7] = {
     "आइत", "सोम", "मङ्गल", "बुध", "बिहि", "शुक्र", "शनि",
@@ -5245,6 +5387,8 @@ static const char *const lang_si[STR_COUNT] = {
     [STR_UNSYNCED] = "සමමුහූර්ත නැත",
     [STR_NONE] = "කිසිවක් නැත",
     [STR_SELECT_REGION] = "කලාපය තෝරන්න",
+    [STR_DST] = "ගිම්හාන වේලාව",
+    [STR_NO_DST] = "ගිම්හාන වේලාව නැත",
 };
 static const char *const weekdays_si[7] = {
     "ඉරිදා", "සඳුදා", "අඟහ", "බදාදා", "බ්‍රහස්", "සිකු", "සෙන",
@@ -5311,6 +5455,8 @@ static const char *const lang_km[STR_COUNT] = {
     [STR_UNSYNCED] = "គ្មានសមកាល",
     [STR_NONE] = "គ្មាន",
     [STR_SELECT_REGION] = "ជ្រើសរើសតំបន់",
+    [STR_DST] = "ម៉ោងរដូវក្ដៅ",
+    [STR_NO_DST] = "គ្មានម៉ោងរដូវក្ដៅ",
 };
 static const char *const weekdays_km[7] = {
     "អាទិត្យ", "ចន្ទ", "អង្គារ", "ពុធ", "ព្រហ", "សុក្រ", "សៅរ៍",
@@ -5377,6 +5523,8 @@ static const char *const lang_lo[STR_COUNT] = {
     [STR_UNSYNCED] = "ບໍ່ຊິງ",
     [STR_NONE] = "ບໍ່ມີ",
     [STR_SELECT_REGION] = "ເລືອກພາກ",
+    [STR_DST] = "ເວລາລະດູຮ້ອນ",
+    [STR_NO_DST] = "ບໍ່ມີເວລາລະດູຮ້ອນ",
 };
 static const char *const weekdays_lo[7] = {
     "ອາທິດ", "ຈັນ", "ອັງຄານ", "ພຸດ", "ພະຫັດ", "ສຸກ", "ເສົາ",
@@ -5443,6 +5591,8 @@ static const char *const lang_my[STR_COUNT] = {
     [STR_UNSYNCED] = "မချိန်ကိုက်",
     [STR_NONE] = "မရှိ",
     [STR_SELECT_REGION] = "ဒေသရွေးပါ",
+    [STR_DST] = "နွေရာသီအချိန်",
+    [STR_NO_DST] = "နွေရာသီအချိန်မရှိ",
 };
 static const char *const weekdays_my[7] = {
     "တနင်္ဂနွေ", "တနင်္လာ", "အင်္ဂါ", "ဗုဒ္ဓဟူး", "ကြာသပတေး", "သောကြာ", "စနေ",
@@ -5509,6 +5659,8 @@ static const char *const lang_am[STR_COUNT] = {
     [STR_UNSYNCED] = "ያልተመሳሰለ",
     [STR_NONE] = "ምንም",
     [STR_SELECT_REGION] = "ክልል ምረጥ",
+    [STR_DST] = "የበጋ ሰዓት",
+    [STR_NO_DST] = "የበጋ ሰዓት የለም",
 };
 static const char *const weekdays_am[7] = {
     "እሑድ", "ሰኞ", "ማክሰ", "ረቡዕ", "ሐሙስ", "ዓርብ", "ቅዳሜ",

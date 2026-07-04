@@ -177,11 +177,36 @@ static void draw_region_list(void) {
     ui_draw_list(labels, NUM_REGIONS, list_scroll, selected_region);
 }
 
+// Replace the generated English DST annotation with the translated
+// term at render time: "Cairo (UTC+2, DST)" -> "Cairo (UTC+2, <tr>)".
+// The table and the persisted timezone name stay English, so stored
+// selections keep matching across language changes. Sized for the
+// longest prefix plus a shaped/multi-byte phrase.
+static char city_labels[sizeof(city_indices) / sizeof(city_indices[0])][96];
+
+static const char *localize_city_label(const char *city, char *out, size_t len) {
+    size_t cl = strlen(city);
+    str_id_t id;
+    size_t tail;
+    if (cl >= 6 && strcmp(city + cl - 6, ", DST)") == 0) {
+        id = STR_DST;
+        tail = 6;
+    } else if (cl >= 9 && strcmp(city + cl - 9, ", no DST)") == 0) {
+        id = STR_NO_DST;
+        tail = 9;
+    } else {
+        return city;    // "UTC (UTC+0)" and friends
+    }
+    snprintf(out, len, "%.*s, %s)", (int)(cl - tail), city, tr(id));
+    return out;
+}
+
 static void draw_city_list(void) {
     const char *labels[city_count];
     int selected_city = -1;
     for (int i = 0; i < city_count; i++) {
-        labels[i] = timezones[city_indices[i]].city;
+        labels[i] = localize_city_label(timezones[city_indices[i]].city,
+                                        city_labels[i], sizeof(city_labels[i]));
         if (city_indices[i] == selected_tz) {
             selected_city = i;
         }

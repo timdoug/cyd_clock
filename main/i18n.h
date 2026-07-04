@@ -177,6 +177,10 @@ typedef enum {
 
     // Timezone
     STR_SELECT_REGION,
+    // Substituted into the generated city labels at render time:
+    // "Cairo (UTC+2, DST)" draws with tr(STR_DST) in place of "DST".
+    STR_DST,
+    STR_NO_DST,
 
     STR_COUNT,
 } str_id_t;
