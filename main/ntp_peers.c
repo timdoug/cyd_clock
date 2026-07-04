@@ -77,7 +77,12 @@ static void nts_ke_task(void *arg) {
         g.nts.ke_failed = false;
         g.nts.ke_retry_at_ms = 0;
         g.dirty_config = true;
-    } else if (g.nts.ke_generation == generation && ok) {
+    } else if (g.nts.ke_generation == generation && ok &&
+               g.nts_mode != NTS_MODE_OFF) {
+        // The mode check covers NTS being switched off while this KE was in
+        // flight: dirty-config preserves ke_generation for a running task, so
+        // without it the completed handshake would install and rebind every
+        // peer to NTS against the user's setting.
         uint32_t keep_generation = g.nts.ke_generation;
         g.nts = local;
         g.nts.ke_generation = keep_generation;
@@ -143,6 +148,7 @@ void nts_request_rekey(void) {
 
 
 void nts_rebind_peers(void) {
+    if (g.nts_mode == NTS_MODE_OFF) return;
     if (!g.nts.valid) return;
     if (strcmp(g.nts.ntp_host, g.server) == 0) {
         for (int i = 0; i < NTP_MAX_PEERS; i++) {
