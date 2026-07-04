@@ -1,4 +1,6 @@
 #include "ntp_internal.h"
+#include <stdatomic.h>
+#include <stdlib.h>
 #include "lwip/dns.h"
 #include "lwip/tcpip.h"
 
@@ -47,22 +49,46 @@ static int resolve_numeric_host(const char *host, struct sockaddr_storage *out, 
 }
 
 
+// Refcounted so a tcpip thread backed up past the wait timeout can't give a
+// semaphore the waiter already deleted: the last side out frees.
+typedef struct {
+    SemaphoreHandle_t done;
+    atomic_int refs;
+} dns_clear_ctx_t;
+
+
+static void dns_clear_ctx_unref(dns_clear_ctx_t *ctx) {
+    if (atomic_fetch_sub(&ctx->refs, 1) == 1) {
+        vSemaphoreDelete(ctx->done);
+        free(ctx);
+    }
+}
+
+
 static void dns_clear_cache_cb(void *arg) {
-    SemaphoreHandle_t done = (SemaphoreHandle_t)arg;
+    dns_clear_ctx_t *ctx = (dns_clear_ctx_t *)arg;
     dns_clear_cache();
-    xSemaphoreGive(done);
+    xSemaphoreGive(ctx->done);
+    dns_clear_ctx_unref(ctx);
 }
 
 
 static void clear_dns_cache_for_lookup(void) {
-    SemaphoreHandle_t done = xSemaphoreCreateBinary();
-    if (!done) return;
-
-    if (tcpip_callback(dns_clear_cache_cb, done) == ERR_OK) {
-        xSemaphoreTake(done, pdMS_TO_TICKS(1000));
+    dns_clear_ctx_t *ctx = malloc(sizeof(*ctx));
+    if (!ctx) return;
+    ctx->done = xSemaphoreCreateBinary();
+    if (!ctx->done) {
+        free(ctx);
+        return;
     }
+    atomic_init(&ctx->refs, 2);
 
-    vSemaphoreDelete(done);
+    if (tcpip_callback(dns_clear_cache_cb, ctx) == ERR_OK) {
+        xSemaphoreTake(ctx->done, pdMS_TO_TICKS(1000));
+    } else {
+        dns_clear_ctx_unref(ctx);   // callback never queued; drop its ref
+    }
+    dns_clear_ctx_unref(ctx);
 }
 
 
