@@ -178,6 +178,7 @@ typedef struct {
                                    // fire ~4x faster than designed
     uint8_t  panic_runs;
     int64_t  panic_offset_us;
+    uint32_t panic_last_ms;      // mono_ms of the latest panic sample
     uint32_t fresh_until_ms;
 
     // NTS (RFC 8915): when nts is set this peer authenticates every exchange

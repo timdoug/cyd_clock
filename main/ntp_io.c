@@ -397,11 +397,17 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
         // a never-recovers lockout is the worse failure mode.
         if (p->panic_runs < 255) p->panic_runs++;
         p->panic_offset_us = offset;
+        p->panic_last_ms   = mono_ms();
 
+        // Corroborating votes must be recent: a peer that panicked long ago
+        // and went quiet (dodging eviction) would otherwise hold a standing
+        // vote that a single later liar could pair with to re-step the clock.
+        uint32_t vote_window_ms = 3u * g.current_poll_s * 1000u;
         int agree = 0;
         for (int i = 0; i < NTP_MAX_PEERS; i++) {
             ntp_peer_t *q = &g.peers[i];
             if (!q->active || q->panic_runs < 2) continue;
+            if ((uint32_t)(p->panic_last_ms - q->panic_last_ms) > vote_window_ms) continue;
             int64_t d = q->panic_offset_us - offset;
             if (d < 0) d = -d;
             if (d <= PANIC_AGREE_US) agree++;

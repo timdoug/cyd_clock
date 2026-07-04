@@ -238,6 +238,11 @@ bool try_discipline(uint32_t settled_cycle_id) {
                           g.last_discipline_poll_s : g.current_poll_s;
     int32_t  threshold_ms = ((int32_t)ref_poll_s - 3) * 1000;
     int32_t  since_disc = (int32_t)(now - g.last_discipline_ms);
+    // A negative diff can only mean last_discipline_ms froze for over 2^31 ms
+    // (e.g. weeks with no selectable peer); that is overdue, not early --
+    // without this clamp discipline would stay locked out until the counter
+    // wrapped back around, up to another ~24.8 days.
+    if (since_disc < 0) since_disc = INT32_MAX;
     bool basic_due = (g.last_discipline_ms == 0) || since_disc >= threshold_ms;
     if (!basic_due) return false;
 

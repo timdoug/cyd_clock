@@ -45,17 +45,16 @@ static int resolve_host(const char *host, bool prefer_ipv6,
     return count;
 }
 
+// nts is shared and mutated across the caller's address loop so each probe
+// consumes a fresh cookie (reusing one is linkable and some servers reject
+// replays, which would skew the ranking); the caller zeroizes it when done.
 static ntp_benchmark_status_t bench_one_addr(const struct sockaddr_storage *addr,
-                                             const ntp_nts_ctx_t *nts_in,
+                                             ntp_nts_ctx_t *nts,
                                              ntp_benchmark_result_t *out) {
-    ntp_nts_ctx_t nts;
-    memset(&nts, 0, sizeof(nts));
-    bool use_nts = nts_in && nts_in->valid;
-    if (use_nts) memcpy(&nts, nts_in, sizeof(nts));
+    bool use_nts = nts && nts->valid;
 
     int sock = socket(addr->ss_family, SOCK_DGRAM, IPPROTO_UDP);
     if (sock < 0) {
-        mbedtls_platform_zeroize(&nts, sizeof(nts));
         return NTP_BENCHMARK_TIMEOUT;
     }
 
@@ -71,9 +70,8 @@ static ntp_benchmark_status_t bench_one_addr(const struct sockaddr_storage *addr
     memcpy(buf, &pkt, sizeof(pkt));
     size_t pkt_len = sizeof(pkt);
     uint8_t uid[NTS_UID_LEN] = {0};
-    if (use_nts && !ntp_nts_add_ef(buf, &pkt_len, sizeof(buf), &nts, uid)) {
+    if (use_nts && !ntp_nts_add_ef(buf, &pkt_len, sizeof(buf), nts, uid)) {
         close(sock);
-        mbedtls_platform_zeroize(&nts, sizeof(nts));
         return NTP_BENCHMARK_NTS_FAILED;
     }
 
@@ -84,7 +82,6 @@ static ntp_benchmark_status_t bench_one_addr(const struct sockaddr_storage *addr
     gettimeofday(&t1_post, NULL);
     if (sent != (ssize_t)pkt_len) {
         close(sock);
-        mbedtls_platform_zeroize(&nts, sizeof(nts));
         return NTP_BENCHMARK_TIMEOUT;
     }
 
@@ -104,7 +101,6 @@ static ntp_benchmark_status_t bench_one_addr(const struct sockaddr_storage *addr
         char a[46]; addr_to_str(addr, a, sizeof(a));
         ESP_LOGW(BENCH_TAG, "no reply from %s within %dms", a, BENCH_TIMEOUT_MS);
         close(sock);
-        mbedtls_platform_zeroize(&nts, sizeof(nts));
         return NTP_BENCHMARK_TIMEOUT;
     }
 
@@ -118,7 +114,6 @@ static ntp_benchmark_status_t bench_one_addr(const struct sockaddr_storage *addr
     if (n < (ssize_t)sizeof(ntp_pkt_t) || !sockaddr_matches(addr, &from)) {
         ESP_LOGW(BENCH_TAG, "bad reply: n=%d from-match=%d", (int)n,
                  sockaddr_matches(addr, &from));
-        mbedtls_platform_zeroize(&nts, sizeof(nts));
         return NTP_BENCHMARK_BAD_RESPONSE;
     }
 
@@ -134,19 +129,25 @@ static ntp_benchmark_status_t bench_one_addr(const struct sockaddr_storage *addr
         ESP_LOGW(BENCH_TAG, "hdr reject: mode=%u vn=%u li=%u stratum=%u orig-match=%d",
                  mode, vn, li, pkt.stratum,
                  pkt.orig_ts_sec == req_xmt_sec && pkt.orig_ts_frac == req_xmt_frac);
-        mbedtls_platform_zeroize(&nts, sizeof(nts));
         return NTP_BENCHMARK_BAD_RESPONSE;
     }
-    if (use_nts && !ntp_nts_check_response(buf, (size_t)n, &nts, uid)) {
+    if (use_nts && !ntp_nts_check_response(buf, (size_t)n, nts, uid)) {
         ESP_LOGW(BENCH_TAG, "NTS auth reject (n=%d)", (int)n);
-        mbedtls_platform_zeroize(&nts, sizeof(nts));
         return NTP_BENCHMARK_BAD_RESPONSE;
     }
 
     struct timeval t2, t3;
     ntp_to_tv(ntohl(pkt.recv_ts_sec), ntohl(pkt.recv_ts_frac), &t2);
     ntp_to_tv(ntohl(pkt.xmt_ts_sec), ntohl(pkt.xmt_ts_frac), &t3);
-    int64_t delay = tv_diff_us(&t4, &t1) - tv_diff_us(&t3, &t2);
+    // Reject a server interval that runs backwards (t3 < t2, like the main
+    // response path does): clamping it away would let a broken server win
+    // the ranking with a fabricated delay of zero.
+    int64_t server_us = tv_diff_us(&t3, &t2);
+    if (server_us < 0) {
+        ESP_LOGW(BENCH_TAG, "t3 < t2 reject (%lld us)", (long long)server_us);
+        return NTP_BENCHMARK_BAD_RESPONSE;
+    }
+    int64_t delay = tv_diff_us(&t4, &t1) - server_us;
     if (delay < 0) delay = 0;
     if (delay > INT32_MAX) delay = INT32_MAX;
 
@@ -155,7 +156,6 @@ static ntp_benchmark_status_t bench_one_addr(const struct sockaddr_storage *addr
     out->nts = use_nts;
     addr_to_str(addr, out->addr_str, sizeof(out->addr_str));
 
-    mbedtls_platform_zeroize(&nts, sizeof(nts));
     return NTP_BENCHMARK_OK;
 }
 

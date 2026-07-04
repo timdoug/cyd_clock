@@ -393,7 +393,10 @@ bool ntp_nts_check_response(const uint8_t *pkt, size_t pkt_len,
     uint16_t ct_len    = (uint16_t)((bd[2] << 8) | bd[3]);
     size_t nonce_pad = (nonce_len + 3u) & ~3u;
     size_t ct_pad    = (ct_len + 3u) & ~3u;
-    if (nonce_len != NTS_NONCE_LEN) return false;
+    // Any nonce length the bounds check below admits is fine: RFC 5297 takes
+    // an arbitrary-length nonce and RFC 8915 doesn't require the response
+    // nonce to match the client's. (Known servers all send 16 today.)
+    if (nonce_len == 0) return false;
     if ((size_t)4 + nonce_pad + ct_pad > (size_t)(a_eflen - 4)) return false;
     if (ct_len < NTP_SIV_TAG_LEN) return false;
 
