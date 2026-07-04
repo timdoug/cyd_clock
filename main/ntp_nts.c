@@ -118,7 +118,39 @@ static int ke_parse(const uint8_t *buf, size_t len, ntp_nts_ctx_t *out) {
     return 0;
 }
 
-bool ntp_nts_ke_run(const char *host, ntp_nts_ctx_t *out) {
+// Pinned KE server leaf certificate. Some NTS-KE servers (Cloudflare)
+// close connections about 2 s after accept; a full ESP32 handshake
+// against an ECDSA chain cannot reliably fit (a single software P-384
+// verify measures ~1.3 s). The handshake itself still completes and
+// verifies the chain against the certificate bundle - only the request
+// afterwards is lost - so remember the freshly verified leaf and retry
+// with mbedTLS chain verification disabled, requiring instead that the
+// server presents byte-for-byte the same certificate. That transfers
+// the bundle attempt's chain and hostname verification to the retry,
+// and TLS 1.3's CertificateVerify still proves the server holds the
+// certificate's private key. The pin lives only in RAM, expires after
+// a day (forcing a fresh bundle verification, e.g. for cert expiry),
+// and any mismatch clears it and falls back to the bundle.
+//
+// No locking: KE attempts are serialized by the single nts_ke task
+// (spawn_ke_task guards on ke_in_flight).
+#define NTS_PIN_MAX    1600
+#define NTS_PIN_TTL_MS (24u * 60u * 60u * 1000u)
+static uint8_t pin_der[NTS_PIN_MAX];
+static uint16_t pin_len;
+static char pin_host[64];
+static uint32_t pin_born_ms;
+
+// Passed as crt_bundle_attach for the pinned attempt: esp-tls requires a
+// verification option, and runs this after setting VERIFY_REQUIRED, so
+// downgrading here sticks. The exact-DER check after the handshake is
+// the actual verification.
+static esp_err_t pin_attach_verify_none(void *conf) {
+    mbedtls_ssl_conf_authmode((mbedtls_ssl_config *)conf, MBEDTLS_SSL_VERIFY_NONE);
+    return ESP_OK;
+}
+
+static bool ke_attempt(const char *host, ntp_nts_ctx_t *out) {
     memset(out, 0, sizeof(*out));
     out->ntp_port = 123;
     str_copy(out->ntp_host, sizeof(out->ntp_host), host);
@@ -129,7 +161,10 @@ bool ntp_nts_ke_run(const char *host, ntp_nts_ctx_t *out) {
         .timeout_ms  = 8000,
         .tls_version = ESP_TLS_VER_TLS_1_3,  // RFC 8915 requires TLS 1.3
     };
-    cfg.crt_bundle_attach = esp_crt_bundle_attach;
+    uint32_t now_ms = pdTICKS_TO_MS(xTaskGetTickCount());
+    bool use_pin = pin_len > 0 && strcmp(pin_host, host) == 0 &&
+                   (uint32_t)(now_ms - pin_born_ms) < NTS_PIN_TTL_MS;
+    cfg.crt_bundle_attach = use_pin ? pin_attach_verify_none : esp_crt_bundle_attach;
 
     esp_tls_t *tls = esp_tls_init();
     if (!tls) return false;
@@ -148,6 +183,25 @@ bool ntp_nts_ke_run(const char *host, ntp_nts_ctx_t *out) {
                 strlen(label), ctx_c2s, sizeof(ctx_c2s), 1) == 0 &&
             mbedtls_ssl_export_keying_material(ssl, out->s2c, NTS_KEY_LEN, label,
                 strlen(label), ctx_s2c, sizeof(ctx_s2c), 1) == 0;
+
+        const mbedtls_x509_crt *peer = ssl ? mbedtls_ssl_get_peer_cert(ssl) : NULL;
+        if (use_pin) {
+            // The whole verification of this connection: the server must
+            // present exactly the certificate the bundle attempt verified.
+            if (!peer || peer->raw.len != pin_len ||
+                memcmp(peer->raw.p, pin_der, pin_len) != 0) {
+                ESP_LOGW(TAG, "pinned cert mismatch for %s", host);
+                pin_len = 0;
+                ok = false;
+                keys_ok = false;
+            }
+        } else if (peer && peer->raw.len > 0 && peer->raw.len <= sizeof(pin_der)) {
+            // Chain-verified by the bundle: (re)pin for fast retries.
+            memcpy(pin_der, peer->raw.p, peer->raw.len);
+            pin_len = (uint16_t)peer->raw.len;
+            pin_born_ms = now_ms;
+            str_copy(pin_host, sizeof(pin_host), host);
+        }
     }
 
     // If ALPN or key export failed there is nothing to gain from the request/
@@ -200,9 +254,20 @@ bool ntp_nts_ke_run(const char *host, ntp_nts_ctx_t *out) {
 
     if (ok && eom && keys_ok && out->cookie_count > 0) {
         out->valid = true;
-        ESP_LOGI(TAG, "KE ok: %s:%u, %d cookies", out->ntp_host, out->ntp_port,
-                 out->cookie_count);
+        ESP_LOGI(TAG, "KE ok: %s:%u, %d cookies%s", out->ntp_host, out->ntp_port,
+                 out->cookie_count, use_pin ? " (pinned cert)" : "");
         return true;
+    }
+    return false;
+}
+
+bool ntp_nts_ke_run(const char *host, ntp_nts_ctx_t *out) {
+    // Up to three attempts: bundle-verified (slow, may miss the server's
+    // connection deadline but pins the leaf), pinned (fast), and one
+    // spare for the rotated-pin path (pinned fail clears the pin, the
+    // bundle attempt re-pins, the third rides the fresh pin).
+    for (int attempt = 0; attempt < 3; attempt++) {
+        if (ke_attempt(host, out)) return true;
     }
     ESP_LOGW(TAG, "KE failed for %s", host);
     return false;
