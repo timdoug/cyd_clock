@@ -17,6 +17,12 @@ struct early_ring {
 static early_ring_t s_t1 = { .lock = portMUX_INITIALIZER_UNLOCKED };
 static early_ring_t s_t4 = { .lock = portMUX_INITIALIZER_UNLOCKED };
 static esp_netif_t *s_sta_netif;
+// Negotiated NTS NTP port (0 = none); packets on it also get early stamps.
+static volatile uint16_t s_nts_port;
+
+void ntp_wifi_stamp_set_nts_port(uint16_t port) {
+    s_nts_port = port;
+}
 
 static void stash_early(early_ring_t *r, uint32_t sec, uint32_t frac, int64_t us) {
     portENTER_CRITICAL(&r->lock);
@@ -71,7 +77,8 @@ static bool parse_ip_udp_ntp(const uint8_t *ip, size_t rem, uint16_t et,
     } else {
         return false;
     }
-    if (rd_be16(udp + port_off) != NTP_PORT) return false;
+    uint16_t port = rd_be16(udp + port_off);
+    if (port != NTP_PORT && (s_nts_port == 0 || port != s_nts_port)) return false;
     const uint8_t *ntp = udp + 8;
     memcpy(sec,  ntp + ntp_field_off,     4);
     memcpy(frac, ntp + ntp_field_off + 4, 4);

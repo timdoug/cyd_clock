@@ -23,6 +23,10 @@ static void peer_reset(ntp_peer_t *p) {
 
 
 static void peer_set_port(ntp_peer_t *p, uint16_t port) {
+    // The early WiFi timestamp hooks filter on the NTP port; publish a
+    // negotiated non-default port so those samples keep their precision
+    // stamps. All peers share one server config, so last install wins.
+    ntp_wifi_stamp_set_nts_port(port == NTP_PORT ? 0 : port);
     if (p->addr.ss_family == AF_INET6)
         ((struct sockaddr_in6 *)&p->addr)->sin6_port = htons(port);
     else
@@ -319,6 +323,11 @@ static bool try_replace_peer(int dead_idx) {
 
     if (resolve_ctx_stale(&s)) return false;
     if (n == 0) return false;
+
+    // ntp_resolve_host returns port 123 but installed peers carry the
+    // negotiated NTS port; normalize first or the in-use check below never
+    // matches on a non-default port (reinstalling DENY'd or duplicate IPs).
+    for (int i = 0; i < n; i++) sockaddr_set_port(&fresh[i], s.port);
 
     for (int i = 0; i < n; i++) {
         // Skip any address already recorded in a slot, active or not: an

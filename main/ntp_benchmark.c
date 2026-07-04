@@ -19,14 +19,6 @@ static const char *BENCH_TAG = "ntp_bench";
 #define BENCH_MAX_ADDRS 4
 #define BENCH_TIMEOUT_MS 2500
 
-static void set_port(struct sockaddr_storage *addr, uint16_t port) {
-    if (addr->ss_family == AF_INET6) {
-        ((struct sockaddr_in6 *)addr)->sin6_port = htons(port);
-    } else {
-        ((struct sockaddr_in *)addr)->sin_port = htons(port);
-    }
-}
-
 static socklen_t addr_len(const struct sockaddr_storage *addr) {
     return addr->ss_family == AF_INET6
         ? sizeof(struct sockaddr_in6)
@@ -200,7 +192,7 @@ ntp_benchmark_status_t ntp_benchmark_server(const char *host,
 
     ntp_benchmark_status_t last = NTP_BENCHMARK_TIMEOUT;
     for (int i = 0; i < n; i++) {
-        set_port(&addrs[i], port);
+        sockaddr_set_port(&addrs[i], port);
         ntp_benchmark_result_t r;
         memset(&r, 0, sizeof(r));
         r.delay_us = INT32_MAX;

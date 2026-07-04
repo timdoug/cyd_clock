@@ -316,6 +316,7 @@ void step_clock(int64_t step_us);
 // literals directly and otherwise clears the lwIP DNS cache before querying,
 // returning up to `max` deduplicated addresses with the NTP port pre-set.
 bool sockaddr_matches(const struct sockaddr_storage *a, const struct sockaddr_storage *b);
+void sockaddr_set_port(struct sockaddr_storage *addr, uint16_t port);
 int ntp_resolve_host(const char *host, bool prefer_ipv6,
                      struct sockaddr_storage *out, int max);
 void resolve_peers(void);
@@ -346,6 +347,7 @@ void select_system_peer(void);
 
 bool consume_early(early_ring_t *ring, uint32_t sec, uint32_t frac, int64_t *us);
 void shift_early(early_ring_t *ring, int64_t delta_us);
+void ntp_wifi_stamp_set_nts_port(uint16_t port);
 early_ring_t *early_t1_ring(void);
 early_ring_t *early_t4_ring(void);
 

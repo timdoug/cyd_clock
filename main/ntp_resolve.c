@@ -26,6 +26,15 @@ bool sockaddr_matches(const struct sockaddr_storage *a,
 }
 
 
+void sockaddr_set_port(struct sockaddr_storage *addr, uint16_t port) {
+    if (addr->ss_family == AF_INET6) {
+        ((struct sockaddr_in6 *)addr)->sin6_port = htons(port);
+    } else {
+        ((struct sockaddr_in *)addr)->sin_port = htons(port);
+    }
+}
+
+
 static int resolve_numeric_host(const char *host, struct sockaddr_storage *out, int max) {
     if (!host || max <= 0) return 0;
 
