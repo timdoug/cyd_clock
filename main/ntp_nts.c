@@ -1,5 +1,6 @@
 #include "ntp_nts.h"
 
+#include <stdlib.h>
 #include <string.h>
 #include "esp_crt_bundle.h"
 #include "esp_log.h"
@@ -309,8 +310,13 @@ bool ntp_nts_add_ef(uint8_t *buf, size_t *len, size_t cap,
     // simply not stored.
     int want = NTS_MAX_COOKIES - ctx->cookie_count;
     if (want < 3) want = 3;
+    // Placeholders fill toward cap minus the terminal Authenticator EF:
+    // letting them consume the whole buffer makes the authenticator append
+    // fail, which the caller reads as cookie exhaustion and answers by
+    // tearing down a working context.
+    size_t auth_reserve = 4 + sizeof(body);
     for (int i = 0; i < want; i++) {
-        if (!ef_append(buf, len, cap, EF_COOKIE_PLACEHOLDER, NULL, clen)) break;
+        if (!ef_append(buf, len, cap - auth_reserve, EF_COOKIE_PLACEHOLDER, NULL, clen)) break;
     }
 
     esp_fill_random(nonce, sizeof(nonce));
@@ -398,13 +404,17 @@ bool ntp_nts_check_response(const uint8_t *pkt, size_t pkt_len,
     size_t enc_len       = ct_len - NTP_SIV_TAG_LEN;
 
     // AD = packet bytes before the Authenticator, plus the nonce. Decrypt to a
-    // local buffer because PSA forbids in-place CTR.
-    uint8_t plain[1100];
-    if (enc_len > sizeof(plain)) return false;
+    // separate buffer because PSA forbids in-place CTR. Heap, not stack: a
+    // full solicited refill is NTS_MAX_COOKIES cookie EFs (up to 2080 bytes),
+    // more than the polling task's stack can spare.
+    if (enc_len > (size_t)NTS_MAX_COOKIES * (4 + NTS_COOKIE_MAX)) return false;
+    uint8_t *plain = malloc(enc_len ? enc_len : 1);
+    if (!plain) return false;
     const uint8_t *ad[2]  = { pkt, nonce };
     const size_t   adl[2] = { auth_off, nonce_len };
     if (!ntp_siv_decrypt(ctx->s2c, ad, adl, 2, tag, enc, enc_len, plain)) {
-        mbedtls_platform_zeroize(plain, sizeof(plain));
+        mbedtls_platform_zeroize(plain, enc_len);
+        free(plain);
         return false;
     }
 
@@ -428,7 +438,8 @@ bool ntp_nts_check_response(const uint8_t *pkt, size_t pkt_len,
         po += l;
     }
     if (po != enc_len) enc_fields_ok = false;
-    mbedtls_platform_zeroize(plain, sizeof(plain));
+    mbedtls_platform_zeroize(plain, enc_len);
+    free(plain);
     return enc_fields_ok;
 }
 
