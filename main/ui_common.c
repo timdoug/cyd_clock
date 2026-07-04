@@ -162,7 +162,25 @@ void ui_draw_list_fonts(const char **labels, const display_glyph_font_t *const *
         uint16_t bg = (idx == selected) ? UI_COLOR_SELECTED : COLOR_BLACK;
         uint16_t fg = (idx == selected) ? COLOR_BLACK : COLOR_WHITE;
 
-        display_fill_rect(0, y, DISPLAY_WIDTH, UI_LIST_ITEM_H - 2, bg);
+        // Fill the row background around the text band instead of under
+        // it: glyph cells repaint their own background, so a full-row
+        // fill followed by the text would blank each row for a moment on
+        // every scroll step.
+        int text_w = fonts ? display_text_width_font(labels[idx], fonts[idx])
+                           : display_text_width(labels[idx]);
+        if (text_w > DISPLAY_WIDTH - 10) {
+            // Label wider than the row (shouldn't happen; i18n budgets
+            // cap list strings): fall back to the full-row fill so no
+            // stale pixels survive past the clipped text.
+            display_fill_rect(0, y, DISPLAY_WIDTH, UI_LIST_ITEM_H - 2, bg);
+        } else {
+            display_fill_rect(0, y, 10, UI_LIST_ITEM_H - 2, bg);
+            display_fill_rect(10 + text_w, y, DISPLAY_WIDTH - 10 - text_w,
+                              UI_LIST_ITEM_H - 2, bg);
+            display_fill_rect(10, y, text_w, 5, bg);
+            display_fill_rect(10, y + 5 + FONT_CHAR_HEIGHT, text_w,
+                              UI_LIST_ITEM_H - 2 - 5 - FONT_CHAR_HEIGHT, bg);
+        }
         if (fonts) {
             display_string_font(10, y + 5, labels[idx], fonts[idx], fg, bg);
         } else {

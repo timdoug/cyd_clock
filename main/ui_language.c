@@ -24,16 +24,24 @@ static int lang_row(lang_t lang) {
     return 0;
 }
 
-static void draw_screen(void) {
+// Scrolling repaints only the list rows, like the other list screens
+// (timezone, wifi); clearing the whole screen per scroll step flashes
+// the header. The full clear happens on entry and on language change,
+// when the header text itself must be redrawn.
+static void draw_list(void) {
     const char *labels[LANG_COUNT];
     const display_glyph_font_t *fonts[LANG_COUNT];
     for (int i = 0; i < LANG_COUNT; i++) {
         labels[i] = i18n_lang_name(lang_order[i]);
         fonts[i] = i18n_lang_name_font(lang_order[i]);
     }
+    ui_draw_list_fonts(labels, fonts, LANG_COUNT, list_scroll, lang_row(i18n_get_language()));
+}
+
+static void draw_screen(void) {
     display_fill(COLOR_BLACK);
     ui_draw_header(tr(STR_LANGUAGE), true);
-    ui_draw_list_fonts(labels, fonts, LANG_COUNT, list_scroll, lang_row(i18n_get_language()));
+    draw_list();
 }
 
 void ui_language_init(void) {
@@ -50,7 +58,7 @@ language_result_t ui_language_update(void) {
     ui_list_touch_result_t r =
         ui_list_touch_update(&list_touch, &touch, pressed, LANG_COUNT, &list_scroll);
     if (r == UI_LIST_TOUCH_SCROLLED) {
-        draw_screen();
+        draw_list();
     } else if (r == UI_LIST_TOUCH_TAPPED) {
         const touch_point_t *tap = &list_touch.tap_start;
         if (ui_back_button_hit(tap)) {
