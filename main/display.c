@@ -677,12 +677,22 @@ static void buf_vline(uint8_t *buf, int16_t buf_w, int16_t x, int16_t y,
     }
 }
 
-// Segment shapes with pointed ends; geometry identical to the old
-// draw_segment_h/draw_segment_v, just rendered into the compose buffer.
+// Segment shapes with pointed ends. The taper must be symmetric across
+// the (even) thickness - a 2px blunt point, insets [2,1,0,0,1,2] - or
+// every tip leans half a pixel toward one side and the corner gaps of a
+// digit come out unequal (the old |t - thick/2| taper made the top-left
+// junction visibly tighter than the other three).
+static int seg_taper_inset(int t, int thick) {
+    int c_lo = (thick - 1) / 2, c_hi = thick / 2;
+    if (t < c_lo) return c_lo - t;
+    if (t > c_hi) return t - c_hi;
+    return 0;
+}
+
 static void buf_segment_h(uint8_t *buf, int16_t buf_w, int16_t x, int16_t y,
                           int16_t w, int16_t thick, uint16_t color) {
     for (int t = 0; t < thick; t++) {
-        int inset = (t < thick / 2) ? (thick / 2 - t) : (t - thick / 2);
+        int inset = seg_taper_inset(t, thick);
         buf_hline(buf, buf_w, x + inset, y + t, w - 2 * inset, color);
     }
 }
@@ -690,7 +700,7 @@ static void buf_segment_h(uint8_t *buf, int16_t buf_w, int16_t x, int16_t y,
 static void buf_segment_v(uint8_t *buf, int16_t buf_w, int16_t x, int16_t y,
                           int16_t h, int16_t thick, uint16_t color) {
     for (int t = 0; t < thick; t++) {
-        int inset = (t < thick / 2) ? (thick / 2 - t) : (t - thick / 2);
+        int inset = seg_taper_inset(t, thick);
         buf_vline(buf, buf_w, x + t, y + inset, h - 2 * inset, color);
     }
 }
@@ -714,6 +724,15 @@ void display_digit_7seg(int16_t x, int16_t y, uint8_t digit, uint8_t size, uint1
 
     int16_t h_len = seg_len - gap * 2;
     int16_t v_len = seg_len - gap;
+    // The middle segment sits half a pixel above the digit's center (odd
+    // digit height, even segment thickness), so lower verticals placed at
+    // the upper verticals' mirrored rows would leave one more row of
+    // daylight below the middle bar than above it. Start them one row
+    // earlier and one row taller: they interlock the middle segment by
+    // one row exactly as the upper verticals do, and their bottom ends
+    // keep the mirrored interlock with the bottom segment.
+    int16_t v_low_y = seg_len + 3 * seg_thick / 2 - 2;
+    int16_t v_low_len = v_len + 1;
 
     // Background-fill the buffer; "off" segments need no explicit erase since
     // the full bounding box is pushed every time (same no-flash behavior).
@@ -726,9 +745,9 @@ void display_digit_7seg(int16_t x, int16_t y, uint8_t digit, uint8_t size, uint1
 
     if (pattern & 0x01) buf_segment_h(digit_buf, w, seg_thick / 2 + gap, 0, h_len, seg_thick, color);
     if (pattern & 0x02) buf_segment_v(digit_buf, w, seg_len, seg_thick / 2 + gap, v_len, seg_thick, color);
-    if (pattern & 0x04) buf_segment_v(digit_buf, w, seg_len, seg_len + seg_thick / 2 + gap * 2 + 1, v_len, seg_thick, color);
+    if (pattern & 0x04) buf_segment_v(digit_buf, w, seg_len, v_low_y, v_low_len, seg_thick, color);
     if (pattern & 0x08) buf_segment_h(digit_buf, w, seg_thick / 2 + gap, seg_len * 2 + seg_thick - 1, h_len, seg_thick, color);
-    if (pattern & 0x10) buf_segment_v(digit_buf, w, 0, seg_len + seg_thick / 2 + gap * 2 + 1, v_len, seg_thick, color);
+    if (pattern & 0x10) buf_segment_v(digit_buf, w, 0, v_low_y, v_low_len, seg_thick, color);
     if (pattern & 0x20) buf_segment_v(digit_buf, w, 0, seg_thick / 2 + gap, v_len, seg_thick, color);
     if (pattern & 0x40) buf_segment_h(digit_buf, w, seg_thick / 2 + gap, seg_len + seg_thick / 2 - 1, h_len, seg_thick, color);
 
