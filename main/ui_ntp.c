@@ -393,10 +393,13 @@ static void draw_ipv6_toggle(void) {
     bool ipv6 = ui_prefer_ipv6;
     uint16_t ipv6_bg = ipv6 ? COLOR_CYAN : COLOR_DARKGRAY;
     uint16_t ipv6_fg = ipv6 ? COLOR_BLACK : COLOR_WHITE;
-    char ipv6_label[16];
-    snprintf(ipv6_label, sizeof(ipv6_label), "IPv6: %s", ipv6 ? tr(STR_ON) : tr(STR_OFF));
+    // The setting is an address-family preference, not a filter: DNS
+    // still returns both families and the loser fills leftover peer
+    // slots (an IPv4-only filter would never sync on an IPv6-only
+    // network). Show the preference order, which also needs no
+    // translation.
     ui_draw_button(IPV6_TOGGLE_X, IPV6_TOGGLE_Y, IPV6_TOGGLE_W, IPV6_TOGGLE_H,
-                   ipv6_label, ipv6_fg, ipv6_bg);
+                   ipv6 ? "IPv6 > IPv4" : "IPv4 > IPv6", ipv6_fg, ipv6_bg);
 }
 
 static void draw_nts_toggle(void) {
