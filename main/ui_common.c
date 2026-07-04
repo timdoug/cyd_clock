@@ -53,8 +53,24 @@ static void draw_scroll_chevron(int cx, int y, bool up, uint16_t color) {
     }
 }
 
+// Blend a button (background + centered label) into the current compose
+// region at region-relative coordinates.
+static void compose_button(int x, int y, int w, int h, const char *label,
+                           uint16_t fg, uint16_t bg) {
+    display_compose_fill(x, y, w, h, bg);
+    int lx = x + (w - display_text_width(label)) / 2;
+    if (lx < x) lx = x;
+    display_compose_string(lx, y + (h - FONT_CHAR_HEIGHT) / 2, label, fg, bg);
+}
+
 void ui_draw_button(int x, int y, int w, int h, const char *label,
                     uint16_t fg, uint16_t bg) {
+    if (display_compose_begin(w, h, bg)) {
+        compose_button(0, 0, w, h, label, fg, bg);
+        display_compose_push(x, y);
+        return;
+    }
+    // Region larger than the compose buffer: piecewise fallback.
     display_fill_rect(x, y, w, h, bg);
     int lx = x + (w - display_text_width(label)) / 2;
     if (lx < x) lx = x;
@@ -62,15 +78,16 @@ void ui_draw_button(int x, int y, int w, int h, const char *label,
 }
 
 void ui_draw_header(const char *title, bool show_back) {
-    display_fill_rect(0, 0, DISPLAY_WIDTH, UI_HEADER_HEIGHT, UI_COLOR_HEADER);
+    display_compose_begin(DISPLAY_WIDTH, UI_HEADER_HEIGHT, UI_COLOR_HEADER);
 
     int x = (DISPLAY_WIDTH - display_text_width(title)) / 2;
-    display_string(x, UI_HEADER_TEXT_Y, title, COLOR_WHITE, UI_COLOR_HEADER);
+    display_compose_string(x, UI_HEADER_TEXT_Y, title, COLOR_WHITE, UI_COLOR_HEADER);
 
     if (show_back) {
-        ui_draw_button(UI_BACK_BTN_X, UI_HEADER_BTN_Y, UI_BACK_BTN_W,
+        compose_button(UI_BACK_BTN_X, UI_HEADER_BTN_Y, UI_BACK_BTN_W,
                        UI_HEADER_BTN_H, tr(STR_BACK), COLOR_WHITE, UI_COLOR_ITEM_BG);
     }
+    display_compose_push(0, 0);
 }
 
 void ui_draw_centered_string(int16_t y, const char *str, uint16_t fg, uint16_t bg, bool scale_2x) {
@@ -162,30 +179,19 @@ void ui_draw_list_fonts(const char **labels, const display_glyph_font_t *const *
         uint16_t bg = (idx == selected) ? UI_COLOR_SELECTED : COLOR_BLACK;
         uint16_t fg = (idx == selected) ? COLOR_BLACK : COLOR_WHITE;
 
-        // Fill the row background around the text band instead of under
-        // it: glyph cells repaint their own background, so a full-row
-        // fill followed by the text would blank each row for a moment on
-        // every scroll step.
-        int text_w = fonts ? display_text_width_font(labels[idx], fonts[idx])
-                           : display_text_width(labels[idx]);
-        if (text_w > DISPLAY_WIDTH - 10) {
-            // Label wider than the row (shouldn't happen; i18n budgets
-            // cap list strings): fall back to the full-row fill so no
-            // stale pixels survive past the clipped text.
-            display_fill_rect(0, y, DISPLAY_WIDTH, UI_LIST_ITEM_H - 2, bg);
-        } else {
-            display_fill_rect(0, y, 10, UI_LIST_ITEM_H - 2, bg);
-            display_fill_rect(10 + text_w, y, DISPLAY_WIDTH - 10 - text_w,
-                              UI_LIST_ITEM_H - 2, bg);
-            display_fill_rect(10, y, text_w, 5, bg);
-            display_fill_rect(10, y + 5 + FONT_CHAR_HEIGHT, text_w,
-                              UI_LIST_ITEM_H - 2 - 5 - FONT_CHAR_HEIGHT, bg);
-        }
+        // Each row is composed in RAM and pushed as one write: no
+        // fill-then-text repaint (flicker) and no multi-transaction
+        // window for the panel scan to catch (tearing). The 2px black
+        // gap below the row is part of the push, so rows are fully
+        // self-contained and screen entry needs no full clear.
+        display_compose_begin(DISPLAY_WIDTH, UI_LIST_ITEM_H, bg);
+        display_compose_fill(0, UI_LIST_ITEM_H - 2, DISPLAY_WIDTH, 2, COLOR_BLACK);
         if (fonts) {
-            display_string_font(10, y + 5, labels[idx], fonts[idx], fg, bg);
+            display_compose_string_font(10, 5, labels[idx], fonts[idx], fg, bg);
         } else {
-            display_string(10, y + 5, labels[idx], fg, bg);
+            display_compose_string(10, 5, labels[idx], fg, bg);
         }
+        display_compose_push(0, y);
     }
 
     // Scroll indicators: keep them inside the list gutter so they never
@@ -475,25 +481,31 @@ bool ui_read_touch(touch_point_t *touch, uint32_t *last_time_ticks) {
 }
 
 void ui_draw_menu_item(int y, const char *label) {
-    display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, UI_COLOR_ITEM_BG);
-    display_string(10, y + UI_TEXT_Y_OFFSET, label, UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
-    display_string(DISPLAY_WIDTH - 18, y + UI_TEXT_Y_OFFSET, ">", UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
+    display_compose_begin(DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, UI_COLOR_ITEM_BG);
+    display_compose_string(10, UI_TEXT_Y_OFFSET, label, UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
+    display_compose_string(DISPLAY_WIDTH - 18, UI_TEXT_Y_OFFSET, ">", UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
+    display_compose_push(0, y);
 }
 
 void ui_draw_slider(int y, const char *label, uint8_t value, uint8_t max_value, uint16_t fill_color) {
-    display_fill_rect(0, y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, UI_COLOR_ITEM_BG);
-    display_string(10, y + UI_TEXT_Y_OFFSET, label, UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
+    display_compose_begin(DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, UI_COLOR_ITEM_BG);
+    display_compose_string(10, UI_TEXT_Y_OFFSET, label, UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
 
-    int bar_y = y + UI_SLIDER_BAR_Y_OFF;
-    display_fill_rect(UI_SLIDER_BAR_X, bar_y, UI_SLIDER_BAR_W, UI_SLIDER_BAR_H, COLOR_BLACK);
-    display_rect(UI_SLIDER_BAR_X, bar_y, UI_SLIDER_BAR_W, UI_SLIDER_BAR_H, COLOR_GRAY);
-    ui_draw_slider_value(y, value, max_value, fill_color);
+    display_compose_fill(UI_SLIDER_BAR_X, UI_SLIDER_BAR_Y_OFF,
+                         UI_SLIDER_BAR_W, UI_SLIDER_BAR_H, COLOR_BLACK);
+    display_compose_rect(UI_SLIDER_BAR_X, UI_SLIDER_BAR_Y_OFF,
+                         UI_SLIDER_BAR_W, UI_SLIDER_BAR_H, COLOR_GRAY);
+    int fill_w = max_value ? (value * (UI_SLIDER_BAR_W - 4)) / max_value : 0;
+    if (fill_w > 0) {
+        display_compose_fill(UI_SLIDER_BAR_X + 2, UI_SLIDER_BAR_Y_OFF + 2,
+                             fill_w, UI_SLIDER_BAR_H - 4, fill_color);
+    }
 
-    display_fill_rect(UI_SLIDER_BTN_X1, y + 2, UI_SLIDER_BTN_W, UI_SLIDER_BTN_H, COLOR_GRAY);
-    display_string(UI_SLIDER_BTN_X1 + 6, y + 3, "-", COLOR_WHITE, COLOR_GRAY);
-
-    display_fill_rect(UI_SLIDER_BTN_X2, y + 2, UI_SLIDER_BTN_W, UI_SLIDER_BTN_H, COLOR_GRAY);
-    display_string(UI_SLIDER_BTN_X2 + 6, y + 3, "+", COLOR_WHITE, COLOR_GRAY);
+    compose_button(UI_SLIDER_BTN_X1, 2, UI_SLIDER_BTN_W, UI_SLIDER_BTN_H,
+                   "-", COLOR_WHITE, COLOR_GRAY);
+    compose_button(UI_SLIDER_BTN_X2, 2, UI_SLIDER_BTN_W, UI_SLIDER_BTN_H,
+                   "+", COLOR_WHITE, COLOR_GRAY);
+    display_compose_push(0, y);
 }
 
 void ui_draw_slider_value(int y, uint8_t value, uint8_t max_value, uint16_t fill_color) {

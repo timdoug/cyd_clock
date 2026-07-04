@@ -192,7 +192,10 @@ static void draw_city_list(void) {
 static void enter_region_view(void) {
     ui_state = TZ_STATE_REGION;
     list_scroll = ui_list_scroll_to_item(selected_region, NUM_REGIONS);
-    display_fill(COLOR_BLACK);
+    // Composed header + self-contained list rows cover everything but
+    // the band between them; no full clear, no black flash.
+    display_fill_rect(0, UI_HEADER_HEIGHT, DISPLAY_WIDTH,
+                      UI_LIST_START_Y - UI_HEADER_HEIGHT, COLOR_BLACK);
     ui_draw_header(tr(STR_SELECT_REGION), show_back_button);
     draw_region_list();
 }
@@ -210,7 +213,8 @@ static void enter_city_view(void) {
     }
     list_scroll = ui_list_clamp_scroll(list_scroll, city_count);
 
-    display_fill(COLOR_BLACK);
+    display_fill_rect(0, UI_HEADER_HEIGHT, DISPLAY_WIDTH,
+                      UI_LIST_START_Y - UI_HEADER_HEIGHT, COLOR_BLACK);
     ui_draw_header(regions[selected_region], true);
     draw_city_list();
 }

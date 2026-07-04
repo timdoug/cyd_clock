@@ -39,7 +39,10 @@ static void draw_list(void) {
 }
 
 static void draw_screen(void) {
-    display_fill(COLOR_BLACK);
+    // The composed header and self-contained list rows cover everything
+    // except the band between them; no full clear, no black flash.
+    display_fill_rect(0, UI_HEADER_HEIGHT, DISPLAY_WIDTH,
+                      UI_LIST_START_Y - UI_HEADER_HEIGHT, COLOR_BLACK);
     ui_draw_header(tr(STR_LANGUAGE), true);
     draw_list();
 }

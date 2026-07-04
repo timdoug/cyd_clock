@@ -83,6 +83,21 @@ void display_set_glyph_font(const display_glyph_font_t *font);
 // width under the active glyph font.
 int display_cell_at(const char *s, int *width_px);
 
+// Composed-region drawing: build a region (up to DISPLAY_WIDTH x 30 px)
+// in RAM and push it to the panel as a single address-window write, so
+// the panel scan cannot catch a half-drawn region (tearing) and pixels
+// are never painted twice (flicker). Coordinates inside the region are
+// region-relative; drawing clips to the region. begin() returns false
+// (and the other calls become no-ops) if the region exceeds the buffer.
+bool display_compose_begin(int16_t w, int16_t h, uint16_t bg);
+void display_compose_fill(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color);
+void display_compose_rect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color);
+void display_compose_string(int16_t x, int16_t y, const char *str, uint16_t fg, uint16_t bg);
+void display_compose_string_font(int16_t x, int16_t y, const char *str,
+                                 const display_glyph_font_t *font,
+                                 uint16_t fg, uint16_t bg);
+void display_compose_push(int16_t x, int16_t y);
+
 // size: 1=small (20x40), 2=medium (40x80), 3=large (60x120)
 void display_digit_7seg(int16_t x, int16_t y, uint8_t digit, uint8_t size, uint16_t color, uint16_t bg);
 

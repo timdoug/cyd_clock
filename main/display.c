@@ -646,15 +646,19 @@ void display_string_2x(int16_t x, int16_t y, const char *str, uint16_t fg, uint1
     }
 }
 
-// 7-segment digits are composed into this RAM buffer and pushed to the panel
-// as a single address window + one SPI transaction. The previous path drew
-// each segment as `thick` 1-px hlines/vlines, each a full set_addr_window +
-// data write: ~250 polling transactions per digit at 10-20 us fixed overhead
-// each, ~9.5 ms for a digit whose raw pixel payload is ~1.2 ms at 40 MHz.
-// One transaction recovers that overhead and shrinks the window in which the
-// panel scan can catch a half-drawn digit (tearing) by the same factor.
-// Sized for the size-3 digit: (seg_len + thick) x (2*seg_len + 2*thick - 1).
-static uint8_t digit_buf[(48 + 8) * (2 * 48 + 2 * 8 - 1) * 2];
+// UI regions (7-seg digits, header, buttons, menu and list rows) are
+// composed into this RAM buffer and pushed to the panel as a single
+// address window + one SPI transaction. Drawing piecewise instead - a
+// background fill followed by glyph blits, or per-segment lines - costs
+// 10-20 us fixed overhead per polling transaction and repaints the same
+// pixels twice, and the long multi-transaction window is what lets the
+// panel scan catch a half-drawn region (tearing). Sized for a full-width
+// 30 px strip (the header); the size-3 digit needs less.
+#define DISPLAY_COMPOSE_MAX_H 30
+static uint8_t compose_buf[DISPLAY_WIDTH * DISPLAY_COMPOSE_MAX_H * 2];
+_Static_assert(sizeof(compose_buf) >= (48 + 8) * (2 * 48 + 2 * 8 - 1) * 2,
+               "compose_buf must fit the size-3 7-seg digit");
+static int16_t compose_w, compose_h;
 
 static void buf_hline(uint8_t *buf, int16_t buf_w, int16_t x, int16_t y,
                       int16_t w, uint16_t color) {
@@ -705,6 +709,96 @@ static void buf_segment_v(uint8_t *buf, int16_t buf_w, int16_t x, int16_t y,
     }
 }
 
+bool display_compose_begin(int16_t w, int16_t h, uint16_t bg) {
+    if (w <= 0 || h <= 0 || (size_t)w * h * 2 > sizeof(compose_buf)) {
+        compose_w = compose_h = 0;
+        return false;
+    }
+    compose_w = w;
+    compose_h = h;
+    uint8_t hi = bg >> 8, lo = bg & 0xFF;
+    int32_t total = (int32_t)w * h;
+    for (int32_t i = 0; i < total; i++) {
+        compose_buf[i * 2]     = hi;
+        compose_buf[i * 2 + 1] = lo;
+    }
+    return true;
+}
+
+void display_compose_fill(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) {
+    if (x < 0) { w += x; x = 0; }
+    if (y < 0) { h += y; y = 0; }
+    if (x + w > compose_w) w = compose_w - x;
+    if (y + h > compose_h) h = compose_h - y;
+    if (w <= 0 || h <= 0) return;
+    for (int16_t r = 0; r < h; r++) {
+        buf_hline(compose_buf, compose_w, x, y + r, w, color);
+    }
+}
+
+void display_compose_rect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) {
+    if (w <= 0 || h <= 0) return;
+    display_compose_fill(x, y, w, 1, color);
+    display_compose_fill(x, y + h - 1, w, 1, color);
+    display_compose_fill(x, y, 1, h, color);
+    display_compose_fill(x + w - 1, y, 1, h, color);
+}
+
+// Blend one glyph into the compose buffer, clipped to the region.
+static void compose_glyph(int16_t x, int16_t y, const uint8_t *glyph,
+                          int width, int height, int stride,
+                          uint16_t fg, uint16_t bg) {
+    if (!glyph || x >= compose_w || y >= compose_h) return;
+    int c0 = (x < 0) ? -x : 0;
+    int c1 = (x + width > compose_w) ? compose_w - x : width;
+    if (c0 >= c1) return;
+
+    uint16_t palette[16];
+    aa_build_palette(fg, bg, palette);
+
+    for (int row = 0; row < height; row++) {
+        int py = y + row;
+        if (py < 0) continue;
+        if (py >= compose_h) break;
+        const uint8_t *row_px = glyph + row * stride;
+        uint8_t *dst = compose_buf + ((size_t)py * compose_w + x + c0) * 2;
+        for (int col = c0; col < c1; col++) {
+            uint16_t color = palette[aa_alpha_at(row_px, col)];
+            *dst++ = color >> 8;
+            *dst++ = color & 0xFF;
+        }
+    }
+}
+
+void display_compose_string_font(int16_t x, int16_t y, const char *str,
+                                 const display_glyph_font_t *font,
+                                 uint16_t fg, uint16_t bg) {
+    const unsigned char *p = (const unsigned char *)str;
+    while (*p) {
+        uint32_t cp;
+        glyph_ref_t g;
+        p += utf8_decode(p, &cp);
+        resolve_glyph(cp, font, &g);
+        compose_glyph(x, y, unpack_1x(&g), g.width, FONT_CHAR_HEIGHT, g.stride16, fg, bg);
+        x += g.width;
+    }
+}
+
+void display_compose_string(int16_t x, int16_t y, const char *str,
+                            uint16_t fg, uint16_t bg) {
+    display_compose_string_font(x, y, str, active_glyph_font, fg, bg);
+}
+
+void display_compose_push(int16_t x, int16_t y) {
+    if (compose_w <= 0 || compose_h <= 0 || x < 0 || y < 0 ||
+        x + compose_w > DISPLAY_WIDTH || y + compose_h > DISPLAY_HEIGHT) {
+        return;
+    }
+    set_addr_window(x, y, compose_w, compose_h);
+    dc_data();
+    spi_write_bytes(compose_buf, (size_t)compose_w * compose_h * 2);
+}
+
 void display_digit_7seg(int16_t x, int16_t y, uint8_t digit, uint8_t size, uint16_t color, uint16_t bg) {
     if (digit > 10) return;
 
@@ -739,21 +833,21 @@ void display_digit_7seg(int16_t x, int16_t y, uint8_t digit, uint8_t size, uint1
     uint8_t hi = bg >> 8, lo = bg & 0xFF;
     int32_t total = (int32_t)w * h;
     for (int32_t i = 0; i < total; i++) {
-        digit_buf[i * 2]     = hi;
-        digit_buf[i * 2 + 1] = lo;
+        compose_buf[i * 2]     = hi;
+        compose_buf[i * 2 + 1] = lo;
     }
 
-    if (pattern & 0x01) buf_segment_h(digit_buf, w, seg_thick / 2 + gap, 0, h_len, seg_thick, color);
-    if (pattern & 0x02) buf_segment_v(digit_buf, w, seg_len, seg_thick / 2 + gap, v_len, seg_thick, color);
-    if (pattern & 0x04) buf_segment_v(digit_buf, w, seg_len, v_low_y, v_low_len, seg_thick, color);
-    if (pattern & 0x08) buf_segment_h(digit_buf, w, seg_thick / 2 + gap, seg_len * 2 + seg_thick - 1, h_len, seg_thick, color);
-    if (pattern & 0x10) buf_segment_v(digit_buf, w, 0, v_low_y, v_low_len, seg_thick, color);
-    if (pattern & 0x20) buf_segment_v(digit_buf, w, 0, seg_thick / 2 + gap, v_len, seg_thick, color);
-    if (pattern & 0x40) buf_segment_h(digit_buf, w, seg_thick / 2 + gap, seg_len + seg_thick / 2 - 1, h_len, seg_thick, color);
+    if (pattern & 0x01) buf_segment_h(compose_buf, w, seg_thick / 2 + gap, 0, h_len, seg_thick, color);
+    if (pattern & 0x02) buf_segment_v(compose_buf, w, seg_len, seg_thick / 2 + gap, v_len, seg_thick, color);
+    if (pattern & 0x04) buf_segment_v(compose_buf, w, seg_len, v_low_y, v_low_len, seg_thick, color);
+    if (pattern & 0x08) buf_segment_h(compose_buf, w, seg_thick / 2 + gap, seg_len * 2 + seg_thick - 1, h_len, seg_thick, color);
+    if (pattern & 0x10) buf_segment_v(compose_buf, w, 0, v_low_y, v_low_len, seg_thick, color);
+    if (pattern & 0x20) buf_segment_v(compose_buf, w, 0, seg_thick / 2 + gap, v_len, seg_thick, color);
+    if (pattern & 0x40) buf_segment_h(compose_buf, w, seg_thick / 2 + gap, seg_len + seg_thick / 2 - 1, h_len, seg_thick, color);
 
     set_addr_window(x, y, w, h);
     dc_data();
-    spi_write_bytes(digit_buf, (size_t)w * h * 2);
+    spi_write_bytes(compose_buf, (size_t)w * h * 2);
 }
 
 void display_colon_7seg(int16_t x, int16_t y, uint8_t size, uint16_t color) {

@@ -92,16 +92,28 @@ static void draw_menu(void) {
     char rotate_label[40];
     // \xC2\xB0 is the UTF-8 degree sign.
     snprintf(rotate_label, sizeof(rotate_label), "%s\xC2\xB0", tr(STR_ROTATE));
-    display_fill_rect(0, ROTATION_ROW_Y, DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, UI_COLOR_ITEM_BG);
-    display_string(10, ROTATION_ROW_Y + UI_TEXT_Y_OFFSET, rotate_label, UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
+    display_compose_begin(DISPLAY_WIDTH, UI_ITEM_HEIGHT - 3, UI_COLOR_ITEM_BG);
+    display_compose_string(10, UI_TEXT_Y_OFFSET, rotate_label, UI_COLOR_ITEM_FG, UI_COLOR_ITEM_BG);
     uint16_t rot_bg = rotation ? COLOR_GREEN : COLOR_GRAY;
-    display_fill_rect(ROTATION_TOGGLE_X, ROTATION_ROW_Y + 2, ROTATION_TOGGLE_W, 19, rot_bg);
+    display_compose_fill(ROTATION_TOGGLE_X, 2, ROTATION_TOGGLE_W, 19, rot_bg);
     const char *rot_label = rotation ? tr(STR_ON) : tr(STR_OFF);
     int rot_text_x = ROTATION_TOGGLE_X + (ROTATION_TOGGLE_W - display_text_width(rot_label)) / 2;
-    display_string(rot_text_x, ROTATION_ROW_Y + 3, rot_label, rotation ? COLOR_BLACK : COLOR_WHITE, rot_bg);
+    display_compose_string(rot_text_x, 3, rot_label, rotation ? COLOR_BLACK : COLOR_WHITE, rot_bg);
+    display_compose_push(0, ROTATION_ROW_Y);
 
     ui_draw_menu_item(ABOUT_ROW_Y, tr(STR_ABOUT));
     ui_draw_menu_item(LANGUAGE_ROW_Y, tr(STR_LANGUAGE));
+}
+
+// Clear only the slivers between the composed header and rows: entering
+// the screen swaps content for content instead of flashing black first.
+static void clear_row_gaps(void) {
+    display_fill_rect(0, UI_HEADER_HEIGHT, DISPLAY_WIDTH,
+                      ITEM_START_Y - UI_HEADER_HEIGHT, COLOR_BLACK);
+    for (int i = 0; i < 8; i++) {
+        int y = ITEM_START_Y + i * UI_ITEM_HEIGHT + (UI_ITEM_HEIGHT - 3);
+        display_fill_rect(0, y, DISPLAY_WIDTH, 3, COLOR_BLACK);
+    }
 }
 
 static void draw_header(void) {
@@ -126,7 +138,7 @@ void ui_settings_init(void) {
     brightness_dirty = false;
     led_brightness_dirty = false;
 
-    display_fill(COLOR_BLACK);
+    clear_row_gaps();
     draw_header();
     draw_menu();
 }
