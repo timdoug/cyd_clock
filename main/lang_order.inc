@@ -2,14 +2,17 @@
 // Native names sorted by Unicode root collation, as OS language pickers do.
 static const lang_t lang_order[LANG_COUNT] = {
     LANG_AF,  // Afrikaans
+    LANG_AK,  // Akan
     LANG_AZ,
     LANG_MS,  // Bahasa Melayu
     LANG_JV,  // Basa Jawa
+    LANG_BS,  // Bosanski
     LANG_CA,
     LANG_CS,
     LANG_CY,  // Cymraeg
     LANG_DA,  // Dansk
     LANG_DE,  // Deutsch
+    LANG_DSB,
     LANG_ET,  // Eesti
     LANG_EN,  // English
     LANG_ES,
@@ -19,29 +22,43 @@ static const lang_t lang_order[LANG_COUNT] = {
     LANG_FO,
     LANG_FR,
     LANG_GA,  // Gaeilge
+    LANG_GD,
     LANG_GL,  // Galego
+    LANG_HA,  // Hausa
+    LANG_HSB,
     LANG_HR,  // Hrvatski
+    LANG_IG,  // Igbo
     LANG_ID,  // Indonesia
+    LANG_ZU,  // isiZulu
     LANG_IS,
     LANG_IT,  // Italiano
     LANG_SW,  // Kiswahili
+    LANG_HT,
     LANG_LV,
     LANG_LT,
     LANG_HU,  // Magyar
+    LANG_PCM,
     LANG_NL,  // Nederlands
     LANG_NO,  // Norsk
+    LANG_NN,  // Norsk nynorsk
     LANG_UZ,
     LANG_PL,  // Polski
     LANG_PT,
     LANG_RO,
+    LANG_RM,  // Rumantsch
+    LANG_QU,  // Runasimi
     LANG_SQ,  // Shqip
     LANG_SK,
     LANG_SL,
+    LANG_SO,  // Soomaali
     LANG_FI,  // Suomi
     LANG_SV,  // Svenska
     LANG_VI,
     LANG_TR,
+    LANG_TK,
+    LANG_YO,
     LANG_EL,
+    LANG_BA,
     LANG_BE,
     LANG_BG,
     LANG_KY,
@@ -51,16 +68,20 @@ static const lang_t lang_order[LANG_COUNT] = {
     LANG_RU,
     LANG_SR,
     LANG_UK,
+    LANG_CV,
     LANG_KA,
     LANG_HY,
     LANG_HE,
     LANG_UR,
     LANG_AR,
     LANG_FA,
+    LANG_TI,
     LANG_AM,
+    LANG_KOK,
     LANG_NE,
     LANG_MR,
     LANG_HI,
+    LANG_AS,
     LANG_BN,
     LANG_PA,
     LANG_GU,

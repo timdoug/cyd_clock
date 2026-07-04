@@ -176,6 +176,11 @@ const display_glyph_font_t *i18n_glyph_font(lang_t lang) {
     case LANG_LO: return &font_lo;
     case LANG_MY: return &font_my;
     case LANG_AM: return &font_am;
+    case LANG_KOK: return &font_kok;
+    case LANG_AS: return &font_as;
+    case LANG_TI: return &font_ti;
+    case LANG_YO: return &font_yo;
+    case LANG_PCM: return &font_pcm;
     default: return NULL;
     }
 }

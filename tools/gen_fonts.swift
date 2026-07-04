@@ -177,7 +177,7 @@ func render(_ ch: String, cfg: FontConfig, pixels: Int, outputWidth: Int? = nil)
     NSRect(x: 0, y: 0, width: renderWidth, height: pixels).fill()
 
     let fontSize = pixels == 16 ? cfg.fontSize16 : cfg.fontSize32
-    guard let font = NSFont(name: cfg.fontName, size: fontSize) else {
+    guard var font = NSFont(name: cfg.fontName, size: fontSize) else {
         // Falling back to another font would silently regenerate every
         // table with different metrics.
         fatalError("font \(cfg.fontName) is not installed")
@@ -186,13 +186,20 @@ func render(_ ch: String, cfg: FontConfig, pixels: Int, outputWidth: Int? = nil)
     if !fontHasGlyphs(font, text) {
         // Menlo lacks some precomposed Vietnamese vowels but has every
         // combining mark; draw the decomposed sequence so CoreText
-        // composes base + marks in the same face. Anything else missing
-        // fails loudly rather than silently borrowing a fallback font.
+        // composes base + marks in the same face. A handful of Cyrillic
+        // letters (Bashkir qa with stroke) are absent outright, but the
+        // metric sibling Monaco has them; anything else missing fails
+        // loudly rather than silently borrowing an arbitrary fallback.
         let nfd = text.decomposedStringWithCanonicalMapping
-        guard fontHasGlyphs(font, nfd) else {
+        if fontHasGlyphs(font, nfd) {
+            text = nfd
+        } else if cfg.fontName == "Menlo",
+                  let monaco = NSFont(name: "Monaco", size: fontSize),
+                  fontHasGlyphs(monaco, text) {
+            font = monaco
+        } else {
             fatalError("\(cfg.fontName) has no glyph for \(text)")
         }
-        text = nfd
     }
     let s = text as NSString
     let attrs: [NSAttributedString.Key: Any] = [
@@ -597,6 +604,18 @@ let shapedConfigs = [
                  fontName: "Myanmar Sangam MN", fontSize: 10, rtl: false),
     ShapedConfig(scope: "am", fontObject: "font_am", glyphArray: "am_glyphs",
                  fontName: "Kefa", fontSize: 12, rtl: false),
+    ShapedConfig(scope: "kok", fontObject: "font_kok", glyphArray: "kok_glyphs",
+                 fontName: "Kohinoor Devanagari", fontSize: 12, rtl: false),
+    ShapedConfig(scope: "as", fontObject: "font_as", glyphArray: "as_glyphs",
+                 fontName: "Kohinoor Bangla", fontSize: 12, rtl: false),
+    ShapedConfig(scope: "ti", fontObject: "font_ti", glyphArray: "ti_glyphs",
+                 fontName: "Kefa", fontSize: 12, rtl: false),
+    // Latin with combining tone marks (no NFC precomposition), so these
+    // two go through the shaping pipeline rather than the base font.
+    ShapedConfig(scope: "yo", fontObject: "font_yo", glyphArray: "yo_glyphs",
+                 fontName: "Menlo", fontSize: 12, rtl: false),
+    ShapedConfig(scope: "pcm", fontObject: "font_pcm", glyphArray: "pcm_glyphs",
+                 fontName: "Menlo", fontSize: 12, rtl: false),
 ]
 
 func cUnescape(_ lit: String) -> String {

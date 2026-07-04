@@ -12,7 +12,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 CJK_SCOPES = ("zh_hant", "ja", "zh", "ko", "ka", "hy")  # longest first so zh_hant wins over zh
 SHAPED_SCOPES = ("ar", "fa", "he", "hi", "bn", "th", "ur", "mr", "ta", "te", "pa", "gu",
-                 "kn", "ml", "ne", "si", "km", "lo", "my", "am")  # pre-shaped by the generator
+                 "kn", "ml", "ne", "si", "km", "lo", "my", "am",
+                 "kok", "as", "ti", "yo", "pcm")  # pre-shaped by the generator
 
 
 def parse_enum_ids(i18n_h):
