@@ -109,6 +109,8 @@ static ntp_benchmark_status_t bench_one_addr(const struct sockaddr_storage *addr
     };
     int sr = select(sock + 1, &rfds, NULL, NULL, &tv);
     if (sr <= 0) {
+        char a[46]; addr_to_str(addr, a, sizeof(a));
+        ESP_LOGW(BENCH_TAG, "no reply from %s within %dms", a, BENCH_TIMEOUT_MS);
         close(sock);
         mbedtls_platform_zeroize(&nts, sizeof(nts));
         return NTP_BENCHMARK_TIMEOUT;
@@ -122,6 +124,8 @@ static ntp_benchmark_status_t bench_one_addr(const struct sockaddr_storage *addr
                          (struct sockaddr *)&from, &fromlen);
     close(sock);
     if (n < (ssize_t)sizeof(ntp_pkt_t) || !sockaddr_matches(addr, &from)) {
+        ESP_LOGW(BENCH_TAG, "bad reply: n=%d from-match=%d", (int)n,
+                 sockaddr_matches(addr, &from));
         mbedtls_platform_zeroize(&nts, sizeof(nts));
         return NTP_BENCHMARK_BAD_RESPONSE;
     }
@@ -135,10 +139,14 @@ static ntp_benchmark_status_t bench_one_addr(const struct sockaddr_storage *addr
         pkt.orig_ts_frac != req_xmt_frac ||
         pkt.stratum == 0 || pkt.stratum >= 16 || li == 3 ||
         pkt.xmt_ts_sec == 0) {
+        ESP_LOGW(BENCH_TAG, "hdr reject: mode=%u vn=%u li=%u stratum=%u orig-match=%d",
+                 mode, vn, li, pkt.stratum,
+                 pkt.orig_ts_sec == req_xmt_sec && pkt.orig_ts_frac == req_xmt_frac);
         mbedtls_platform_zeroize(&nts, sizeof(nts));
         return NTP_BENCHMARK_BAD_RESPONSE;
     }
     if (use_nts && !ntp_nts_check_response(buf, (size_t)n, &nts, uid)) {
+        ESP_LOGW(BENCH_TAG, "NTS auth reject (n=%d)", (int)n);
         mbedtls_platform_zeroize(&nts, sizeof(nts));
         return NTP_BENCHMARK_BAD_RESPONSE;
     }

@@ -298,8 +298,17 @@ bool ntp_nts_add_ef(uint8_t *buf, size_t *len, size_t cap,
         goto out;
     }
 
-    // Request enough replacement cookies to refill the pool.
+    // Request enough replacement cookies to refill the pool, but never
+    // fewer than three placeholders: chrony-style servers (PTB, BEV)
+    // size their response at up to four cookies and silently DROP any
+    // request too small to hold it - with a full pool we used to send
+    // zero placeholders and every authenticated query vanished
+    // (verified empirically: three placeholders answered, two dropped,
+    // thresholds scale with the cookie length since placeholders are
+    // cookie-sized). Replacement cookies beyond the pool capacity are
+    // simply not stored.
     int want = NTS_MAX_COOKIES - ctx->cookie_count;
+    if (want < 3) want = 3;
     for (int i = 0; i < want; i++) {
         if (!ef_append(buf, len, cap, EF_COOKIE_PLACEHOLDER, NULL, clen)) break;
     }

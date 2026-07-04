@@ -83,7 +83,7 @@ static const ntp_preset_t presets[] = {
     { "ntp1.inrim.it",              false },  // INRIM, Italy
     { "time.kriss.re.kr",           false },  // KRISS, South Korea
     { "ntp.metas.ch",               false },  // METAS, Switzerland
-    { "time.metrologie.at",         false },  // BEV, Austria
+    { "time.metrologie.at",         true  },  // BEV, Austria
     { "tick.usno.navy.mil",         false },  // USNO, USA
     { "nts.netnod.se",              true  },  // Netnod, Sweden
     { "ntp.nict.jp",                false },  // NICT, Japan
