@@ -1,0 +1,77 @@
+// Editable source of truth for the pre-shaped strings; never compiled.
+// Editing REQUIRES a macOS font regeneration (swift tools/gen_fonts.swift);
+// tools/check_i18n.py catches staleness via source hashes in fonts.c.
+#if 0
+// >>> shaped-source km
+static const char *const lang_km[STR_COUNT] = {
+    [STR_SETTINGS] = "ការកំណត់",
+    [STR_WIFI] = "Wi-Fi",
+    [STR_FAIL] = "បរាជ័យ",
+    [STR_TIMEZONE] = "ល្វែងម៉ោង",
+    [STR_BRIGHTNESS] = "ពន្លឺ",
+    [STR_LED_BLINK] = "LED ភ្លឹបភ្លែត",
+    [STR_ROTATE] = "បង្វិល 180",
+    [STR_ABOUT] = "អំពី",
+    [STR_LANGUAGE] = "ភាសា",
+    [STR_DONE] = "រួចរាល់",
+    [STR_BACK] = "ថយក្រោយ",
+    [STR_CANCEL] = "បោះបង់",
+    [STR_DEL] = "លុប",
+    [STR_RUNNING] = "កំពុងដំណើរការ",
+    [STR_ON] = "បើក",
+    [STR_OFF] = "បិទ",
+    [STR_NTS_NO] = "ទេ",
+    [STR_NTS_ATTEMPT] = "ព្យាយាម",
+    [STR_NTS_REQUIRE] = "តម្រូវ",
+    [STR_WAITING_NTP] = "រង់ចាំ NTP...",
+    [STR_FMT_SYNCED] = "សមកាល: %s",
+    [STR_FMT_SYNCING] = "កំពុងសមកាល: %s",
+    [STR_FMT_WAITING] = "រង់ចាំ: %lus",
+    [STR_WIFI_SETUP] = "រៀបចំ Wi-Fi",
+    [STR_SCANNING] = "កំពុងស្វែងរក...",
+    [STR_SCAN_FAILED] = "ស្វែងរកបរាជ័យ",
+    [STR_TAP_RETRY] = "ចុចដើម្បីព្យាយាមម្ដងទៀត",
+    [STR_SELECT_NETWORK] = "ជ្រើសរើសបណ្ដាញ",
+    [STR_NO_NETWORKS] = "គ្មានបណ្ដាញ",
+    [STR_NETWORK_LABEL] = "បណ្ដាញ:",
+    [STR_ENTER_PASSWORD] = "បញ្ចូលពាក្យសម្ងាត់",
+    [STR_CONNECTING] = "កំពុងភ្ជាប់",
+    [STR_CONNECTING_TO] = "កំពុងភ្ជាប់:",
+    [STR_CONNECTED] = "បានភ្ជាប់!",
+    [STR_CONNECTION_FAILED] = "ការភ្ជាប់បរាជ័យ",
+    [STR_KB_SPACE] = "ចន្លោះ",
+    [STR_KB_GO] = "OK",
+    [STR_VERSION] = "កំណែ:",
+    [STR_STATUS] = "ស្ថានភាព:",
+    [STR_READ] = "បានអាន:",
+    [STR_UPDATE] = "ធ្វើបច្ចុប្បន្ន",
+    [STR_RESTARTING] = "ចាប់ផ្ដើមឡើងវិញ",
+    [STR_OTA_UPDATE] = "បច្ចុប្បន្នភាព OTA",
+    [STR_NTP_SERVER] = "ម៉ាស៊ីនមេ NTP",
+    [STR_SERVER_LABEL] = "ម៉ាស៊ីនមេ:",
+    [STR_NTP_SETTINGS] = "ការកំណត់ NTP",
+    [STR_NTP_PRESETS] = "ទម្រង់ NTP",
+    [STR_PRESETS] = "ទម្រង់",
+    [STR_BENCHMARK] = "សាកល្បង",
+    [STR_STOPPING] = "កំពុងឈប់",
+    [STR_NTP_STATS] = "ស្ថិតិ NTP",
+    [STR_UNSYNCED] = "គ្មានសមកាល",
+    [STR_NONE] = "គ្មាន",
+    [STR_SELECT_REGION] = "ជ្រើសរើសតំបន់",
+    [STR_AGE_LABEL] = "  អាយុ: ",
+    [STR_SYNCS_LABEL] = "  ស៊ីង: ",
+    [STR_FMT_PEERS_NOSYNC] = "%d/%d សឺវ័រ  poll %s  គ្មានស៊ីង",
+    [STR_FMT_PEERS_AGO] = "%d/%d សឺវ័រ  poll %s  %s មុន",
+    [STR_DST] = "ម៉ោងរដូវក្ដៅ",
+    [STR_NO_DST] = "គ្មានម៉ោងរដូវក្ដៅ",
+};
+static const char *const weekdays_km[7] = {
+    "អាទិត្យ", "ចន្ទ", "អង្គារ", "ពុធ", "ព្រហ", "សុក្រ", "សៅរ៍",
+};
+static const char *const months_km[12] = {
+    "មករា", "កុម្ភៈ", "មីនា", "មេសា", "ឧសភា", "មិថុនា",
+    "កក្កដា", "សីហា", "កញ្ញា", "តុលា", "វិច្ឆិកា", "ធ្នូ",
+};
+static const char lang_name_km[] = "ខ្មែរ";
+// <<< shaped-source km
+#endif

@@ -1,0 +1,77 @@
+// Editable source of truth for the pre-shaped strings; never compiled.
+// Editing REQUIRES a macOS font regeneration (swift tools/gen_fonts.swift);
+// tools/check_i18n.py catches staleness via source hashes in fonts.c.
+#if 0
+// >>> shaped-source mr
+static const char *const lang_mr[STR_COUNT] = {
+    [STR_SETTINGS] = "सेटिंग्ज",
+    [STR_WIFI] = "Wi-Fi",
+    [STR_FAIL] = "अयशस्वी",
+    [STR_TIMEZONE] = "वेळ क्षेत्र",
+    [STR_BRIGHTNESS] = "चमक",
+    [STR_LED_BLINK] = "LED लुकलुक",
+    [STR_ROTATE] = "फिरवा 180",
+    [STR_ABOUT] = "माहिती",
+    [STR_LANGUAGE] = "भाषा",
+    [STR_DONE] = "झाले",
+    [STR_BACK] = "मागे",
+    [STR_CANCEL] = "रद्द",
+    [STR_DEL] = "हटवा",
+    [STR_RUNNING] = "सुरू आहे",
+    [STR_ON] = "चालू",
+    [STR_OFF] = "बंद",
+    [STR_NTS_NO] = "नाही",
+    [STR_NTS_ATTEMPT] = "प्रयत्न",
+    [STR_NTS_REQUIRE] = "आवश्यक",
+    [STR_WAITING_NTP] = "NTP ची प्रतीक्षा...",
+    [STR_FMT_SYNCED] = "सिंक: %s",
+    [STR_FMT_SYNCING] = "सिंक होत आहे: %s",
+    [STR_FMT_WAITING] = "प्रतीक्षा: %lus",
+    [STR_WIFI_SETUP] = "Wi-Fi सेटअप",
+    [STR_SCANNING] = "शोधत आहे...",
+    [STR_SCAN_FAILED] = "शोध अयशस्वी",
+    [STR_TAP_RETRY] = "पुन्हा प्रयत्नासाठी टॅप करा",
+    [STR_SELECT_NETWORK] = "नेटवर्क निवडा",
+    [STR_NO_NETWORKS] = "नेटवर्क नाही",
+    [STR_NETWORK_LABEL] = "नेटवर्क:",
+    [STR_ENTER_PASSWORD] = "पासवर्ड टाका",
+    [STR_CONNECTING] = "जोडत आहे",
+    [STR_CONNECTING_TO] = "जोडत आहे:",
+    [STR_CONNECTED] = "जोडले!",
+    [STR_CONNECTION_FAILED] = "कनेक्शन अयशस्वी",
+    [STR_KB_SPACE] = "स्पेस",
+    [STR_KB_GO] = "OK",
+    [STR_VERSION] = "आवृत्ती:",
+    [STR_STATUS] = "स्थिती:",
+    [STR_READ] = "वाचले:",
+    [STR_UPDATE] = "अपडेट",
+    [STR_RESTARTING] = "पुन्हा सुरू",
+    [STR_OTA_UPDATE] = "OTA अपडेट",
+    [STR_NTP_SERVER] = "NTP सर्व्हर",
+    [STR_SERVER_LABEL] = "सर्व्हर:",
+    [STR_NTP_SETTINGS] = "NTP सेटिंग्ज",
+    [STR_NTP_PRESETS] = "NTP प्रोफाइल",
+    [STR_PRESETS] = "प्रोफाइल",
+    [STR_BENCHMARK] = "चाचणी",
+    [STR_STOPPING] = "थांबत आहे",
+    [STR_NTP_STATS] = "NTP आकडेवारी",
+    [STR_UNSYNCED] = "सिंक नाही",
+    [STR_NONE] = "काही नाही",
+    [STR_SELECT_REGION] = "प्रदेश निवडा",
+    [STR_AGE_LABEL] = "  वय: ",
+    [STR_SYNCS_LABEL] = "  सिंक: ",
+    [STR_FMT_PEERS_NOSYNC] = "%d/%d सर्व्हर  poll %s  सिंक नाही",
+    [STR_FMT_PEERS_AGO] = "%d/%d सर्व्हर  poll %s  %s आधी",
+    [STR_DST] = "उन्हाळी वेळ",
+    [STR_NO_DST] = "उन्हाळी वेळ नाही",
+};
+static const char *const weekdays_mr[7] = {
+    "रवि", "सोम", "मंगळ", "बुध", "गुरु", "शुक्र", "शनि",
+};
+static const char *const months_mr[12] = {
+    "जाने", "फेब्रु", "मार्च", "एप्रि", "मे", "जून",
+    "जुलै", "ऑग", "सप्टें", "ऑक्टो", "नोव्हें", "डिसें",
+};
+static const char lang_name_mr[] = "मराठी";
+// <<< shaped-source mr
+#endif

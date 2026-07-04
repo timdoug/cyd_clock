@@ -1,0 +1,77 @@
+// Editable source of truth for the pre-shaped strings; never compiled.
+// Editing REQUIRES a macOS font regeneration (swift tools/gen_fonts.swift);
+// tools/check_i18n.py catches staleness via source hashes in fonts.c.
+#if 0
+// >>> shaped-source ti
+static const char *const lang_ti[STR_COUNT] = {
+    [STR_WIFI] = "Wi-Fi",
+    [STR_SETTINGS] = "ቅንብራት",
+    [STR_FAIL] = "ፈሺሉ",
+    [STR_TIMEZONE] = "ዞባ ሰዓት",
+    [STR_BRIGHTNESS] = "ብርሃን",
+    [STR_LED_BLINK] = "LED ብልጭታ",
+    [STR_ROTATE] = "180 ኣዙር",
+    [STR_ABOUT] = "ብዛዕባ",
+    [STR_LANGUAGE] = "ቋንቋ",
+    [STR_DONE] = "ተወዲኡ",
+    [STR_BACK] = "ተመለስ",
+    [STR_CANCEL] = "ሰርዝ",
+    [STR_DEL] = "ደምስስ",
+    [STR_RUNNING] = "ይሰርሕ",
+    [STR_ON] = "ወሊዑ",
+    [STR_OFF] = "ጠፊኡ",
+    [STR_NTS_NO] = "ኣይፋል",
+    [STR_NTS_ATTEMPT] = "ፈትን",
+    [STR_NTS_REQUIRE] = "ግዴታ",
+    [STR_WAITING_NTP] = "NTP ይጽበ...",
+    [STR_FMT_SYNCED] = "ተሰማሚዑ: %s",
+    [STR_FMT_SYNCING] = "ይሰማማዕ: %s",
+    [STR_FMT_WAITING] = "ይጽበ: %lus",
+    [STR_FMT_PEERS_NOSYNC] = "%d/%d ሰርቨር  poll %s  ስንክ የለን",
+    [STR_FMT_PEERS_AGO] = "%d/%d ሰርቨር  poll %s  ቅድሚ %s",
+    [STR_WIFI_SETUP] = "Wi-Fi ቅንብር",
+    [STR_SCANNING] = "ይደሊ...",
+    [STR_SCAN_FAILED] = "ምድላይ ፈሺሉ",
+    [STR_TAP_RETRY] = "ደጊምካ ንኽትፍትን ጠውቕ",
+    [STR_SELECT_NETWORK] = "መርበብ ምረጽ",
+    [STR_NO_NETWORKS] = "መርበብ ኣይተረኽበን",
+    [STR_NETWORK_LABEL] = "መርበብ:",
+    [STR_ENTER_PASSWORD] = "መሕለፊ ቃል ኣእቱ",
+    [STR_CONNECTING] = "ይራኸብ",
+    [STR_CONNECTING_TO] = "ይራኸብ ምስ",
+    [STR_CONNECTED] = "ተራኺቡ!",
+    [STR_CONNECTION_FAILED] = "ርክብ ፈሺሉ",
+    [STR_KB_SPACE] = "ክፍተት",
+    [STR_KB_GO] = "OK",
+    [STR_VERSION] = "ሕታም:",
+    [STR_STATUS] = "ኩነታት:",
+    [STR_READ] = "ተነቢቡ:",
+    [STR_UPDATE] = "ኣሐድስ",
+    [STR_RESTARTING] = "እንደገና ይጅምር",
+    [STR_OTA_UPDATE] = "OTA ምሕዳስ",
+    [STR_NTP_SERVER] = "NTP ሰርቨር",
+    [STR_SERVER_LABEL] = "ሰርቨር:",
+    [STR_NTP_SETTINGS] = "NTP ቅንብራት",
+    [STR_NTP_PRESETS] = "NTP ምርጫታት",
+    [STR_PRESETS] = "ምርጫ",
+    [STR_BENCHMARK] = "ፈተና",
+    [STR_STOPPING] = "ይቆም",
+    [STR_NTP_STATS] = "NTP ስታቲስቲክ",
+    [STR_UNSYNCED] = "ስንክ የለን",
+    [STR_SYNCS_LABEL] = "  ስንክ: ",
+    [STR_NONE] = "የለን",
+    [STR_SELECT_REGION] = "ዞባ ምረጽ",
+    [STR_AGE_LABEL] = "  ዕድመ: ",
+    [STR_DST] = "ናይ ሓጋይ ሰዓት",
+    [STR_NO_DST] = "ናይ ሓጋይ ሰዓት የለን",
+};
+static const char *const weekdays_ti[7] = {
+    "ሰን", "ሰኑ", "ሰሉ", "ረቡ", "ሓሙ", "ዓር", "ቀዳ",
+};
+static const char *const months_ti[12] = {
+    "ጥሪ", "ለካ", "መጋ", "ሚያ", "ግን", "ሰነ",
+    "ሓም", "ነሓ", "መስ", "ጥቅ", "ሕዳ", "ታሕ",
+};
+static const char lang_name_ti[] = "ትግርኛ";
+// <<< shaped-source ti
+#endif

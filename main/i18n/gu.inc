@@ -1,0 +1,77 @@
+// Editable source of truth for the pre-shaped strings; never compiled.
+// Editing REQUIRES a macOS font regeneration (swift tools/gen_fonts.swift);
+// tools/check_i18n.py catches staleness via source hashes in fonts.c.
+#if 0
+// >>> shaped-source gu
+static const char *const lang_gu[STR_COUNT] = {
+    [STR_SETTINGS] = "સેટિંગ્સ",
+    [STR_WIFI] = "Wi-Fi",
+    [STR_FAIL] = "નિષ્ફળ",
+    [STR_TIMEZONE] = "સમય ઝોન",
+    [STR_BRIGHTNESS] = "તેજ",
+    [STR_LED_BLINK] = "LED ઝબકારો",
+    [STR_ROTATE] = "ફેરવો 180",
+    [STR_ABOUT] = "વિશે",
+    [STR_LANGUAGE] = "ભાષા",
+    [STR_DONE] = "થઈ ગયું",
+    [STR_BACK] = "પાછળ",
+    [STR_CANCEL] = "રદ",
+    [STR_DEL] = "કાઢો",
+    [STR_RUNNING] = "ચાલી રહ્યું",
+    [STR_ON] = "ચાલુ",
+    [STR_OFF] = "બંધ",
+    [STR_NTS_NO] = "ના",
+    [STR_NTS_ATTEMPT] = "પ્રયાસ",
+    [STR_NTS_REQUIRE] = "ફરજિયાત",
+    [STR_WAITING_NTP] = "NTP ની રાહ...",
+    [STR_FMT_SYNCED] = "સિંક: %s",
+    [STR_FMT_SYNCING] = "સિંક થઈ રહ્યું: %s",
+    [STR_FMT_WAITING] = "રાહ: %lus",
+    [STR_WIFI_SETUP] = "Wi-Fi સેટઅપ",
+    [STR_SCANNING] = "શોધી રહ્યું...",
+    [STR_SCAN_FAILED] = "શોધ નિષ્ફળ",
+    [STR_TAP_RETRY] = "ફરી પ્રયાસ માટે ટૅપ કરો",
+    [STR_SELECT_NETWORK] = "નેટવર્ક પસંદ કરો",
+    [STR_NO_NETWORKS] = "કોઈ નેટવર્ક નથી",
+    [STR_NETWORK_LABEL] = "નેટવર્ક:",
+    [STR_ENTER_PASSWORD] = "પાસવર્ડ દાખલ કરો",
+    [STR_CONNECTING] = "જોડાઈ રહ્યું",
+    [STR_CONNECTING_TO] = "જોડાઈ રહ્યું:",
+    [STR_CONNECTED] = "જોડાયું!",
+    [STR_CONNECTION_FAILED] = "જોડાણ નિષ્ફળ",
+    [STR_KB_SPACE] = "સ્પેસ",
+    [STR_KB_GO] = "OK",
+    [STR_VERSION] = "વર્ઝન:",
+    [STR_STATUS] = "સ્થિતિ:",
+    [STR_READ] = "વાંચ્યું:",
+    [STR_UPDATE] = "અપડેટ",
+    [STR_RESTARTING] = "ફરી શરૂ",
+    [STR_OTA_UPDATE] = "OTA અપડેટ",
+    [STR_NTP_SERVER] = "NTP સર્વર",
+    [STR_SERVER_LABEL] = "સર્વર:",
+    [STR_NTP_SETTINGS] = "NTP સેટિંગ્સ",
+    [STR_NTP_PRESETS] = "NTP પ્રોફાઇલ",
+    [STR_PRESETS] = "પ્રોફાઇલ",
+    [STR_BENCHMARK] = "પરીક્ષણ",
+    [STR_STOPPING] = "અટકી રહ્યું",
+    [STR_NTP_STATS] = "NTP આંકડા",
+    [STR_UNSYNCED] = "સિંક નથી",
+    [STR_NONE] = "કંઈ નથી",
+    [STR_SELECT_REGION] = "પ્રદેશ પસંદ કરો",
+    [STR_AGE_LABEL] = "  ઉંમર: ",
+    [STR_SYNCS_LABEL] = "  સિંક: ",
+    [STR_FMT_PEERS_NOSYNC] = "%d/%d સર્વર  poll %s  સિંક નથી",
+    [STR_FMT_PEERS_AGO] = "%d/%d સર્વર  poll %s  %s પહેલાં",
+    [STR_DST] = "ઉનાળુ સમય",
+    [STR_NO_DST] = "ઉનાળુ સમય નથી",
+};
+static const char *const weekdays_gu[7] = {
+    "રવિ", "સોમ", "મંગળ", "બુધ", "ગુરુ", "શુક્ર", "શનિ",
+};
+static const char *const months_gu[12] = {
+    "જાન્યુ", "ફેબ્રુ", "માર્ચ", "એપ્રિલ", "મે", "જૂન",
+    "જુલાઈ", "ઑગસ્ટ", "સપ્ટે", "ઑક્ટો", "નવે", "ડિસે",
+};
+static const char lang_name_gu[] = "ગુજરાતી";
+// <<< shaped-source gu
+#endif

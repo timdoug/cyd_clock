@@ -1,0 +1,77 @@
+// Editable source of truth for the pre-shaped strings; never compiled.
+// Editing REQUIRES a macOS font regeneration (swift tools/gen_fonts.swift);
+// tools/check_i18n.py catches staleness via source hashes in fonts.c.
+#if 0
+// >>> shaped-source as
+static const char *const lang_as[STR_COUNT] = {
+    [STR_WIFI] = "Wi-Fi",
+    [STR_SETTINGS] = "ছেটিংছ",
+    [STR_FAIL] = "বিফল",
+    [STR_TIMEZONE] = "সময় অঞ্চল",
+    [STR_BRIGHTNESS] = "উজ্জ্বলতা",
+    [STR_LED_BLINK] = "LED জিলিকনি",
+    [STR_ROTATE] = "180 ঘূৰাওক",
+    [STR_ABOUT] = "বিষয়ে",
+    [STR_LANGUAGE] = "ভাষা",
+    [STR_DONE] = "হ'ল",
+    [STR_BACK] = "উভতি",
+    [STR_CANCEL] = "বাতিল",
+    [STR_DEL] = "মচক",
+    [STR_RUNNING] = "চলি আছে",
+    [STR_ON] = "অন",
+    [STR_OFF] = "অফ",
+    [STR_NTS_NO] = "নহয়",
+    [STR_NTS_ATTEMPT] = "চেষ্টা",
+    [STR_NTS_REQUIRE] = "লাগিব",
+    [STR_WAITING_NTP] = "NTP-লৈ অপেক্ষা...",
+    [STR_FMT_SYNCED] = "ছিংক হ'ল: %s",
+    [STR_FMT_SYNCING] = "ছিংক হৈ আছে: %s",
+    [STR_FMT_WAITING] = "অপেক্ষা: %lus",
+    [STR_FMT_PEERS_NOSYNC] = "%d/%d ছাৰ্ভাৰ  poll %s  ছিংক নাই",
+    [STR_FMT_PEERS_AGO] = "%d/%d ছাৰ্ভাৰ  poll %s  %s আগত",
+    [STR_WIFI_SETUP] = "Wi-Fi ছেটআপ",
+    [STR_SCANNING] = "বিচাৰি আছে...",
+    [STR_SCAN_FAILED] = "স্কেন বিফল",
+    [STR_TAP_RETRY] = "আকৌ চেষ্টাৰ বাবে টিপক",
+    [STR_SELECT_NETWORK] = "নেটৱৰ্ক বাছক",
+    [STR_NO_NETWORKS] = "নেটৱৰ্ক পোৱা নগ'ল",
+    [STR_NETWORK_LABEL] = "নেটৱৰ্ক:",
+    [STR_ENTER_PASSWORD] = "পাছৱৰ্ড দিয়ক",
+    [STR_CONNECTING] = "সংযোগ হৈছে",
+    [STR_CONNECTING_TO] = "সংযোগ:",
+    [STR_CONNECTED] = "সংযুক্ত!",
+    [STR_CONNECTION_FAILED] = "সংযোগ বিফল",
+    [STR_KB_SPACE] = "খালী",
+    [STR_KB_GO] = "OK",
+    [STR_VERSION] = "সংস্কৰণ:",
+    [STR_STATUS] = "অৱস্থা:",
+    [STR_READ] = "পঢ়া হ'ল:",
+    [STR_UPDATE] = "আপডেট",
+    [STR_RESTARTING] = "পুনৰ আৰম্ভ",
+    [STR_OTA_UPDATE] = "OTA আপডেট",
+    [STR_NTP_SERVER] = "NTP ছাৰ্ভাৰ",
+    [STR_SERVER_LABEL] = "ছাৰ্ভাৰ:",
+    [STR_NTP_SETTINGS] = "NTP ছেটিংছ",
+    [STR_NTP_PRESETS] = "NTP বিকল্প",
+    [STR_PRESETS] = "বিকল্প",
+    [STR_BENCHMARK] = "পৰীক্ষা",
+    [STR_STOPPING] = "ৰৈ আছে",
+    [STR_NTP_STATS] = "NTP পৰিসংখ্যা",
+    [STR_UNSYNCED] = "ছিংক নাই",
+    [STR_SYNCS_LABEL] = "  ছিংক: ",
+    [STR_NONE] = "নাই",
+    [STR_SELECT_REGION] = "অঞ্চল বাছক",
+    [STR_AGE_LABEL] = "  বয়স: ",
+    [STR_DST] = "গ্ৰীষ্ম সময়",
+    [STR_NO_DST] = "গ্ৰীষ্ম সময় নাই",
+};
+static const char *const weekdays_as[7] = {
+    "দেও", "সোম", "মঙ্গল", "বুধ", "বৃহ", "শুক্ৰ", "শনি",
+};
+static const char *const months_as[12] = {
+    "জানু", "ফেব্ৰু", "মাৰ্চ", "এপ্ৰিল", "মে’", "জুন",
+    "জুলাই", "আগ", "ছেপ্তে", "অক্টো", "নৱে", "ডিচে",
+};
+static const char lang_name_as[] = "অসমীয়া";
+// <<< shaped-source as
+#endif

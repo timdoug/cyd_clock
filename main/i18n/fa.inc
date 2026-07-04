@@ -1,0 +1,77 @@
+// Editable source of truth for the pre-shaped strings; never compiled.
+// Editing REQUIRES a macOS font regeneration (swift tools/gen_fonts.swift);
+// tools/check_i18n.py catches staleness via source hashes in fonts.c.
+#if 0
+// >>> shaped-source fa
+static const char *const lang_fa[STR_COUNT] = {
+    [STR_SETTINGS] = "تنظیمات",
+    [STR_WIFI] = "Wi-Fi",
+    [STR_FAIL] = "خطا",
+    [STR_TIMEZONE] = "منطقه زمانی",
+    [STR_BRIGHTNESS] = "روشنایی",
+    [STR_LED_BLINK] = "چشمک LED",
+    [STR_ROTATE] = "چرخش 180",
+    [STR_ABOUT] = "درباره",
+    [STR_LANGUAGE] = "زبان",
+    [STR_DONE] = "انجام",
+    [STR_BACK] = "بازگشت",
+    [STR_CANCEL] = "لغو",
+    [STR_DEL] = "حذف",
+    [STR_RUNNING] = "در حال اجرا",
+    [STR_ON] = "روشن",
+    [STR_OFF] = "خاموش",
+    [STR_NTS_NO] = "خیر",
+    [STR_NTS_ATTEMPT] = "تلاش",
+    [STR_NTS_REQUIRE] = "الزام",
+    [STR_WAITING_NTP] = "در انتظار NTP...",
+    [STR_FMT_SYNCED] = "همگام: %s",
+    [STR_FMT_SYNCING] = "همگام‌سازی: %s",
+    [STR_FMT_WAITING] = "انتظار: %lus",
+    [STR_WIFI_SETUP] = "تنظیم Wi-Fi",
+    [STR_SCANNING] = "جستجو...",
+    [STR_SCAN_FAILED] = "جستجو ناموفق",
+    [STR_TAP_RETRY] = "برای تلاش دوباره بزنید",
+    [STR_SELECT_NETWORK] = "انتخاب شبکه",
+    [STR_NO_NETWORKS] = "شبکه‌ای یافت نشد",
+    [STR_NETWORK_LABEL] = "شبکه:",
+    [STR_ENTER_PASSWORD] = "گذرواژه را وارد کنید",
+    [STR_CONNECTING] = "در حال اتصال",
+    [STR_CONNECTING_TO] = "اتصال به",
+    [STR_CONNECTED] = "متصل شد!",
+    [STR_CONNECTION_FAILED] = "اتصال ناموفق",
+    [STR_KB_SPACE] = "فاصله",
+    [STR_KB_GO] = "OK",
+    [STR_VERSION] = "نسخه:",
+    [STR_STATUS] = "وضعیت:",
+    [STR_READ] = "خوانده:",
+    [STR_UPDATE] = "به‌روزرسانی",
+    [STR_RESTARTING] = "راه‌اندازی مجدد",
+    [STR_OTA_UPDATE] = "به‌روزرسانی OTA",
+    [STR_NTP_SERVER] = "سرور NTP",
+    [STR_SERVER_LABEL] = "سرور:",
+    [STR_NTP_SETTINGS] = "تنظیمات NTP",
+    [STR_NTP_PRESETS] = "پروفایل NTP",
+    [STR_PRESETS] = "پروفایل‌ها",
+    [STR_BENCHMARK] = "آزمون",
+    [STR_STOPPING] = "توقف",
+    [STR_NTP_STATS] = "آمار NTP",
+    [STR_UNSYNCED] = "ناهمگام",
+    [STR_NONE] = "هیچ",
+    [STR_SELECT_REGION] = "انتخاب منطقه",
+    [STR_AGE_LABEL] = "  عمر: ",
+    [STR_SYNCS_LABEL] = "  همگام: ",
+    [STR_FMT_PEERS_NOSYNC] = "%d/%d سرور  poll %s  بدون همگام",
+    [STR_FMT_PEERS_AGO] = "%d/%d سرور  poll %s  %s پیش",
+    [STR_DST] = "ساعت تابستانی",
+    [STR_NO_DST] = "بدون ساعت تابستانی",
+};
+static const char *const weekdays_fa[7] = {
+    "یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه", "شنبه",
+};
+static const char *const months_fa[12] = {
+    "فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
+    "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند",
+};
+static const char lang_name_fa[] = "فارسی";
+// <<< shaped-source fa
+#endif

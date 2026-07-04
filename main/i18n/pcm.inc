@@ -1,0 +1,77 @@
+// Editable source of truth for the pre-shaped strings; never compiled.
+// Editing REQUIRES a macOS font regeneration (swift tools/gen_fonts.swift);
+// tools/check_i18n.py catches staleness via source hashes in fonts.c.
+#if 0
+// >>> shaped-source pcm
+static const char *const lang_pcm[STR_COUNT] = {
+    [STR_WIFI] = "Wi-Fi",
+    [STR_SETTINGS] = "Sétins",
+    [STR_FAIL] = "fel",
+    [STR_TIMEZONE] = "Taim zon",
+    [STR_BRIGHTNESS] = "Braítnẹs",
+    [STR_LED_BLINK] = "LED blink",
+    [STR_ROTATE] = "Turn 180",
+    [STR_ABOUT] = "Abaut",
+    [STR_LANGUAGE] = "Langwej",
+    [STR_DONE] = "Don",
+    [STR_BACK] = "Bak",
+    [STR_CANCEL] = "Kansúl",
+    [STR_DEL] = "Klia",
+    [STR_RUNNING] = "De ron",
+    [STR_ON] = "On",
+    [STR_OFF] = "Of",
+    [STR_NTS_NO] = "No",
+    [STR_NTS_ATTEMPT] = "Trai",
+    [STR_NTS_REQUIRE] = "Must",
+    [STR_WAITING_NTP] = "De wet for NTP...",
+    [STR_FMT_SYNCED] = "Don sync: %s",
+    [STR_FMT_SYNCING] = "De sync: %s",
+    [STR_FMT_WAITING] = "De wet: %lus",
+    [STR_FMT_PEERS_NOSYNC] = "%d/%d sava  poll %s  no sync",
+    [STR_FMT_PEERS_AGO] = "%d/%d sava  poll %s  %s don pas",
+    [STR_WIFI_SETUP] = "Set Wi-Fi",
+    [STR_SCANNING] = "De find...",
+    [STR_SCAN_FAILED] = "Find no work",
+    [STR_TAP_RETRY] = "Tap make yu trai agen",
+    [STR_SELECT_NETWORK] = "Pik nẹ́twọk",
+    [STR_NO_NETWORKS] = "No nẹ́twọk dey",
+    [STR_NETWORK_LABEL] = "Nẹ́twọk:",
+    [STR_ENTER_PASSWORD] = "Put paswọd",
+    [STR_CONNECTING] = "De konet",
+    [STR_CONNECTING_TO] = "De konet to",
+    [STR_CONNECTED] = "Don konet!",
+    [STR_CONNECTION_FAILED] = "Konet no work",
+    [STR_KB_SPACE] = "Spes",
+    [STR_KB_GO] = "OK",
+    [STR_VERSION] = "Vẹ́shọn:",
+    [STR_STATUS] = "Hau e dey:",
+    [STR_READ] = "Don rid:",
+    [STR_UPDATE] = "Update",
+    [STR_RESTARTING] = "De start agen",
+    [STR_OTA_UPDATE] = "OTA update",
+    [STR_NTP_SERVER] = "NTP sava",
+    [STR_SERVER_LABEL] = "Sava:",
+    [STR_NTP_SETTINGS] = "NTP sétins",
+    [STR_NTP_PRESETS] = "NTP chois",
+    [STR_PRESETS] = "Chois",
+    [STR_BENCHMARK] = "Tẹst",
+    [STR_STOPPING] = "De stop",
+    [STR_NTP_STATS] = "NTP stats",
+    [STR_UNSYNCED] = "no sync",
+    [STR_SYNCS_LABEL] = "  Sync: ",
+    [STR_NONE] = "nótin",
+    [STR_SELECT_REGION] = "Pik rijọn",
+    [STR_AGE_LABEL] = "  Ej: ",
+    [STR_DST] = "DST",
+    [STR_NO_DST] = "no DST",
+};
+static const char *const weekdays_pcm[7] = {
+    "Sọ́n", "Mọ́n", "Tiú", "Wẹ́n", "Tọ́z", "Fraí", "Sát",
+};
+static const char *const months_pcm[12] = {
+    "Jén", "Fẹ́b", "Mach", "Épr", "Mee", "Jun",
+    "Jul", "Ọgọ", "Sẹp", "Ọkt", "Nọv", "Dis",
+};
+static const char lang_name_pcm[] = "Naijá";
+// <<< shaped-source pcm
+#endif

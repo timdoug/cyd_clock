@@ -1,0 +1,77 @@
+// Editable source of truth for the pre-shaped strings; never compiled.
+// Editing REQUIRES a macOS font regeneration (swift tools/gen_fonts.swift);
+// tools/check_i18n.py catches staleness via source hashes in fonts.c.
+#if 0
+// >>> shaped-source lo
+static const char *const lang_lo[STR_COUNT] = {
+    [STR_SETTINGS] = "ການຕັ້ງຄ່າ",
+    [STR_WIFI] = "Wi-Fi",
+    [STR_FAIL] = "ລົ້ມເຫຼວ",
+    [STR_TIMEZONE] = "ເຂດເວລາ",
+    [STR_BRIGHTNESS] = "ຄວາມແຈ້ງ",
+    [STR_LED_BLINK] = "LED ກະພິບ",
+    [STR_ROTATE] = "ໝຸນ 180",
+    [STR_ABOUT] = "ກ່ຽວກັບ",
+    [STR_LANGUAGE] = "ພາສາ",
+    [STR_DONE] = "ແລ້ວ",
+    [STR_BACK] = "ກັບຄືນ",
+    [STR_CANCEL] = "ຍົກເລີກ",
+    [STR_DEL] = "ລຶບ",
+    [STR_RUNNING] = "ກຳລັງເຮັດວຽກ",
+    [STR_ON] = "ເປີດ",
+    [STR_OFF] = "ປິດ",
+    [STR_NTS_NO] = "ບໍ່",
+    [STR_NTS_ATTEMPT] = "ລອງ",
+    [STR_NTS_REQUIRE] = "ບັງຄັບ",
+    [STR_WAITING_NTP] = "ລໍຖ້າ NTP...",
+    [STR_FMT_SYNCED] = "ຊິງແລ້ວ: %s",
+    [STR_FMT_SYNCING] = "ກຳລັງຊິງ: %s",
+    [STR_FMT_WAITING] = "ລໍຖ້າ: %lus",
+    [STR_WIFI_SETUP] = "ຕັ້ງຄ່າ Wi-Fi",
+    [STR_SCANNING] = "ກຳລັງຊອກ...",
+    [STR_SCAN_FAILED] = "ຊອກຫາລົ້ມເຫຼວ",
+    [STR_TAP_RETRY] = "ແຕະເພື່ອລອງໃໝ່",
+    [STR_SELECT_NETWORK] = "ເລືອກເຄືອຂ່າຍ",
+    [STR_NO_NETWORKS] = "ບໍ່ພົບເຄືອຂ່າຍ",
+    [STR_NETWORK_LABEL] = "ເຄືອຂ່າຍ:",
+    [STR_ENTER_PASSWORD] = "ໃສ່ລະຫັດຜ່ານ",
+    [STR_CONNECTING] = "ກຳລັງເຊື່ອມຕໍ່",
+    [STR_CONNECTING_TO] = "ເຊື່ອມຕໍ່ກັບ",
+    [STR_CONNECTED] = "ເຊື່ອມຕໍ່ແລ້ວ!",
+    [STR_CONNECTION_FAILED] = "ເຊື່ອມຕໍ່ລົ້ມເຫຼວ",
+    [STR_KB_SPACE] = "ວ່າງ",
+    [STR_KB_GO] = "OK",
+    [STR_VERSION] = "ເວີຊັນ:",
+    [STR_STATUS] = "ສະຖານະ:",
+    [STR_READ] = "ອ່ານ:",
+    [STR_UPDATE] = "ອັບເດດ",
+    [STR_RESTARTING] = "ກຳລັງເລີ່ມໃໝ່",
+    [STR_OTA_UPDATE] = "ອັບເດດ OTA",
+    [STR_NTP_SERVER] = "ເຊີບເວີ NTP",
+    [STR_SERVER_LABEL] = "ເຊີບເວີ:",
+    [STR_NTP_SETTINGS] = "ຕັ້ງຄ່າ NTP",
+    [STR_NTP_PRESETS] = "ໂປຣໄຟລ໌ NTP",
+    [STR_PRESETS] = "ໂປຣໄຟລ໌",
+    [STR_BENCHMARK] = "ທົດສອບ",
+    [STR_STOPPING] = "ກຳລັງຢຸດ",
+    [STR_NTP_STATS] = "ສະຖິຕິ NTP",
+    [STR_UNSYNCED] = "ບໍ່ຊິງ",
+    [STR_NONE] = "ບໍ່ມີ",
+    [STR_SELECT_REGION] = "ເລືອກພາກ",
+    [STR_AGE_LABEL] = "  ອາຍຸ: ",
+    [STR_SYNCS_LABEL] = "  ຊິງ: ",
+    [STR_FMT_PEERS_NOSYNC] = "%d/%d ເຊີບເວີ  poll %s  ບໍ່ຊິງ",
+    [STR_FMT_PEERS_AGO] = "%d/%d ເຊີບເວີ  poll %s  %s ກ່ອນ",
+    [STR_DST] = "ເວລາລະດູຮ້ອນ",
+    [STR_NO_DST] = "ບໍ່ມີເວລາລະດູຮ້ອນ",
+};
+static const char *const weekdays_lo[7] = {
+    "ອາທິດ", "ຈັນ", "ອັງຄານ", "ພຸດ", "ພະຫັດ", "ສຸກ", "ເສົາ",
+};
+static const char *const months_lo[12] = {
+    "ມ.ກ.", "ກ.ພ.", "ມ.ນ.", "ມ.ສ.", "ພ.ພ.", "ມິ.ຖ.",
+    "ກ.ລ.", "ສ.ຫ.", "ກ.ຍ.", "ຕ.ລ.", "ພ.ຈ.", "ທ.ວ.",
+};
+static const char lang_name_lo[] = "ລາວ";
+// <<< shaped-source lo
+#endif

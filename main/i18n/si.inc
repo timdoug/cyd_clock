@@ -1,0 +1,77 @@
+// Editable source of truth for the pre-shaped strings; never compiled.
+// Editing REQUIRES a macOS font regeneration (swift tools/gen_fonts.swift);
+// tools/check_i18n.py catches staleness via source hashes in fonts.c.
+#if 0
+// >>> shaped-source si
+static const char *const lang_si[STR_COUNT] = {
+    [STR_SETTINGS] = "සැකසුම්",
+    [STR_WIFI] = "Wi-Fi",
+    [STR_FAIL] = "අසාර්ථකයි",
+    [STR_TIMEZONE] = "වේලා කලාපය",
+    [STR_BRIGHTNESS] = "දීප්තිය",
+    [STR_LED_BLINK] = "LED දිලිසීම",
+    [STR_ROTATE] = "කරකවන්න 180",
+    [STR_ABOUT] = "පිළිබඳ",
+    [STR_LANGUAGE] = "භාෂාව",
+    [STR_DONE] = "අවසන්",
+    [STR_BACK] = "ආපසු",
+    [STR_CANCEL] = "අවලංගු",
+    [STR_DEL] = "මකන්න",
+    [STR_RUNNING] = "ධාවනය වේ",
+    [STR_ON] = "සක්‍රීය",
+    [STR_OFF] = "අක්‍රීය",
+    [STR_NTS_NO] = "නැත",
+    [STR_NTS_ATTEMPT] = "උත්සාහය",
+    [STR_NTS_REQUIRE] = "අනිවාර්ය",
+    [STR_WAITING_NTP] = "NTP බලාපොරොත්තුවෙන්...",
+    [STR_FMT_SYNCED] = "සමමුහූර්ත: %s",
+    [STR_FMT_SYNCING] = "සමමුහූර්ත වෙමින්: %s",
+    [STR_FMT_WAITING] = "රැඳේ: %lus",
+    [STR_WIFI_SETUP] = "Wi-Fi සැකසුම",
+    [STR_SCANNING] = "සොයමින්...",
+    [STR_SCAN_FAILED] = "සෙවීම අසාර්ථකයි",
+    [STR_TAP_RETRY] = "නැවත උත්සාහයට තට්ටු කරන්න",
+    [STR_SELECT_NETWORK] = "ජාලය තෝරන්න",
+    [STR_NO_NETWORKS] = "ජාල නොමැත",
+    [STR_NETWORK_LABEL] = "ජාලය:",
+    [STR_ENTER_PASSWORD] = "මුරපදය ඇතුළු කරන්න",
+    [STR_CONNECTING] = "සම්බන්ධ වෙමින්",
+    [STR_CONNECTING_TO] = "සම්බන්ධ වෙමින්:",
+    [STR_CONNECTED] = "සම්බන්ධයි!",
+    [STR_CONNECTION_FAILED] = "සම්බන්ධතාව අසාර්ථකයි",
+    [STR_KB_SPACE] = "ඉඩ",
+    [STR_KB_GO] = "OK",
+    [STR_VERSION] = "අනුවාදය:",
+    [STR_STATUS] = "තත්ත්වය:",
+    [STR_READ] = "කියවූ:",
+    [STR_UPDATE] = "යාවත්",
+    [STR_RESTARTING] = "නැවත අරඹමින්",
+    [STR_OTA_UPDATE] = "OTA යාවත්කාලීන",
+    [STR_NTP_SERVER] = "NTP සේවාදායකය",
+    [STR_SERVER_LABEL] = "සේවාදායකය:",
+    [STR_NTP_SETTINGS] = "NTP සැකසුම්",
+    [STR_NTP_PRESETS] = "NTP පැතිකඩ",
+    [STR_PRESETS] = "පැතිකඩ",
+    [STR_BENCHMARK] = "පරීක්ෂණය",
+    [STR_STOPPING] = "නවතමින්",
+    [STR_NTP_STATS] = "NTP සංඛ්‍යාලේඛන",
+    [STR_UNSYNCED] = "සමමුහූර්ත නැත",
+    [STR_NONE] = "කිසිවක් නැත",
+    [STR_SELECT_REGION] = "කලාපය තෝරන්න",
+    [STR_AGE_LABEL] = "  වයස: ",
+    [STR_SYNCS_LABEL] = "  සින්ක්: ",
+    [STR_FMT_PEERS_NOSYNC] = "%d/%d සර්වර්  poll %s  සින්ක් නැත",
+    [STR_FMT_PEERS_AGO] = "%d/%d සර්වර්  poll %s  %s පෙර",
+    [STR_DST] = "ගිම්හාන වේලාව",
+    [STR_NO_DST] = "ගිම්හාන වේලාව නැත",
+};
+static const char *const weekdays_si[7] = {
+    "ඉරිදා", "සඳුදා", "අඟහ", "බදාදා", "බ්‍රහස්", "සිකු", "සෙන",
+};
+static const char *const months_si[12] = {
+    "දුරුතු", "නවම්", "මැදින්", "බක්", "වෙසක්", "පොසොන්",
+    "ඇසළ", "නිකිණි", "බිනර", "වප්", "ඉල්", "උඳුවප්",
+};
+static const char lang_name_si[] = "සිංහල";
+// <<< shaped-source si
+#endif

@@ -1,0 +1,77 @@
+// Editable source of truth for the pre-shaped strings; never compiled.
+// Editing REQUIRES a macOS font regeneration (swift tools/gen_fonts.swift);
+// tools/check_i18n.py catches staleness via source hashes in fonts.c.
+#if 0
+// >>> shaped-source hi
+static const char *const lang_hi[STR_COUNT] = {
+    [STR_SETTINGS] = "सेटिंग्स",
+    [STR_WIFI] = "Wi-Fi",
+    [STR_FAIL] = "विफल",
+    [STR_TIMEZONE] = "समय क्षेत्र",
+    [STR_BRIGHTNESS] = "चमक",
+    [STR_LED_BLINK] = "LED ब्लिंक",
+    [STR_ROTATE] = "घुमाएँ 180",
+    [STR_ABOUT] = "जानकारी",
+    [STR_LANGUAGE] = "भाषा",
+    [STR_DONE] = "हो गया",
+    [STR_BACK] = "वापस",
+    [STR_CANCEL] = "रद्द",
+    [STR_DEL] = "हटाएँ",
+    [STR_RUNNING] = "चल रहा",
+    [STR_ON] = "चालू",
+    [STR_OFF] = "बंद",
+    [STR_NTS_NO] = "नहीं",
+    [STR_NTS_ATTEMPT] = "प्रयास",
+    [STR_NTS_REQUIRE] = "आवश्यक",
+    [STR_WAITING_NTP] = "NTP की प्रतीक्षा...",
+    [STR_FMT_SYNCED] = "सिंक: %s",
+    [STR_FMT_SYNCING] = "सिंक हो रहा: %s",
+    [STR_FMT_WAITING] = "प्रतीक्षा: %lus",
+    [STR_WIFI_SETUP] = "Wi-Fi सेटअप",
+    [STR_SCANNING] = "खोज रहा...",
+    [STR_SCAN_FAILED] = "खोज विफल",
+    [STR_TAP_RETRY] = "पुनः प्रयास हेतु टैप करें",
+    [STR_SELECT_NETWORK] = "नेटवर्क चुनें",
+    [STR_NO_NETWORKS] = "कोई नेटवर्क नहीं",
+    [STR_NETWORK_LABEL] = "नेटवर्क:",
+    [STR_ENTER_PASSWORD] = "पासवर्ड दर्ज करें",
+    [STR_CONNECTING] = "जुड़ रहा है",
+    [STR_CONNECTING_TO] = "जुड़ रहा है:",
+    [STR_CONNECTED] = "जुड़ गया!",
+    [STR_CONNECTION_FAILED] = "कनेक्शन विफल",
+    [STR_KB_SPACE] = "स्पेस",
+    [STR_KB_GO] = "OK",
+    [STR_VERSION] = "संस्करण:",
+    [STR_STATUS] = "स्थिति:",
+    [STR_READ] = "पढ़ा:",
+    [STR_UPDATE] = "अपडेट",
+    [STR_RESTARTING] = "पुनरारंभ",
+    [STR_OTA_UPDATE] = "OTA अपडेट",
+    [STR_NTP_SERVER] = "NTP सर्वर",
+    [STR_SERVER_LABEL] = "सर्वर:",
+    [STR_NTP_SETTINGS] = "NTP सेटिंग्स",
+    [STR_NTP_PRESETS] = "NTP प्रोफ़ाइल",
+    [STR_PRESETS] = "प्रोफ़ाइल",
+    [STR_BENCHMARK] = "परीक्षण",
+    [STR_STOPPING] = "रुक रहा",
+    [STR_NTP_STATS] = "NTP आँकड़े",
+    [STR_UNSYNCED] = "सिंक नहीं",
+    [STR_NONE] = "कोई नहीं",
+    [STR_SELECT_REGION] = "क्षेत्र चुनें",
+    [STR_AGE_LABEL] = "  आयु: ",
+    [STR_SYNCS_LABEL] = "  सिंक: ",
+    [STR_FMT_PEERS_NOSYNC] = "%d/%d सर्वर  poll %s  सिंक नहीं",
+    [STR_FMT_PEERS_AGO] = "%d/%d सर्वर  poll %s  %s पहले",
+    [STR_DST] = "ग्रीष्म समय",
+    [STR_NO_DST] = "ग्रीष्म समय नहीं",
+};
+static const char *const weekdays_hi[7] = {
+    "रवि", "सोम", "मंगल", "बुध", "गुरु", "शुक्र", "शनि",
+};
+static const char *const months_hi[12] = {
+    "जन॰", "फ़र॰", "मार्च", "अप्रैल", "मई", "जून",
+    "जुल॰", "अग॰", "सित॰", "अक्टू॰", "नव॰", "दिस॰",
+};
+static const char lang_name_hi[] = "हिन्दी";
+// <<< shaped-source hi
+#endif

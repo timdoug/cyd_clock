@@ -1,0 +1,77 @@
+// Editable source of truth for the pre-shaped strings; never compiled.
+// Editing REQUIRES a macOS font regeneration (swift tools/gen_fonts.swift);
+// tools/check_i18n.py catches staleness via source hashes in fonts.c.
+#if 0
+// >>> shaped-source ta
+static const char *const lang_ta[STR_COUNT] = {
+    [STR_SETTINGS] = "அமைப்புகள்",
+    [STR_WIFI] = "Wi-Fi",
+    [STR_FAIL] = "தோல்வி",
+    [STR_TIMEZONE] = "நேர மண்டலம்",
+    [STR_BRIGHTNESS] = "ஒளிர்வு",
+    [STR_LED_BLINK] = "LED மினுக்கு",
+    [STR_ROTATE] = "சுழற்று 180",
+    [STR_ABOUT] = "பற்றி",
+    [STR_LANGUAGE] = "மொழி",
+    [STR_DONE] = "முடிந்தது",
+    [STR_BACK] = "பின்",
+    [STR_CANCEL] = "ரத்து",
+    [STR_DEL] = "நீக்கு",
+    [STR_RUNNING] = "இயங்குகிறது",
+    [STR_ON] = "இயக்கு",
+    [STR_OFF] = "அணை",
+    [STR_NTS_NO] = "இல்லை",
+    [STR_NTS_ATTEMPT] = "முயற்சி",
+    [STR_NTS_REQUIRE] = "கட்டாயம்",
+    [STR_WAITING_NTP] = "NTP காத்திருப்பு...",
+    [STR_FMT_SYNCED] = "ஒத்திசைவு: %s",
+    [STR_FMT_SYNCING] = "ஒத்திசைகிறது: %s",
+    [STR_FMT_WAITING] = "காத்திருப்பு: %lus",
+    [STR_WIFI_SETUP] = "Wi-Fi அமைப்பு",
+    [STR_SCANNING] = "தேடுகிறது...",
+    [STR_SCAN_FAILED] = "தேடல் தோல்வி",
+    [STR_TAP_RETRY] = "மீண்டும் முயல தட்டவும்",
+    [STR_SELECT_NETWORK] = "நெட்வொர்க் தேர்வு",
+    [STR_NO_NETWORKS] = "நெட்வொர்க் இல்லை",
+    [STR_NETWORK_LABEL] = "நெட்வொர்க்:",
+    [STR_ENTER_PASSWORD] = "கடவுச்சொல் உள்ளிடவும்",
+    [STR_CONNECTING] = "இணைக்கிறது",
+    [STR_CONNECTING_TO] = "இணைக்கிறது:",
+    [STR_CONNECTED] = "இணைந்தது!",
+    [STR_CONNECTION_FAILED] = "இணைப்பு தோல்வி",
+    [STR_KB_SPACE] = "இடைவெளி",
+    [STR_KB_GO] = "OK",
+    [STR_VERSION] = "பதிப்பு:",
+    [STR_STATUS] = "நிலை:",
+    [STR_READ] = "படித்தது:",
+    [STR_UPDATE] = "புதுப்பி",
+    [STR_RESTARTING] = "மறுதொடக்கம்",
+    [STR_OTA_UPDATE] = "OTA புதுப்பிப்பு",
+    [STR_NTP_SERVER] = "NTP சேவையகம்",
+    [STR_SERVER_LABEL] = "சேவையகம்:",
+    [STR_NTP_SETTINGS] = "NTP அமைப்புகள்",
+    [STR_NTP_PRESETS] = "NTP விவரங்கள்",
+    [STR_PRESETS] = "விவரங்கள்",
+    [STR_BENCHMARK] = "சோதனை",
+    [STR_STOPPING] = "நிறுத்துகிறது",
+    [STR_NTP_STATS] = "NTP புள்ளிவிவரம்",
+    [STR_UNSYNCED] = "இல்லை",
+    [STR_NONE] = "ஏதுமில்லை",
+    [STR_SELECT_REGION] = "பகுதி தேர்வு",
+    [STR_AGE_LABEL] = "  வயது: ",
+    [STR_SYNCS_LABEL] = "  சிங்க்: ",
+    [STR_FMT_PEERS_NOSYNC] = "%d/%d சர்வர்  poll %s  சிங்க் இல்லை",
+    [STR_FMT_PEERS_AGO] = "%d/%d சர்வர்  poll %s  %s முன்",
+    [STR_DST] = "கோடை நேரம்",
+    [STR_NO_DST] = "கோடை நேரம் இல்லை",
+};
+static const char *const weekdays_ta[7] = {
+    "ஞாயி.", "திங்.", "செவ்.", "புத.", "வியா.", "வெள்.", "சனி",
+};
+static const char *const months_ta[12] = {
+    "ஜன.", "பிப்.", "மார்.", "ஏப்.", "மே", "ஜூன்",
+    "ஜூலை", "ஆக.", "செப்.", "அக்.", "நவ.", "டிச.",
+};
+static const char lang_name_ta[] = "தமிழ்";
+// <<< shaped-source ta
+#endif

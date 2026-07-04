@@ -1,0 +1,77 @@
+// Editable source of truth for the pre-shaped strings; never compiled.
+// Editing REQUIRES a macOS font regeneration (swift tools/gen_fonts.swift);
+// tools/check_i18n.py catches staleness via source hashes in fonts.c.
+#if 0
+// >>> shaped-source kok
+static const char *const lang_kok[STR_COUNT] = {
+    [STR_WIFI] = "Wi-Fi",
+    [STR_SETTINGS] = "सेटिंग्ज",
+    [STR_FAIL] = "अपेस",
+    [STR_TIMEZONE] = "वेळ विभाग",
+    [STR_BRIGHTNESS] = "उजवाड",
+    [STR_LED_BLINK] = "LED लुकलुक",
+    [STR_ROTATE] = "180 घुंवडाय",
+    [STR_ABOUT] = "विशीं",
+    [STR_LANGUAGE] = "भास",
+    [STR_DONE] = "जालें",
+    [STR_BACK] = "फाटीं",
+    [STR_CANCEL] = "रद्द",
+    [STR_DEL] = "काड",
+    [STR_RUNNING] = "चालू आसा",
+    [STR_ON] = "चालू",
+    [STR_OFF] = "बंद",
+    [STR_NTS_NO] = "ना",
+    [STR_NTS_ATTEMPT] = "यत्न",
+    [STR_NTS_REQUIRE] = "गरजेचें",
+    [STR_WAITING_NTP] = "NTP खातीर रावता...",
+    [STR_FMT_SYNCED] = "सिंक जालें: %s",
+    [STR_FMT_SYNCING] = "सिंक जाता: %s",
+    [STR_FMT_WAITING] = "रावता: %lus",
+    [STR_FMT_PEERS_NOSYNC] = "%d/%d सर्वर  poll %s  सिंक ना",
+    [STR_FMT_PEERS_AGO] = "%d/%d सर्वर  poll %s  %s आदीं",
+    [STR_WIFI_SETUP] = "Wi-Fi बसोवप",
+    [STR_SCANNING] = "सोदता...",
+    [STR_SCAN_FAILED] = "सोद अपेस",
+    [STR_TAP_RETRY] = "परत यत्न करपाक दामात",
+    [STR_SELECT_NETWORK] = "नेटवर्क वेंचात",
+    [STR_NO_NETWORKS] = "नेटवर्क मेळूंक ना",
+    [STR_NETWORK_LABEL] = "नेटवर्क:",
+    [STR_ENTER_PASSWORD] = "पासवर्ड घालात",
+    [STR_CONNECTING] = "जोडटा",
+    [STR_CONNECTING_TO] = "जोडटा:",
+    [STR_CONNECTED] = "जोडलें!",
+    [STR_CONNECTION_FAILED] = "जोडणी अपेस",
+    [STR_KB_SPACE] = "जागो",
+    [STR_KB_GO] = "OK",
+    [STR_VERSION] = "आवृत्ती:",
+    [STR_STATUS] = "स्थिती:",
+    [STR_READ] = "वाचलें:",
+    [STR_UPDATE] = "अपडेट",
+    [STR_RESTARTING] = "परत सुरू जाता",
+    [STR_OTA_UPDATE] = "OTA अपडेट",
+    [STR_NTP_SERVER] = "NTP सर्वर",
+    [STR_SERVER_LABEL] = "सर्वर:",
+    [STR_NTP_SETTINGS] = "NTP सेटिंग्ज",
+    [STR_NTP_PRESETS] = "NTP विकल्प",
+    [STR_PRESETS] = "विकल्प",
+    [STR_BENCHMARK] = "चांचणी",
+    [STR_STOPPING] = "थांबता",
+    [STR_NTP_STATS] = "NTP आंकडे",
+    [STR_UNSYNCED] = "सिंक ना",
+    [STR_SYNCS_LABEL] = "  सिंक: ",
+    [STR_NONE] = "ना",
+    [STR_SELECT_REGION] = "प्रदेश वेंचात",
+    [STR_AGE_LABEL] = "  पिराय: ",
+    [STR_DST] = "गिम्हाचो वेळ",
+    [STR_NO_DST] = "गिम्हाचो वेळ ना",
+};
+static const char *const weekdays_kok[7] = {
+    "आयतार", "सोमार", "मंगळार", "बुधवार", "बिरेस्तार", "शुक्रार", "शेनवार",
+};
+static const char *const months_kok[12] = {
+    "जाने", "फेब्रु", "मार्च", "एप्री", "मे", "जून",
+    "जुल", "ऑग", "सप्टें", "ऑक्टो", "नोव्हें", "डिसें",
+};
+static const char lang_name_kok[] = "कोंकणी";
+// <<< shaped-source kok
+#endif

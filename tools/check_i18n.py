@@ -39,7 +39,8 @@ def scope_of(symbol):
 
 
 def main():
-    inc = (ROOT / 'main' / 'i18n_data.inc').read_text(encoding='utf-8')
+    inc = '\n'.join((ROOT / 'main' / 'i18n' / p.name).read_text(encoding='utf-8')
+                    for p in sorted((ROOT / 'main' / 'i18n').glob('*.inc')))
     fonts = (ROOT / 'main' / 'fonts.c').read_text(encoding='utf-8')
     i18n_h = (ROOT / 'main' / 'i18n.h').read_text(encoding='utf-8')
     errors = 0
@@ -154,9 +155,9 @@ def main():
 
     # picker order file must list every language exactly once
     order = re.findall(r'(LANG_\w+),', (ROOT / 'main' / 'lang_order.inc').read_text())
-    enum_langs = re.findall(r'(LANG_\w+),', re.search(r'typedef enum \{(.*?)\} lang_t;', 
-                            (ROOT / 'main' / 'i18n.h').read_text(), re.S).group(1))
-    enum_langs = [x for x in enum_langs if x != 'LANG_COUNT']
+    enum_langs = ['LANG_' + m.upper() for m in re.findall(
+        r'I18N_(?:PLAIN|SHAPED)\((\w+),',
+        (ROOT / 'main' / 'i18n' / 'lang_list.inc').read_text())]
     if sorted(order) != sorted(enum_langs):
         missing = set(enum_langs) - set(order)
         extra = set(order) - set(enum_langs)

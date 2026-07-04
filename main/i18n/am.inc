@@ -1,0 +1,77 @@
+// Editable source of truth for the pre-shaped strings; never compiled.
+// Editing REQUIRES a macOS font regeneration (swift tools/gen_fonts.swift);
+// tools/check_i18n.py catches staleness via source hashes in fonts.c.
+#if 0
+// >>> shaped-source am
+static const char *const lang_am[STR_COUNT] = {
+    [STR_SETTINGS] = "ቅንብሮች",
+    [STR_WIFI] = "Wi-Fi",
+    [STR_FAIL] = "አልተሳካም",
+    [STR_TIMEZONE] = "የሰዓት ሰቅ",
+    [STR_BRIGHTNESS] = "ብሩህነት",
+    [STR_LED_BLINK] = "LED ብልጭታ",
+    [STR_ROTATE] = "አዙር 180",
+    [STR_ABOUT] = "ስለ",
+    [STR_LANGUAGE] = "ቋንቋ",
+    [STR_DONE] = "ተጠናቀቀ",
+    [STR_BACK] = "ተመለስ",
+    [STR_CANCEL] = "ሰርዝ",
+    [STR_DEL] = "አጥፋ",
+    [STR_RUNNING] = "እየሰራ ነው",
+    [STR_ON] = "በርቷል",
+    [STR_OFF] = "ጠፍቷል",
+    [STR_NTS_NO] = "አይ",
+    [STR_NTS_ATTEMPT] = "ሞክር",
+    [STR_NTS_REQUIRE] = "ግዴታ",
+    [STR_WAITING_NTP] = "NTP በመጠበቅ...",
+    [STR_FMT_SYNCED] = "ተመሳስሏል: %s",
+    [STR_FMT_SYNCING] = "በማመሳሰል: %s",
+    [STR_FMT_WAITING] = "መጠበቅ: %lus",
+    [STR_WIFI_SETUP] = "Wi-Fi ማዋቀር",
+    [STR_SCANNING] = "በመፈለግ...",
+    [STR_SCAN_FAILED] = "ፍለጋ አልተሳካም",
+    [STR_TAP_RETRY] = "እንደገና ለመሞከር ንካ",
+    [STR_SELECT_NETWORK] = "አውታረ መረብ ምረጥ",
+    [STR_NO_NETWORKS] = "አውታረ መረብ የለም",
+    [STR_NETWORK_LABEL] = "አውታር:",
+    [STR_ENTER_PASSWORD] = "የይለፍ ቃል አስገባ",
+    [STR_CONNECTING] = "በመገናኘት",
+    [STR_CONNECTING_TO] = "በመገናኘት:",
+    [STR_CONNECTED] = "ተገናኝቷል!",
+    [STR_CONNECTION_FAILED] = "ግንኙነት አልተሳካም",
+    [STR_KB_SPACE] = "ክፍተት",
+    [STR_KB_GO] = "OK",
+    [STR_VERSION] = "ስሪት:",
+    [STR_STATUS] = "ሁኔታ:",
+    [STR_READ] = "የተነበበ:",
+    [STR_UPDATE] = "አዘምን",
+    [STR_RESTARTING] = "እንደገና በመጀመር",
+    [STR_OTA_UPDATE] = "OTA ማዘመኛ",
+    [STR_NTP_SERVER] = "NTP አገልጋይ",
+    [STR_SERVER_LABEL] = "አገልጋይ:",
+    [STR_NTP_SETTINGS] = "NTP ቅንብሮች",
+    [STR_NTP_PRESETS] = "NTP መገለጫ",
+    [STR_PRESETS] = "መገለጫ",
+    [STR_BENCHMARK] = "ሙከራ",
+    [STR_STOPPING] = "በማቆም",
+    [STR_NTP_STATS] = "NTP ስታቲስቲክስ",
+    [STR_UNSYNCED] = "ያልተመሳሰለ",
+    [STR_NONE] = "ምንም",
+    [STR_SELECT_REGION] = "ክልል ምረጥ",
+    [STR_AGE_LABEL] = "  እድሜ: ",
+    [STR_SYNCS_LABEL] = "  ስንክ: ",
+    [STR_FMT_PEERS_NOSYNC] = "%d/%d አገልጋይ  poll %s  ስንክ የለም",
+    [STR_FMT_PEERS_AGO] = "%d/%d አገልጋይ  poll %s  ከ%s በፊት",
+    [STR_DST] = "የበጋ ሰዓት",
+    [STR_NO_DST] = "የበጋ ሰዓት የለም",
+};
+static const char *const weekdays_am[7] = {
+    "እሑድ", "ሰኞ", "ማክሰ", "ረቡዕ", "ሐሙስ", "ዓርብ", "ቅዳሜ",
+};
+static const char *const months_am[12] = {
+    "ጃን", "ፌብ", "ማርች", "ኤፕሪ", "ሜይ", "ጁን",
+    "ጁላይ", "ኦገስ", "ሴፕቴ", "ኦክቶ", "ኖቬም", "ዲሴም",
+};
+static const char lang_name_am[] = "አማርኛ";
+// <<< shaped-source am
+#endif

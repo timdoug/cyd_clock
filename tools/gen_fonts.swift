@@ -416,8 +416,14 @@ func packGlyphArrays(_ prefix: String, _ chars: [Character], cfg: FontConfig,
 }
 
 let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-let dataSource = try String(contentsOf: root.appendingPathComponent("main/i18n_data.inc"),
-                            encoding: .utf8)
+// Translation data: one file per language under main/i18n/, concatenated
+// in filename order (the collectors and shaping are order-independent).
+let i18nDir = root.appendingPathComponent("main/i18n")
+let i18nFiles = try FileManager.default.contentsOfDirectory(atPath: i18nDir.path)
+    .filter { $0.hasSuffix(".inc") }.sorted()
+let dataSource = try i18nFiles.map {
+    try String(contentsOf: i18nDir.appendingPathComponent($0), encoding: .utf8)
+}.joined(separator: "\n")
 let buckets = collectChars(dataSource)
 
 var out = """

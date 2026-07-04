@@ -1,0 +1,77 @@
+// Editable source of truth for the pre-shaped strings; never compiled.
+// Editing REQUIRES a macOS font regeneration (swift tools/gen_fonts.swift);
+// tools/check_i18n.py catches staleness via source hashes in fonts.c.
+#if 0
+// >>> shaped-source ur
+static const char *const lang_ur[STR_COUNT] = {
+    [STR_SETTINGS] = "ترتیبات",
+    [STR_WIFI] = "Wi-Fi",
+    [STR_FAIL] = "ناکام",
+    [STR_TIMEZONE] = "ٹائم زون",
+    [STR_BRIGHTNESS] = "چمک",
+    [STR_LED_BLINK] = "LED جھپک",
+    [STR_ROTATE] = "گھمائیں 180",
+    [STR_ABOUT] = "تعارف",
+    [STR_LANGUAGE] = "زبان",
+    [STR_DONE] = "ہو گیا",
+    [STR_BACK] = "واپس",
+    [STR_CANCEL] = "منسوخ",
+    [STR_DEL] = "مٹائیں",
+    [STR_RUNNING] = "چل رہا ہے",
+    [STR_ON] = "آن",
+    [STR_OFF] = "آف",
+    [STR_NTS_NO] = "نہیں",
+    [STR_NTS_ATTEMPT] = "کوشش",
+    [STR_NTS_REQUIRE] = "لازمی",
+    [STR_WAITING_NTP] = "NTP کا انتظار...",
+    [STR_FMT_SYNCED] = "ہم آہنگ: %s",
+    [STR_FMT_SYNCING] = "ہم آہنگی: %s",
+    [STR_FMT_WAITING] = "انتظار: %lus",
+    [STR_WIFI_SETUP] = "Wi-Fi سیٹ اپ",
+    [STR_SCANNING] = "تلاش جاری...",
+    [STR_SCAN_FAILED] = "تلاش ناکام",
+    [STR_TAP_RETRY] = "دوبارہ کوشش کے لیے تھپتھپائیں",
+    [STR_SELECT_NETWORK] = "نیٹ ورک چنیں",
+    [STR_NO_NETWORKS] = "کوئی نیٹ ورک نہیں",
+    [STR_NETWORK_LABEL] = "نیٹ ورک:",
+    [STR_ENTER_PASSWORD] = "پاس ورڈ درج کریں",
+    [STR_CONNECTING] = "منسلک ہو رہا ہے",
+    [STR_CONNECTING_TO] = "منسلک ہو رہا ہے:",
+    [STR_CONNECTED] = "منسلک!",
+    [STR_CONNECTION_FAILED] = "کنکشن ناکام",
+    [STR_KB_SPACE] = "خالی جگہ",
+    [STR_KB_GO] = "OK",
+    [STR_VERSION] = "ورژن:",
+    [STR_STATUS] = "حالت:",
+    [STR_READ] = "پڑھا:",
+    [STR_UPDATE] = "اپ ڈیٹ",
+    [STR_RESTARTING] = "دوبارہ شروع",
+    [STR_OTA_UPDATE] = "OTA اپ ڈیٹ",
+    [STR_NTP_SERVER] = "NTP سرور",
+    [STR_SERVER_LABEL] = "سرور:",
+    [STR_NTP_SETTINGS] = "NTP ترتیبات",
+    [STR_NTP_PRESETS] = "NTP پروفائل",
+    [STR_PRESETS] = "پروفائل",
+    [STR_BENCHMARK] = "جانچ",
+    [STR_STOPPING] = "رک رہا ہے",
+    [STR_NTP_STATS] = "NTP اعداد و شمار",
+    [STR_UNSYNCED] = "غیر ہم آہنگ",
+    [STR_NONE] = "کچھ نہیں",
+    [STR_SELECT_REGION] = "خطہ چنیں",
+    [STR_AGE_LABEL] = "  عمر: ",
+    [STR_SYNCS_LABEL] = "  سنک: ",
+    [STR_FMT_PEERS_NOSYNC] = "%d/%d سرور  poll %s  ہم آہنگ نہیں",
+    [STR_FMT_PEERS_AGO] = "%d/%d سرور  poll %s  %s پہلے",
+    [STR_DST] = "گرمائی وقت",
+    [STR_NO_DST] = "بغیر گرمائی وقت",
+};
+static const char *const weekdays_ur[7] = {
+    "اتوار", "پیر", "منگل", "بدھ", "جمعرات", "جمعہ", "ہفتہ",
+};
+static const char *const months_ur[12] = {
+    "جنوری", "فروری", "مارچ", "اپریل", "مئی", "جون",
+    "جولائی", "اگست", "ستمبر", "اکتوبر", "نومبر", "دسمبر",
+};
+static const char lang_name_ur[] = "اردو";
+// <<< shaped-source ur
+#endif

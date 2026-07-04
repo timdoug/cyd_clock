@@ -1,0 +1,77 @@
+// Editable source of truth for the pre-shaped strings; never compiled.
+// Editing REQUIRES a macOS font regeneration (swift tools/gen_fonts.swift);
+// tools/check_i18n.py catches staleness via source hashes in fonts.c.
+#if 0
+// >>> shaped-source yo
+static const char *const lang_yo[STR_COUNT] = {
+    [STR_WIFI] = "Wi-Fi",
+    [STR_SETTINGS] = "Ètò",
+    [STR_FAIL] = "kùnà",
+    [STR_TIMEZONE] = "Agbègbè àkókò",
+    [STR_BRIGHTNESS] = "Ìmọ́lẹ̀",
+    [STR_LED_BLINK] = "LED ìtànṣán",
+    [STR_ROTATE] = "Yí 180",
+    [STR_ABOUT] = "Nípa",
+    [STR_LANGUAGE] = "Èdè",
+    [STR_DONE] = "Parí",
+    [STR_BACK] = "Padà",
+    [STR_CANCEL] = "Fagilé",
+    [STR_DEL] = "Paarẹ́",
+    [STR_RUNNING] = "Ń ṣiṣẹ́",
+    [STR_ON] = "Tàn",
+    [STR_OFF] = "Pa",
+    [STR_NTS_NO] = "Rárá",
+    [STR_NTS_ATTEMPT] = "Gbìyànjú",
+    [STR_NTS_REQUIRE] = "Dandan",
+    [STR_WAITING_NTP] = "Ń dúró de NTP...",
+    [STR_FMT_SYNCED] = "Ti sync: %s",
+    [STR_FMT_SYNCING] = "Ń mu ṣiṣẹ́pọ̀: %s",
+    [STR_FMT_WAITING] = "Ń dúró: %lus",
+    [STR_FMT_PEERS_NOSYNC] = "%d/%d sáfà  poll %s  kò sí sync",
+    [STR_FMT_PEERS_AGO] = "%d/%d sáfà  poll %s  %s sẹ́yìn",
+    [STR_WIFI_SETUP] = "Ṣètò Wi-Fi",
+    [STR_SCANNING] = "Ń wá...",
+    [STR_SCAN_FAILED] = "Ìwádìí kùnà",
+    [STR_TAP_RETRY] = "Tẹ láti tún gbìyànjú",
+    [STR_SELECT_NETWORK] = "Yan nẹ́tíwọ̀kì",
+    [STR_NO_NETWORKS] = "Kò sí nẹ́tíwọ̀kì",
+    [STR_NETWORK_LABEL] = "Nẹ́tíwọ̀kì:",
+    [STR_ENTER_PASSWORD] = "Tẹ ọ̀rọ̀ aṣínà",
+    [STR_CONNECTING] = "Ń so pọ̀",
+    [STR_CONNECTING_TO] = "Ń so pọ̀ mọ́",
+    [STR_CONNECTED] = "Ti sopọ̀!",
+    [STR_CONNECTION_FAILED] = "Ìsopọ̀ kùnà",
+    [STR_KB_SPACE] = "Àyè",
+    [STR_KB_GO] = "OK",
+    [STR_VERSION] = "Ẹ̀yà:",
+    [STR_STATUS] = "Ipò:",
+    [STR_READ] = "Ti kà:",
+    [STR_UPDATE] = "Àtúnṣe",
+    [STR_RESTARTING] = "Ń tún bẹ̀rẹ̀",
+    [STR_OTA_UPDATE] = "Àtúnṣe OTA",
+    [STR_NTP_SERVER] = "Sáfà NTP",
+    [STR_SERVER_LABEL] = "Sáfà:",
+    [STR_NTP_SETTINGS] = "Ètò NTP",
+    [STR_NTP_PRESETS] = "Àṣàyàn NTP",
+    [STR_PRESETS] = "Àṣàyàn",
+    [STR_BENCHMARK] = "Ìdánwò",
+    [STR_STOPPING] = "Ń dúró",
+    [STR_NTP_STATS] = "Ìṣirò NTP",
+    [STR_UNSYNCED] = "kò sí sync",
+    [STR_SYNCS_LABEL] = "  Sync: ",
+    [STR_NONE] = "kò sí",
+    [STR_SELECT_REGION] = "Yan agbègbè",
+    [STR_AGE_LABEL] = "  Ọjọ́ orí: ",
+    [STR_DST] = "DST",
+    [STR_NO_DST] = "kò sí DST",
+};
+static const char *const weekdays_yo[7] = {
+    "Àìkú", "Ajé", "Ìsẹ́gun", "Ọjọ́rú", "Ọjọ́bọ", "Ẹtì", "Àbámẹ́ta",
+};
+static const char *const months_yo[12] = {
+    "Ṣẹ́rẹ́", "Èrèlè", "Ẹrẹ̀nà", "Ìgbé", "Ẹ̀bibi", "Òkúdu",
+    "Agẹmọ", "Ògún", "Owewe", "Ọ̀wàrà", "Bélú", "Ọ̀pẹ̀",
+};
+static const char lang_name_yo[] = "Yorùbá";
+// <<< shaped-source yo
+#endif

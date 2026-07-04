@@ -1,0 +1,77 @@
+// Editable source of truth for the pre-shaped strings; never compiled.
+// Editing REQUIRES a macOS font regeneration (swift tools/gen_fonts.swift);
+// tools/check_i18n.py catches staleness via source hashes in fonts.c.
+#if 0
+// >>> shaped-source te
+static const char *const lang_te[STR_COUNT] = {
+    [STR_SETTINGS] = "సెట్టింగ్‌లు",
+    [STR_WIFI] = "Wi-Fi",
+    [STR_FAIL] = "విఫలం",
+    [STR_TIMEZONE] = "సమయ మండలం",
+    [STR_BRIGHTNESS] = "ప్రకాశం",
+    [STR_LED_BLINK] = "LED మిణుకు",
+    [STR_ROTATE] = "తిప్పు 180",
+    [STR_ABOUT] = "గురించి",
+    [STR_LANGUAGE] = "భాష",
+    [STR_DONE] = "పూర్తి",
+    [STR_BACK] = "వెనుకకు",
+    [STR_CANCEL] = "రద్దు",
+    [STR_DEL] = "తొలగించు",
+    [STR_RUNNING] = "నడుస్తోంది",
+    [STR_ON] = "ఆన్",
+    [STR_OFF] = "ఆఫ్",
+    [STR_NTS_NO] = "కాదు",
+    [STR_NTS_ATTEMPT] = "ప్రయత్నం",
+    [STR_NTS_REQUIRE] = "తప్పనిసరి",
+    [STR_WAITING_NTP] = "NTP కోసం వేచి...",
+    [STR_FMT_SYNCED] = "సింక్: %s",
+    [STR_FMT_SYNCING] = "సింక్ అవుతోంది: %s",
+    [STR_FMT_WAITING] = "వేచి: %lus",
+    [STR_WIFI_SETUP] = "Wi-Fi సెటప్",
+    [STR_SCANNING] = "వెతుకుతోంది...",
+    [STR_SCAN_FAILED] = "శోధన విఫలం",
+    [STR_TAP_RETRY] = "మళ్లీ ప్రయత్నానికి నొక్కండి",
+    [STR_SELECT_NETWORK] = "నెట్‌వర్క్ ఎంచుకోండి",
+    [STR_NO_NETWORKS] = "నెట్‌వర్క్ లేదు",
+    [STR_NETWORK_LABEL] = "నెట్‌వర్క్:",
+    [STR_ENTER_PASSWORD] = "పాస్‌వర్డ్ నమోదు",
+    [STR_CONNECTING] = "కనెక్ట్ అవుతోంది",
+    [STR_CONNECTING_TO] = "కనెక్ట్ అవుతోంది:",
+    [STR_CONNECTED] = "కనెక్ట్ అయింది!",
+    [STR_CONNECTION_FAILED] = "కనెక్షన్ విఫలం",
+    [STR_KB_SPACE] = "ఖాళీ",
+    [STR_KB_GO] = "OK",
+    [STR_VERSION] = "వెర్షన్:",
+    [STR_STATUS] = "స్థితి:",
+    [STR_READ] = "చదివింది:",
+    [STR_UPDATE] = "నవీకరణ",
+    [STR_RESTARTING] = "పునఃప్రారంభం",
+    [STR_OTA_UPDATE] = "OTA నవీకరణ",
+    [STR_NTP_SERVER] = "NTP సర్వర్",
+    [STR_SERVER_LABEL] = "సర్వర్:",
+    [STR_NTP_SETTINGS] = "NTP సెట్టింగ్‌లు",
+    [STR_NTP_PRESETS] = "NTP ప్రొఫైల్స్",
+    [STR_PRESETS] = "ప్రొఫైల్స్",
+    [STR_BENCHMARK] = "పరీక్ష",
+    [STR_STOPPING] = "ఆగుతోంది",
+    [STR_NTP_STATS] = "NTP గణాంకాలు",
+    [STR_UNSYNCED] = "సింక్ లేదు",
+    [STR_NONE] = "ఏమీ లేదు",
+    [STR_SELECT_REGION] = "ప్రాంతం ఎంచుకోండి",
+    [STR_AGE_LABEL] = "  వయసు: ",
+    [STR_SYNCS_LABEL] = "  సింక్: ",
+    [STR_FMT_PEERS_NOSYNC] = "%d/%d సర్వర్  poll %s  సింక్ లేదు",
+    [STR_FMT_PEERS_AGO] = "%d/%d సర్వర్  poll %s  %s క్రితం",
+    [STR_DST] = "వేసవి సమయం",
+    [STR_NO_DST] = "వేసవి సమయం లేదు",
+};
+static const char *const weekdays_te[7] = {
+    "ఆది", "సోమ", "మంగళ", "బుధ", "గురు", "శుక్ర", "శని",
+};
+static const char *const months_te[12] = {
+    "జన", "ఫిబ్ర", "మార్చి", "ఏప్రి", "మే", "జూన్",
+    "జులై", "ఆగ", "సెప్టెం", "అక్టో", "నవం", "డిసెం",
+};
+static const char lang_name_te[] = "తెలుగు";
+// <<< shaped-source te
+#endif

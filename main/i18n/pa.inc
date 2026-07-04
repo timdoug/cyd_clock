@@ -1,0 +1,77 @@
+// Editable source of truth for the pre-shaped strings; never compiled.
+// Editing REQUIRES a macOS font regeneration (swift tools/gen_fonts.swift);
+// tools/check_i18n.py catches staleness via source hashes in fonts.c.
+#if 0
+// >>> shaped-source pa
+static const char *const lang_pa[STR_COUNT] = {
+    [STR_SETTINGS] = "ਸੈਟਿੰਗਾਂ",
+    [STR_WIFI] = "Wi-Fi",
+    [STR_FAIL] = "ਅਸਫਲ",
+    [STR_TIMEZONE] = "ਸਮਾਂ ਖੇਤਰ",
+    [STR_BRIGHTNESS] = "ਚਮਕ",
+    [STR_LED_BLINK] = "LED ਝਪਕ",
+    [STR_ROTATE] = "ਘੁਮਾਓ 180",
+    [STR_ABOUT] = "ਬਾਰੇ",
+    [STR_LANGUAGE] = "ਭਾਸ਼ਾ",
+    [STR_DONE] = "ਹੋ ਗਿਆ",
+    [STR_BACK] = "ਪਿੱਛੇ",
+    [STR_CANCEL] = "ਰੱਦ",
+    [STR_DEL] = "ਮਿਟਾਓ",
+    [STR_RUNNING] = "ਚੱਲ ਰਿਹਾ",
+    [STR_ON] = "ਚਾਲੂ",
+    [STR_OFF] = "ਬੰਦ",
+    [STR_NTS_NO] = "ਨਹੀਂ",
+    [STR_NTS_ATTEMPT] = "ਕੋਸ਼ਿਸ਼",
+    [STR_NTS_REQUIRE] = "ਲਾਜ਼ਮੀ",
+    [STR_WAITING_NTP] = "NTP ਦੀ ਉਡੀਕ...",
+    [STR_FMT_SYNCED] = "ਸਿੰਕ: %s",
+    [STR_FMT_SYNCING] = "ਸਿੰਕ ਹੋ ਰਿਹਾ: %s",
+    [STR_FMT_WAITING] = "ਉਡੀਕ: %lus",
+    [STR_WIFI_SETUP] = "Wi-Fi ਸੈੱਟਅੱਪ",
+    [STR_SCANNING] = "ਖੋਜ ਜਾਰੀ...",
+    [STR_SCAN_FAILED] = "ਖੋਜ ਅਸਫਲ",
+    [STR_TAP_RETRY] = "ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਲਈ ਟੈਪ ਕਰੋ",
+    [STR_SELECT_NETWORK] = "ਨੈੱਟਵਰਕ ਚੁਣੋ",
+    [STR_NO_NETWORKS] = "ਕੋਈ ਨੈੱਟਵਰਕ ਨਹੀਂ",
+    [STR_NETWORK_LABEL] = "ਨੈੱਟਵਰਕ:",
+    [STR_ENTER_PASSWORD] = "ਪਾਸਵਰਡ ਭਰੋ",
+    [STR_CONNECTING] = "ਜੁੜ ਰਿਹਾ",
+    [STR_CONNECTING_TO] = "ਜੁੜ ਰਿਹਾ:",
+    [STR_CONNECTED] = "ਜੁੜ ਗਿਆ!",
+    [STR_CONNECTION_FAILED] = "ਕਨੈਕਸ਼ਨ ਅਸਫਲ",
+    [STR_KB_SPACE] = "ਸਪੇਸ",
+    [STR_KB_GO] = "OK",
+    [STR_VERSION] = "ਵਰਜਨ:",
+    [STR_STATUS] = "ਸਥਿਤੀ:",
+    [STR_READ] = "ਪੜ੍ਹਿਆ:",
+    [STR_UPDATE] = "ਅੱਪਡੇਟ",
+    [STR_RESTARTING] = "ਮੁੜ ਸ਼ੁਰੂ",
+    [STR_OTA_UPDATE] = "OTA ਅੱਪਡੇਟ",
+    [STR_NTP_SERVER] = "NTP ਸਰਵਰ",
+    [STR_SERVER_LABEL] = "ਸਰਵਰ:",
+    [STR_NTP_SETTINGS] = "NTP ਸੈਟਿੰਗਾਂ",
+    [STR_NTP_PRESETS] = "NTP ਪ੍ਰੋਫਾਈਲ",
+    [STR_PRESETS] = "ਪ੍ਰੋਫਾਈਲ",
+    [STR_BENCHMARK] = "ਜਾਂਚ",
+    [STR_STOPPING] = "ਰੁਕ ਰਿਹਾ",
+    [STR_NTP_STATS] = "NTP ਅੰਕੜੇ",
+    [STR_UNSYNCED] = "ਸਿੰਕ ਨਹੀਂ",
+    [STR_NONE] = "ਕੁਝ ਨਹੀਂ",
+    [STR_SELECT_REGION] = "ਖੇਤਰ ਚੁਣੋ",
+    [STR_AGE_LABEL] = "  ਉਮਰ: ",
+    [STR_SYNCS_LABEL] = "  ਸਿੰਕ: ",
+    [STR_FMT_PEERS_NOSYNC] = "%d/%d ਸਰਵਰ  poll %s  ਸਿੰਕ ਨਹੀਂ",
+    [STR_FMT_PEERS_AGO] = "%d/%d ਸਰਵਰ  poll %s  %s ਪਹਿਲਾਂ",
+    [STR_DST] = "ਗਰਮੀ ਸਮਾਂ",
+    [STR_NO_DST] = "ਗਰਮੀ ਸਮਾਂ ਨਹੀਂ",
+};
+static const char *const weekdays_pa[7] = {
+    "ਐਤ", "ਸੋਮ", "ਮੰਗਲ", "ਬੁੱਧ", "ਵੀਰ", "ਸ਼ੁੱਕਰ", "ਸ਼ਨੀ",
+};
+static const char *const months_pa[12] = {
+    "ਜਨ", "ਫ਼ਰ", "ਮਾਰਚ", "ਅਪ੍ਰੈ", "ਮਈ", "ਜੂਨ",
+    "ਜੁਲਾ", "ਅਗ", "ਸਤੰ", "ਅਕਤੂ", "ਨਵੰ", "ਦਸੰ",
+};
+static const char lang_name_pa[] = "ਪੰਜਾਬੀ";
+// <<< shaped-source pa
+#endif

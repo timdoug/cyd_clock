@@ -1,0 +1,77 @@
+// Editable source of truth for the pre-shaped strings; never compiled.
+// Editing REQUIRES a macOS font regeneration (swift tools/gen_fonts.swift);
+// tools/check_i18n.py catches staleness via source hashes in fonts.c.
+#if 0
+// >>> shaped-source kn
+static const char *const lang_kn[STR_COUNT] = {
+    [STR_SETTINGS] = "ಸೆಟ್ಟಿಂಗ್‌ಗಳು",
+    [STR_WIFI] = "Wi-Fi",
+    [STR_FAIL] = "ವಿಫಲ",
+    [STR_TIMEZONE] = "ಸಮಯ ವಲಯ",
+    [STR_BRIGHTNESS] = "ಹೊಳಪು",
+    [STR_LED_BLINK] = "LED ಮಿನುಗು",
+    [STR_ROTATE] = "ತಿರುಗಿಸಿ 180",
+    [STR_ABOUT] = "ಕುರಿತು",
+    [STR_LANGUAGE] = "ಭಾಷೆ",
+    [STR_DONE] = "ಆಯಿತು",
+    [STR_BACK] = "ಹಿಂದೆ",
+    [STR_CANCEL] = "ರದ್ದು",
+    [STR_DEL] = "ಅಳಿಸಿ",
+    [STR_RUNNING] = "ಚಾಲನೆ",
+    [STR_ON] = "ಆನ್",
+    [STR_OFF] = "ಆಫ್",
+    [STR_NTS_NO] = "ಇಲ್ಲ",
+    [STR_NTS_ATTEMPT] = "ಪ್ರಯತ್ನ",
+    [STR_NTS_REQUIRE] = "ಕಡ್ಡಾಯ",
+    [STR_WAITING_NTP] = "NTP ಗಾಗಿ ಕಾಯುವಿಕೆ...",
+    [STR_FMT_SYNCED] = "ಸಿಂಕ್: %s",
+    [STR_FMT_SYNCING] = "ಸಿಂಕ್ ಆಗುತ್ತಿದೆ: %s",
+    [STR_FMT_WAITING] = "ಕಾಯುವಿಕೆ: %lus",
+    [STR_WIFI_SETUP] = "Wi-Fi ಸೆಟಪ್",
+    [STR_SCANNING] = "ಹುಡುಕುತ್ತಿದೆ...",
+    [STR_SCAN_FAILED] = "ಹುಡುಕಾಟ ವಿಫಲ",
+    [STR_TAP_RETRY] = "ಮರುಪ್ರಯತ್ನಕ್ಕೆ ತಟ್ಟಿ",
+    [STR_SELECT_NETWORK] = "ನೆಟ್‌ವರ್ಕ್ ಆರಿಸಿ",
+    [STR_NO_NETWORKS] = "ನೆಟ್‌ವರ್ಕ್ ಇಲ್ಲ",
+    [STR_NETWORK_LABEL] = "ನೆಟ್‌ವರ್ಕ್:",
+    [STR_ENTER_PASSWORD] = "ಪಾಸ್‌ವರ್ಡ್ ನಮೂದಿಸಿ",
+    [STR_CONNECTING] = "ಸಂಪರ್ಕಿಸುತ್ತಿದೆ",
+    [STR_CONNECTING_TO] = "ಸಂಪರ್ಕಿಸುತ್ತಿದೆ:",
+    [STR_CONNECTED] = "ಸಂಪರ್ಕಗೊಂಡಿದೆ!",
+    [STR_CONNECTION_FAILED] = "ಸಂಪರ್ಕ ವಿಫಲ",
+    [STR_KB_SPACE] = "ಸ್ಪೇಸ್",
+    [STR_KB_GO] = "OK",
+    [STR_VERSION] = "ಆವೃತ್ತಿ:",
+    [STR_STATUS] = "ಸ್ಥಿತಿ:",
+    [STR_READ] = "ಓದಿದ್ದು:",
+    [STR_UPDATE] = "ನವೀಕರಣ",
+    [STR_RESTARTING] = "ಮರುಪ್ರಾರಂಭ",
+    [STR_OTA_UPDATE] = "OTA ನವೀಕರಣ",
+    [STR_NTP_SERVER] = "NTP ಸರ್ವರ್",
+    [STR_SERVER_LABEL] = "ಸರ್ವರ್:",
+    [STR_NTP_SETTINGS] = "NTP ಸೆಟ್ಟಿಂಗ್‌ಗಳು",
+    [STR_NTP_PRESETS] = "NTP ಪ್ರೊಫೈಲ್",
+    [STR_PRESETS] = "ಪ್ರೊಫೈಲ್",
+    [STR_BENCHMARK] = "ಪರೀಕ್ಷೆ",
+    [STR_STOPPING] = "ನಿಲ್ಲುತ್ತಿದೆ",
+    [STR_NTP_STATS] = "NTP ಅಂಕಿಅಂಶ",
+    [STR_UNSYNCED] = "ಸಿಂಕ್ ಇಲ್ಲ",
+    [STR_NONE] = "ಏನೂ ಇಲ್ಲ",
+    [STR_SELECT_REGION] = "ಪ್ರದೇಶ ಆರಿಸಿ",
+    [STR_AGE_LABEL] = "  ವಯಸ್ಸು: ",
+    [STR_SYNCS_LABEL] = "  ಸಿಂಕ್: ",
+    [STR_FMT_PEERS_NOSYNC] = "%d/%d ಸರ್ವರ್  poll %s  ಸಿಂಕ್ ಇಲ್ಲ",
+    [STR_FMT_PEERS_AGO] = "%d/%d ಸರ್ವರ್  poll %s  %s ಹಿಂದೆ",
+    [STR_DST] = "ಬೇಸಿಗೆ ಸಮಯ",
+    [STR_NO_DST] = "ಬೇಸಿಗೆ ಸಮಯ ಇಲ್ಲ",
+};
+static const char *const weekdays_kn[7] = {
+    "ಭಾನು", "ಸೋಮ", "ಮಂಗಳ", "ಬುಧ", "ಗುರು", "ಶುಕ್ರ", "ಶನಿ",
+};
+static const char *const months_kn[12] = {
+    "ಜನ", "ಫೆಬ್ರ", "ಮಾರ್ಚ್", "ಏಪ್ರಿ", "ಮೇ", "ಜೂನ್",
+    "ಜುಲೈ", "ಆಗ", "ಸೆಪ್ಟೆಂ", "ಅಕ್ಟೋ", "ನವೆಂ", "ಡಿಸೆಂ",
+};
+static const char lang_name_kn[] = "ಕನ್ನಡ";
+// <<< shaped-source kn
+#endif

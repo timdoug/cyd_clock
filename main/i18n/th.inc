@@ -1,0 +1,77 @@
+// Editable source of truth for the pre-shaped strings; never compiled.
+// Editing REQUIRES a macOS font regeneration (swift tools/gen_fonts.swift);
+// tools/check_i18n.py catches staleness via source hashes in fonts.c.
+#if 0
+// >>> shaped-source th
+static const char *const lang_th[STR_COUNT] = {
+    [STR_SETTINGS] = "การตั้งค่า",
+    [STR_WIFI] = "Wi-Fi",
+    [STR_FAIL] = "ล้มเหลว",
+    [STR_TIMEZONE] = "เขตเวลา",
+    [STR_BRIGHTNESS] = "ความสว่าง",
+    [STR_LED_BLINK] = "LED กะพริบ",
+    [STR_ROTATE] = "หมุน 180",
+    [STR_ABOUT] = "เกี่ยวกับ",
+    [STR_LANGUAGE] = "ภาษา",
+    [STR_DONE] = "เสร็จ",
+    [STR_BACK] = "กลับ",
+    [STR_CANCEL] = "ยกเลิก",
+    [STR_DEL] = "ลบ",
+    [STR_RUNNING] = "กำลังทำงาน",
+    [STR_ON] = "เปิด",
+    [STR_OFF] = "ปิด",
+    [STR_NTS_NO] = "ไม่",
+    [STR_NTS_ATTEMPT] = "ลอง",
+    [STR_NTS_REQUIRE] = "บังคับ",
+    [STR_WAITING_NTP] = "รอ NTP...",
+    [STR_FMT_SYNCED] = "ซิงค์แล้ว: %s",
+    [STR_FMT_SYNCING] = "กำลังซิงค์: %s",
+    [STR_FMT_WAITING] = "รอ: %lus",
+    [STR_WIFI_SETUP] = "ตั้งค่า Wi-Fi",
+    [STR_SCANNING] = "กำลังค้นหา...",
+    [STR_SCAN_FAILED] = "ค้นหาล้มเหลว",
+    [STR_TAP_RETRY] = "แตะเพื่อลองใหม่",
+    [STR_SELECT_NETWORK] = "เลือกเครือข่าย",
+    [STR_NO_NETWORKS] = "ไม่พบเครือข่าย",
+    [STR_NETWORK_LABEL] = "เครือข่าย:",
+    [STR_ENTER_PASSWORD] = "ใส่รหัสผ่าน",
+    [STR_CONNECTING] = "กำลังเชื่อมต่อ",
+    [STR_CONNECTING_TO] = "เชื่อมต่อกับ",
+    [STR_CONNECTED] = "เชื่อมต่อแล้ว!",
+    [STR_CONNECTION_FAILED] = "เชื่อมต่อล้มเหลว",
+    [STR_KB_SPACE] = "เว้นวรรค",
+    [STR_KB_GO] = "OK",
+    [STR_VERSION] = "เวอร์ชัน:",
+    [STR_STATUS] = "สถานะ:",
+    [STR_READ] = "อ่าน:",
+    [STR_UPDATE] = "อัปเดต",
+    [STR_RESTARTING] = "กำลังรีสตาร์ท",
+    [STR_OTA_UPDATE] = "อัปเดต OTA",
+    [STR_NTP_SERVER] = "เซิร์ฟเวอร์ NTP",
+    [STR_SERVER_LABEL] = "เซิร์ฟเวอร์:",
+    [STR_NTP_SETTINGS] = "ตั้งค่า NTP",
+    [STR_NTP_PRESETS] = "โปรไฟล์ NTP",
+    [STR_PRESETS] = "โปรไฟล์",
+    [STR_BENCHMARK] = "ทดสอบ",
+    [STR_STOPPING] = "กำลังหยุด",
+    [STR_NTP_STATS] = "สถิติ NTP",
+    [STR_UNSYNCED] = "ไม่ซิงค์",
+    [STR_NONE] = "ไม่มี",
+    [STR_SELECT_REGION] = "เลือกภูมิภาค",
+    [STR_AGE_LABEL] = "  อายุ: ",
+    [STR_SYNCS_LABEL] = "  ซิงค์: ",
+    [STR_FMT_PEERS_NOSYNC] = "%d/%d เซิร์ฟ  poll %s  ไม่ซิงค์",
+    [STR_FMT_PEERS_AGO] = "%d/%d เซิร์ฟ  poll %s  %s ที่แล้ว",
+    [STR_DST] = "เวลาออมแสง",
+    [STR_NO_DST] = "ไม่มีเวลาออมแสง",
+};
+static const char *const weekdays_th[7] = {
+    "อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส.",
+};
+static const char *const months_th[12] = {
+    "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
+    "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค.",
+};
+static const char lang_name_th[] = "ไทย";
+// <<< shaped-source th
+#endif

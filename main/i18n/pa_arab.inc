@@ -1,0 +1,77 @@
+// Editable source of truth for the pre-shaped strings; never compiled.
+// Editing REQUIRES a macOS font regeneration (swift tools/gen_fonts.swift);
+// tools/check_i18n.py catches staleness via source hashes in fonts.c.
+#if 0
+// >>> shaped-source pa_arab
+static const char *const lang_pa_arab[STR_COUNT] = {
+    [STR_WIFI] = "Wi-Fi",
+    [STR_SETTINGS] = "سیٹنگاں",
+    [STR_FAIL] = "ناکام",
+    [STR_TIMEZONE] = "ویلے دا خطہ",
+    [STR_BRIGHTNESS] = "چمک",
+    [STR_LED_BLINK] = "LED جھلک",
+    [STR_ROTATE] = "180 گھماؤ",
+    [STR_ABOUT] = "بارے وچ",
+    [STR_LANGUAGE] = "بولی",
+    [STR_DONE] = "ہو گیا",
+    [STR_BACK] = "پچھے",
+    [STR_CANCEL] = "منسوخ",
+    [STR_DEL] = "مٹاؤ",
+    [STR_RUNNING] = "چل رہیا اے",
+    [STR_ON] = "چالو",
+    [STR_OFF] = "بند",
+    [STR_NTS_NO] = "نئیں",
+    [STR_NTS_ATTEMPT] = "کوشش",
+    [STR_NTS_REQUIRE] = "لازمی",
+    [STR_WAITING_NTP] = "NTP دی اڈیک...",
+    [STR_FMT_SYNCED] = "ہم وقت: %s",
+    [STR_FMT_SYNCING] = "ہم وقت ہو رہیا: %s",
+    [STR_FMT_WAITING] = "اڈیک: %lus",
+    [STR_FMT_PEERS_NOSYNC] = "%d/%d سرور  poll %s  ہم وقت نئیں",
+    [STR_FMT_PEERS_AGO] = "%d/%d سرور  poll %s  %s پہلاں",
+    [STR_WIFI_SETUP] = "Wi-Fi سیٹ اپ",
+    [STR_SCANNING] = "لبھ رہیا اے...",
+    [STR_SCAN_FAILED] = "لبھن وچ ناکامی",
+    [STR_TAP_RETRY] = "فیر کوشش لئی چھوہو",
+    [STR_SELECT_NETWORK] = "نیٹورک چنو",
+    [STR_NO_NETWORKS] = "کوئی نیٹورک نئیں",
+    [STR_NETWORK_LABEL] = "نیٹورک:",
+    [STR_ENTER_PASSWORD] = "پاس ورڈ پاؤ",
+    [STR_CONNECTING] = "جڑ رہیا اے",
+    [STR_CONNECTING_TO] = "جڑ رہیا اے:",
+    [STR_CONNECTED] = "جڑ گیا!",
+    [STR_CONNECTION_FAILED] = "کنکشن ناکام",
+    [STR_KB_SPACE] = "سپیس",
+    [STR_KB_GO] = "OK",
+    [STR_VERSION] = "ورژن:",
+    [STR_STATUS] = "حالت:",
+    [STR_READ] = "پڑھیا:",
+    [STR_UPDATE] = "اپ ڈیٹ",
+    [STR_RESTARTING] = "فیر شروع ہو رہیا",
+    [STR_OTA_UPDATE] = "OTA اپ ڈیٹ",
+    [STR_NTP_SERVER] = "NTP سرور",
+    [STR_SERVER_LABEL] = "سرور:",
+    [STR_NTP_SETTINGS] = "NTP سیٹنگاں",
+    [STR_NTP_PRESETS] = "NTP انتخاب",
+    [STR_PRESETS] = "انتخاب",
+    [STR_BENCHMARK] = "ٹیسٹ",
+    [STR_STOPPING] = "رک رہیا اے",
+    [STR_NTP_STATS] = "NTP انگ",
+    [STR_UNSYNCED] = "ہم وقت نئیں",
+    [STR_SYNCS_LABEL] = "  Sync: ",
+    [STR_NONE] = "کوئی نئیں",
+    [STR_SELECT_REGION] = "خطہ چنو",
+    [STR_AGE_LABEL] = "  عمر: ",
+    [STR_DST] = "گرمیاں دا ویلا",
+    [STR_NO_DST] = "بنا گرمی ویلا",
+};
+static const char *const weekdays_pa_arab[7] = {
+    "اتوار", "پیر", "منگل", "بُدھ", "جمعرات", "جمعہ", "ہفتہ",
+};
+static const char *const months_pa_arab[12] = {
+    "جنوری", "فروری", "مارچ", "اپریل", "مئ", "جون",
+    "جولائی", "اگست", "ستمبر", "اکتوبر", "نومبر", "دسمبر",
+};
+static const char lang_name_pa_arab[] = "پنجابی";
+// <<< shaped-source pa_arab
+#endif

@@ -1,0 +1,77 @@
+// Editable source of truth for the pre-shaped strings; never compiled.
+// Editing REQUIRES a macOS font regeneration (swift tools/gen_fonts.swift);
+// tools/check_i18n.py catches staleness via source hashes in fonts.c.
+#if 0
+// >>> shaped-source ps
+static const char *const lang_ps[STR_COUNT] = {
+    [STR_WIFI] = "Wi-Fi",
+    [STR_SETTINGS] = "امستنې",
+    [STR_FAIL] = "ناکام",
+    [STR_TIMEZONE] = "د وخت سیمه",
+    [STR_BRIGHTNESS] = "روڼتیا",
+    [STR_LED_BLINK] = "LED ځلېدل",
+    [STR_ROTATE] = "180 تاوول",
+    [STR_ABOUT] = "په اړه",
+    [STR_LANGUAGE] = "ژبه",
+    [STR_DONE] = "بشپړ",
+    [STR_BACK] = "شاته",
+    [STR_CANCEL] = "لغوه",
+    [STR_DEL] = "ړنګ",
+    [STR_RUNNING] = "روان دی",
+    [STR_ON] = "فعال",
+    [STR_OFF] = "بند",
+    [STR_NTS_NO] = "نه",
+    [STR_NTS_ATTEMPT] = "هڅه",
+    [STR_NTS_REQUIRE] = "اړین",
+    [STR_WAITING_NTP] = "د NTP انتظار...",
+    [STR_FMT_SYNCED] = "همغږي: %s",
+    [STR_FMT_SYNCING] = "همغږي کېږي: %s",
+    [STR_FMT_WAITING] = "انتظار: %lus",
+    [STR_FMT_PEERS_NOSYNC] = "%d/%d سرور  poll %s  همغږي نشته",
+    [STR_FMT_PEERS_AGO] = "%d/%d سرور  poll %s  %s مخکې",
+    [STR_WIFI_SETUP] = "د Wi-Fi امستل",
+    [STR_SCANNING] = "لټون...",
+    [STR_SCAN_FAILED] = "لټون ناکام",
+    [STR_TAP_RETRY] = "بیا هڅې لپاره ټک ووهئ",
+    [STR_SELECT_NETWORK] = "شبکه وټاکئ",
+    [STR_NO_NETWORKS] = "شبکه ونه موندل شوه",
+    [STR_NETWORK_LABEL] = "شبکه:",
+    [STR_ENTER_PASSWORD] = "پټنوم ولیکئ",
+    [STR_CONNECTING] = "نښلېږي",
+    [STR_CONNECTING_TO] = "نښلېږي له:",
+    [STR_CONNECTED] = "ونښلېد!",
+    [STR_CONNECTION_FAILED] = "اړیکه ناکامه",
+    [STR_KB_SPACE] = "تشه",
+    [STR_KB_GO] = "OK",
+    [STR_VERSION] = "نسخه:",
+    [STR_STATUS] = "حالت:",
+    [STR_READ] = "لوستل شوي:",
+    [STR_UPDATE] = "تازه",
+    [STR_RESTARTING] = "بیا پیلېږي",
+    [STR_OTA_UPDATE] = "د OTA تازه",
+    [STR_NTP_SERVER] = "د NTP سرور",
+    [STR_SERVER_LABEL] = "سرور:",
+    [STR_NTP_SETTINGS] = "د NTP امستنې",
+    [STR_NTP_PRESETS] = "د NTP ټاکنې",
+    [STR_PRESETS] = "ټاکنې",
+    [STR_BENCHMARK] = "ازموینه",
+    [STR_STOPPING] = "درېږي",
+    [STR_NTP_STATS] = "د NTP شمېرې",
+    [STR_UNSYNCED] = "همغږي نشته",
+    [STR_SYNCS_LABEL] = "  Sync: ",
+    [STR_NONE] = "هېڅ",
+    [STR_SELECT_REGION] = "سیمه وټاکئ",
+    [STR_AGE_LABEL] = "  عمر: ",
+    [STR_DST] = "د اوړي وخت",
+    [STR_NO_DST] = "د اوړي وخت نشته",
+};
+static const char *const weekdays_ps[7] = {
+    "يونۍ", "دونۍ", "درېنۍ", "څلرنۍ", "پينځنۍ", "جمعه", "اونۍ",
+};
+static const char *const months_ps[12] = {
+    "جنوري", "فبروري", "مارچ", "اپریل", "مۍ", "جون",
+    "جولای", "اګست", "سېپتمبر", "اکتوبر", "نومبر", "دسمبر",
+};
+static const char lang_name_ps[] = "پښتو";
+// <<< shaped-source ps
+#endif

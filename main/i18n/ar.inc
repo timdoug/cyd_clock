@@ -1,0 +1,77 @@
+// Editable source of truth for the pre-shaped strings; never compiled.
+// Editing REQUIRES a macOS font regeneration (swift tools/gen_fonts.swift);
+// tools/check_i18n.py catches staleness via source hashes in fonts.c.
+#if 0
+// >>> shaped-source ar
+static const char *const lang_ar[STR_COUNT] = {
+    [STR_SETTINGS] = "الإعدادات",
+    [STR_WIFI] = "Wi-Fi",
+    [STR_FAIL] = "فشل",
+    [STR_TIMEZONE] = "المنطقة الزمنية",
+    [STR_BRIGHTNESS] = "السطوع",
+    [STR_LED_BLINK] = "وميض LED",
+    [STR_ROTATE] = "تدوير 180",
+    [STR_ABOUT] = "حول",
+    [STR_LANGUAGE] = "اللغة",
+    [STR_DONE] = "تم",
+    [STR_BACK] = "رجوع",
+    [STR_CANCEL] = "إلغاء",
+    [STR_DEL] = "حذف",
+    [STR_RUNNING] = "يعمل",
+    [STR_ON] = "مفعل",
+    [STR_OFF] = "معطل",
+    [STR_NTS_NO] = "لا",
+    [STR_NTS_ATTEMPT] = "محاولة",
+    [STR_NTS_REQUIRE] = "إلزام",
+    [STR_WAITING_NTP] = "بانتظار NTP...",
+    [STR_FMT_SYNCED] = "متزامن: %s",
+    [STR_FMT_SYNCING] = "يتزامن: %s",
+    [STR_FMT_WAITING] = "انتظار: %lus",
+    [STR_WIFI_SETUP] = "إعداد Wi-Fi",
+    [STR_SCANNING] = "يبحث...",
+    [STR_SCAN_FAILED] = "فشل البحث",
+    [STR_TAP_RETRY] = "انقر لإعادة المحاولة",
+    [STR_SELECT_NETWORK] = "اختر الشبكة",
+    [STR_NO_NETWORKS] = "لا توجد شبكات",
+    [STR_NETWORK_LABEL] = "الشبكة:",
+    [STR_ENTER_PASSWORD] = "أدخل كلمة المرور",
+    [STR_CONNECTING] = "يتصل",
+    [STR_CONNECTING_TO] = "الاتصال بـ",
+    [STR_CONNECTED] = "متصل!",
+    [STR_CONNECTION_FAILED] = "فشل الاتصال",
+    [STR_KB_SPACE] = "مسافة",
+    [STR_KB_GO] = "OK",
+    [STR_VERSION] = "الإصدار:",
+    [STR_STATUS] = "الحالة:",
+    [STR_READ] = "قرئ:",
+    [STR_UPDATE] = "تحديث",
+    [STR_RESTARTING] = "إعادة تشغيل",
+    [STR_OTA_UPDATE] = "تحديث OTA",
+    [STR_NTP_SERVER] = "خادم NTP",
+    [STR_SERVER_LABEL] = "الخادم:",
+    [STR_NTP_SETTINGS] = "إعدادات NTP",
+    [STR_NTP_PRESETS] = "ملفات NTP",
+    [STR_PRESETS] = "ملفات",
+    [STR_BENCHMARK] = "اختبار",
+    [STR_STOPPING] = "يتوقف",
+    [STR_NTP_STATS] = "إحصاءات NTP",
+    [STR_UNSYNCED] = "غير متزامن",
+    [STR_NONE] = "لا شيء",
+    [STR_SELECT_REGION] = "اختر المنطقة",
+    [STR_AGE_LABEL] = "  العمر: ",
+    [STR_SYNCS_LABEL] = "  مزامنة: ",
+    [STR_FMT_PEERS_NOSYNC] = "%d/%d خادم  poll %s  لا مزامنة",
+    [STR_FMT_PEERS_AGO] = "%d/%d خادم  poll %s  قبل %s",
+    [STR_DST] = "توقيت صيفي",
+    [STR_NO_DST] = "بلا توقيت صيفي",
+};
+static const char *const weekdays_ar[7] = {
+    "الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت",
+};
+static const char *const months_ar[12] = {
+    "ينا", "فبر", "مار", "أبر", "ماي", "يون",
+    "يول", "أغس", "سبت", "أكت", "نوف", "ديس",
+};
+static const char lang_name_ar[] = "العربية";
+// <<< shaped-source ar
+#endif
