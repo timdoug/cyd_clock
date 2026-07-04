@@ -87,14 +87,26 @@ static int aa_encode(const uint16_t *tab, int n, int lin) {
 }
 
 static void aa_build_palette(uint16_t fg, uint16_t bg, uint16_t palette[16]) {
-    int fr = aa_lin5[(fg >> 11) & 0x1F], fgr = aa_lin6[(fg >> 5) & 0x3F], fb = aa_lin5[fg & 0x1F];
-    int br = aa_lin5[(bg >> 11) & 0x1F], bgr = aa_lin6[(bg >> 5) & 0x3F], bb = aa_lin5[bg & 0x1F];
-    for (int i = 0; i < 16; i++) {
-        int r = aa_encode(aa_lin5, 32, (br * (15 - i) + fr * i + 7) / 15);
-        int g = aa_encode(aa_lin6, 64, (bgr * (15 - i) + fgr * i + 7) / 15);
-        int b = aa_encode(aa_lin5, 32, (bb * (15 - i) + fb * i + 7) / 15);
-        palette[i] = (uint16_t)((r << 11) | (g << 5) | b);
+    // Memoize the last fg/bg pair: strings blit one glyph at a time with the
+    // same colors, and the 96 aa_encode bisections per glyph were the bulk of
+    // the per-tick redraw cost. All drawing happens on the main task.
+    static uint16_t cached[16];
+    static uint16_t last_fg, last_bg;
+    static bool     have;
+    if (!have || fg != last_fg || bg != last_bg) {
+        int fr = aa_lin5[(fg >> 11) & 0x1F], fgr = aa_lin6[(fg >> 5) & 0x3F], fb = aa_lin5[fg & 0x1F];
+        int br = aa_lin5[(bg >> 11) & 0x1F], bgr = aa_lin6[(bg >> 5) & 0x3F], bb = aa_lin5[bg & 0x1F];
+        for (int i = 0; i < 16; i++) {
+            int r = aa_encode(aa_lin5, 32, (br * (15 - i) + fr * i + 7) / 15);
+            int g = aa_encode(aa_lin6, 64, (bgr * (15 - i) + fgr * i + 7) / 15);
+            int b = aa_encode(aa_lin5, 32, (bb * (15 - i) + fb * i + 7) / 15);
+            cached[i] = (uint16_t)((r << 11) | (g << 5) | b);
+        }
+        last_fg = fg;
+        last_bg = bg;
+        have = true;
     }
+    memcpy(palette, cached, sizeof(cached));
 }
 
 static inline uint8_t aa_alpha_at(const uint8_t *row, int col) {
@@ -242,14 +254,14 @@ static uint8_t glyph_2x_unpacked[DISPLAY_GLYPH_2X_BYTES];
 #define GLYPH_CACHE_SLOTS 24
 static struct {
     const uint8_t *key;
-    uint32_t stamp;
+    uint64_t stamp;   // 64-bit so the LRU clock never wraps in practice
     uint8_t data[DISPLAY_GLYPH_BYTES];
 } glyph_cache[GLYPH_CACHE_SLOTS];
-static uint32_t glyph_cache_clock;
+static uint64_t glyph_cache_clock;
 
 static const uint8_t *unpack_1x(const glyph_ref_t *g) {
     int victim = 0;
-    uint32_t oldest = UINT32_MAX;
+    uint64_t oldest = UINT64_MAX;
     for (int i = 0; i < GLYPH_CACHE_SLOTS; i++) {
         if (glyph_cache[i].key == g->g16_rle) {
             glyph_cache[i].stamp = ++glyph_cache_clock;
@@ -296,6 +308,9 @@ static void resolve_glyph(uint32_t cp, const display_glyph_font_t *font, glyph_r
             out->g32_rle = font->glyphs_2x_rle + font->glyphs_2x_off[i];
             out->g32_len = (unsigned)(font->glyphs_2x_off[i + 1] - font->glyphs_2x_off[i]);
             out->width = font->widths ? font->widths[i] : glyph_font_width(font);
+            // The per-glyph width table is raw fonts.bin data; a corrupt or
+            // mismatched byte must not size writes past the staging buffers.
+            if (out->width > DISPLAY_GLYPH_WIDTH) out->width = DISPLAY_GLYPH_WIDTH;
             out->stride16 = DISPLAY_GLYPH_WIDTH / 2;
             out->stride32 = DISPLAY_GLYPH_2X_WIDTH / 2;
             return;
@@ -520,31 +535,35 @@ void display_char(int16_t x, int16_t y, char c, uint16_t fg, uint16_t bg) {
     aa_blit(x, y, unpack_1x(&g), g.width, FONT_CHAR_HEIGHT, g.stride16, fg, bg);
 }
 
-// Blit one 4bpp glyph as a single address window write.
+// Blit one 4bpp glyph as a single address window write, clipping glyphs that
+// straddle a screen edge to their visible part (like the compose path does)
+// instead of dropping them whole.
 static void aa_blit(int16_t x, int16_t y, const uint8_t *glyph,
                     int width, int height, int stride,
                     uint16_t fg, uint16_t bg) {
-    if (!glyph || x < 0 || y < 0 ||
-        x + width > DISPLAY_WIDTH || y + height > DISPLAY_HEIGHT) {
-        return;
-    }
+    if (!glyph) return;
+    int col0 = x < 0 ? -x : 0;
+    int row0 = y < 0 ? -y : 0;
+    int col1 = (x + width  > DISPLAY_WIDTH)  ? DISPLAY_WIDTH  - x : width;
+    int row1 = (y + height > DISPLAY_HEIGHT) ? DISPLAY_HEIGHT - y : height;
+    if (col0 >= col1 || row0 >= row1) return;
 
     uint16_t palette[16];
     aa_build_palette(fg, bg, palette);
 
-    set_addr_window(x, y, width, height);
+    set_addr_window(x + col0, y + row0, col1 - col0, row1 - row0);
     dc_data();
 
     int idx = 0;
-    for (int row = 0; row < height; row++) {
+    for (int row = row0; row < row1; row++) {
         const uint8_t *row_px = glyph + row * stride;
-        for (int col = 0; col < width; col++) {
+        for (int col = col0; col < col1; col++) {
             uint16_t color = palette[aa_alpha_at(row_px, col)];
             glyph_stage_buf[idx++] = color >> 8;
             glyph_stage_buf[idx++] = color & 0xFF;
         }
     }
-    spi_write_bytes(glyph_stage_buf, width * height * 2);
+    spi_write_bytes(glyph_stage_buf, idx);
 }
 
 // Pixel-double a 1x glyph for 2x contexts when a font carries no 2x
