@@ -1,3 +1,4 @@
+#include <string.h>
 #include "i18n.h"
 #include "fonts.h"
 #include "display.h"
@@ -148,6 +149,28 @@ void tr_date(char *buf, size_t len, int wday, int mon, int mday, int year) {
         snprintf(buf, len, "%s %d %s %d", wd, mday, mo, year);
         break;
     }
+}
+
+// BCP 47-style code per language (the lang_list.inc id), used as the
+// NVS persistence key so enum order carries no meaning.
+static const char *const lang_codes[LANG_COUNT] = {
+#define I18N_PLAIN(id, up)  [LANG_##up] = #id,
+#define I18N_SHAPED(id, up) [LANG_##up] = #id,
+#include "i18n/lang_list.inc"
+#undef I18N_PLAIN
+#undef I18N_SHAPED
+};
+
+const char *i18n_lang_code(lang_t lang) {
+    if (lang < 0 || lang >= LANG_COUNT) return "";
+    return lang_codes[lang];
+}
+
+lang_t i18n_lang_from_code(const char *code) {
+    for (int i = 0; i < LANG_COUNT; i++) {
+        if (strcmp(lang_codes[i], code) == 0) return (lang_t)i;
+    }
+    return LANG_COUNT;
 }
 
 const char *i18n_lang_name(lang_t lang) {

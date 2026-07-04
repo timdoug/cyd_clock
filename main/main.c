@@ -217,9 +217,12 @@ void app_main(void) {
         display_set_rotation(rotated);
     }
 
-    uint8_t language;
-    if (nvs_config_get_language(&language) && language < LANG_COUNT) {
-        i18n_set_language((lang_t)language);
+    char lang_code[NVS_LANG_CODE_LEN];
+    if (nvs_config_get_language(lang_code, sizeof(lang_code))) {
+        lang_t language = i18n_lang_from_code(lang_code);
+        if (language != LANG_COUNT) {
+            i18n_set_language(language);
+        }
     }
 
     show_splash();

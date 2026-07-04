@@ -70,7 +70,7 @@ language_result_t ui_language_update(void) {
         int item = ui_list_tap_to_item(tap, list_scroll, LANG_COUNT);
         if (item >= 0 && lang_order[item] != i18n_get_language()) {
             i18n_set_language(lang_order[item]);
-            nvs_config_set_language((uint8_t)lang_order[item]);
+            nvs_config_set_language(i18n_lang_code(lang_order[item]));
             // Repaint in the newly selected language so the change is
             // visible immediately; the user taps Back to return.
             draw_screen();

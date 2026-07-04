@@ -231,12 +231,16 @@ void nvs_config_set_rotation(bool rotated) {
     nvs_set_u8_key("rotation", rotated ? 1 : 0);
 }
 
-bool nvs_config_get_language(uint8_t *lang) {
-    return nvs_get_u8_key("language", lang);
+// The language setting is persisted as the BCP 47-style code string
+// ("de", "zh_hant"), so lang_t values carry no meaning across builds
+// and main/i18n/lang_list.inc can stay sorted. Unknown codes fall back
+// to English at the call site.
+bool nvs_config_get_language(char *code, size_t len) {
+    return nvs_get_str_key("lang", code, len);
 }
 
-void nvs_config_set_language(uint8_t lang) {
-    nvs_set_u8_key("language", lang);
+void nvs_config_set_language(const char *code) {
+    nvs_set_str_key("lang", code);
 }
 
 bool nvs_config_get_led_brightness(uint8_t *brightness) {
