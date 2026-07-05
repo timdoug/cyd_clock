@@ -238,6 +238,24 @@ static void ota_task(void *arg) {
         vTaskDelete(NULL);
     }
 
+    // A cancel accepted while "Verifying" (after the pre-finish check above)
+    // must not apply anyway: finish already flipped otadata to the new image,
+    // so point it back at the running partition.
+    if (cancel_is_requested()) {
+        ESP_LOGI(TAG, "OTA cancelled during verify; reverting boot partition");
+        esp_err_t rerr = esp_ota_set_boot_partition(esp_ota_get_running_partition());
+        if (rerr == ESP_OK) {
+            status_set(OTA_UPDATE_CANCELLED, "Cancelled", 0, 0);
+        } else {
+            // The new image stays selected; say so rather than pretend.
+            ESP_LOGE(TAG, "revert failed: %s", esp_err_to_name(rerr));
+            status_set(OTA_UPDATE_SUCCESS, "Restarting", bytes_read, total_bytes);
+            vTaskDelay(pdMS_TO_TICKS(2000));
+            esp_restart();
+        }
+        vTaskDelete(NULL);
+    }
+
     ESP_LOGI(TAG, "OTA complete; restarting");
     status_set(OTA_UPDATE_SUCCESS, "Restarting", bytes_read, total_bytes);
     vTaskDelay(pdMS_TO_TICKS(2000));
@@ -270,7 +288,10 @@ bool ota_update_start(const char *url, bool force, char *err_buf, size_t err_len
     // task is RUNNING, and inline the write while holding the mutex - so they
     // can never stomp a running task's status.
     if (status_mutex) xSemaphoreTake(status_mutex, portMAX_DELAY);
-    if (current_status.state == OTA_UPDATE_RUNNING) {
+    if (current_status.state == OTA_UPDATE_RUNNING ||
+        current_status.state == OTA_UPDATE_SUCCESS) {
+        // SUCCESS covers the pre-restart window: a second start there would
+        // begin rewriting the partition the imminent reboot boots from.
         if (status_mutex) xSemaphoreGive(status_mutex);
         str_copy(err_buf, err_len, "Already running");
         return false;

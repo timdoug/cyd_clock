@@ -1,9 +1,13 @@
-if(NOT DEFINED OUTPUT_DIR)
-    message(FATAL_ERROR "OUTPUT_DIR is required")
-endif()
+# Computes VERSION_STRING from git. Used two ways:
+#  - include()d by the top-level CMakeLists to set PROJECT_VER, so the app
+#    descriptor the OTA same-version gate compares carries the same version
+#    the About screen shows.
+#  - run in script mode (-P, with OUTPUT_DIR set) by the version_header
+#    target to regenerate version.h on every build.
 
 execute_process(
     COMMAND git log -1 --format=%cs
+    WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
     OUTPUT_VARIABLE GIT_DATE
     OUTPUT_STRIP_TRAILING_WHITESPACE
     ERROR_QUIET
@@ -11,6 +15,7 @@ execute_process(
 
 execute_process(
     COMMAND git rev-parse --short HEAD
+    WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
     OUTPUT_VARIABLE GIT_HASH
     OUTPUT_STRIP_TRAILING_WHITESPACE
     ERROR_QUIET
@@ -20,10 +25,12 @@ execute_process(
 # cached mtimes and reports false +dirty after checkouts/clones otherwise.
 execute_process(
     COMMAND git update-index -q --refresh
+    WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
     ERROR_QUIET
 )
 execute_process(
     COMMAND git diff-index --quiet HEAD --
+    WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
     RESULT_VARIABLE GIT_DIRTY
 )
 
@@ -40,14 +47,16 @@ else()
     set(VERSION_STRING "unknown")
 endif()
 
-set(VERSION_HEADER "${OUTPUT_DIR}/version.h")
-set(VERSION_CONTENT "#define VERSION_STRING \"${VERSION_STRING}\"\n")
+if(DEFINED OUTPUT_DIR)
+    set(VERSION_HEADER "${OUTPUT_DIR}/version.h")
+    set(VERSION_CONTENT "#define VERSION_STRING \"${VERSION_STRING}\"\n")
 
-set(OLD_CONTENT "")
-if(EXISTS "${VERSION_HEADER}")
-    file(READ "${VERSION_HEADER}" OLD_CONTENT)
-endif()
+    set(OLD_CONTENT "")
+    if(EXISTS "${VERSION_HEADER}")
+        file(READ "${VERSION_HEADER}" OLD_CONTENT)
+    endif()
 
-if(NOT "${OLD_CONTENT}" STREQUAL "${VERSION_CONTENT}")
-    file(WRITE "${VERSION_HEADER}" "${VERSION_CONTENT}")
+    if(NOT "${OLD_CONTENT}" STREQUAL "${VERSION_CONTENT}")
+        file(WRITE "${VERSION_HEADER}" "${VERSION_CONTENT}")
+    endif()
 endif()
