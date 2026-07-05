@@ -61,10 +61,10 @@ static const char *const lang_ht[STR_COUNT] = {
     [STR_NO_DST] = "pa gen lè ete",
 };
 static const char *const weekdays_ht[7] = {
-    "dim.", "lun.", "mar.", "mer.", "jeu.", "ven.", "sam.",
+    "dim.", "len.", "mad.", "mèk.", "jed.", "van.", "sam.",
 };
 static const char *const months_ht[12] = {
-    "janv.", "févr.", "mars", "avr.", "mai", "juin",
-    "juil.", "août", "sept.", "oct.", "nov.", "déc.",
+    "jan.", "fev.", "mas", "avr.", "me", "jen",
+    "jiy.", "out", "sep.", "okt.", "nov.", "des.",
 };
 static const char lang_name_ht[] = "Kreyòl ayisyen";

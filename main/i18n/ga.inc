@@ -26,7 +26,7 @@ static const char *const lang_ga[STR_COUNT] = {
     [STR_FMT_PEERS_AGO] = "%d/%d freast.  poll %s  %s ó shin",
     [STR_WIFI_SETUP] = "Socrú Wi-Fi",
     [STR_SCANNING] = "Ag scanadh...",
-    [STR_SCAN_FAILED] = "Theip ar an scan",
+    [STR_SCAN_FAILED] = "Theip ar an scanadh",
     [STR_TAP_RETRY] = "Tapáil chun atriail",
     [STR_SELECT_NETWORK] = "Roghnaigh líonra",
     [STR_NO_NETWORKS] = "Níor aimsíodh líonra",
@@ -67,7 +67,7 @@ static const char *const weekdays_ga[7] = {
 
 static const char *const months_ga[12] = {
     "Ean", "Fea", "Már", "Aib", "Bea", "Mei",
-    "Iúi", "Lún", "MFó", "DFó", "Sam", "Nol",
+    "Iúil", "Lún", "MFó", "DFó", "Sam", "Nol",
 };
 
 static const char lang_name_ga[] = "Gaeilge";

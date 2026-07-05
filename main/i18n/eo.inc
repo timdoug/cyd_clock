@@ -66,8 +66,8 @@ static const char *const weekdays_eo[7] = {
 };
 
 static const char *const months_eo[12] = {
-    "Jan", "Feb", "Mar", "Apr", "Maj", "Jun",
-    "Jul", "Aŭg", "Sep", "Okt", "Nov", "Dec",
+    "jan", "feb", "mar", "apr", "maj", "jun",
+    "jul", "aŭg", "sep", "okt", "nov", "dec",
 };
 
 static const char lang_name_eo[] = "Esperanto";

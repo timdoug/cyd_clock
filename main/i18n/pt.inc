@@ -1,5 +1,5 @@
 static const char *const lang_pt[STR_COUNT] = {
-    [STR_SETTINGS] = "Definições",
+    [STR_SETTINGS] = "Configurações",
     [STR_WIFI] = "Wi-Fi",
     [STR_FAIL] = "falha",
     [STR_TIMEZONE] = "Fuso horário",

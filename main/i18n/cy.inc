@@ -52,7 +52,7 @@ static const char *const lang_cy[STR_COUNT] = {
     [STR_BENCHMARK] = "Prawf",
     [STR_STOPPING] = "Yn stopio",
     [STR_NTP_STATS] = "Ystadegau NTP",
-    [STR_UNSYNCED] = "dim sync",
+    [STR_UNSYNCED] = "dim cysoni",
     [STR_SYNCS_LABEL] = "  Cys.: ",
     [STR_NONE] = "dim",
     [STR_SELECT_REGION] = "Dewis rhanbarth",
@@ -67,7 +67,7 @@ static const char *const weekdays_cy[7] = {
 
 static const char *const months_cy[12] = {
     "Ion", "Chw", "Maw", "Ebr", "Mai", "Meh",
-    "Gor", "Aws", "Med", "Hyd", "Tach", "Rhag",
+    "Gor", "Awst", "Med", "Hyd", "Tach", "Rhag",
 };
 
 static const char lang_name_cy[] = "Cymraeg";
