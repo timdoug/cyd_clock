@@ -43,7 +43,7 @@ void update_peer_filter(ntp_peer_t *p) {
         int n = 0;
         for (int i = 0; i < NTP_FILTER_SIZE; i++) {
             if (!p->filter[i].valid || i == best_idx) continue;
-            double d = (double)(p->filter[i].offset_us - p->best_offset_us);
+            double d = (double)p->filter[i].offset_us - (double)p->best_offset_us;
             sum_sq += d * d;
             n++;
         }
