@@ -117,6 +117,9 @@ static inline uint8_t aa_alpha_at(const uint8_t *row, int col) {
 static void aa_blit(int16_t x, int16_t y, const uint8_t *glyph,
                     int width, int height, int stride,
                     uint16_t fg, uint16_t bg);
+static void display_string_font(int16_t x, int16_t y, const char *str,
+                                const display_glyph_font_t *font,
+                                uint16_t fg, uint16_t bg);
 
 // Decode the UTF-8 sequence at s. Writes the codepoint and returns the
 // byte length (1-4). Malformed input yields U+FFFD with length 1, so
@@ -514,7 +517,7 @@ void display_hline(int16_t x, int16_t y, int16_t w, uint16_t color) {
     display_fill_rect(x, y, w, 1, color);
 }
 
-void display_vline(int16_t x, int16_t y, int16_t h, uint16_t color) {
+static void display_vline(int16_t x, int16_t y, int16_t h, uint16_t color) {
     display_fill_rect(x, y, 1, h, color);
 }
 
@@ -602,7 +605,7 @@ void display_set_glyph_font(const display_glyph_font_t *font) {
     active_glyph_font = font;
 }
 
-int display_text_width_font(const char *str, const display_glyph_font_t *font) {
+static int display_text_width_font(const char *str, const display_glyph_font_t *font) {
     int width = 0;
     const unsigned char *p = (const unsigned char *)str;
     while (*p) {
@@ -632,9 +635,9 @@ void display_string(int16_t x, int16_t y, const char *str, uint16_t fg, uint16_t
     display_string_font(x, y, str, active_glyph_font, fg, bg);
 }
 
-void display_string_font(int16_t x, int16_t y, const char *str,
-                         const display_glyph_font_t *font,
-                         uint16_t fg, uint16_t bg) {
+static void display_string_font(int16_t x, int16_t y, const char *str,
+                                const display_glyph_font_t *font,
+                                uint16_t fg, uint16_t bg) {
     const unsigned char *p = (const unsigned char *)str;
     while (*p) {
         uint32_t cp;

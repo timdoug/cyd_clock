@@ -30,7 +30,6 @@
 // always repaint their full cell background.
 #define FONT_BASE_ASCII_FIRST 0x20
 #define FONT_BASE_ASCII_COUNT 95         // 0x20-0x7E
-#define FONT_BASE_GLYPH_BYTES 64         // 8x16 px at 4 bits each
 
 #define DISPLAY_GLYPH_WIDTH 16
 #define DISPLAY_GLYPH_HEIGHT 16
@@ -61,21 +60,15 @@ void display_fill_rect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t colo
 
 void display_hline(int16_t x, int16_t y, int16_t w, uint16_t color);
 
-void display_vline(int16_t x, int16_t y, int16_t h, uint16_t color);
-
 void display_rect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color);
 
 void display_char(int16_t x, int16_t y, char c, uint16_t fg, uint16_t bg);
 
 void display_string(int16_t x, int16_t y, const char *str, uint16_t fg, uint16_t bg);
-void display_string_font(int16_t x, int16_t y, const char *str,
-                         const display_glyph_font_t *font,
-                         uint16_t fg, uint16_t bg);
 
 void display_string_2x(int16_t x, int16_t y, const char *str, uint16_t fg, uint16_t bg);
 
 int display_text_width(const char *str);
-int display_text_width_font(const char *str, const display_glyph_font_t *font);
 void display_set_glyph_font(const display_glyph_font_t *font);
 
 // One rendering cell of a UTF-8 string: returns the byte length of the

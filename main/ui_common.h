@@ -94,7 +94,6 @@ void ui_draw_button(int x, int y, int w, int h, const char *label,
 void ui_draw_menu_item(int y, const char *label);
 
 void ui_draw_slider(int y, const char *label, uint8_t value, uint8_t max_value, uint16_t fill_color);
-void ui_draw_slider_value(int y, uint8_t value, uint8_t max_value, uint16_t fill_color);
 void ui_draw_slider_value_delta(int y, uint8_t old_value, uint8_t new_value,
                                 uint8_t max_value, uint16_t fill_color);
 
@@ -149,7 +148,6 @@ void ui_diff_paint(int x, int y, const char *old_text, const char *new_text,
 
 void ui_wait_for_touch_release(void);
 
-bool ui_should_debounce(uint32_t last_time_ticks);
 
 bool ui_read_touch(touch_point_t *touch, uint32_t *last_time_ticks);
 

@@ -22,12 +22,12 @@ const char *tr(str_id_t id) {
     return s ? s : "";
 }
 
-const char *tr_weekday(int dow) {
+static const char *tr_weekday(int dow) {
     if (dow < 0 || dow > 6) return "";
     return weekdays_by_lang[current_lang][dow];
 }
 
-const char *tr_month(int mon) {
+static const char *tr_month(int mon) {
     if (mon < 0 || mon > 11) return "";
     return months_by_lang[current_lang][mon];
 }
@@ -179,7 +179,7 @@ const char *i18n_lang_name(lang_t lang) {
     return lang_names[lang];
 }
 
-const display_glyph_font_t *i18n_glyph_font(lang_t lang) {
+static const display_glyph_font_t *i18n_glyph_font(lang_t lang) {
     switch (lang) {
     case LANG_JA: return &font_ja;
     case LANG_ZH: return &font_zh;

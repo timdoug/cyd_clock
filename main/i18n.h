@@ -135,10 +135,6 @@ typedef enum {
 // is NULL. Never returns NULL.
 const char *tr(str_id_t id);
 
-// Abbreviated weekday (dow 0=Sunday) / month (mon 0=January) names.
-const char *tr_weekday(int dow);
-const char *tr_month(int mon);
-
 // Format the clock date for the active language into buf.
 void tr_date(char *buf, size_t len, int wday, int mon, int mday, int year);
 
@@ -150,7 +146,6 @@ lang_t i18n_lang_from_code(const char *code);
 // Native display name of a language, for the picker (e.g. "Espanol").
 const char *i18n_lang_name(lang_t lang);
 const display_glyph_font_t *i18n_lang_name_font(lang_t lang);
-const display_glyph_font_t *i18n_glyph_font(lang_t lang);
 
 lang_t i18n_get_language(void);
 void i18n_set_language(lang_t lang);

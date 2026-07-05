@@ -31,15 +31,15 @@ extern const char *NTP_TAG;
 #define NTP_VERSION          4
 #define NTP_MODE_CLIENT      3
 #define NTP_MODE_SERVER      4
-#define NTP_PKT_SIZE         48
 #define NTP_EPOCH_OFFSET     2208988800UL  // 1900 -> 1970 in seconds
 // NTP wire timestamps carry seconds mod 2^32 - one ~136-year "era". This
 // fold constant maps a wire value to Unix seconds mod 2^32 with a single
 // wrapping add: era 0 (1900-2036) wants sec - NTP_EPOCH_OFFSET and era 1+
 // wants sec + (2^32 - NTP_EPOCH_OFFSET), which mod 2^32 are the same
 // operation. ntp_to_tv then resolves the absolute era against the anchor
-// year (util.h).
-#define NTP_UNIX_FOLD        2085978496UL  // 2^32 - NTP_EPOCH_OFFSET
+// year (util.h). Defined in terms of the offset so the derivation is
+// compiler-checked rather than a hand-computed literal.
+#define NTP_UNIX_FOLD        ((uint32_t)(0x100000000ULL - NTP_EPOCH_OFFSET))
 #define NTP_FILTER_SIZE      8
 
 // Optimize for the common case: public NTP over WiFi, where route/server

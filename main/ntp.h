@@ -47,7 +47,6 @@ typedef enum {
 } nts_mode_t;
 
 void ntp_init(const char *server, bool prefer_ipv6, nts_mode_t nts_mode);
-void ntp_stop(void);
 
 // Install a WiFi internal RX callback that stamps NTP responses at the
 // WiFi-task layer (before the lwIP/scheduler latency that would otherwise
@@ -66,6 +65,5 @@ bool ntp_nts_ke_in_flight(void);
 // lock five times per refresh, and a snapshot is also internally
 // consistent rather than five reads of a moving target.
 void ntp_get_all_stats(ntp_sys_stats_t *sys, ntp_peer_stats_t peers[NTP_MAX_PEERS]);
-void ntp_get_primary_addr_str(char *buf, size_t len);
 
 #endif

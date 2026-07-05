@@ -521,7 +521,7 @@ void ui_wait_for_touch_release(void) {
     }
 }
 
-bool ui_should_debounce(uint32_t last_time_ticks) {
+static bool ui_should_debounce(uint32_t last_time_ticks) {
     uint32_t now = xTaskGetTickCount();
     return (now - last_time_ticks) < pdMS_TO_TICKS(TOUCH_DEBOUNCE_MS);
 }
@@ -569,20 +569,6 @@ void ui_draw_slider(int y, const char *label, uint8_t value, uint8_t max_value, 
     compose_button(UI_SLIDER_BTN_X2, 2, UI_SLIDER_BTN_W, UI_SLIDER_BTN_H,
                    "+", COLOR_WHITE, COLOR_GRAY);
     display_compose_push(0, y);
-}
-
-void ui_draw_slider_value(int y, uint8_t value, uint8_t max_value, uint16_t fill_color) {
-    int bar_y = y + UI_SLIDER_BAR_Y_OFF;
-    int inner_x = UI_SLIDER_BAR_X + 2;
-    int inner_y = bar_y + 2;
-    int inner_w = UI_SLIDER_BAR_W - 4;
-    int inner_h = UI_SLIDER_BAR_H - 4;
-    int fill_w = max_value ? (value * inner_w) / max_value : 0;
-
-    display_fill_rect(inner_x, inner_y, inner_w, inner_h, COLOR_BLACK);
-    if (fill_w > 0) {
-        display_fill_rect(inner_x, inner_y, fill_w, inner_h, fill_color);
-    }
 }
 
 void ui_draw_slider_value_delta(int y, uint8_t old_value, uint8_t new_value,

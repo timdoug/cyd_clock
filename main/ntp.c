@@ -258,6 +258,8 @@ static void ntp_task(void *arg) {
 }
 
 
+static void ntp_stop(void);
+
 void ntp_init(const char *server, bool prefer_ipv6, nts_mode_t nts_mode) {
     if (g.running) ntp_stop();
     if (!g.lock) g.lock = xSemaphoreCreateMutex();
@@ -329,7 +331,7 @@ void ntp_init(const char *server, bool prefer_ipv6, nts_mode_t nts_mode) {
 }
 
 
-void ntp_stop(void) {
+static void ntp_stop(void) {
     if (!g.running) return;
     g.running = false;
     wake_task();
@@ -477,21 +479,3 @@ void ntp_get_all_stats(ntp_sys_stats_t *sys, ntp_peer_stats_t peers[NTP_MAX_PEER
     lock_give();
 }
 
-
-void ntp_get_primary_addr_str(char *buf, size_t len) {
-    if (!buf || len == 0) return;
-    buf[0] = '\0';
-    if (!g.lock) return;
-    lock_take();
-    int idx = g.selected_peer;
-    if (idx < 0) {
-        // Fall back to first active peer so the UI shows something while resolving.
-        for (int i = 0; i < NTP_MAX_PEERS; i++) {
-            if (g.peers[i].active) { idx = i; break; }
-        }
-    }
-    if (idx >= 0) {
-        str_copy(buf, len, g.peers[idx].addr_str);
-    }
-    lock_give();
-}
