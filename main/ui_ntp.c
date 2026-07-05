@@ -602,11 +602,13 @@ ntp_result_t ui_ntp_update(void) {
                 touch.x >= IPV6_TOGGLE_X && touch.x < IPV6_TOGGLE_X + IPV6_TOGGLE_W) {
                 ui_prefer_ipv6 = !ui_prefer_ipv6;
                 draw_ipv6_toggle();
+                ui_wait_for_touch_release();  // one tap, one toggle
             } else if (touch.y >= NTS_TOGGLE_Y && touch.y < NTS_TOGGLE_Y + NTS_TOGGLE_H &&
                 touch.x >= NTS_TOGGLE_X && touch.x < NTS_TOGGLE_X + NTS_TOGGLE_W) {
                 // Cycle NTS mode: No -> Attempt (opportunistic) -> Require -> No.
                 ui_nts_mode = (nts_mode_t)((ui_nts_mode + 1) % 3);
                 draw_nts_toggle();
+                ui_wait_for_touch_release();  // a held press otherwise cycles every debounce tick
             } else if (touch.y >= PRESETS_BTN_Y && touch.y < PRESETS_BTN_Y + PRESETS_BTN_H &&
                 touch.x >= PRESETS_BTN_X && touch.x < PRESETS_BTN_X + PRESETS_BTN_W) {
                 int hl = preset_highlight();

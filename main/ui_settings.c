@@ -157,19 +157,26 @@ settings_result_t ui_settings_update(void) {
         return SETTINGS_RESULT_NONE;
     }
 
+    // Every exit below flushes first: a drag that starts on a slider and
+    // releases on Done or a menu row never hits the unpressed-poll flush
+    // above, and ui_settings_init would re-read NVS and discard the edit.
     if (ui_back_button_hit(&touch)) {
+        flush_brightness_settings();
         return SETTINGS_RESULT_DONE;
     }
 
     if (touch.y >= TZ_ROW_Y && touch.y < TZ_ROW_Y + UI_ITEM_HEIGHT) {
+        flush_brightness_settings();
         return SETTINGS_RESULT_TIMEZONE;
     }
 
     if (touch.y >= WIFI_ROW_Y && touch.y < WIFI_ROW_Y + UI_ITEM_HEIGHT) {
+        flush_brightness_settings();
         return SETTINGS_RESULT_WIFI;
     }
 
     if (touch.y >= NTP_ROW_Y && touch.y < NTP_ROW_Y + UI_ITEM_HEIGHT) {
+        flush_brightness_settings();
         return SETTINGS_RESULT_NTP;
     }
 
@@ -201,13 +208,18 @@ settings_result_t ui_settings_update(void) {
         display_fill(COLOR_BLACK);
         draw_header();
         draw_menu();
+        // A held press otherwise re-toggles every debounce tick: full-screen
+        // flicker plus an NVS write per flip.
+        ui_wait_for_touch_release();
     }
 
     if (touch.y >= ABOUT_ROW_Y && touch.y < ABOUT_ROW_Y + UI_ITEM_HEIGHT) {
+        flush_brightness_settings();
         return SETTINGS_RESULT_ABOUT;
     }
 
     if (touch.y >= LANGUAGE_ROW_Y && touch.y < LANGUAGE_ROW_Y + UI_ITEM_HEIGHT) {
+        flush_brightness_settings();
         return SETTINGS_RESULT_LANGUAGE;
     }
 
