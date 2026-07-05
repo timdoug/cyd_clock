@@ -338,6 +338,7 @@ void wake_task(void);
 void drain_wake_sock(void);
 void ntp_build_client_request(ntp_pkt_t *pkt, int8_t poll);
 void schedule_after_request(ntp_peer_t *p);
+void settle_miss(ntp_peer_t *p, uint32_t cycle_id, bool shift_reach);
 bool send_request(ntp_peer_t *p);
 void handle_socket_readable(int sock, const struct timeval *t4);
 

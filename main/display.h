@@ -91,10 +91,10 @@ void display_compose_string_font(int16_t x, int16_t y, const char *str,
                                  uint16_t fg, uint16_t bg);
 void display_compose_push(int16_t x, int16_t y);
 
-// size: 1=small (20x40), 2=medium (40x80), 3=large (60x120)
-void display_digit_7seg(int16_t x, int16_t y, uint8_t digit, uint8_t size, uint16_t color, uint16_t bg);
+// Fixed 38x75 px bounding box (digit 10 draws a dash).
+void display_digit_7seg(int16_t x, int16_t y, uint8_t digit, uint16_t color, uint16_t bg);
 
-void display_colon_7seg(int16_t x, int16_t y, uint8_t size, uint16_t color);
+void display_colon_7seg(int16_t x, int16_t y, uint16_t color);
 
 void display_set_backlight(uint8_t brightness);
 

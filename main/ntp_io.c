@@ -105,12 +105,21 @@ void schedule_after_request(ntp_peer_t *p) {
     p->next_poll_cycle_id = next_global_poll_cycle_id;
 }
 
-static void settle_send_miss(ntp_peer_t *p, uint32_t request_cycle_id) {
+// Bookkeeping shared by every poll that settles without a response. A
+// failed send still owes its reach shift (shift_reach); a timeout's shift
+// already happened at send time. Eviction and the discipline gate stay
+// with the caller - the timeout path evicts between settling and gating.
+void settle_miss(ntp_peer_t *p, uint32_t cycle_id, bool shift_reach) {
     if (p->consecutive_misses < 255) p->consecutive_misses++;
-    p->reach <<= 1;
-    p->cycle_id_when_sent   = request_cycle_id;
-    p->last_settle_cycle_id = request_cycle_id;
+    if (shift_reach) p->reach <<= 1;
+    p->request_outstanding  = false;
+    p->cycle_id_when_sent   = cycle_id;
+    p->last_settle_cycle_id = cycle_id;
     schedule_after_request(p);
+}
+
+static void settle_send_miss(ntp_peer_t *p, uint32_t request_cycle_id) {
+    settle_miss(p, request_cycle_id, true);
     try_discipline(request_cycle_id);
 }
 

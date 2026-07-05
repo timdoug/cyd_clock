@@ -174,10 +174,8 @@ static void ntp_task(void *arg) {
                 (int32_t)(now - p->request_sent_ms) >= RESPONSE_TIMEOUT_MS) {
                 ESP_LOGW(TAG, "TIMEOUT peer=%s reach=%02x", p->addr_str, p->reach);
                 uint32_t settled_cycle_id = p->cycle_id_when_sent;
-                p->request_outstanding   = false;
-                p->last_settle_cycle_id  = settled_cycle_id;
-                if (p->consecutive_misses < 255) p->consecutive_misses++;
-                schedule_after_request(p);
+                // Reach was already shifted at send time for this request.
+                settle_miss(p, settled_cycle_id, false);
                 // Swap out chronically-bad peers. The peer actually evicted
                 // is the WORST currently-eligible one - it might be another
                 // peer with higher falseticker/jittery runs than this one's

@@ -161,7 +161,7 @@ static void draw_time_digit(int position, int digit) {
         default: return;
     }
 
-    display_digit_7seg(x, TIME_Y, digit, 2, COLOR_TIME_FG, COLOR_TIME_BG);
+    display_digit_7seg(x, TIME_Y, digit, COLOR_TIME_FG, COLOR_TIME_BG);
 }
 
 static void draw_colon(int position, bool visible) {
@@ -173,7 +173,7 @@ static void draw_colon(int position, bool visible) {
         x = TIME_START_X + 4 * TIME_DIGIT_STEP + COLON_7SEG_WIDTH - TIME_DIGIT_SPACING / 2;
     }
 
-    display_colon_7seg(x, TIME_Y, 2, visible ? COLOR_TIME_FG : COLOR_TIME_BG);
+    display_colon_7seg(x, TIME_Y, visible ? COLOR_TIME_FG : COLOR_TIME_BG);
 }
 
 static bool draw_fraction(int centisecond) {

@@ -678,8 +678,8 @@ void display_string_2x(int16_t x, int16_t y, const char *str, uint16_t fg, uint1
 // 30 px strip (the header); the size-3 digit needs less.
 #define DISPLAY_COMPOSE_MAX_H 30
 static uint8_t compose_buf[DISPLAY_WIDTH * DISPLAY_COMPOSE_MAX_H * 2];
-_Static_assert(sizeof(compose_buf) >= (48 + 8) * (2 * 48 + 2 * 8 - 1) * 2,
-               "compose_buf must fit the size-3 7-seg digit");
+_Static_assert(sizeof(compose_buf) >= (32 + 6) * (2 * 32 + 2 * 6 - 1) * 2,
+               "compose_buf must fit the 7-seg digit");
 static int16_t compose_w, compose_h;
 
 static void buf_hline(uint8_t *buf, int16_t buf_w, int16_t x, int16_t y,
@@ -821,20 +821,19 @@ void display_compose_push(int16_t x, int16_t y) {
     spi_write_bytes(compose_buf, (size_t)compose_w * compose_h * 2);
 }
 
-void display_digit_7seg(int16_t x, int16_t y, uint8_t digit, uint8_t size, uint16_t color, uint16_t bg) {
+// One fixed digit geometry: the clock face is the only caller. (The old
+// size-1/size-3 variants were never used and their advertised dimensions
+// didn't match what they drew.)
+#define SEG7_LEN   32
+#define SEG7_THICK 6
+#define SEG7_GAP   2
+
+void display_digit_7seg(int16_t x, int16_t y, uint8_t digit, uint16_t color, uint16_t bg) {
     if (digit > 10) return;
 
-    int16_t seg_len, seg_thick, gap;
-    switch (size) {
-        case 1: seg_len = 16; seg_thick = 4; gap = 1; break;
-        case 2: seg_len = 32; seg_thick = 6; gap = 2; break;
-        case 3:
-        default: seg_len = 48; seg_thick = 8; gap = 2; break;
-    }
-
+    const int16_t seg_len = SEG7_LEN, seg_thick = SEG7_THICK, gap = SEG7_GAP;
     int16_t w = seg_len + seg_thick;
     int16_t h = 2 * seg_len + 2 * seg_thick - 1;
-    if (x < 0 || y < 0 || x + w > DISPLAY_WIDTH || y + h > DISPLAY_HEIGHT) return;
 
     uint8_t pattern = seg7_patterns[digit];
 
@@ -850,15 +849,9 @@ void display_digit_7seg(int16_t x, int16_t y, uint8_t digit, uint8_t size, uint1
     int16_t v_low_y = seg_len + 3 * seg_thick / 2 - 2;
     int16_t v_low_len = v_len + 1;
 
-    // Background-fill the buffer; "off" segments need no explicit erase since
-    // the full bounding box is pushed every time (same no-flash behavior).
-    uint8_t hi = bg >> 8, lo = bg & 0xFF;
-    int32_t total = (int32_t)w * h;
-    for (int32_t i = 0; i < total; i++) {
-        compose_buf[i * 2]     = hi;
-        compose_buf[i * 2 + 1] = lo;
-    }
-
+    // Compose + push like every other region; "off" segments need no
+    // explicit erase since the full bounding box is pushed every time.
+    if (!display_compose_begin(w, h, bg)) return;
     if (pattern & 0x01) buf_segment_h(compose_buf, w, seg_thick / 2 + gap, 0, h_len, seg_thick, color);
     if (pattern & 0x02) buf_segment_v(compose_buf, w, seg_len, seg_thick / 2 + gap, v_len, seg_thick, color);
     if (pattern & 0x04) buf_segment_v(compose_buf, w, seg_len, v_low_y, v_low_len, seg_thick, color);
@@ -866,20 +859,11 @@ void display_digit_7seg(int16_t x, int16_t y, uint8_t digit, uint8_t size, uint1
     if (pattern & 0x10) buf_segment_v(compose_buf, w, 0, v_low_y, v_low_len, seg_thick, color);
     if (pattern & 0x20) buf_segment_v(compose_buf, w, 0, seg_thick / 2 + gap, v_len, seg_thick, color);
     if (pattern & 0x40) buf_segment_h(compose_buf, w, seg_thick / 2 + gap, seg_len + seg_thick / 2 - 1, h_len, seg_thick, color);
-
-    set_addr_window(x, y, w, h);
-    dc_data();
-    spi_write_bytes(compose_buf, (size_t)w * h * 2);
+    display_compose_push(x, y);
 }
 
-void display_colon_7seg(int16_t x, int16_t y, uint8_t size, uint16_t color) {
-    int16_t seg_len, seg_thick, dot_size;
-    switch (size) {
-        case 1: seg_len = 16; seg_thick = 4; dot_size = 4; break;
-        case 2: seg_len = 32; seg_thick = 6; dot_size = 6; break;
-        case 3:
-        default: seg_len = 48; seg_thick = 8; dot_size = 8; break;
-    }
+void display_colon_7seg(int16_t x, int16_t y, uint16_t color) {
+    const int16_t seg_len = SEG7_LEN, seg_thick = SEG7_THICK, dot_size = SEG7_THICK;
 
     // Dots centered in the COLON_7SEG_WIDTH slot, the pair symmetric
     // within the digit bounding box (dot-to-top-segment distance equals
