@@ -1,6 +1,7 @@
 #include "ntp_siv.h"
 
 #include <string.h>
+#include <stdint.h>
 #include "mbedtls/platform_util.h"
 #include "psa/crypto.h"
 
@@ -44,6 +45,22 @@ static void xor_block(uint8_t dst[BLK], const uint8_t a[BLK], const uint8_t b[BL
     for (int i = 0; i < BLK; i++) dst[i] = a[i] ^ b[i];
 }
 
+static bool ranges_overlap(const void *a, size_t alen, const void *b, size_t blen) {
+    if (alen == 0 || blen == 0) return false;
+    uintptr_t ap = (uintptr_t)a;
+    uintptr_t bp = (uintptr_t)b;
+    return ap < bp ? bp - ap < alen : ap - bp < blen;
+}
+
+static bool inputs_valid(const uint8_t *const ad[], const size_t ad_len[], size_t ad_count,
+                         const uint8_t *text, size_t text_len) {
+    if (ad_count > 0 && (!ad || !ad_len)) return false;
+    for (size_t i = 0; i < ad_count; i++) {
+        if (ad_len[i] > 0 && !ad[i]) return false;
+    }
+    return text_len == 0 || text != NULL;
+}
+
 // S2V(K, S_1, ..., S_m) per RFC 5297 section 2.4, where S_m (the last vector
 // component) is the plaintext and S_1..S_{m-1} are the associated-data
 // components passed in ad[]/ad_len[].
@@ -76,7 +93,8 @@ static bool s2v(const uint8_t key[BLK],
         ok = psa_mac_sign_setup(&op, id, PSA_ALG_CMAC) == PSA_SUCCESS &&
              psa_mac_update(&op, pt, head) == PSA_SUCCESS &&
              psa_mac_update(&op, last, BLK) == PSA_SUCCESS &&
-             psa_mac_sign_finish(&op, out, BLK, &olen) == PSA_SUCCESS;
+             psa_mac_sign_finish(&op, out, BLK, &olen) == PSA_SUCCESS &&
+             olen == BLK;
         if (!ok) psa_mac_abort(&op);
         mbedtls_platform_zeroize(last, sizeof(last));
     } else if (ok) {
@@ -102,6 +120,7 @@ static bool s2v(const uint8_t key[BLK],
 static bool siv_ctr(const uint8_t enc_key[BLK], const uint8_t siv[BLK],
                     const uint8_t *in, size_t len, uint8_t *out) {
     if (len == 0) return true;
+    if (!in || !out || ranges_overlap(in, len, out, len)) return false;
     uint8_t ctr[BLK];
     memcpy(ctr, siv, BLK);
     ctr[8]  &= 0x7f;
@@ -135,6 +154,8 @@ bool ntp_siv_encrypt(const uint8_t key[NTP_SIV_KEY_LEN],
                      const uint8_t *const ad[], const size_t ad_len[], size_t ad_count,
                      const uint8_t *plaintext, size_t pt_len,
                      uint8_t siv_out[NTP_SIV_TAG_LEN], uint8_t *ct_out) {
+    if (!key || !siv_out || !inputs_valid(ad, ad_len, ad_count, plaintext, pt_len)) return false;
+    if (pt_len > 0 && (!ct_out || ranges_overlap(plaintext, pt_len, ct_out, pt_len))) return false;
     if (psa_crypto_init() != PSA_SUCCESS) return false;
     const uint8_t *mac_key = key;        // leftmost half: S2V
     const uint8_t *enc_key = key + BLK;  // rightmost half: CTR
@@ -146,19 +167,29 @@ bool ntp_siv_decrypt(const uint8_t key[NTP_SIV_KEY_LEN],
                      const uint8_t *const ad[], const size_t ad_len[], size_t ad_count,
                      const uint8_t siv[NTP_SIV_TAG_LEN],
                      const uint8_t *ct, size_t ct_len, uint8_t *pt_out) {
+    if (!key || !siv || !inputs_valid(ad, ad_len, ad_count, ct, ct_len)) return false;
+    if (ct_len > 0 && (!pt_out || ranges_overlap(ct, ct_len, pt_out, ct_len))) return false;
     if (psa_crypto_init() != PSA_SUCCESS) return false;
     const uint8_t *mac_key = key;
     const uint8_t *enc_key = key + BLK;
     if (!siv_ctr(enc_key, siv, ct, ct_len, pt_out)) return false;
 
     uint8_t check[BLK];
-    if (!s2v(mac_key, ad, ad_len, ad_count, pt_out, ct_len, check)) return false;
+    bool ok = s2v(mac_key, ad, ad_len, ad_count, pt_out, ct_len, check);
+    if (!ok) {
+        if (ct_len > 0) mbedtls_platform_zeroize(pt_out, ct_len);
+        mbedtls_platform_zeroize(check, sizeof(check));
+        return false;
+    }
 
     // Constant-time tag compare: accumulate differences so timing doesn't leak
     // how many leading bytes matched.
     uint8_t diff = 0;
     for (int i = 0; i < BLK; i++) diff |= (uint8_t)(check[i] ^ siv[i]);
-    return diff == 0;
+    ok = diff == 0;
+    if (!ok && ct_len > 0) mbedtls_platform_zeroize(pt_out, ct_len);
+    mbedtls_platform_zeroize(check, sizeof(check));
+    return ok;
 }
 
 bool ntp_siv_selftest(void) {

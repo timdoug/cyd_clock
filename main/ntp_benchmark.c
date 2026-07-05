@@ -13,6 +13,7 @@
 #include "lwip/sockets.h"
 #include "mbedtls/platform_util.h"
 #include "ntp_internal.h"
+#include "ntp_siv.h"
 
 static const char *BENCH_TAG = "ntp_bench";
 
@@ -172,7 +173,13 @@ ntp_benchmark_status_t ntp_benchmark_server(const char *host,
     memset(&nts, 0, sizeof(nts));
     bool have_nts = false;
     if (nts_mode != NTS_MODE_OFF) {
-        have_nts = ntp_nts_ke_run(host, &nts);
+        static bool nts_checked = false, nts_ok = false;
+        if (!nts_checked) {
+            nts_ok = ntp_siv_selftest() && ntp_nts_selftest();
+            nts_checked = true;
+            ESP_LOGI(BENCH_TAG, "NTS crypto self-test %s", nts_ok ? "passed" : "FAILED");
+        }
+        have_nts = nts_ok && ntp_nts_ke_run(host, &nts);
         if (!have_nts && nts_mode == NTS_MODE_REQUIRE) {
             mbedtls_platform_zeroize(&nts, sizeof(nts));
             out->status = NTP_BENCHMARK_NTS_FAILED;

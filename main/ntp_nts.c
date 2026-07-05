@@ -26,6 +26,15 @@ static bool ef_len_ok(uint16_t eflen, size_t off, size_t pkt_len) {
     return eflen >= 16 && (eflen & 3u) == 0 && off + eflen <= pkt_len;
 }
 
+static bool nts_cookie_pool_ok(const ntp_nts_ctx_t *ctx, bool require_cookie) {
+    if (!ctx || ctx->cookie_count < 0 || ctx->cookie_count > NTS_MAX_COOKIES) return false;
+    if (require_cookie && ctx->cookie_count == 0) return false;
+    for (int i = 0; i < ctx->cookie_count; i++) {
+        if (ctx->cookie_len[i] == 0 || ctx->cookie_len[i] > NTS_COOKIE_MAX) return false;
+    }
+    return true;
+}
+
 // NTS-KE request: Next Protocol Negotiation = NTPv4(0), AEAD Negotiation =
 // AES-SIV-CMAC-256(15), End of Message. The high bit of each record type is the
 // Critical flag (RFC 8915 section 4).
@@ -39,10 +48,11 @@ static const uint8_t KE_REQUEST[] = {
 // bytes long. val == NULL writes a zero-filled placeholder body.
 static bool ef_append(uint8_t *buf, size_t *len, size_t cap,
                       uint16_t type, const uint8_t *val, size_t val_len) {
+    if (!buf || !len || *len > cap) return false;
     size_t total  = 4 + val_len;
     size_t padded = (total + 3) & ~(size_t)3;
     if (padded < 16) padded = 16;
-    if (*len + padded > cap) return false;
+    if (padded > cap - *len) return false;
     uint8_t *p = buf + *len;
     p[0] = (uint8_t)(type >> 8); p[1] = (uint8_t)type;
     p[2] = (uint8_t)(padded >> 8); p[3] = (uint8_t)padded;
@@ -72,7 +82,7 @@ static int ke_parse(const uint8_t *buf, size_t len, ntp_nts_ctx_t *out) {
             return 1;
         case 1:
             // Next Protocol Negotiation (RFC 8915 4.1.2) MUST be critical.
-            if ((rt & 0x8000) == 0) return -1;
+            if ((rt & 0x8000) == 0 || (blen & 1u)) return -1;
             for (int i = 0; i + 1 < blen; i += 2)
                 if (((body[i] << 8) | body[i + 1]) == 0) proto_ok = true;
             break;
@@ -87,6 +97,7 @@ static int ke_parse(const uint8_t *buf, size_t len, ntp_nts_ctx_t *out) {
                      blen >= 2 ? (unsigned)((body[0] << 8) | body[1]) : 0);
             return -1;
         case 4:
+            if (blen & 1u) return -1;
             for (int i = 0; i + 1 < blen; i += 2)
                 if (((body[i] << 8) | body[i + 1]) == 15) aead_ok = true;
             break;
@@ -108,7 +119,10 @@ static int ke_parse(const uint8_t *buf, size_t len, ntp_nts_ctx_t *out) {
             }
             break;
         case 7:
-            if (blen == 2) out->ntp_port = (uint16_t)((body[0] << 8) | body[1]);
+            if (blen != 2) return -1;
+            uint16_t port = (uint16_t)((body[0] << 8) | body[1]);
+            if (port == 0) return -1;
+            out->ntp_port = port;
             break;
         default:
             if (rt & 0x8000) return -1;
@@ -253,7 +267,7 @@ static bool ke_attempt(const char *host, ntp_nts_ctx_t *out) {
 
     esp_tls_conn_destroy(tls);
 
-    if (ok && eom && keys_ok && out->cookie_count > 0) {
+    if (ok && eom && keys_ok && nts_cookie_pool_ok(out, true)) {
         out->valid = true;
         ESP_LOGI(TAG, "KE ok: %s:%u, %d cookies%s", out->ntp_host, out->ntp_port,
                  out->cookie_count, use_pin ? " (pinned cert)" : "");
@@ -276,7 +290,7 @@ bool ntp_nts_ke_run(const char *host, ntp_nts_ctx_t *out) {
 
 bool ntp_nts_add_ef(uint8_t *buf, size_t *len, size_t cap,
                     ntp_nts_ctx_t *ctx, uint8_t uid_out[NTS_UID_LEN]) {
-    if (ctx->cookie_count <= 0) return false;
+    if (!buf || !len || !uid_out || !nts_cookie_pool_ok(ctx, true)) return false;
 
     bool ok = false;
     size_t orig_len = *len;
@@ -315,6 +329,10 @@ bool ntp_nts_add_ef(uint8_t *buf, size_t *len, size_t cap,
     // fail, which the caller reads as cookie exhaustion and answers by
     // tearing down a working context.
     size_t auth_reserve = 4 + sizeof(body);
+    if (cap < auth_reserve) {
+        *len = orig_len;
+        goto out;
+    }
     for (int i = 0; i < want; i++) {
         if (!ef_append(buf, len, cap - auth_reserve, EF_COOKIE_PLACEHOLDER, NULL, clen)) break;
     }
@@ -356,7 +374,7 @@ out:
 
 bool ntp_nts_check_response(const uint8_t *pkt, size_t pkt_len,
                             ntp_nts_ctx_t *ctx, const uint8_t uid[NTS_UID_LEN]) {
-    if (pkt_len < 48) return false;
+    if (!pkt || !uid || !nts_cookie_pool_ok(ctx, false) || pkt_len < 48) return false;
 
     // The Authenticator EF is last; everything before it is the AEAD
     // associated data. The echoed Unique ID is validated in the same pass.
@@ -421,6 +439,15 @@ bool ntp_nts_check_response(const uint8_t *pkt, size_t pkt_len,
         return false;
     }
 
+    uint8_t (*fresh_cookie)[NTS_COOKIE_MAX] = malloc(NTS_MAX_COOKIES * NTS_COOKIE_MAX);
+    if (!fresh_cookie) {
+        mbedtls_platform_zeroize(plain, enc_len);
+        free(plain);
+        return false;
+    }
+    uint16_t fresh_cookie_len[NTS_MAX_COOKIES] = {0};
+    int fresh_cookie_count = 0;
+
     bool enc_fields_ok = true;
     size_t po = 0;
     while (po + 4 <= enc_len) {
@@ -432,15 +459,25 @@ bool ntp_nts_check_response(const uint8_t *pkt, size_t pkt_len,
         }
         if (t == EF_COOKIE) {
             uint16_t cl = l - 4;
-            if (cl <= NTS_COOKIE_MAX && ctx->cookie_count < NTS_MAX_COOKIES) {
-                memcpy(ctx->cookie[ctx->cookie_count], plain + po + 4, cl);
-                ctx->cookie_len[ctx->cookie_count] = cl;
-                ctx->cookie_count++;
+            if (cl > 0 && cl <= NTS_COOKIE_MAX &&
+                ctx->cookie_count + fresh_cookie_count < NTS_MAX_COOKIES) {
+                memcpy(fresh_cookie[fresh_cookie_count], plain + po + 4, cl);
+                fresh_cookie_len[fresh_cookie_count] = cl;
+                fresh_cookie_count++;
             }
         }
         po += l;
     }
     if (po != enc_len) enc_fields_ok = false;
+    if (enc_fields_ok) {
+        for (int i = 0; i < fresh_cookie_count; i++) {
+            memcpy(ctx->cookie[ctx->cookie_count], fresh_cookie[i], fresh_cookie_len[i]);
+            ctx->cookie_len[ctx->cookie_count] = fresh_cookie_len[i];
+            ctx->cookie_count++;
+        }
+    }
+    mbedtls_platform_zeroize(fresh_cookie, NTS_MAX_COOKIES * NTS_COOKIE_MAX);
+    free(fresh_cookie);
     mbedtls_platform_zeroize(plain, enc_len);
     free(plain);
     return enc_fields_ok;
@@ -448,7 +485,7 @@ bool ntp_nts_check_response(const uint8_t *pkt, size_t pkt_len,
 
 bool ntp_nts_response_uid_matches(const uint8_t *pkt, size_t pkt_len,
                                   const uint8_t uid[NTS_UID_LEN]) {
-    if (pkt_len < 48) return false;
+    if (!pkt || !uid || pkt_len < 48) return false;
 
     size_t off = 48;
     while (off + 4 <= pkt_len) {
@@ -508,8 +545,40 @@ bool ntp_nts_selftest(void) {
     memcpy(pkt + pkt_len, trailing, sizeof(trailing));
     if (ntp_nts_check_response(pkt, pkt_len + sizeof(trailing), &ctx, uid)) return false;
 
+    uint8_t bad_pkt[192] = {0};
+    size_t bad_len = 48;
+    if (!ef_append(bad_pkt, &bad_len, sizeof(bad_pkt), EF_UNIQUE_ID, uid, sizeof(uid))) return false;
+    uint8_t bad_nonce[NTS_NONCE_LEN];
+    for (size_t i = 0; i < sizeof(bad_nonce); i++) bad_nonce[i] = (uint8_t)(0xc0u + i);
+    uint8_t bad_plain[20] = {
+        0x02, 0x04, 0x00, 0x10,
+        0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7,
+        0xa8, 0xa9, 0xaa, 0xab,
+        0x00, 0x00, 0x00, 0x04,
+    };
+    const uint8_t *bad_ad[2] = { bad_pkt, bad_nonce };
+    const size_t bad_adl[2] = { bad_len, sizeof(bad_nonce) };
+    uint8_t bad_tag[NTP_SIV_TAG_LEN];
+    uint8_t bad_ct[sizeof(bad_plain)];
+    if (!ntp_siv_encrypt(ctx.s2c, bad_ad, bad_adl, 2,
+                         bad_plain, sizeof(bad_plain), bad_tag, bad_ct)) return false;
+    uint8_t bad_body[4 + NTS_NONCE_LEN + NTP_SIV_TAG_LEN + sizeof(bad_ct)];
+    bad_body[0] = 0; bad_body[1] = NTS_NONCE_LEN;
+    bad_body[2] = 0; bad_body[3] = NTP_SIV_TAG_LEN + sizeof(bad_ct);
+    memcpy(bad_body + 4, bad_nonce, sizeof(bad_nonce));
+    memcpy(bad_body + 4 + sizeof(bad_nonce), bad_tag, sizeof(bad_tag));
+    memcpy(bad_body + 4 + sizeof(bad_nonce) + sizeof(bad_tag), bad_ct, sizeof(bad_ct));
+    if (!ef_append(bad_pkt, &bad_len, sizeof(bad_pkt),
+                   EF_AUTHENTICATOR, bad_body, sizeof(bad_body))) return false;
+    ctx.cookie_count = 0;
+    if (ntp_nts_check_response(bad_pkt, bad_len, &ctx, uid)) return false;
+    if (ctx.cookie_count != 0) return false;
+
     mbedtls_platform_zeroize(&ctx, sizeof(ctx));
     mbedtls_platform_zeroize(tag, sizeof(tag));
     mbedtls_platform_zeroize(body, sizeof(body));
+    mbedtls_platform_zeroize(bad_tag, sizeof(bad_tag));
+    mbedtls_platform_zeroize(bad_body, sizeof(bad_body));
+    mbedtls_platform_zeroize(bad_ct, sizeof(bad_ct));
     return true;
 }
