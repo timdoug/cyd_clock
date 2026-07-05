@@ -72,6 +72,7 @@ static void schedule_reconnect(void) {
 
 void wifi_poll_reconnect(void) {
     if (!reconnect_pending) return;
+    if (scan_running) return;   // connecting mid-scan aborts the scan; retry after
     if ((int32_t)(mono_ms() - reconnect_at_ms) < 0) return;
     reconnect_pending = false;
     ESP_LOGI(TAG, "Background reconnect attempt");
@@ -151,9 +152,14 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
             // esp_wifi_start. Install/re-install ours here so we sit on top
             // of theirs (and so reconnects also re-install).
             ntp_install_wifi_rx_hook();
+            // Under the lock like every other writer: an interleaving
+            // schedule_reconnect must not resurrect pending state or leave
+            // the doubled delay behind after a successful connect.
+            portENTER_CRITICAL(&wifi_state_lock);
             retry_count = 0;
             reconnect_delay_ms = WIFI_RECONNECT_MIN_MS;
             reconnect_pending = false;
+            portEXIT_CRITICAL(&wifi_state_lock);
             xEventGroupClearBits(wifi_event_group, WIFI_FAIL_BIT);
             xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_BIT);
         } else if (event_id == IP_EVENT_GOT_IP6) {
@@ -185,6 +191,11 @@ void wifi_init(void) {
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+
+    // Credentials live in our own NVS namespace and are re-applied on every
+    // connect; the driver's default WIFI_STORAGE_FLASH would keep a second
+    // plaintext copy (stale-able) in nvs.net80211.
+    ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
 
     ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT,
                                                         ESP_EVENT_ANY_ID,
@@ -286,9 +297,15 @@ bool wifi_scan_start_async(void) {
     ESP_LOGI(TAG, "Starting WiFi scan");
 
     // Pause any pending background reconnect for the scan window - a
-    // connect attempt in flight makes esp_wifi_scan_start fail.
+    // connect attempt in flight makes esp_wifi_scan_start fail. One critical
+    // section for the handoff AND scan_running: a disconnect event landing
+    // between them would see scan_running still false and connect (or
+    // re-arm reconnect_pending) mid-scan, aborting it.
+    portENTER_CRITICAL(&wifi_state_lock);
     scan_resume_reconnect = reconnect_pending;
     reconnect_pending = false;
+    scan_running = true;
+    portEXIT_CRITICAL(&wifi_state_lock);
     xEventGroupClearBits(wifi_event_group, WIFI_SCAN_DONE_BIT);
 
     wifi_scan_config_t scan_config = {
@@ -301,7 +318,6 @@ bool wifi_scan_start_async(void) {
         .scan_time.active.max = 300,
     };
 
-    scan_running = true;
     esp_err_t err = esp_wifi_scan_start(&scan_config, false);
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "WiFi scan failed to start: %s", esp_err_to_name(err));
@@ -338,6 +354,11 @@ void wifi_scan_cancel(void) {
         if (err != ESP_OK) {
             ESP_LOGW(TAG, "WiFi scan stop failed: %s", esp_err_to_name(err));
         }
+        // scan_stop posts its SCAN_DONE event asynchronously; drain it here
+        // so the bit can't land after our clear and satisfy the NEXT scan's
+        // poll with this aborted scan's records.
+        xEventGroupWaitBits(wifi_event_group, WIFI_SCAN_DONE_BIT,
+                            pdFALSE, pdFALSE, pdMS_TO_TICKS(200));
     }
     xEventGroupClearBits(wifi_event_group, WIFI_SCAN_DONE_BIT);
     wifi_scan_finish();
