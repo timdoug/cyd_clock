@@ -1,5 +1,6 @@
 #include "ntp_nts.h"
 
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include "esp_crt_bundle.h"
@@ -23,7 +24,8 @@ static const char *TAG = "nts";
 #define NTS_NONCE_LEN 16
 
 static bool ef_len_ok(uint16_t eflen, size_t off, size_t pkt_len) {
-    return eflen >= 16 && (eflen & 3u) == 0 && off + eflen <= pkt_len;
+    return eflen >= 16 && (eflen & 3u) == 0 &&
+           off <= pkt_len && (size_t)eflen <= pkt_len - off;
 }
 
 static bool nts_cookie_pool_ok(const ntp_nts_ctx_t *ctx, bool require_cookie) {
@@ -49,9 +51,11 @@ static const uint8_t KE_REQUEST[] = {
 static bool ef_append(uint8_t *buf, size_t *len, size_t cap,
                       uint16_t type, const uint8_t *val, size_t val_len) {
     if (!buf || !len || *len > cap) return false;
+    if (val_len > UINT16_MAX - 4u) return false;
     size_t total  = 4 + val_len;
     size_t padded = (total + 3) & ~(size_t)3;
     if (padded < 16) padded = 16;
+    if (padded > UINT16_MAX) return false;
     if (padded > cap - *len) return false;
     uint8_t *p = buf + *len;
     p[0] = (uint8_t)(type >> 8); p[1] = (uint8_t)type;
@@ -64,26 +68,28 @@ static bool ef_append(uint8_t *buf, size_t *len, size_t cap,
 }
 
 static int ke_parse(const uint8_t *buf, size_t len, ntp_nts_ctx_t *out) {
+    if (!buf || !out) return -1;
     size_t off = 0;
     bool proto_ok = false, aead_ok = false;
     int cookies = 0;
-    while (off + 4 <= len) {
+    while (off <= len && len - off >= 4) {
         uint16_t rt   = (uint16_t)((buf[off] << 8) | buf[off + 1]);
         uint16_t blen = (uint16_t)((buf[off + 2] << 8) | buf[off + 3]);
         uint16_t type = rt & 0x7fff;
-        if (off + 4 + blen > len) return 0;
+        if ((size_t)blen > len - off - 4) return 0;
         const uint8_t *body = buf + off + 4;
         switch (type) {
         case 0:
             // End of Message (RFC 8915 4.1.1): Critical Bit set, empty body.
             if ((rt & 0x8000) == 0 || blen != 0) return -1;
+            if (len - off != 4) return -1;
             if (!proto_ok || !aead_ok || cookies == 0) return -1;
             out->cookie_count = cookies;
             return 1;
         case 1:
             // Next Protocol Negotiation (RFC 8915 4.1.2) MUST be critical.
             if ((rt & 0x8000) == 0 || (blen & 1u)) return -1;
-            for (int i = 0; i + 1 < blen; i += 2)
+            for (size_t i = 0; i + 1 < blen; i += 2)
                 if (((body[i] << 8) | body[i + 1]) == 0) proto_ok = true;
             break;
         case 2:
@@ -98,7 +104,7 @@ static int ke_parse(const uint8_t *buf, size_t len, ntp_nts_ctx_t *out) {
             return -1;
         case 4:
             if (blen & 1u) return -1;
-            for (int i = 0; i + 1 < blen; i += 2)
+            for (size_t i = 0; i + 1 < blen; i += 2)
                 if (((body[i] << 8) | body[i + 1]) == 15) aead_ok = true;
             break;
         case 5:
@@ -113,6 +119,9 @@ static int ke_parse(const uint8_t *buf, size_t len, ntp_nts_ctx_t *out) {
             // cannot be stored; silently keeping the KE host risks cookie/host
             // mismatch NAKs, so fail the handshake instead. Empty stays lenient.
             if (blen >= sizeof(out->ntp_host)) return -1;
+            for (size_t i = 0; i < blen; i++) {
+                if (body[i] == '\0' || body[i] < 0x20 || body[i] == 0x7f) return -1;
+            }
             if (blen > 0) {
                 memcpy(out->ntp_host, body, blen);
                 out->ntp_host[blen] = '\0';
@@ -147,14 +156,61 @@ static int ke_parse(const uint8_t *buf, size_t len, ntp_nts_ctx_t *out) {
 // a day (forcing a fresh bundle verification, e.g. for cert expiry),
 // and any mismatch clears it and falls back to the bundle.
 //
-// No locking: KE attempts are serialized by the single nts_ke task
-// (spawn_ke_task guards on ke_in_flight).
+// The main NTP task serializes its own KE attempts, but the benchmark
+// path can also run NTS-KE. Snapshot the pin under a spinlock before a
+// pinned retry so another caller cannot swap the DER being trusted.
 #define NTS_PIN_MAX    1600
 #define NTS_PIN_TTL_MS (24u * 60u * 60u * 1000u)
+static portMUX_TYPE pin_lock = portMUX_INITIALIZER_UNLOCKED;
 static uint8_t pin_der[NTS_PIN_MAX];
 static uint16_t pin_len;
 static char pin_host[64];
 static uint32_t pin_born_ms;
+
+static bool pin_cache_load(const char *host, uint32_t now_ms,
+                           uint8_t der[NTS_PIN_MAX], uint16_t *len) {
+    if (!host || !der || !len) return false;
+    bool hit = false;
+    *len = 0;
+
+    portENTER_CRITICAL(&pin_lock);
+    if (pin_len > 0 && strcmp(pin_host, host) == 0 &&
+        (uint32_t)(now_ms - pin_born_ms) < NTS_PIN_TTL_MS) {
+        memcpy(der, pin_der, pin_len);
+        *len = pin_len;
+        hit = true;
+    }
+    portEXIT_CRITICAL(&pin_lock);
+
+    return hit;
+}
+
+static void pin_cache_store(const char *host, const uint8_t *der,
+                            size_t len, uint32_t now_ms) {
+    if (!host || !der || len == 0 || len > sizeof(pin_der)) return;
+    if (strlen(host) >= sizeof(pin_host)) return;
+
+    portENTER_CRITICAL(&pin_lock);
+    memcpy(pin_der, der, len);
+    pin_len = (uint16_t)len;
+    pin_born_ms = now_ms;
+    str_copy(pin_host, sizeof(pin_host), host);
+    portEXIT_CRITICAL(&pin_lock);
+}
+
+static void pin_cache_clear_match(const char *host, const uint8_t *der,
+                                  uint16_t len) {
+    if (!host || !der || len == 0) return;
+
+    portENTER_CRITICAL(&pin_lock);
+    if (pin_len == len && strcmp(pin_host, host) == 0 &&
+        memcmp(pin_der, der, len) == 0) {
+        pin_len = 0;
+        pin_host[0] = '\0';
+        pin_born_ms = 0;
+    }
+    portEXIT_CRITICAL(&pin_lock);
+}
 
 // Passed as crt_bundle_attach for the pinned attempt: esp-tls requires a
 // verification option, and runs this after setting VERIFY_REQUIRED, so
@@ -165,8 +221,57 @@ static esp_err_t pin_attach_verify_none(void *conf) {
     return ESP_OK;
 }
 
+static bool ke_parser_selftest(void) {
+    static const uint8_t ok_resp[] = {
+        0x80, 0x01, 0x00, 0x02, 0x00, 0x00,
+        0x80, 0x04, 0x00, 0x02, 0x00, 0x0f,
+        0x00, 0x05, 0x00, 0x04, 0xde, 0xad, 0xbe, 0xef,
+        0x80, 0x00, 0x00, 0x00,
+    };
+    ntp_nts_ctx_t parsed = {0};
+    if (ke_parse(ok_resp, sizeof(ok_resp), &parsed) != 1) return false;
+    if (parsed.cookie_count != 1 || parsed.cookie_len[0] != 4) return false;
+    if (memcmp(parsed.cookie[0], ok_resp + 16, 4) != 0) return false;
+
+    uint8_t trailing[sizeof(ok_resp) + 1];
+    memcpy(trailing, ok_resp, sizeof(ok_resp));
+    trailing[sizeof(ok_resp)] = 0xa5;
+    memset(&parsed, 0, sizeof(parsed));
+    if (ke_parse(trailing, sizeof(trailing), &parsed) >= 0) return false;
+
+    static const uint8_t nul_host_resp[] = {
+        0x80, 0x01, 0x00, 0x02, 0x00, 0x00,
+        0x80, 0x04, 0x00, 0x02, 0x00, 0x0f,
+        0x00, 0x06, 0x00, 0x03, 'a', 0x00, 'b',
+        0x00, 0x05, 0x00, 0x04, 0xde, 0xad, 0xbe, 0xef,
+        0x80, 0x00, 0x00, 0x00,
+    };
+    memset(&parsed, 0, sizeof(parsed));
+    if (ke_parse(nul_host_resp, sizeof(nul_host_resp), &parsed) >= 0) return false;
+
+    static const uint8_t control_host_resp[] = {
+        0x80, 0x01, 0x00, 0x02, 0x00, 0x00,
+        0x80, 0x04, 0x00, 0x02, 0x00, 0x0f,
+        0x00, 0x06, 0x00, 0x02, 'a', 0x7f,
+        0x00, 0x05, 0x00, 0x04, 0xde, 0xad, 0xbe, 0xef,
+        0x80, 0x00, 0x00, 0x00,
+    };
+    memset(&parsed, 0, sizeof(parsed));
+    if (ke_parse(control_host_resp, sizeof(control_host_resp), &parsed) >= 0) {
+        return false;
+    }
+
+    return true;
+}
+
 static bool ke_attempt(const char *host, ntp_nts_ctx_t *out) {
+    if (!host || !out) return false;
     memset(out, 0, sizeof(*out));
+    size_t host_len = strlen(host);
+    if (host_len == 0 || host_len >= sizeof(out->ntp_host) ||
+        host_len > INT_MAX) {
+        return false;
+    }
     out->ntp_port = 123;
     str_copy(out->ntp_host, sizeof(out->ntp_host), host);
 
@@ -177,14 +282,15 @@ static bool ke_attempt(const char *host, ntp_nts_ctx_t *out) {
         .tls_version = ESP_TLS_VER_TLS_1_3,  // RFC 8915 requires TLS 1.3
     };
     uint32_t now_ms = pdTICKS_TO_MS(xTaskGetTickCount());
-    bool use_pin = pin_len > 0 && strcmp(pin_host, host) == 0 &&
-                   (uint32_t)(now_ms - pin_born_ms) < NTS_PIN_TTL_MS;
+    uint8_t pin_snapshot[NTS_PIN_MAX];
+    uint16_t pin_snapshot_len = 0;
+    bool use_pin = pin_cache_load(host, now_ms, pin_snapshot, &pin_snapshot_len);
     cfg.crt_bundle_attach = use_pin ? pin_attach_verify_none : esp_crt_bundle_attach;
 
     esp_tls_t *tls = esp_tls_init();
     if (!tls) return false;
 
-    bool ok = esp_tls_conn_new_sync(host, (int)strlen(host), NTS_KE_PORT, &cfg, tls) == 1;
+    bool ok = esp_tls_conn_new_sync(host, (int)host_len, NTS_KE_PORT, &cfg, tls) == 1;
 
     bool keys_ok = false;
     if (ok) {
@@ -202,20 +308,17 @@ static bool ke_attempt(const char *host, ntp_nts_ctx_t *out) {
         const mbedtls_x509_crt *peer = ssl ? mbedtls_ssl_get_peer_cert(ssl) : NULL;
         if (use_pin) {
             // The whole verification of this connection: the server must
-            // present exactly the certificate the bundle attempt verified.
-            if (!peer || peer->raw.len != pin_len ||
-                memcmp(peer->raw.p, pin_der, pin_len) != 0) {
+            // present exactly the certificate this attempt snapshotted.
+            if (!peer || peer->raw.len != pin_snapshot_len ||
+                memcmp(peer->raw.p, pin_snapshot, pin_snapshot_len) != 0) {
                 ESP_LOGW(TAG, "pinned cert mismatch for %s", host);
-                pin_len = 0;
+                pin_cache_clear_match(host, pin_snapshot, pin_snapshot_len);
                 ok = false;
                 keys_ok = false;
             }
         } else if (peer && peer->raw.len > 0 && peer->raw.len <= sizeof(pin_der)) {
             // Chain-verified by the bundle: (re)pin for fast retries.
-            memcpy(pin_der, peer->raw.p, peer->raw.len);
-            pin_len = (uint16_t)peer->raw.len;
-            pin_born_ms = now_ms;
-            str_copy(pin_host, sizeof(pin_host), host);
+            pin_cache_store(host, peer->raw.p, peer->raw.len, now_ms);
         }
     }
 
@@ -273,10 +376,12 @@ static bool ke_attempt(const char *host, ntp_nts_ctx_t *out) {
                  out->cookie_count, use_pin ? " (pinned cert)" : "");
         return true;
     }
+    mbedtls_platform_zeroize(out, sizeof(*out));
     return false;
 }
 
 bool ntp_nts_ke_run(const char *host, ntp_nts_ctx_t *out) {
+    if (!host || !out) return false;
     // Up to three attempts: bundle-verified (slow, may miss the server's
     // connection deadline but pins the leaf), pinned (fast), and one
     // spare for the rotated-pin path (pinned fail clears the pin, the
@@ -284,6 +389,7 @@ bool ntp_nts_ke_run(const char *host, ntp_nts_ctx_t *out) {
     for (int attempt = 0; attempt < 3; attempt++) {
         if (ke_attempt(host, out)) return true;
     }
+    mbedtls_platform_zeroize(out, sizeof(*out));
     ESP_LOGW(TAG, "KE failed for %s", host);
     return false;
 }
@@ -382,7 +488,7 @@ bool ntp_nts_check_response(const uint8_t *pkt, size_t pkt_len,
     bool uid_ok = false;
     size_t auth_off = 0;
     bool have_auth = false;
-    while (off + 4 <= pkt_len) {
+    while (off <= pkt_len && pkt_len - off >= 4) {
         uint16_t type  = (uint16_t)((pkt[off] << 8) | pkt[off + 1]);
         uint16_t eflen = (uint16_t)((pkt[off + 2] << 8) | pkt[off + 3]);
         if (!ef_len_ok(eflen, off, pkt_len)) return false;
@@ -405,7 +511,7 @@ bool ntp_nts_check_response(const uint8_t *pkt, size_t pkt_len,
     uint16_t a_eflen = (uint16_t)((a[2] << 8) | a[3]);
     // ef_len_ok() already guaranteed a_eflen >= 16 for this EF in the parse
     // loop above, so only the exact-length (Authenticator is last) check remains.
-    if (auth_off + a_eflen != pkt_len) return false;
+    if ((size_t)a_eflen != pkt_len - auth_off) return false;
     const uint8_t *bd = a + 4;
     uint16_t nonce_len = (uint16_t)((bd[0] << 8) | bd[1]);
     uint16_t ct_len    = (uint16_t)((bd[2] << 8) | bd[3]);
@@ -450,10 +556,10 @@ bool ntp_nts_check_response(const uint8_t *pkt, size_t pkt_len,
 
     bool enc_fields_ok = true;
     size_t po = 0;
-    while (po + 4 <= enc_len) {
+    while (po <= enc_len && enc_len - po >= 4) {
         uint16_t t = (uint16_t)((plain[po] << 8) | plain[po + 1]);
         uint16_t l = (uint16_t)((plain[po + 2] << 8) | plain[po + 3]);
-        if (l < 16 || (l & 3u) != 0 || po + l > enc_len) {
+        if (l < 16 || (l & 3u) != 0 || (size_t)l > enc_len - po) {
             enc_fields_ok = false;
             break;
         }
@@ -488,7 +594,7 @@ bool ntp_nts_response_uid_matches(const uint8_t *pkt, size_t pkt_len,
     if (!pkt || !uid || pkt_len < 48) return false;
 
     size_t off = 48;
-    while (off + 4 <= pkt_len) {
+    while (off <= pkt_len && pkt_len - off >= 4) {
         uint16_t type  = (uint16_t)((pkt[off] << 8) | pkt[off + 1]);
         uint16_t eflen = (uint16_t)((pkt[off + 2] << 8) | pkt[off + 3]);
         if (!ef_len_ok(eflen, off, pkt_len)) return false;
@@ -503,6 +609,8 @@ bool ntp_nts_response_uid_matches(const uint8_t *pkt, size_t pkt_len,
 }
 
 bool ntp_nts_selftest(void) {
+    if (!ke_parser_selftest()) return false;
+
     ntp_nts_ctx_t ctx = {0};
     for (size_t i = 0; i < NTS_KEY_LEN; i++) {
         ctx.c2s[i] = (uint8_t)i;
