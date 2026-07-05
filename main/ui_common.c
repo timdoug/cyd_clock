@@ -46,10 +46,10 @@ bool ui_marquee_advance(int *scroll, int *dwell, int width, const char *s) {
     return true;
 }
 
-static void draw_scroll_chevron(int cx, int y, bool up, uint16_t color) {
+static void compose_scroll_chevron(int cx, int y, bool up, uint16_t color) {
     for (int i = 0; i < 5; i++) {
         int row = up ? y + i : y + 4 - i;
-        display_hline(cx - i, row, i * 2 + 1, color);
+        display_compose_fill(cx - i, row, i * 2 + 1, 1, color);
     }
 }
 
@@ -171,6 +171,10 @@ void ui_draw_list(const char **labels, int count, int scroll_offset, int selecte
 
 void ui_draw_list_fonts(const char **labels, const display_glyph_font_t *const *fonts,
                         int count, int scroll_offset, int selected) {
+    const int arrow_x = DISPLAY_WIDTH - 9;
+    const bool show_up_arrow = scroll_offset > 0;
+    const bool show_down_arrow = scroll_offset + UI_LIST_VISIBLE < count;
+
     int rows = 0;
     for (int i = 0; i < UI_LIST_VISIBLE && (i + scroll_offset) < count; i++, rows++) {
         int idx = i + scroll_offset;
@@ -191,19 +195,13 @@ void ui_draw_list_fonts(const char **labels, const display_glyph_font_t *const *
         } else {
             display_compose_string(10, 5, labels[idx], fg, bg);
         }
+        if (show_up_arrow && i == 0) {
+            compose_scroll_chevron(arrow_x, 2, true, COLOR_GRAY);
+        }
+        if (show_down_arrow && i == UI_LIST_VISIBLE - 1) {
+            compose_scroll_chevron(arrow_x, UI_LIST_ITEM_H - 7, false, COLOR_GRAY);
+        }
         display_compose_push(0, y);
-    }
-
-    // Scroll indicators: keep them inside the list gutter so they never
-    // paint over the header or into the tap zones above/below the list.
-    const int arrow_x = DISPLAY_WIDTH - 9;
-    if (scroll_offset > 0) {
-        draw_scroll_chevron(arrow_x, UI_LIST_START_Y + 2, true, COLOR_GRAY);
-    }
-    if (scroll_offset + UI_LIST_VISIBLE < count) {
-        draw_scroll_chevron(arrow_x,
-                            UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H - 7,
-                            false, COLOR_GRAY);
     }
 
     int list_bottom = UI_LIST_START_Y + UI_LIST_VISIBLE * UI_LIST_ITEM_H;
