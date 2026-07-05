@@ -65,6 +65,6 @@ static const char *const weekdays_ak[7] = {
 };
 static const char *const months_ak[12] = {
     "Ɔpɛpɔn", "Ɔgyefo", "Ɔbɛnem", "Oforis", "Kɔtɔni", "Ayɛwoh",
-    "Kutawo", "Ɔsanaa", "Ɛbɔ", "Ahinim", "Obubuo", "Ɔpɛnim",
+    "Kitawo", "Ɔsanda", "Ɛbɔ", "Ahinim", "Obubuo", "Ɔpɛnim",
 };
 static const char lang_name_ak[] = "Akan";

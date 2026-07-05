@@ -64,7 +64,7 @@ static const char *const weekdays_om[7] = {
     "Dil", "Wix", "Kib", "Rob", "Kam", "Jim", "San",
 };
 static const char *const months_om[12] = {
-    "Ama", "Gur", "Bitootessa", "Elb", "Cam", "Wax",
-    "Ado", "Hag", "Ful", "Onk", "Sadaasa", "Mud",
+    "Ama", "Gur", "Bit", "Elb", "Cam", "Wax",
+    "Ado", "Hag", "Ful", "Onk", "Sad", "Mud",
 };
 static const char lang_name_om[] = "Afaan Oromoo";

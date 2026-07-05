@@ -24,7 +24,7 @@ static const char *const lang_yo[STR_COUNT] = {
     [STR_NTS_ATTEMPT] = "Gbìyànjú",
     [STR_NTS_REQUIRE] = "Dandan",
     [STR_WAITING_NTP] = "Ń dúró de NTP...",
-    [STR_FMT_SYNCED] = "Ti sync: %s",
+    [STR_FMT_SYNCED] = "Ti ṣiṣẹ́pọ̀: %s",
     [STR_FMT_SYNCING] = "Ń mu ṣiṣẹ́pọ̀: %s",
     [STR_FMT_WAITING] = "Ń dúró: %lus",
     [STR_FMT_PEERS_NOSYNC] = "%d/%d sáfà  poll %s  kò sí sync",
@@ -55,7 +55,7 @@ static const char *const lang_yo[STR_COUNT] = {
     [STR_NTP_PRESETS] = "Àṣàyàn NTP",
     [STR_PRESETS] = "Àṣàyàn",
     [STR_BENCHMARK] = "Ìdánwò",
-    [STR_STOPPING] = "Ń dúró",
+    [STR_STOPPING] = "Ń dáwọ́ dúró",
     [STR_NTP_STATS] = "Ìṣirò NTP",
     [STR_UNSYNCED] = "kò sí sync",
     [STR_SYNCS_LABEL] = "  Sync: ",
@@ -66,7 +66,7 @@ static const char *const lang_yo[STR_COUNT] = {
     [STR_NO_DST] = "kò sí DST",
 };
 static const char *const weekdays_yo[7] = {
-    "Àìkú", "Ajé", "Ìsẹ́gun", "Ọjọ́rú", "Ọjọ́bọ", "Ẹtì", "Àbámẹ́ta",
+    "Àìkú", "Ajé", "Ìṣẹ́gun", "Ọjọ́rú", "Ọjọ́bọ", "Ẹtì", "Àbámẹ́ta",
 };
 static const char *const months_yo[12] = {
     "Ṣẹ́rẹ́", "Èrèlè", "Ẹrẹ̀nà", "Ìgbé", "Ẹ̀bibi", "Òkúdu",

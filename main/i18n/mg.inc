@@ -52,11 +52,11 @@ static const char *const lang_mg[STR_COUNT] = {
     [STR_BENCHMARK] = "Andrana",
     [STR_STOPPING] = "Mijanona",
     [STR_NTP_STATS] = "Antontan'isa NTP",
-    [STR_UNSYNCED] = "tsy sync",
+    [STR_UNSYNCED] = "tsy voalamina",
     [STR_SYNCS_LABEL] = "  Sync: ",
     [STR_NONE] = "tsy misy",
     [STR_SELECT_REGION] = "Safidio ny faritra",
-    [STR_AGE_LABEL] = "  Taona: ",
+    [STR_AGE_LABEL] = "  Ela: ",
     [STR_DST] = "ora fahavaratra",
     [STR_NO_DST] = "tsy misy DST",
 };
