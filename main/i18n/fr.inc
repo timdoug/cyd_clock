@@ -57,6 +57,7 @@ static const char *const lang_fr[STR_COUNT] = {
     [STR_NTP_STATS] = "Stats NTP",
     [STR_UNSYNCED] = "non sync",
     [STR_SYNCS_LABEL] = "  Sync.: ",
+    [STR_AGE_LABEL] = "  Âge: ",
     [STR_NONE] = "aucune",  // refers to the IPv6 address (feminine)
     [STR_SELECT_REGION] = "Choisir région",
     [STR_DST] = "heure d'été",

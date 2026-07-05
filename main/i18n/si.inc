@@ -44,7 +44,7 @@ static const char *const lang_si[STR_COUNT] = {
     [STR_VERSION] = "අනුවාදය:",
     [STR_STATUS] = "තත්ත්වය:",
     [STR_READ] = "කියවූ:",
-    [STR_UPDATE] = "යාවත්",
+    [STR_UPDATE] = "යාවත්කාලීන",
     [STR_RESTARTING] = "නැවත අරඹමින්",
     [STR_OTA_UPDATE] = "OTA යාවත්කාලීන",
     [STR_NTP_SERVER] = "NTP සේවාදායකය",
@@ -69,8 +69,8 @@ static const char *const weekdays_si[7] = {
     "ඉරිදා", "සඳුදා", "අඟහ", "බදාදා", "බ්‍රහස්", "සිකු", "සෙන",
 };
 static const char *const months_si[12] = {
-    "දුරුතු", "නවම්", "මැදින්", "බක්", "වෙසක්", "පොසොන්",
-    "ඇසළ", "නිකිණි", "බිනර", "වප්", "ඉල්", "උඳුවප්",
+    "ජන", "පෙබ", "මාර්", "අප්‍රේ", "මැයි", "ජූනි",
+    "ජූලි", "අගෝ", "සැප්", "ඔක්", "නොවැ", "දෙසැ",
 };
 static const char lang_name_si[] = "සිංහල";
 // <<< shaped-source si
