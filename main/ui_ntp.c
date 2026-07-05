@@ -104,7 +104,9 @@ static const ntp_preset_t presets[] = {
     { "time.windows.com",           false },
 };
 #define N_PRESETS ((int)(sizeof(presets) / sizeof(presets[0])))
-static char            preset_labels[N_PRESETS][40];
+// Room for a translated failure prefix (up to 31 bytes), the longest preset
+// host, and " [NTS]"; rows draw from x=10 and clip at the panel edge.
+static char            preset_labels[N_PRESETS][72];
 static const char     *preset_label_ptrs[N_PRESETS];
 static ui_list_touch_t list_touch;
 static int             list_scroll = 0;
@@ -200,7 +202,9 @@ static void format_delay_prefix(int32_t delay_us, char *buf, size_t len) {
 static void rebuild_preset_labels_locked(void) {
     for (int row = 0; row < N_PRESETS; row++) {
         int idx = preset_order[row];
-        char prefix[20] = "";
+        // Sized for the widest translated STR_FAIL (Burmese, 30 bytes) plus
+        // the trailing space; byte-truncating mid-UTF-8 renders '?' cells.
+        char prefix[36] = "";
         if (preset_bench_state[idx] == PRESET_BENCH_RUNNING) {
             str_copy(prefix, sizeof(prefix), "... ");
         } else if (preset_bench_state[idx] == PRESET_BENCH_DONE) {
@@ -216,7 +220,6 @@ static void rebuild_preset_labels_locked(void) {
             : presets[idx].nts;
         snprintf(preset_labels[row], sizeof(preset_labels[row]), "%s%s%s",
                  prefix, presets[idx].host, show_nts ? " [NTS]" : "");
-        preset_labels[row][38] = '\0';
         preset_label_ptrs[row] = preset_labels[row];
     }
 }

@@ -62,6 +62,7 @@ static void gregorian_to_jalali(int gy, int gm, int gd, int *jy, int *jm, int *j
 
 // Replace ASCII digits with Persian digits (U+06F0.., two UTF-8 bytes).
 static void fa_digits(char *dst, size_t len, const char *src) {
+    if (len == 0) return;
     size_t pos = 0;
     for (const char *p = src; *p != '\0'; p++) {
         if (*p >= '0' && *p <= '9') {

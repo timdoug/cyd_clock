@@ -123,11 +123,38 @@ static void draw_network_list(void) {
 }
 
 
+// Draw an SSID clipped to the space right of `x`, whole UTF-8 cells only,
+// with a ".." tail when it doesn't fit (a 32-char SSID at x=80 would
+// otherwise run past the panel edge).
+static void draw_ssid_clipped(int16_t x, int16_t y, const char *ssid,
+                              uint16_t fg, uint16_t bg) {
+    int max_px = DISPLAY_WIDTH - x;
+    if (display_text_width(ssid) <= max_px) {
+        display_string(x, y, ssid, fg, bg);
+        return;
+    }
+    char clipped[WIFI_SSID_BUF_LEN + 3];
+    int keep = 0, used_px = 0;
+    int budget_px = max_px - 2 * FONT_CHAR_WIDTH;   // room for ".."
+    while (ssid[keep] != '\0') {
+        int cell_w;
+        int cell_len = display_cell_at(ssid + keep, &cell_w);
+        if (used_px + cell_w > budget_px) break;
+        if (keep + cell_len >= (int)sizeof(clipped) - 3) break;
+        used_px += cell_w;
+        keep += cell_len;
+    }
+    memcpy(clipped, ssid, (size_t)keep);
+    memcpy(clipped + keep, "..", 3);
+    display_string(x, y, clipped, fg, bg);
+}
+
 static void draw_password_input(void) {
     display_fill_rect(0, UI_LIST_START_Y, DISPLAY_WIDTH, KEYBOARD_Y - UI_LIST_START_Y, COLOR_BLACK);
 
     display_string(5, UI_LIST_START_Y + 5, tr(STR_NETWORK_LABEL), COLOR_GRAY, COLOR_BLACK);
-    display_string(80, UI_LIST_START_Y + 5, networks[selected_network].ssid, COLOR_WHITE, COLOR_BLACK);
+    draw_ssid_clipped(80, UI_LIST_START_Y + 5, networks[selected_network].ssid,
+                      COLOR_WHITE, COLOR_BLACK);
 
     display_fill_rect(5, UI_LIST_START_Y + 30, DISPLAY_WIDTH - 10, 24, COLOR_DARKGRAY);
     display_rect(5, UI_LIST_START_Y + 30, DISPLAY_WIDTH - 10, 24, COLOR_WHITE);

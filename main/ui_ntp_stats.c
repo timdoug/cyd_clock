@@ -90,17 +90,25 @@ typedef struct {
 } segment_t;
 
 // Flatten segments into a contiguous text + parallel per-char color array.
+// On overflow, stop at a UTF-8 boundary: segments carry translated text, and
+// a mid-sequence cut would render '?' cells. (Overflow itself means a
+// translation outgrew its budget -- fix that at the source.)
 static size_t flatten_segments(const segment_t *segs, int nsegs,
                                char *text_out, uint16_t *colors_out, size_t cap) {
     size_t pos = 0;
     for (int i = 0; i < nsegs; i++) {
-        size_t len = strlen(segs[i].text);
-        for (size_t j = 0; j < len && pos + 1 < cap; j++) {
-            text_out[pos]   = segs[i].text[j];
+        for (const char *p = segs[i].text; *p; p++) {
+            unsigned char c = (unsigned char)*p;
+            // Whole sequences only: 1 byte for ASCII/continuation, else the
+            // lead byte's length, plus the terminator.
+            size_t need = (c < 0xC0) ? 1 : (c >= 0xF0) ? 4 : (c >= 0xE0) ? 3 : 2;
+            if (pos + need + 1 > cap) goto done;
+            text_out[pos]   = *p;
             colors_out[pos] = segs[i].color;
             pos++;
         }
     }
+done:
     text_out[pos] = '\0';
     return pos;
 }

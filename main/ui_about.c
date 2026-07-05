@@ -105,8 +105,18 @@ static void draw_ota_header(bool force, bool show_back) {
 
 static void draw_ip6_window(void) {
     if (ip6_value_y < 0) return;
+    if (!ip6_addr[0]) {
+        // Translated "None" is UTF-8; the byte-windowed marquee is ASCII-only
+        // (it would split multibyte sequences at the window edges). It never
+        // needs to scroll -- draw it whole and blank the rest of the field.
+        display_fill_rect(IP6_VAL_X, ip6_value_y,
+                          IP6_VIS_CHARS * FONT_CHAR_WIDTH, FONT_CHAR_HEIGHT,
+                          COLOR_BLACK);
+        display_string(IP6_VAL_X, ip6_value_y, tr(STR_NONE), COLOR_WHITE, COLOR_BLACK);
+        return;
+    }
     char win[IP6_VIS_CHARS + 1];
-    ui_marquee_window(win, IP6_VIS_CHARS, ip6_addr[0] ? ip6_addr : tr(STR_NONE), ip6_scroll);
+    ui_marquee_window(win, IP6_VIS_CHARS, ip6_addr, ip6_scroll);
     display_string(IP6_VAL_X, ip6_value_y, win, COLOR_WHITE, COLOR_BLACK);
 }
 
@@ -127,10 +137,9 @@ static void update_ip6_marquee(void) {
             redraw = true;
         }
     }
-    if ((int32_t)(now - ip6_scroll_ms) >= IP6_SCROLL_MS) {
+    if (ip6_addr[0] && (int32_t)(now - ip6_scroll_ms) >= IP6_SCROLL_MS) {
         ip6_scroll_ms = now;
-        const char *s = ip6_addr[0] ? ip6_addr : tr(STR_NONE);
-        if (ui_marquee_advance(&ip6_scroll, &ip6_dwell, IP6_VIS_CHARS, s)) redraw = true;
+        if (ui_marquee_advance(&ip6_scroll, &ip6_dwell, IP6_VIS_CHARS, ip6_addr)) redraw = true;
     }
     if (redraw) draw_ip6_window();
 }
