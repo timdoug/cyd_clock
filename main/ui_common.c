@@ -119,7 +119,6 @@ void ui_draw_centered_string(int16_t y, const char *str, uint16_t fg, uint16_t b
         }
         clipped[keep] = '\0';
         str = clipped;
-        len = keep;
         text_width = display_text_width(str);
         if (scale_2x) text_width *= 2;
     }

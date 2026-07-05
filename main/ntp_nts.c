@@ -432,7 +432,7 @@ bool ntp_nts_check_response(const uint8_t *pkt, size_t pkt_len,
         }
         if (t == EF_COOKIE) {
             uint16_t cl = l - 4;
-            if (cl > 0 && cl <= NTS_COOKIE_MAX && ctx->cookie_count < NTS_MAX_COOKIES) {
+            if (cl <= NTS_COOKIE_MAX && ctx->cookie_count < NTS_MAX_COOKIES) {
                 memcpy(ctx->cookie[ctx->cookie_count], plain + po + 4, cl);
                 ctx->cookie_len[ctx->cookie_count] = cl;
                 ctx->cookie_count++;
