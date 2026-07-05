@@ -6,7 +6,7 @@ static const char *const lang_bg[STR_COUNT] = {
     [STR_LED_BLINK] = "LED Мигане",
     [STR_ROTATE] = "Ротирай 180",
     [STR_ABOUT] = "Инфо",
-    [STR_LANGUAGE] = "Эзик",
+    [STR_LANGUAGE] = "Език",
     [STR_DONE] = "Готово",
     [STR_BACK] = "Назад",
     [STR_CANCEL] = "Отказ",
@@ -17,7 +17,7 @@ static const char *const lang_bg[STR_COUNT] = {
     [STR_NTS_NO] = "Не",
     [STR_NTS_ATTEMPT] = "Опит",
     [STR_NTS_REQUIRE] = "Изиск.",
-    [STR_WAITING_NTP] = "Изчаквне NTP...",
+    [STR_WAITING_NTP] = "Изчакване NTP...",
     [STR_FMT_SYNCED] = "Синхр.: %s",
     [STR_FMT_SYNCING] = "Синхр...: %s",
     [STR_FMT_WAITING] = "Изчакв.: %lus",
@@ -34,7 +34,7 @@ static const char *const lang_bg[STR_COUNT] = {
     [STR_CONNECTING] = "Свързване",
     [STR_CONNECTING_TO] = "Свързване с",
     [STR_CONNECTED] = "Свързано!",
-    [STR_CONNECTION_FAILED] = "Няма вързка",
+    [STR_CONNECTION_FAILED] = "Няма връзка",
     [STR_KB_SHIFT] = "Шифт",
     [STR_KB_SPACE] = "Интервал",
     [STR_KB_GO] = "OK",
@@ -65,7 +65,7 @@ static const char *const lang_bg[STR_COUNT] = {
 };
 
 static const char *const weekdays_bg[7] = {
-    "Нд", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб",
+    "нд", "пн", "вт", "ср", "чт", "пт", "сб",
 };
 
 static const char *const months_bg[12] = {

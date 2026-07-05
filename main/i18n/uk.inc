@@ -27,9 +27,9 @@ static const char *const lang_uk[STR_COUNT] = {
     [STR_SCANNING] = "Сканування...",
     [STR_SCAN_FAILED] = "Помилка скан",
     [STR_TAP_RETRY] = "Торкни знов",
-    [STR_SELECT_NETWORK] = "Вибір мрежі",
-    [STR_NO_NETWORKS] = "Немає мреж",
-    [STR_NETWORK_LABEL] = "Мрежа:",
+    [STR_SELECT_NETWORK] = "Вибір мережі",
+    [STR_NO_NETWORKS] = "Немає мереж",
+    [STR_NETWORK_LABEL] = "Мережа:",
     [STR_ENTER_PASSWORD] = "Пароль",
     [STR_CONNECTING] = "Підключення",
     [STR_CONNECTING_TO] = "Підключення до",
@@ -65,7 +65,7 @@ static const char *const lang_uk[STR_COUNT] = {
 };
 
 static const char *const weekdays_uk[7] = {
-    "Нд", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб",
+    "нд", "пн", "вт", "ср", "чт", "пт", "сб",
 };
 
 static const char *const months_uk[12] = {

@@ -55,10 +55,10 @@ static const char *const lang_uz[STR_COUNT] = {
     [STR_NONE] = "yoʻq",
     [STR_SELECT_REGION] = "Mintaqani tanlang",
     [STR_AGE_LABEL] = "  Yoshi: ",
-    [STR_FMT_PEERS_NOSYNC] = "%d/%d server  poll %s  sinxr. yo'q",
+    [STR_FMT_PEERS_NOSYNC] = "%d/%d server  poll %s  sinxr. yoʻq",
     [STR_FMT_PEERS_AGO] = "%d/%d server  poll %s  %s oldin",
     [STR_DST] = "yozgi vaqt",
-    [STR_NO_DST] = "yozgi vaqt yo'q",
+    [STR_NO_DST] = "yozgi vaqt yoʻq",
 };
 static const char *const weekdays_uz[7] = {
     "Yak", "Dush", "Sesh", "Chor", "Pay", "Jum", "Shan",

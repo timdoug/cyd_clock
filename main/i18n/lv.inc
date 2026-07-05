@@ -70,8 +70,8 @@ static const char *const weekdays_lv[7] = {
 };
 
 static const char *const months_lv[12] = {
-    "Jan", "Feb", "Mar", "Apr", "Mai", "Jūn",
-    "Jūl", "Aug", "Sep", "Okt", "Nov", "Dec",
+    "janv.", "febr.", "marts", "apr.", "maijs", "jūn.",
+    "jūl.", "aug.", "sept.", "okt.", "nov.", "dec.",
 };
 
 static const char lang_name_lv[] = "Latviešu";
