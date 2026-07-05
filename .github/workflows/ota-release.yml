@@ -1,4 +1,4 @@
-name: OTA release binary
+name: Firmware release assets
 
 on:
   push:
@@ -76,11 +76,10 @@ jobs:
       - name: Prepare release assets
         run: |
           set -eu
-          # cyd_clock.bin is the 028 app; the default OTA URL points at it. The
-          # 024 app ships under a board-suffixed name. Bootloader, partition
-          # table, and OTA data are board-independent, so one set covers both.
-          # (Build outputs carry the board-suffixed project name that the OTA
-          # identity check verifies; asset names stay as devices expect.)
+          # OTA assets are raw app images: esp_https_ota expects the ESP app
+          # descriptor at byte 0. USB assets are merged full-flash images so a
+          # first install/recovery can write one file at 0x0 instead of asking
+          # users to supply bootloader/partition/otadata offsets by hand.
           test -s build/cyd_clock-esp32_2432s028.bin
           test -s build_024/cyd_clock-esp32_2432s024.bin
           test -s build/bootloader/bootloader.bin
@@ -88,9 +87,33 @@ jobs:
           test -s build/ota_data_initial.bin
           cp build/cyd_clock-esp32_2432s028.bin cyd_clock.bin
           cp build_024/cyd_clock-esp32_2432s024.bin cyd_clock-esp32_2432s024.bin
-          cp build/bootloader/bootloader.bin bootloader.bin
-          cp build/partition_table/partition-table.bin partition-table.bin
-          cp build/ota_data_initial.bin ota_data_initial.bin
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          COMMON = [
+              (0x1000, Path("build/bootloader/bootloader.bin")),
+              (0x8000, Path("build/partition_table/partition-table.bin")),
+              (0xf000, Path("build/ota_data_initial.bin")),
+          ]
+
+          def merge(out, app):
+              pieces = COMMON + [(0x20000, Path(app))]
+              image = bytearray()
+              for offset, path in pieces:
+                  if len(image) > offset:
+                      raise SystemExit(f"{path} overlaps previous segment")
+                  image.extend(b"\xff" * (offset - len(image)))
+                  image.extend(path.read_bytes())
+              Path(out).write_bytes(image)
+
+          merge("cyd_clock-full.bin", "build/cyd_clock-esp32_2432s028.bin")
+          merge("cyd_clock-esp32_2432s024-full.bin",
+                "build_024/cyd_clock-esp32_2432s024.bin")
+          PY
+
+          test -s cyd_clock-full.bin
+          test -s cyd_clock-esp32_2432s024-full.bin
 
       - name: Resolve release tag
         id: release
@@ -134,6 +157,23 @@ jobs:
           {
             echo "CYD Clock ${TAG}"
             echo
+            echo "### Files"
+            echo
+            echo "- \`cyd_clock-full.bin\`: USB install/recovery image for the 2.8\" ESP32-2432S028 board."
+            echo "- \`cyd_clock-esp32_2432s024-full.bin\`: USB install/recovery image for the 2.4\" ESP32-2432S024 board."
+            echo "- \`cyd_clock.bin\`: OTA image used by the clock's updater for the 2.8\" board."
+            echo "- \`cyd_clock-esp32_2432s024.bin\`: OTA image used by the clock's updater for the 2.4\" board."
+            echo
+            echo "For USB install or recovery, flash the matching \`*-full.bin\`"
+            echo "file at address \`0x0\`:"
+            echo
+            echo "\`\`\`sh"
+            echo "python3 -m esptool --chip esp32 -p /dev/cu.usbserial-XXXX -b 2000000 write-flash 0x0 cyd_clock-full.bin"
+            echo "\`\`\`"
+            echo
+            echo "The non-full \`.bin\` files are for OTA updates from the device UI;"
+            echo "most users should not flash them manually."
+            echo
             if [ -n "${prev}" ]; then
               echo "### Changes since ${prev}"
               echo
@@ -166,9 +206,8 @@ jobs:
           gh release upload "${TAG}" \
             cyd_clock.bin \
             cyd_clock-esp32_2432s024.bin \
-            bootloader.bin \
-            partition-table.bin \
-            ota_data_initial.bin \
+            cyd_clock-full.bin \
+            cyd_clock-esp32_2432s024-full.bin \
             --clobber
 
       - name: Publish release
