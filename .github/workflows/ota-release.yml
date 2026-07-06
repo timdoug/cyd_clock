@@ -43,7 +43,7 @@ jobs:
       - name: Build esp32_2432s028 (default)
         uses: espressif/esp-idf-ci-action@9d38657f3d789ca759b2b37aaf5ceffbc42c4f0d  # v1
         with:
-          esp_idf_version: v6.0.1@sha256:efc19fae2f52fc6873630c668da26aa834139a063b5fb73a46ebc0dbd217b587
+          esp_idf_version: v6.0.2@sha256:0d8c9773d48a327233f9c1d7c654ff0bcf133ae24503ea2e97a57cfe02b8cb67
           target: esp32
           path: "."
           command: idf.py -B build -D CYD_BOARD=esp32_2432s028 build
@@ -51,7 +51,7 @@ jobs:
       - name: Build esp32_2432s024
         uses: espressif/esp-idf-ci-action@9d38657f3d789ca759b2b37aaf5ceffbc42c4f0d  # v1
         with:
-          esp_idf_version: v6.0.1@sha256:efc19fae2f52fc6873630c668da26aa834139a063b5fb73a46ebc0dbd217b587
+          esp_idf_version: v6.0.2@sha256:0d8c9773d48a327233f9c1d7c654ff0bcf133ae24503ea2e97a57cfe02b8cb67
           target: esp32
           path: "."
           command: idf.py -B build_024 -D CYD_BOARD=esp32_2432s024 build
