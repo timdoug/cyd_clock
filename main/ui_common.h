@@ -79,10 +79,10 @@ typedef struct {
 #define UI_SLIDER_BAR_Y_OFF 5    // from row top; centers the 14px bar in the row
 #define UI_SLIDER_BAR_W     150
 #define UI_SLIDER_BAR_H     14
-#define UI_SLIDER_BTN_X1    260
-#define UI_SLIDER_BTN_X2    288
 #define UI_SLIDER_BTN_W     22
 #define UI_SLIDER_BTN_H     19   // odd: centers exactly in the 23px row at y+2
+#define UI_SLIDER_BTN_X2    (DISPLAY_WIDTH - 8 - UI_SLIDER_BTN_W)
+#define UI_SLIDER_BTN_X1    (UI_SLIDER_BTN_X2 - 28)
 
 void ui_draw_header(const char *title, bool show_back);
 
