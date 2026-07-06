@@ -259,6 +259,7 @@ extern uint32_t next_global_poll_cycle_id;
 extern uint32_t last_poll_adjust_cycle_id;
 extern uint32_t last_evict_tick_ms;
 extern uint32_t replace_backoff_until_ms;
+extern uint32_t clock_step_generation;
 
 static inline int32_t precision_to_us(int8_t precision) {
     if (precision >= 0) {
@@ -350,6 +351,7 @@ void select_system_peer(void);
 bool consume_early(early_ring_t *ring, uint32_t sec, uint32_t frac, int64_t *us);
 void shift_early(early_ring_t *ring, int64_t delta_us);
 void ntp_wifi_stamp_set_nts_port(uint16_t port);
+void ntp_wifi_stamp_set_step_in_progress(bool in_progress);
 early_ring_t *early_t1_ring(void);
 early_ring_t *early_t4_ring(void);
 

@@ -1,5 +1,6 @@
 #include "ntp_internal.h"
 
+uint32_t clock_step_generation;
 
 void ntp_to_tv(uint32_t sec, uint32_t frac, struct timeval *tv) {
     // Map the wire value to Unix seconds mod 2^32 (the add wraps by design;
@@ -25,6 +26,7 @@ void ntp_to_tv(uint32_t sec, uint32_t frac, struct timeval *tv) {
 }
 
 void step_clock(int64_t step_us) {
+    ntp_wifi_stamp_set_step_in_progress(true);
     for (int i = 0; i < NTP_MAX_PEERS; i++) {
         ntp_peer_t *q = &g.peers[i];
         if (!q->request_outstanding) continue;
@@ -37,4 +39,7 @@ void step_clock(int64_t step_us) {
     gettimeofday(&now_pre, NULL);
     struct timeval target = tv_from_us(tv_to_us(&now_pre) + step_us);
     settimeofday(&target, NULL);
+    clock_step_generation++;
+    if (clock_step_generation == 0) clock_step_generation = 1;
+    ntp_wifi_stamp_set_step_in_progress(false);
 }

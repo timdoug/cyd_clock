@@ -243,8 +243,17 @@ static void ntp_task(void *arg) {
             struct timeval t4_sel;
             gettimeofday(&t4_sel, NULL);
             lock_take();
-            if (g.sock4 >= 0     && FD_ISSET(g.sock4, &rfds))     handle_socket_readable(g.sock4, &t4_sel);
-            if (g.sock6 >= 0     && FD_ISSET(g.sock6, &rfds))     handle_socket_readable(g.sock6, &t4_sel);
+            uint32_t step_generation_before = clock_step_generation;
+            if (g.sock4 >= 0 && FD_ISSET(g.sock4, &rfds)) {
+                handle_socket_readable(g.sock4, &t4_sel);
+                if (clock_step_generation != step_generation_before) {
+                    gettimeofday(&t4_sel, NULL);
+                    step_generation_before = clock_step_generation;
+                }
+            }
+            if (g.sock6 >= 0 && FD_ISSET(g.sock6, &rfds)) {
+                handle_socket_readable(g.sock6, &t4_sel);
+            }
             if (g.wake_sock >= 0 && FD_ISSET(g.wake_sock, &rfds)) drain_wake_sock();
             lock_give();
         }
@@ -478,4 +487,3 @@ void ntp_get_all_stats(ntp_sys_stats_t *sys, ntp_peer_stats_t peers[NTP_MAX_PEER
     }
     lock_give();
 }
-

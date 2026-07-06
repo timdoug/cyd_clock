@@ -19,13 +19,23 @@ static early_ring_t s_t4 = { .lock = portMUX_INITIALIZER_UNLOCKED };
 static esp_netif_t *s_sta_netif;
 // Negotiated NTS NTP port (0 = none); packets on it also get early stamps.
 static volatile uint16_t s_nts_port;
+static volatile bool s_step_in_progress;
 
 void ntp_wifi_stamp_set_nts_port(uint16_t port) {
     s_nts_port = port;
 }
 
+void ntp_wifi_stamp_set_step_in_progress(bool in_progress) {
+    s_step_in_progress = in_progress;
+}
+
 static void stash_early(early_ring_t *r, uint32_t sec, uint32_t frac, int64_t us) {
+    if (s_step_in_progress) return;
     portENTER_CRITICAL(&r->lock);
+    if (s_step_in_progress) {
+        portEXIT_CRITICAL(&r->lock);
+        return;
+    }
     r->ring[r->head] = (early_entry_t){
         .ts_sec = sec, .ts_frac = frac, .wall_us = us, .valid = true,
     };
