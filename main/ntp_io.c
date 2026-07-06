@@ -1,4 +1,5 @@
 #include "ntp_internal.h"
+#include "led.h"
 
 // Tri-state result so the caller can tell "this datagram doesn't belong to
 // the outstanding request" (stray, duplicate, or spoofed -- ignore it and
@@ -377,6 +378,7 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
         // would increment twice on a single cold-boot cycle.
         g.last_discipline_ms     = mono_ms();
         g.last_discipline_poll_s = g.current_poll_s;
+        led_set_pps_enabled(true);
         ESP_LOGI(TAG, "Initial time set from %s (stratum %d)",
                  p->addr_str, pkt->stratum);
         // Refresh t1_local from the now-shifted p->t1 so the offset math

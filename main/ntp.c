@@ -1,4 +1,5 @@
 #include "ntp_internal.h"
+#include "led.h"
 #include "wifi.h"
 
 const char *NTP_TAG = "ntp";
@@ -272,6 +273,7 @@ void ntp_init(const char *server, bool prefer_ipv6, nts_mode_t nts_mode) {
     g.nts_mode       = nts_mode;
     g.current_poll_s = MIN_POLL_S;
     g.first_sync_done = false;
+    led_set_pps_enabled(false);
     g.sync_count     = 0;
     g.selected_peer  = -1;
     g.stratum        = 16;

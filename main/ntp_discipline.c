@@ -1,4 +1,5 @@
 #include "ntp_internal.h"
+#include "led.h"
 
 static void adaptive_poll_update(void);
 
@@ -125,6 +126,7 @@ static void discipline_clock(int32_t offset_us, bool fresh) {
     shift_filters(applied_us);
 
     g.first_sync_done = true;
+    led_set_pps_enabled(true);
     g.last_offset_us  = offset_us;
     struct timeval now;
     gettimeofday(&now, NULL);
