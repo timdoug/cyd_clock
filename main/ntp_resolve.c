@@ -140,9 +140,9 @@ int ntp_resolve_host(const char *host, bool prefer_ipv6,
     clear_dns_cache_for_lookup();
 
     // Always try both families, ordered by preference: querying only the
-    // preferred family means an IPv6-only network with the default
-    // (IPv4-preferred) config resolves nothing and the staleness watchdog spins
-    // re-resolving forever. The toggle sets which family wins, not the only one.
+    // preferred family means a single-stack network can resolve nothing and the
+    // staleness watchdog spins re-resolving forever. The toggle sets which
+    // family wins, not the only one.
     if (prefer_ipv6) {
         count = append_getaddrinfo_results(host, AF_INET6, out, count, max);
         if (count < max) {

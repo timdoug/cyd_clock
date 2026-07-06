@@ -70,7 +70,7 @@ static uint32_t last_touch_time = 0;
 static char custom_server[64] = {0};
 static int custom_server_len = 0;
 static char kb_server_backup[64] = {0};
-static bool ui_prefer_ipv6 = false;
+static bool ui_prefer_ipv6 = true;
 static nts_mode_t ui_nts_mode = NTS_MODE_OPPORTUNISTIC;
 
 // Server presets, shown by hostname; the nts flag is only a [NTS] display hint.

@@ -88,7 +88,7 @@ static struct {
     bool started;
 } ntp_cfg = {
     .custom_server = DEFAULT_NTP_SERVER,
-    .prefer_ipv6 = false,
+    .prefer_ipv6 = true,
     .nts_mode = NTS_MODE_OPPORTUNISTIC,
     .started = false,
 };
