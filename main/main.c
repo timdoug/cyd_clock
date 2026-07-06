@@ -212,6 +212,12 @@ void app_main(void) {
         display_set_backlight(brightness);
     }
 
+    uint8_t pps_led_brightness;
+    if (!nvs_config_get_led_brightness(&pps_led_brightness)) {
+        pps_led_brightness = BRIGHTNESS_DEFAULT;
+    }
+    led_set_brightness(pps_led_brightness);
+
     bool rotated;
     if (nvs_config_get_rotation(&rotated)) {
         display_set_rotation(rotated);
