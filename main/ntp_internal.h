@@ -149,6 +149,8 @@ typedef struct {
     int32_t  dispersion_us;
     uint32_t best_sample_ms;
     bool     best_sample_valid;
+    bool     sample_used;
+    uint32_t last_used_sample_ms;
     uint32_t last_response_ms;
 
     struct timeval t1;
@@ -215,6 +217,7 @@ typedef struct {
     int32_t  root_delay_us;
     int32_t  root_dispersion_us;
     int32_t  combined_offset_us;
+    uint8_t  combine_mask;       // peers contributing an unconsumed observation
     bool     select_spread_wide;
     int32_t  freq_ppm_x1000;
     bool     freq_loaded_from_nvs;

@@ -90,11 +90,17 @@ void shift_filters(int32_t offset_us) {
 }
 
 
+static bool sample_is_new(const ntp_peer_t *p) {
+    return p->best_sample_valid && (!p->sample_used ||
+        (int32_t)(p->best_sample_ms - p->last_used_sample_ms) > 0);
+}
+
 void select_system_peer(void) {
     struct { int idx; int64_t lo; int64_t hi; } c[NTP_MAX_PEERS];
     uint32_t now = mono_ms();
     int n = 0;
     g.select_spread_wide = false;
+    g.combine_mask = 0;
     for (int i = 0; i < NTP_MAX_PEERS; i++) {
         ntp_peer_t *p = &g.peers[i];
         if (!p->active || p->reach == 0) continue;
@@ -244,12 +250,14 @@ void select_system_peer(void) {
             for (int i = 0; i < n; i++) {
                 if (!(best_mask & (1 << i))) continue;
                 ntp_peer_t *pp = &g.peers[c[i].idx];
+                if (!sample_is_new(pp)) continue;
                 int32_t aged_disp_us = aged_peer_dispersion_us(pp, now);
                 double disp = aged_disp_us > 1 ? aged_disp_us : 1;
                 double w    = 1.0 / (disp * disp);
                 num_off     += (double)pp->best_offset_us * w;
                 num_jit_var += w * w * (double)pp->jitter_us * pp->jitter_us;
                 denom       += w;
+                g.combine_mask |= 1u << c[i].idx;
             }
         }
         if (denom > 0) {
@@ -258,6 +266,7 @@ void select_system_peer(void) {
         } else {
             g.combined_offset_us = sp->best_offset_us;
             g.system_jitter_us   = sp->jitter_us;
+            if (sample_is_new(sp)) g.combine_mask = 1u << chosen;
         }
     }
     g.root_dispersion_us = fp1616_to_us(sp->root_dispersion_raw) + sp->dispersion_us;

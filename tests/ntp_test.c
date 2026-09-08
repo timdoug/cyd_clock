@@ -1,5 +1,30 @@
 #include "ntp_host.h"
 
+static void test_freshness(void) {
+    reset();
+    g.first_sync_done = true;
+    g.last_freq_sample_ms = test_ms - 32000;
+    g.freq_jitter_floor = 400;
+    ntp_peer_t *p = make_peer(0);
+    sample(p, 0, 1000, 10000, test_ms-32000);
+    sample(p, 1, 1400, 12000, test_ms);
+    p->cycle_id_when_sent = p->last_settle_cycle_id = 10;
+    assert(try_discipline(10));
+    int32_t freq = g.freq_ppm_x1000;
+    uint32_t syncs = g.sync_count;
+    for (int cycle = 11; cycle < 15; cycle++) {
+        test_ms += 33000;
+        sample(p, cycle-9, p->best_offset_us+400, 12000, test_ms);
+        p->cycle_id_when_sent = p->last_settle_cycle_id = cycle;
+        assert(!try_discipline(cycle));
+        assert(g.freq_ppm_x1000 == freq && g.sync_count == syncs);
+    }
+    sample(p, 6, 100, 9000, test_ms);
+    p->cycle_id_when_sent = p->last_settle_cycle_id = 15;
+    assert(try_discipline(15));
+    assert(g.sync_count == syncs + 1);
+}
+
 static void test_expiry(void) {
     reset();
     ntp_peer_t *p = make_peer(0);
@@ -107,6 +132,7 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[1], "intervals")) test_intervals();
     else if (!strcmp(argv[1], "congestion")) test_congestion();
     else if (!strcmp(argv[1], "expiry")) test_expiry();
+    else if (!strcmp(argv[1], "freshness")) test_freshness();
     else { fprintf(stderr, "Unknown case: %s\n", argv[1]); return 1; }
     printf("PASS %s\n", argv[1]);
     return 0;

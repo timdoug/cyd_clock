@@ -233,7 +233,11 @@ void apply_freq_correction(void) {
 }
 
 bool try_discipline(uint32_t settled_cycle_id) {
+    // Settling a timeout can invalidate selection, and a preceding discipline
+    // may have consumed the same filter winner. Recompute before using it.
+    select_system_peer();
     if (settled_cycle_id == 0 || g.selected_peer < 0) return false;
+    if (g.combine_mask == 0) return false;
 
     uint32_t now = mono_ms();
     uint32_t ref_poll_s = g.last_discipline_poll_s ?
@@ -273,6 +277,11 @@ bool try_discipline(uint32_t settled_cycle_id) {
     bool force   = overdue && responded > 0;
     if (!good && !force) return false;
 
+    for (int i = 0; i < NTP_MAX_PEERS; i++) {
+        if (!(g.combine_mask & (1u << i))) continue;
+        g.peers[i].last_used_sample_ms = g.peers[i].best_sample_ms;
+        g.peers[i].sample_used = true;
+    }
     g.last_discipline_ms     = now;
     g.last_discipline_poll_s = g.current_poll_s;
     discipline_clock(g.combined_offset_us, good);
