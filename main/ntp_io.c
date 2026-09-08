@@ -480,49 +480,17 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
     if (offset > 0x7FFFFFFF) offset = 0x7FFFFFFF;
     if (offset < -0x7FFFFFFF) offset = -0x7FFFFFFF;
 
-    // Huff-n-puff: when the current RTT is noticeably higher than the minimum
-    // we've seen recently from this peer, the excess is almost certainly in
-    // ONE direction (uplink saturation, ISP shaping, WiFi rate adaptation) -
-    // NTP's offset formula assumes symmetric paths, so asymmetry biases the
-    // offset by up to half the excess. Move offset toward zero by that amount
-    // (bounded so we don't overshoot zero). Uses the filter's 8-sample sliding
-    // window as the "recently good" reference.
-    //
-    // Guardrails (conservative - over-correcting is worse than no correction):
-    //   * Require >=3 prior samples so min_delay isn't a one-shot outlier.
-    //   * Only correct when delay > 1.5 * min_delay (ratio, not absolute) -
-    //     this triggers on any scale of path.
-    //   * Skip correction when delay > 3 * min_delay - a spike that large is
-    //     almost certainly a transient (packet loss, retransmit, burst), not
-    //     steady-state asymmetry; inferring direction from it is unreliable.
-    // Only trust recent samples for the min-delay reference: a stale low delay
-    // (e.g. from before a route change raised the true path RTT) would make
-    // every fresh sample look asymmetric and drag legitimate offsets toward
-    // zero. Mirror the sample-age bound update_peer_filter uses.
+    // Excess RTT widens uncertainty. Its direction is unknown: the sign of
+    // the measured offset also includes genuine crystal/phase error, so it
+    // cannot justify moving that measurement toward zero.
     int32_t min_delay = INT32_MAX;
-    int valid_samples = 0;
-    uint32_t now_hnp = mono_ms();
-    uint32_t hnp_max_age_ms = ROBUST_SAMPLE_MAX_AGE_S * 1000UL;
+    uint32_t sample_now = mono_ms();
+    uint32_t max_sample_age_ms = ROBUST_SAMPLE_MAX_AGE_S * 1000UL;
     for (int i = 0; i < NTP_FILTER_SIZE; i++) {
         if (!p->filter[i].valid) continue;
-        if (now_hnp - p->filter[i].received_ms > hnp_max_age_ms) continue;
-        valid_samples++;
+        if (sample_now - p->filter[i].received_ms > max_sample_age_ms) continue;
         if (p->filter[i].delay_us < min_delay) min_delay = p->filter[i].delay_us;
     }
-    if (valid_samples >= 3 && min_delay > 0 &&
-        (int64_t)delay > (int64_t)min_delay * 3 / 2 &&
-        (int64_t)delay < (int64_t)min_delay * 3) {
-        int32_t excess     = (int32_t)delay - min_delay;
-        int32_t correction = excess / 2;
-        int64_t before     = offset;
-        if (offset >  correction)      offset -= correction;
-        else if (offset < -correction) offset += correction;
-        else                           offset = 0;
-        ESP_LOGD(TAG, "HNP %s delay=%ldus min=%ldus excess=%ldus offset %+lldus -> %+lldus",
-                 p->addr_str, (long)delay, (long)min_delay, (long)excess,
-                 (long long)before, (long long)offset);
-    }
-
     // Per RFC 5905 section 5: per-sample dispersion epsilon = rho_local + rho_server + PHI*(T4-T1).
     // rho terms are the clock precisions of each end (2^precision seconds each),
     // and PHI*(T4-T1) accounts for frequency uncertainty across the measurement
@@ -531,9 +499,7 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
     //
     // On top of the RFC terms, add half the excess RTT over the peer's recent
     // minimum: any excess could be entirely one-directional, biasing the
-    // offset by up to excess/2. The huff-n-puff shift above only corrects
-    // mid-range excess (1.5x-3x min) and only toward zero, so the residual
-    // asymmetry uncertainty is still ~excess/2 either way. Folding it in here
+    // offset by up to excess/2. Folding that uncertainty in here
     // makes spike samples quadratically less influential in the
     // inverse-dispersion-squared peer combine and honestly widens the
     // Marzullo interval -- which matters when same-uplink congestion hits

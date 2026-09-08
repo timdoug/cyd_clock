@@ -1,5 +1,20 @@
 #include "ntp_host.h"
 
+static void test_congestion(void) {
+    for (int sign = -1; sign <= 1; sign += 2) {
+        reset();
+        g.first_sync_done = true;
+        ntp_peer_t *p = make_peer(0);
+        for (int i = 0; i < 3; i++) sample(p, i, sign*4000, 10000, test_ms-32000*(i+1));
+        struct timeval t4 = tv_from_us(wall_us + 20000);
+        ntp_pkt_t pkt = packet(2, wall_us+10000+sign*4000, wall_us+10000+sign*4000);
+        assert(process_response(p, &pkt, (uint8_t *)&pkt, sizeof(pkt), &t4) == RESP_GOOD);
+        ntp_sample_t *s = &p->filter[p->filter_head];
+        assert(abs(s->offset_us-sign*4000) <= 1);
+        assert(s->dispersion_us >= 5000);
+    }
+}
+
 static void test_intervals(void) {
     for (int synced = 0; synced < 2; synced++) {
         reset();
@@ -68,6 +83,7 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[1], "persist-negative")) test_persistence(-20000);
     else if (!strcmp(argv[1], "server-validation")) test_server_validation();
     else if (!strcmp(argv[1], "intervals")) test_intervals();
+    else if (!strcmp(argv[1], "congestion")) test_congestion();
     else { fprintf(stderr, "Unknown case: %s\n", argv[1]); return 1; }
     printf("PASS %s\n", argv[1]);
     return 0;
