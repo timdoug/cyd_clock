@@ -31,6 +31,19 @@ static void clear_visible_peer_state_locked(void) {
     g.last_any_response_ms = 0;
 }
 
+static void ntp_freq_task(void *arg) {
+    (void)arg;
+    TickType_t wake = xTaskGetTickCount();
+    while (g.running) {
+        lock_take();
+        if (g.first_sync_done) apply_freq_correction();
+        lock_give();
+        xTaskDelayUntil(&wake, pdMS_TO_TICKS(FREQ_APPLY_INTERVAL_MS));
+    }
+    g.freq_task = NULL;
+    vTaskDelete(NULL);
+}
+
 static void ntp_task(void *arg) {
     (void)arg;
     g.sync_start_ms = mono_ms();
@@ -39,8 +52,6 @@ static void ntp_task(void *arg) {
 
     while (g.running) {
         lock_take();
-
-        apply_freq_correction();
 
         if (g.poll_paused) {
             close_sockets();
@@ -296,6 +307,7 @@ void ntp_init(const char *server, bool prefer_ipv6, nts_mode_t nts_mode) {
     g.root_dispersion_us = 0;
     g.combined_offset_us = 0;
     g.last_freq_apply_ms = 0;
+    g.freq_apply_initialized = false;
     g.freq_apply_residual = 0;
     g.last_freq_sample_ms = 0;
     g.freq_jitter_floor = 0;
@@ -330,6 +342,18 @@ void ntp_init(const char *server, bool prefer_ipv6, nts_mode_t nts_mode) {
     lock_give();
 
     g.running = true;
+    // Frequency correction must continue during select(), DNS and polling
+    // pauses. At 10 ms cadence the quantized correction is at most 5 us at
+    // the 500 ppm limit (normally 1 us at a time), rather than five-second
+    // catch-up slews. This task outranks network processing and shares the
+    // discipline lock so adjtime's read/merge/write remains serialized.
+    if (xTaskCreatePinnedToCore(ntp_freq_task, "ntp_freq", 3072, NULL, 6,
+                               &g.freq_task, 0) != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create frequency correction task");
+        g.running = false;
+        g.freq_task = NULL;
+        return;
+    }
     // Pinned to core 0 with WiFi and lwip; core 1 is reserved for the render
     // loop (main task) so network work can't stretch a display tick mid-draw.
     // 8 KB (up from 4 KB): NTS responses add a ~1 KB receive buffer and the
@@ -338,6 +362,7 @@ void ntp_init(const char *server, bool prefer_ipv6, nts_mode_t nts_mode) {
         ESP_LOGE(TAG, "Failed to create NTP task");
         g.running = false;
         g.task = NULL;
+        while (g.freq_task) vTaskDelay(pdMS_TO_TICKS(FREQ_APPLY_INTERVAL_MS));
     }
 }
 
@@ -346,7 +371,7 @@ static void ntp_stop(void) {
     if (!g.running) return;
     g.running = false;
     wake_task();
-    while (g.task) {
+    while (g.task || g.freq_task) {
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }

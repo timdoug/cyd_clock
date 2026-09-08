@@ -1,5 +1,23 @@
 #include "ntp_host.h"
 
+static void test_frequency_cadence(void) {
+    for (int sign = -1; sign <= 1; sign += 2) {
+        reset();
+        test_ms = UINT32_MAX - 999;
+        g.freq_ppm_x1000 = sign * 20000;
+        apply_freq_correction();
+        int64_t total = 0;
+        for (int i = 0; i < 10000; i++) {
+            test_ms += FREQ_APPLY_INTERVAL_MS;
+            pending_us = 0; // prior sub-5us slew has completed
+            apply_freq_correction();
+            assert(llabs(pending_us) <= 1);
+            total += pending_us;
+        }
+        assert(total == sign * 2000); // 100 seconds at 20 ppm, across wrap
+    }
+}
+
 static void test_freshness(void) {
     reset();
     g.first_sync_done = true;
@@ -133,6 +151,7 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[1], "congestion")) test_congestion();
     else if (!strcmp(argv[1], "expiry")) test_expiry();
     else if (!strcmp(argv[1], "freshness")) test_freshness();
+    else if (!strcmp(argv[1], "frequency-cadence")) test_frequency_cadence();
     else { fprintf(stderr, "Unknown case: %s\n", argv[1]); return 1; }
     printf("PASS %s\n", argv[1]);
     return 0;

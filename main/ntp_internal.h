@@ -63,6 +63,7 @@ extern const char *NTP_TAG;
 // honest peers evicted as falsetickers. Real pool peers sit well under 1.5 s.
 #define MAX_ROOT_DIST_US     1500000LL
 #define IDLE_WAKE_MS         5000
+#define FREQ_APPLY_INTERVAL_MS 10
 #define NEW_PEER_HIGHLIGHT_MS 10000
 
 #define MAX_FREQ_PPM_X1000   500000
@@ -227,6 +228,7 @@ typedef struct {
     uint8_t  freq_stable_runs;
     bool     freq_converged;
     uint32_t last_freq_apply_ms;
+    bool     freq_apply_initialized;
     int64_t  freq_apply_residual;
     uint32_t last_freq_sample_ms;
     int32_t  freq_jitter_floor;    // adaptive estimate of the clean-wave system-jitter
@@ -246,6 +248,7 @@ typedef struct {
     uint16_t wake_port;
 
     TaskHandle_t task;
+    TaskHandle_t freq_task;
     SemaphoreHandle_t lock;
     bool     running;
     bool     force_sync;

@@ -202,9 +202,13 @@ static void adaptive_poll_update(void) {
 
 void apply_freq_correction(void) {
     uint32_t now = mono_ms();
-    if (g.last_freq_apply_ms == 0) { g.last_freq_apply_ms = now; return; }
+    if (!g.freq_apply_initialized) {
+        g.last_freq_apply_ms = now;
+        g.freq_apply_initialized = true;
+        return;
+    }
     uint32_t elapsed_ms = now - g.last_freq_apply_ms;
-    if (elapsed_ms < 1000) return;
+    if (elapsed_ms < FREQ_APPLY_INTERVAL_MS) return;
 
     // delta_us = (freq_ppm_x1000 / 1000) ppm * (elapsed_ms / 1000) s * 1 us/(ppm*s)
     //          = freq_ppm_x1000 * elapsed_ms / 1_000_000
