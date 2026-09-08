@@ -134,25 +134,24 @@ static int append_getaddrinfo_results(const char *host, int family,
 
 int ntp_resolve_host(const char *host, bool prefer_ipv6,
                      struct sockaddr_storage *out, int max) {
+    if (!host || !out || max <= 0) return 0;
     int count = resolve_numeric_host(host, out, max);
     if (count > 0) return count;
 
     clear_dns_cache_for_lookup();
 
-    // Always try both families, ordered by preference: querying only the
-    // preferred family means a single-stack network can resolve nothing and the
-    // staleness watchdog spins re-resolving forever. The toggle sets which
-    // family wins, not the only one.
-    if (prefer_ipv6) {
-        count = append_getaddrinfo_results(host, AF_INET6, out, count, max);
-        if (count < max) {
-            count = append_getaddrinfo_results(host, AF_INET, out, count, max);
-        }
-    } else {
-        count = append_getaddrinfo_results(host, AF_INET, out, count, max);
-        if (count < max) {
-            count = append_getaddrinfo_results(host, AF_INET6, out, count, max);
-        }
+    // DNS answers do not imply that a route of that family works. Resolve
+    // both families before filling slots and interleave their candidates so
+    // a full preferred-family answer cannot suppress the working fallback.
+    struct sockaddr_storage preferred[NTP_MAX_PEERS], fallback[NTP_MAX_PEERS];
+    int limit = max < NTP_MAX_PEERS ? max : NTP_MAX_PEERS;
+    int first = prefer_ipv6 ? AF_INET6 : AF_INET;
+    int second = prefer_ipv6 ? AF_INET : AF_INET6;
+    int nfirst = append_getaddrinfo_results(host, first, preferred, 0, limit);
+    int nsecond = append_getaddrinfo_results(host, second, fallback, 0, limit);
+    for (int i = 0; count < max && (i < nfirst || i < nsecond); i++) {
+        if (i < nfirst) out[count++] = preferred[i];
+        if (count < max && i < nsecond) out[count++] = fallback[i];
     }
     return count;
 }

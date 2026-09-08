@@ -62,9 +62,11 @@ early_ring_t *early_t4_ring(void) { return NULL; }
 void maybe_evict_worst_peer(void) {}
 void nts_drop_context_and_fallback(void) {}
 void nts_request_rekey(void) {}
+#ifndef NTP_TEST_RESOLVER
 bool sockaddr_matches(const struct sockaddr_storage *a, const struct sockaddr_storage *b) {
     return memcmp(a, b, sizeof(*a)) == 0;
 }
+#endif
 bool ntp_nts_add_ef(uint8_t *b, size_t *l, size_t c, ntp_nts_ctx_t *n, uint8_t u[NTS_UID_LEN]) {
     (void)b; (void)l; (void)c; (void)n; (void)u; return false;
 }

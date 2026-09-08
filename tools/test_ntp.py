@@ -20,6 +20,9 @@ def main():
                            if not (line.startswith('#include "') and
                                    line.split('"')[1] not in portable))
         (work / "ntp_internal_host.h").write_text(header + "\n")
+        (work / "lwip").mkdir()
+        for name in ("dns.h", "tcpip.h"):
+            (work / "lwip" / name).write_text("// Platform calls supplied by the host adapter.\n")
         binary = work / "ntp_test"
         subprocess.run([os.environ.get("CC", "clang"), "-std=c11", "-O2", "-g",
                         "-fsanitize=undefined,address", "-fno-sanitize-recover=all",
@@ -32,6 +35,13 @@ def main():
         for case in cases:
             subprocess.run([str(binary), case], check=True)
         if not sys.argv[1:]:
+            resolver = work / "ntp_resolve_test"
+            subprocess.run([os.environ.get("CC", "clang"), "-std=c11", "-O2", "-g",
+                            "-fsanitize=undefined,address", "-fno-sanitize-recover=all",
+                            "-I", str(work), "-I", str(ROOT / "main"),
+                            str(ROOT / "tests/ntp_resolve_test.c"), "-lm", "-o", str(resolver)],
+                           check=True)
+            subprocess.run([str(resolver)], check=True)
             simulation = work / "ntp_sim"
             subprocess.run([os.environ.get("CC", "clang"), "-std=c11", "-O2", "-g",
                             "-fsanitize=undefined,address", "-fno-sanitize-recover=all",
