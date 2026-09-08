@@ -455,6 +455,7 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
             q->jitter_us        = 0;
             q->dispersion_us    = 16000000;
             q->best_sample_ms   = 0;
+            q->best_sample_valid = false;
             q->reach            = 0;
             q->falseticker_runs = 0;
             q->jittery_runs     = 0;

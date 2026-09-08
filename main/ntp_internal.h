@@ -148,6 +148,7 @@ typedef struct {
     int32_t  jitter_us;
     int32_t  dispersion_us;
     uint32_t best_sample_ms;
+    bool     best_sample_valid;
     uint32_t last_response_ms;
 
     struct timeval t1;

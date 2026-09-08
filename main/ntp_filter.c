@@ -2,31 +2,30 @@
 
 
 void update_peer_filter(ntp_peer_t *p) {
-    int valid = 0;
+    uint32_t now = mono_ms();
+    int valid = 0, best_idx = -1;
     for (int i = 0; i < NTP_FILTER_SIZE; i++) {
-        if (p->filter[i].valid) valid++;
+        ntp_sample_t *s = &p->filter[i];
+        if (!s->valid) continue;
+        if (now - s->received_ms > ROBUST_SAMPLE_MAX_AGE_S * 1000UL) {
+            s->valid = false;
+            continue;
+        }
+        valid++;
+        if (best_idx < 0 || s->delay_us < p->filter[best_idx].delay_us ||
+            (s->delay_us == p->filter[best_idx].delay_us &&
+             now - s->received_ms < now - p->filter[best_idx].received_ms)) {
+            best_idx = i;
+        }
     }
-    if (valid == 0) {
+    p->best_sample_valid = best_idx >= 0;
+    if (best_idx < 0) {
         p->best_offset_us = 0;
-        p->best_delay_us  = 0;
-        p->jitter_us      = 0;
-        p->dispersion_us  = 16000000;
+        p->best_delay_us = 0;
+        p->jitter_us = 0;
+        p->dispersion_us = 16000000;
         p->best_sample_ms = 0;
         return;
-    }
-
-    int best_idx = p->filter_head;
-    if (valid > 1) {
-        uint32_t now = mono_ms();
-        uint32_t max_age_ms = ROBUST_SAMPLE_MAX_AGE_S * 1000UL;
-        for (int i = 0; i < NTP_FILTER_SIZE; i++) {
-            if (!p->filter[i].valid) continue;
-            uint32_t age_ms = now - p->filter[i].received_ms;
-            if (age_ms > max_age_ms) continue;
-            if (p->filter[i].delay_us < p->filter[best_idx].delay_us) {
-                best_idx = i;
-            }
-        }
     }
 
     // Queueing and route asymmetry show up as higher RTT. Use the
@@ -63,7 +62,7 @@ void update_peer_filter(ntp_peer_t *p) {
 
 int32_t aged_peer_dispersion_us(const ntp_peer_t *p, uint32_t now_ms) {
     int64_t disp = p->dispersion_us;
-    if (p->best_sample_ms != 0) {
+    if (p->best_sample_valid) {
         uint32_t age_ms = now_ms - p->best_sample_ms;
         disp += (int64_t)PHI_US_PER_SEC * age_ms / 1000;
     } else {
@@ -100,6 +99,8 @@ void select_system_peer(void) {
         ntp_peer_t *p = &g.peers[i];
         if (!p->active || p->reach == 0) continue;
         if (p->stratum == 0 || p->stratum >= 16) continue;
+        update_peer_filter(p);
+        if (!p->best_sample_valid) continue;
         // RFC 5905 root distance: the server's own uncertainty about UTC,
         // root_delay/2 + root_dispersion. A server that lost its upstream
         // advertises a huge root dispersion; MAXDIST drops it from selection

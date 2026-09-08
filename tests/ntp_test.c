@@ -1,5 +1,27 @@
 #include "ntp_host.h"
 
+static void test_expiry(void) {
+    reset();
+    ntp_peer_t *p = make_peer(0);
+    sample(p, 0, 100, 1000, test_ms);
+    select_system_peer();
+    assert(g.selected_peer == 0);
+    test_ms += ROBUST_SAMPLE_MAX_AGE_S * 1000 + 1;
+    select_system_peer();
+    assert(g.selected_peer == -1 && !p->best_sample_valid);
+    // Expired low-delay samples must not enter either selection or jitter.
+    sample(p, 1, 9000, 2000, test_ms);
+    update_peer_filter(p);
+    assert(p->best_offset_us == 9000 && p->jitter_us == 1000);
+    // Timestamp zero is a valid observation epoch after tick wrap.
+    test_ms = 0;
+    memset(p->filter, 0, sizeof(p->filter));
+    sample(p, 0, 100, 1000, 0);
+    update_peer_filter(p);
+    assert(p->best_sample_valid);
+    assert(aged_peer_dispersion_us(p, 1000) == p->dispersion_us+PHI_US_PER_SEC);
+}
+
 static void test_congestion(void) {
     for (int sign = -1; sign <= 1; sign += 2) {
         reset();
@@ -84,6 +106,7 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[1], "server-validation")) test_server_validation();
     else if (!strcmp(argv[1], "intervals")) test_intervals();
     else if (!strcmp(argv[1], "congestion")) test_congestion();
+    else if (!strcmp(argv[1], "expiry")) test_expiry();
     else { fprintf(stderr, "Unknown case: %s\n", argv[1]); return 1; }
     printf("PASS %s\n", argv[1]);
     return 0;
