@@ -92,7 +92,7 @@ static void IRAM_ATTR clock_tick_cb(void *arg) {
     clock_tick_fire_us = esp_timer_get_time();
     BaseType_t hpw = pdFALSE;
     xSemaphoreGiveFromISR(clock_tick_sem, &hpw);
-    if (hpw == pdTRUE) portYIELD_FROM_ISR();
+    if (hpw == pdTRUE) esp_timer_isr_dispatch_need_yield();
 }
 
 static void clock_tick_arm(void) {

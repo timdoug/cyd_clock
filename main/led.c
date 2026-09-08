@@ -65,7 +65,7 @@ static void IRAM_ATTR pps_wake_cb(void *arg) {
     (void)arg;
     BaseType_t hpw = pdFALSE;
     xSemaphoreGiveFromISR(pps_wake_sem, &hpw);
-    if (hpw == pdTRUE) portYIELD_FROM_ISR();
+    if (hpw == pdTRUE) esp_timer_isr_dispatch_need_yield();
 }
 
 // False on a missed wake; the caller recomputes from the clock either way.
