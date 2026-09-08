@@ -217,7 +217,6 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
                                           const struct timeval *t4) {
     uint8_t mode = pkt->li_vn_mode & 0x07;
     uint8_t vn   = (pkt->li_vn_mode >> 3) & 0x07;
-    uint8_t li   = (pkt->li_vn_mode >> 6) & 0x03;
 
     if (mode != NTP_MODE_SERVER || vn < 3) return RESP_IGNORE;
 
@@ -286,7 +285,9 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
         }
         return RESP_BAD;
     }
-    if (li == 3) return RESP_BAD;
+    // The startup and panic paths can step time before peer selection runs.
+    // Apply its server-usability gate here, before any clock mutation.
+    if (!ntp_server_usable(pkt)) return RESP_BAD;
 
     if (pkt->xmt_ts_sec == 0) return RESP_BAD;
 

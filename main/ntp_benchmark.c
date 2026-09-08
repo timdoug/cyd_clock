@@ -121,14 +121,13 @@ static ntp_benchmark_status_t bench_one_addr(const struct sockaddr_storage *addr
     memcpy(&pkt, buf, sizeof(pkt));
     uint8_t mode = pkt.li_vn_mode & 0x07;
     uint8_t vn = (pkt.li_vn_mode >> 3) & 0x07;
-    uint8_t li = (pkt.li_vn_mode >> 6) & 0x03;
     if (mode != NTP_MODE_SERVER || vn < 3 ||
         pkt.orig_ts_sec != req_xmt_sec ||
         pkt.orig_ts_frac != req_xmt_frac ||
-        pkt.stratum == 0 || pkt.stratum >= 16 || li == 3 ||
+        !ntp_server_usable(&pkt) ||
         pkt.xmt_ts_sec == 0) {
         ESP_LOGW(BENCH_TAG, "hdr reject: mode=%u vn=%u li=%u stratum=%u orig-match=%d",
-                 mode, vn, li, pkt.stratum,
+                 mode, vn, pkt.li_vn_mode >> 6, pkt.stratum,
                  pkt.orig_ts_sec == req_xmt_sec && pkt.orig_ts_frac == req_xmt_frac);
         return NTP_BENCHMARK_BAD_RESPONSE;
     }

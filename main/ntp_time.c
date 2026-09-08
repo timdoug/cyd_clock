@@ -2,6 +2,14 @@
 
 uint32_t clock_step_generation;
 
+bool ntp_server_usable(const ntp_pkt_t *pkt) {
+    uint8_t li = pkt->li_vn_mode >> 6;
+    int64_t distance = (int64_t)fp1616_to_us(ntohl(pkt->root_delay)) / 2 +
+                       fp1616_to_us(ntohl(pkt->root_dispersion));
+    return li != 3 && pkt->stratum >= 1 && pkt->stratum <= 15 &&
+           distance <= MAX_ROOT_DIST_US;
+}
+
 void ntp_to_tv(uint32_t sec, uint32_t frac, struct timeval *tv) {
     // Map the wire value to Unix seconds mod 2^32 (the add wraps by design;
     // see NTP_UNIX_FOLD), then resolve the 136-year era ambiguity against
