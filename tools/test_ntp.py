@@ -31,6 +31,15 @@ def main():
                                 "freshness"]
         for case in cases:
             subprocess.run([str(binary), case], check=True)
+        if not sys.argv[1:]:
+            simulation = work / "ntp_sim"
+            subprocess.run([os.environ.get("CC", "clang"), "-std=c11", "-O2", "-g",
+                            "-fsanitize=undefined,address", "-fno-sanitize-recover=all",
+                            "-I", str(work), "-I", str(ROOT / "main"),
+                            str(ROOT / "tests/ntp_sim.c"), "-lm", "-o", str(simulation)],
+                           check=True)
+            for case in ("fast", "slow", "variable", "noisy"):
+                subprocess.run([str(simulation), case], check=True)
 
 
 if __name__ == "__main__":

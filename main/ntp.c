@@ -318,6 +318,8 @@ void ntp_init(const char *server, bool prefer_ipv6, nts_mode_t nts_mode) {
     g.freq_ppm_x1000 = 0;
     g.freq_loaded_from_nvs = false;
     g.freq_learned_this_session = false;
+    g.freq_stable_runs = 0;
+    g.freq_converged = false;
     if (nvs_config_get_freq_ppm_x1000(&saved_freq) &&
         saved_freq >  -MAX_FREQ_PPM_X1000 &&
         saved_freq <   MAX_FREQ_PPM_X1000) {

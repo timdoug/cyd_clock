@@ -22,6 +22,8 @@ static void discipline_clock(int32_t offset_us, bool fresh) {
         // against the pre-step timestamp would be diluted by the whole
         // spanned window. Skip one learning cycle instead.
         g.last_freq_sample_ms = 0;
+        g.freq_stable_runs = 0;
+        g.freq_converged = false;
         ESP_LOGI(TAG, "Clock stepped %+ld us", (long)offset_us);
     } else {
         // Dampen offsets inside the clean-wave noise band and apply excess
@@ -44,52 +46,42 @@ static void discipline_clock(int32_t offset_us, bool fresh) {
         // second; re-framing the filters below treats it as immediate,
         // which is within the noise for the few-ms slews discipline emits.)
 
-        // Learn drift only from clean residual phase error. The PLL form is
-        // step = offset/TAU, so the frequency loop has a ~TAU time constant
-        // at any poll interval; the adaptive jitter floor keeps public-NTP
-        // path noise out of the crystal estimate.
+        // Learn the residual frequency from a time fit, independently of
+        // phase error. Detrended jitter gates path noise without mistaking
+        // the crystal error we are trying to acquire for that noise.
+        ntp_peer_t *sp = g.selected_peer >= 0 ? &g.peers[g.selected_peer] : NULL;
         int32_t freq_step = 0;
         bool learned_freq = false;
-        bool noisy = false;
-        bool gateable = fresh &&
-            g.last_freq_sample_ms != 0 &&
-            !g.select_spread_wide &&
-            g.system_jitter_us <= ROBUST_FREQ_MAX_JITTER_US &&
-            offset_us < ROBUST_FREQ_MAX_OFFSET_US &&
-            offset_us > -ROBUST_FREQ_MAX_OFFSET_US;
-        noisy = fresh &&
-            g.last_freq_sample_ms != 0 &&
-            (g.select_spread_wide ||
-             g.system_jitter_us > ROBUST_FREQ_MAX_JITTER_US ||
-             offset_us >= ROBUST_FREQ_MAX_OFFSET_US ||
-             offset_us <= -ROBUST_FREQ_MAX_OFFSET_US);
-        if (gateable) {
-            int32_t j = g.system_jitter_us;
-            bool clean;
-            if (g.freq_jitter_floor <= 0) {
-                g.freq_jitter_floor = j > 0 ? j : 1;
-                clean = true;
-            } else {
-                int32_t clean_allowance = g.freq_jitter_floor / 4;
-                clean = j <= g.freq_jitter_floor + clean_allowance;
-                if (j < g.freq_jitter_floor)
-                    g.freq_jitter_floor -= (g.freq_jitter_floor - j) / 4;
-                else
-                    g.freq_jitter_floor += (j - g.freq_jitter_floor) / 16;
-                if (g.freq_jitter_floor < 1) g.freq_jitter_floor = 1;
-            }
-            noisy = !clean;
+        // A fixed offset between surviving peers does not invalidate this
+        // peer's own frequency trend; only its residual noise gates the fit.
+        bool clean = fresh && sp && sp->freq_fit_valid &&
+            sp->jitter_us <= ROBUST_FREQ_MAX_JITTER_US;
+        bool noisy = !clean;
+        if (clean) {
+            int32_t j = sp->jitter_us;
+            if (g.freq_jitter_floor <= 0) g.freq_jitter_floor = j;
+            else g.freq_jitter_floor += (j - g.freq_jitter_floor) / 8;
             uint32_t elapsed_ms = now_ms - g.last_freq_sample_ms;
-            if (clean && elapsed_ms >= (MIN_POLL_S / 2) * 1000) {
-                freq_step = (int32_t)(((int64_t)offset_us * 1000) / FREQ_TAU_S);
+            if (g.last_freq_sample_ms != 0 && elapsed_ms >= MIN_POLL_S * 500u) {
+                // A long outage does not justify a large one-shot gain.
+                if (elapsed_ms > MAX_POLL_S * 1000u) elapsed_ms = MAX_POLL_S * 1000u;
+                freq_step = (int32_t)((int64_t)sp->freq_error_ppb * elapsed_ms /
+                                     (FREQ_TAU_S * 1000LL));
                 freq_step = clamp_i32(freq_step, -MAX_FREQ_STEP_PPB, MAX_FREQ_STEP_PPB);
-                g.freq_ppm_x1000 += freq_step;
-                g.freq_ppm_x1000 = clamp_i32(g.freq_ppm_x1000,
-                                             -MAX_FREQ_PPM_X1000,
-                                              MAX_FREQ_PPM_X1000);
+                g.freq_ppm_x1000 = clamp_i32(g.freq_ppm_x1000 + freq_step,
+                                             -MAX_FREQ_PPM_X1000, MAX_FREQ_PPM_X1000);
                 g.freq_learned_this_session = true;
                 learned_freq = true;
+                if (abs(sp->freq_error_ppb) <= 1000) {
+                    if (g.freq_stable_runs < 4) g.freq_stable_runs++;
+                } else {
+                    g.freq_stable_runs = 0;
+                }
+                g.freq_converged = g.freq_stable_runs >= 4;
             }
+        } else {
+            g.freq_stable_runs = 0;
+            g.freq_converged = false;
         }
         // Advance this every discipline; it only gates whether enough time
         // has passed to bother with a frequency update.
@@ -163,10 +155,11 @@ static void adaptive_poll_update(void) {
     }
     const int32_t shrink_offset_max = ROBUST_FREQ_MAX_OFFSET_US;
 
-    bool good = responded &&
+    bool good = responded && g.freq_converged &&
                 g.system_jitter_us <= ROBUST_FREQ_MAX_JITTER_US &&
                 off <= grow_offset_max;
-    bool bad = !responded ||
+    bool bad = !responded || !g.freq_converged ||
+               g.system_jitter_us > ROBUST_FREQ_MAX_JITTER_US ||
                off > shrink_offset_max;
     int8_t bad_sign = 0;
     if (bad && responded && off > shrink_offset_max) {

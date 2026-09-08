@@ -25,6 +25,7 @@ void update_peer_filter(ntp_peer_t *p) {
         p->jitter_us = 0;
         p->dispersion_us = 16000000;
         p->best_sample_ms = 0;
+        p->freq_fit_valid = false;
         return;
     }
 
@@ -36,25 +37,63 @@ void update_peer_filter(ntp_peer_t *p) {
     p->best_delay_us  = best->delay_us;
     p->best_sample_ms = best->received_ms;
 
-    if (valid > 1) {
-        // Jitter: RMS difference of other samples from the chosen offset.
-        double sum_sq = 0.0;
-        int n = 0;
-        for (int i = 0; i < NTP_FILTER_SIZE; i++) {
-            if (!p->filter[i].valid || i == best_idx) continue;
-            double d = (double)p->filter[i].offset_us - (double)p->best_offset_us;
-            sum_sq += d * d;
-            n++;
-        }
-        // Saturate: two large-but-subpanic offsets (+/-999 s both pass the
-        // panic check) give an RMS above INT32_MAX, and casting that double
-        // to int32 is UB. 16 s of jitter is as meaningless as 16 s of
-        // anything else here, and the cap keeps downstream sums overflow-free.
-        double rms = n > 0 ? sqrt(sum_sq / n) : 0.0;
-        p->jitter_us = rms > 16000000.0 ? 16000000 : (int32_t)rms;
-    } else {
-        int32_t half_delay = best->delay_us / 2;
-        p->jitter_us = half_delay > 16000000 ? 16000000 : half_delay;
+    // A linear trend is oscillator drift, not network jitter. Fit against
+    // observation epochs after shift_filters has put all phase offsets in
+    // the same frame. RTT excess already contributes to sample dispersion,
+    // so it also reduces a queued packet's influence on the fit.
+    double sw = 0, sx = 0, sy = 0;
+    uint32_t oldest = 0, newest = UINT32_MAX;
+    for (int i = 0; i < NTP_FILTER_SIZE; i++) {
+        const ntp_sample_t *s = &p->filter[i];
+        if (!s->valid) continue;
+        uint32_t age = now - s->received_ms;
+        if (age > oldest) oldest = age;
+        if (age < newest) newest = age;
+        double x = -(double)age / 1000.0;
+        double d = s->dispersion_us > SAMPLE_DISP_FLOOR_US ?
+                   s->dispersion_us : SAMPLE_DISP_FLOOR_US;
+        double w = 1.0 / (d * d);
+        sw += w;
+        sx += w * x;
+        sy += w * s->offset_us;
+    }
+    double mean_x = sx / sw, mean_y = sy / sw;
+    double xx = 0, xy = 0;
+    for (int i = 0; i < NTP_FILTER_SIZE; i++) {
+        const ntp_sample_t *s = &p->filter[i];
+        if (!s->valid) continue;
+        double x = -(double)(now - s->received_ms) / 1000.0 - mean_x;
+        double d = s->dispersion_us > SAMPLE_DISP_FLOOR_US ?
+                   s->dispersion_us : SAMPLE_DISP_FLOOR_US;
+        double w = 1.0 / (d * d);
+        xx += w * x * x;
+        xy += w * x * ((double)s->offset_us - mean_y);
+    }
+    double slope = xx > 0 ? xy / xx : 0;
+    p->freq_fit_valid = valid >= 4 && oldest - newest >= 3 * MIN_POLL_S * 1000 &&
+                        fabs(slope * 1000.0) <= MAX_FREQ_PPM_X1000;
+    p->freq_error_ppb = p->freq_fit_valid ? (int32_t)(slope * 1000.0) : 0;
+    double sum_sq = 0;
+    for (int i = 0; i < NTP_FILTER_SIZE; i++) {
+        const ntp_sample_t *s = &p->filter[i];
+        if (!s->valid) continue;
+        double predicted = p->freq_fit_valid ? mean_y + slope *
+            (-(double)(now - s->received_ms) / 1000.0 - mean_x) : best->offset_us;
+        double residual = s->offset_us - predicted;
+        sum_sq += residual * residual;
+    }
+    double rms = valid > 1 ? sqrt(sum_sq / (valid - (p->freq_fit_valid ? 2 : 1))) :
+                            best->delay_us / 2.0;
+    if (rms < SAMPLE_DISP_FLOOR_US) rms = SAMPLE_DISP_FLOOR_US;
+    p->jitter_us = rms > 16000000.0 ? 16000000 : (int32_t)rms;
+    // Translate a delayed filter winner to the discipline epoch using the
+    // measured residual drift. Its aged dispersion still covers extrapolation.
+    if (p->freq_fit_valid && p->jitter_us <= ROBUST_FREQ_MAX_JITTER_US) {
+        int64_t projected = (int64_t)p->best_offset_us +
+            (int64_t)p->freq_error_ppb * (now - p->best_sample_ms) / 1000000;
+        if (projected > INT32_MAX) projected = INT32_MAX;
+        if (projected < INT32_MIN) projected = INT32_MIN;
+        p->best_offset_us = (int32_t)projected;
     }
     p->dispersion_us = best->dispersion_us + p->jitter_us;
 }

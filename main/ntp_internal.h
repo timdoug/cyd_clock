@@ -149,6 +149,8 @@ typedef struct {
     int32_t  dispersion_us;
     uint32_t best_sample_ms;
     bool     best_sample_valid;
+    int32_t  freq_error_ppb;
+    bool     freq_fit_valid;
     bool     sample_used;
     uint32_t last_used_sample_ms;
     uint32_t last_response_ms;
@@ -222,6 +224,8 @@ typedef struct {
     int32_t  freq_ppm_x1000;
     bool     freq_loaded_from_nvs;
     bool     freq_learned_this_session;
+    uint8_t  freq_stable_runs;
+    bool     freq_converged;
     uint32_t last_freq_apply_ms;
     int64_t  freq_apply_residual;
     uint32_t last_freq_sample_ms;
