@@ -46,6 +46,11 @@ let cjkConfigs = [
     FontConfig(scope: "yue", fontObject: "font_yue", glyphArray: "yue_glyphs",
                fontName: "PingFang HK", glyphWidth: 16, fontSize16: 13, fontSize32: 28),
 ]
+let shapedScopeOrder = [
+    "pa_arab", "ar", "fa", "he", "hi", "bn", "th", "ur", "mr", "ta", "te", "pa", "gu",
+    "kn", "ml", "ne", "si", "km", "lo", "my", "am", "kok", "as", "ti", "yo", "pcm",
+    "bho", "ps", "or", "sd", "mai",
+]
 
 // Coverage -> 4-bit level: a contrast stretch kills the faint halo below
 // 15% coverage and saturates above 85% (sharper edges); in between the
@@ -78,10 +83,11 @@ func codepoint(_ ch: Character) -> UInt32 {
     return scalars[0].value
 }
 
-// Collect the non-ASCII characters of every string literal in
-// i18n_data.inc, bucketed by which font must render them. A declaration
-// whose symbol ends in _<scope> (lang_ja, weekdays_ja, date_year_ja, ...)
-// belongs to that CJK font; everything else is base-font text.
+// Collect the non-ASCII characters of every compiled string literal in the
+// translation data and generated CLDR locale include, bucketed by which font
+// must render them. A declaration whose symbol ends in _<scope> (lang_ja,
+// weekdays_ja, cldr_pattern_ja, ...) belongs to that per-language font;
+// everything else is base-font text.
 // 2x bitmaps are only reachable from the clock date and the waiting
 // banner, so alongside the full character buckets we track the subset
 // used by weekday/month/date-suffix tables and STR_WAITING_NTP; every
@@ -94,6 +100,7 @@ func collectChars(_ source: String) -> [String: Set<Character>] {
 
     var scope = ""
     var inShaped = false
+    var inCldrDateSource = false
     var inBlock = false
     var inDateTable = false
     for line in source.split(separator: "\n", omittingEmptySubsequences: false) {
@@ -101,20 +108,27 @@ func collectChars(_ source: String) -> [String: Set<Character>] {
         // the plain character collector
         if line.hasPrefix("// >>> shaped-source") { inShaped = true }
         if line.hasPrefix("// <<< shaped-source") { inShaped = false; continue }
-        if inShaped { continue }
+        if line.hasPrefix("// >>> cldr-date-source") { inCldrDateSource = true }
+        if line.hasPrefix("// <<< cldr-date-source") { inCldrDateSource = false; continue }
+        if inShaped || inCldrDateSource { continue }
         if !inBlock {
             scope = ""
             inDateTable = false
             // declaration line: pick scope from the symbol name
-            if let m = line.range(of: #"(lang|weekdays|months|lang_name|date_year|date_day)_[a-z_]+"#,
+            if let m = line.range(of: #"(lang|weekdays|months|lang_name|date_year|date_day|cldr_weekdays|cldr_months|cldr_era|cldr_digits|cldr_literal|cldr_pattern)_[a-z0-9_]+"#,
                                   options: .regularExpression) {
                 let sym = String(line[m])
                 for cfg in cjkConfigs where sym.hasSuffix("_" + cfg.scope) {
                     scope = cfg.scope
                     break
                 }
+                for shapedScope in shapedScopeOrder where sym.hasSuffix("_" + shapedScope) {
+                    scope = "__shaped"
+                    break
+                }
                 if sym.hasPrefix("weekdays_") || sym.hasPrefix("months_")
-                    || sym.hasPrefix("date_year_") || sym.hasPrefix("date_day_") {
+                    || sym.hasPrefix("date_year_") || sym.hasPrefix("date_day_")
+                    || sym.hasPrefix("cldr_") {
                     inDateTable = true
                 }
             }
@@ -133,6 +147,7 @@ func collectChars(_ source: String) -> [String: Set<Character>] {
                 i = rest.index(after: i)
             }
             for ch in lit {
+                if scope == "__shaped" { continue }
                 if !isAscii(ch) { buckets[scope]!.insert(ch) }
                 if inDateTable || line.contains("[STR_WAITING_NTP]") {
                     dateBuckets[scope]!.insert(ch)
@@ -421,9 +436,14 @@ let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
 let i18nDir = root.appendingPathComponent("main/i18n")
 let i18nFiles = try FileManager.default.contentsOfDirectory(atPath: i18nDir.path)
     .filter { $0.hasSuffix(".inc") }.sorted()
-let dataSource = try i18nFiles.map {
+var dataPieces = try i18nFiles.map {
     try String(contentsOf: i18nDir.appendingPathComponent($0), encoding: .utf8)
-}.joined(separator: "\n")
+}
+let cldrLocaleInc = root.appendingPathComponent("main/i18n_locale.inc")
+if FileManager.default.fileExists(atPath: cldrLocaleInc.path) {
+    dataPieces.append(try String(contentsOf: cldrLocaleInc, encoding: .utf8))
+}
+let dataSource = dataPieces.joined(separator: "\n")
 let buckets = collectChars(dataSource)
 
 var out = """
@@ -557,6 +577,70 @@ print("picker order: \(sortedNames.count) languages")
 
 import CryptoKit
 
+func cUnescape(_ lit: String) -> String {
+    var out = ""
+    var esc = false
+    for ch in lit {
+        if esc { out.append(ch); esc = false }
+        else if ch == "\\" { esc = true }
+        else { out.append(ch) }
+    }
+    return out
+}
+
+func cStringLiterals(_ text: String) -> [String] {
+    var out: [String] = []
+    var rest = Substring(text)
+    while let q1 = rest.firstIndex(of: "\"") {
+        var i = rest.index(after: q1)
+        var lit = ""
+        while i < rest.endIndex, rest[i] != "\"" {
+            if rest[i] == "\\" {
+                lit.append(rest[i])
+                i = rest.index(after: i)
+                if i < rest.endIndex {
+                    lit.append(rest[i])
+                    i = rest.index(after: i)
+                }
+            } else {
+                lit.append(rest[i])
+                i = rest.index(after: i)
+            }
+        }
+        out.append(cUnescape(lit))
+        if i >= rest.endIndex { break }
+        rest = rest[rest.index(after: i)...]
+    }
+    return out
+}
+
+func mergedExtraChars(_ parts: [String]) -> String {
+    var seen: Set<UInt32> = []
+    var out = ""
+    for part in parts {
+        for ch in part {
+            guard ch.unicodeScalars.count == 1, let scalar = ch.unicodeScalars.first else {
+                continue
+            }
+            if seen.insert(scalar.value).inserted {
+                out.append(ch)
+            }
+        }
+    }
+    return out
+}
+
+func cldrRuntimeExtraChars(_ source: String, scope: String) -> String {
+    var out = ""
+    for line in source.split(separator: "\n", omittingEmptySubsequences: false) {
+        if !line.contains("cldr_digits_\(scope)[]") { continue }
+        for lit in cStringLiterals(String(line)) {
+            out += lit.filter { !isAscii($0) }
+        }
+    }
+    return mergedExtraChars([out])
+}
+
 struct ShapedConfig {
     let scope: String
     let fontObject: String
@@ -570,14 +654,22 @@ struct ShapedConfig {
     var extraChars: String = ""
 }
 
-let shapedConfigs = [
+let cldrExtras = Dictionary(uniqueKeysWithValues: [
+    "ar", "fa", "he", "hi", "bn", "th", "ur", "mr", "ta", "te", "pa", "gu",
+    "kn", "ml", "ne", "si", "km", "lo", "my", "am", "kok", "as", "ti", "yo",
+    "pcm", "pa_arab", "bho", "ps", "or", "sd", "mai",
+].map { ($0, cldrRuntimeExtraChars(dataSource, scope: $0)) })
+
+let shapedConfigsBase = [
     ShapedConfig(scope: "ar", fontObject: "font_ar", glyphArray: "ar_glyphs",
-                 fontName: "Geeza Pro", fontSize: 13, rtl: true),
+                 fontName: "Geeza Pro", fontSize: 13, rtl: true,
+                 extraChars: mergedExtraChars([cldrExtras["ar"] ?? ""])),
     ShapedConfig(scope: "fa", fontObject: "font_fa", glyphArray: "fa_glyphs",
                  fontName: "Geeza Pro", fontSize: 13, rtl: true,
-                 extraChars: "\u{06F0}\u{06F1}\u{06F2}\u{06F3}\u{06F4}\u{06F5}\u{06F6}\u{06F7}\u{06F8}\u{06F9}"),
+                 extraChars: mergedExtraChars(["\u{06F0}\u{06F1}\u{06F2}\u{06F3}\u{06F4}\u{06F5}\u{06F6}\u{06F7}\u{06F8}\u{06F9}", cldrExtras["fa"] ?? ""])),
     ShapedConfig(scope: "he", fontObject: "font_he", glyphArray: "he_glyphs",
-                 fontName: "Arial Hebrew", fontSize: 14, rtl: true),
+                 fontName: "Arial Hebrew", fontSize: 14, rtl: true,
+                 extraChars: mergedExtraChars([cldrExtras["he"] ?? ""])),
     ShapedConfig(scope: "hi", fontObject: "font_hi", glyphArray: "hi_glyphs",
                  fontName: "Kohinoor Devanagari", fontSize: 12, rtl: false),
     ShapedConfig(scope: "bn", fontObject: "font_bn", glyphArray: "bn_glyphs",
@@ -638,14 +730,9 @@ let shapedConfigs = [
                  fontName: "Kohinoor Devanagari", fontSize: 12, rtl: false),
 ]
 
-func cUnescape(_ lit: String) -> String {
-    var out = ""
-    var esc = false
-    for ch in lit {
-        if esc { out.append(ch); esc = false }
-        else if ch == "\\" { esc = true }
-        else { out.append(ch) }
-    }
+let shapedConfigs = shapedConfigsBase.map { cfg -> ShapedConfig in
+    var out = cfg
+    out.extraChars = mergedExtraChars([cfg.extraChars, cldrExtras[cfg.scope] ?? ""])
     return out
 }
 
@@ -709,6 +796,47 @@ func parseShapedSource(_ source: String, scope: String) -> ShapedSource {
     let nameLine = section[n.upperBound...].prefix(while: { $0 != "\n" })
     let name = literals(String(nameLine)).first ?? ""
     return ShapedSource(raw: section, strings: strings, weekdays: wk, months: mo, name: name)
+}
+
+struct CldrDateSource {
+    let raw: String
+    let weekdays: [String]
+    let months: [String]
+    let era: String
+    let literals: [(String, String)]     // (symbol without _shaped, text)
+}
+
+func parseCldrDateSource(_ source: String, scope: String) -> CldrDateSource? {
+    guard let a = source.range(of: "// >>> cldr-date-source \(scope)\n"),
+          let b = source.range(of: "// <<< cldr-date-source \(scope)") else {
+        return nil
+    }
+    let section = String(source[a.upperBound..<b.lowerBound])
+    var weekdays: [String] = []
+    var months: [String] = []
+    var era = ""
+    var literals: [(String, String)] = []
+
+    for lineSub in section.split(separator: "\n", omittingEmptySubsequences: false) {
+        let line = String(lineSub)
+        if line.contains("cldr_weekdays_\(scope)[7]") {
+            weekdays = cStringLiterals(line)
+        } else if line.contains("cldr_months_\(scope)[12]") {
+            months = cStringLiterals(line)
+        } else if line.contains("cldr_era_\(scope)[]") {
+            era = cStringLiterals(line).first ?? ""
+        } else if let r = line.range(of: #"cldr_literal_\#(scope)_[0-9]+"#,
+                                     options: .regularExpression) {
+            let name = String(line[r])
+            let value = cStringLiterals(line).first ?? ""
+            literals.append((name, value))
+        }
+    }
+    guard weekdays.count == 7, months.count == 12 else {
+        fatalError("\(scope): CLDR date source has weekdays=\(weekdays.count) months=\(months.count)")
+    }
+    return CldrDateSource(raw: section, weekdays: weekdays, months: months,
+                          era: era, literals: literals)
 }
 
 // Split a template into text segments and verbatim format-specifier
@@ -1015,6 +1143,7 @@ func generateShapedC(_ source: String) -> String {
     for cfg in shapedConfigs {
         fputs("shaping \(cfg.scope)...\n", stderr)
         let src = parseShapedSource(source, scope: cfg.scope)
+        let cldrDate = parseCldrDateSource(source, scope: cfg.scope)
         fputs("  parsed \(src.strings.count) strings\n", stderr)
         var builder = ShapedFontBuilder(cfg: cfg)
 
@@ -1025,6 +1154,10 @@ func generateShapedC(_ source: String) -> String {
         var runs: [String] = []
         for (_, text) in src.strings { runs.append(text) }
         runs += src.weekdays + src.months + [src.name]
+        if let cldrDate {
+            runs += cldrDate.weekdays + cldrDate.months + [cldrDate.era]
+                + cldrDate.literals.map { $0.1 }
+        }
         for text in runs {
             for seg in segment(text) {
                 if case .text(let t) = seg, !t.unicodeScalars.allSatisfy({ $0.value < 0x80 }) {
@@ -1049,6 +1182,18 @@ func generateShapedC(_ source: String) -> String {
         let shapedWk = src.weekdays.map { builder.shapeString($0, context: "\(cfg.scope)/weekday") }
         let shapedMo = src.months.map { builder.shapeString($0, context: "\(cfg.scope)/month") }
         let shapedName = builder.shapeString(src.name, context: "\(cfg.scope)/name")
+        let shapedCldrWk = cldrDate?.weekdays.map {
+            builder.shapeString($0, context: "\(cfg.scope)/cldr-weekday")
+        } ?? []
+        let shapedCldrMo = cldrDate?.months.map {
+            builder.shapeString($0, context: "\(cfg.scope)/cldr-month")
+        } ?? []
+        let shapedCldrEra = cldrDate.map {
+            builder.shapeString($0.era, context: "\(cfg.scope)/cldr-era")
+        } ?? ""
+        let shapedCldrLiterals: [(String, String)] = cldrDate?.literals.map {
+            ($0.0, builder.shapeString($0.1, context: "\(cfg.scope)/\($0.0)"))
+        } ?? []
 
         // Runtime-composed characters (Persian digits): standalone glyph
         // entries at their real codepoints, never deduped into the PUA
@@ -1090,7 +1235,10 @@ func generateShapedC(_ source: String) -> String {
         // clock date (weekdays, months) and the waiting banner. Everything
         // else pixel-doubles.
         var reachable2x = Set<Int>()
-        for text in shapedWk + shapedMo + [shapedStrings.first(where: { $0.0 == "STR_WAITING_NTP" })?.1 ?? ""] {
+        let shapedDateTexts = shapedWk + shapedMo + shapedCldrWk + shapedCldrMo
+            + [shapedStrings.first(where: { $0.0 == "STR_WAITING_NTP" })?.1 ?? "", shapedCldrEra]
+            + shapedCldrLiterals.map { $0.1 }
+        for text in shapedDateTexts {
             for sc in text.unicodeScalars where sc.value >= 0xE000 {
                 reachable2x.insert(Int(sc.value) - 0xE000)
             }
@@ -1126,6 +1274,22 @@ func generateShapedC(_ source: String) -> String {
         out += chunkLines(shapedMo.map { "FB(\(strOff($0)))" })
         out += "\n};\n"
         out += "const char lang_name_\(cfg.scope)_shaped[] = \(cStringExpr(shapedName));\n\n"
+        if let cldrDate {
+            let cldrHash = SHA256.hash(data: Data(cldrDate.raw.utf8)).prefix(8)
+                .map { String(format: "%02x", $0) }.joined()
+            out += "// cldr-date-source-hash \(cfg.scope) \(cldrHash)\n"
+            out += "const char *const cldr_weekdays_\(cfg.scope)_shaped[7] = {\n"
+            out += chunkLines(shapedCldrWk.map { "FB(\(strOff($0)))" })
+            out += "\n};\n"
+            out += "const char *const cldr_months_\(cfg.scope)_shaped[12] = {\n"
+            out += chunkLines(shapedCldrMo.map { "FB(\(strOff($0)))" })
+            out += "\n};\n"
+            out += "const char cldr_era_\(cfg.scope)_shaped[] = \(cStringExpr(shapedCldrEra));\n"
+            for (name, text) in shapedCldrLiterals {
+                out += "const char \(name)_shaped[] = \(cStringExpr(text));\n"
+            }
+            out += "\n"
+        }
     }
     return out
 }

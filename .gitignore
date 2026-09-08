@@ -16,3 +16,6 @@ sdkconfig.old
 # Python
 __pycache__/
 *.py[cod]
+
+# Downloaded upstream data caches
+.cache/

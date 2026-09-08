@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # Portable i18n sanity checks - no macOS or Swift required. Verifies that
-# every character used by main/i18n_data.inc has a glyph in main/fonts.c
-# (otherwise it renders as '?' on the device until tools/gen_fonts.swift is
-# rerun on macOS), that no string table has duplicate ids, and that English
-# defines every id in the str_id_t enum.
+# every compiled character used by main/i18n_data.inc and generated
+# main/i18n_locale.inc has a glyph in main/fonts.c (otherwise it renders as
+# '?' on the device until tools/gen_fonts.swift is rerun on macOS), that no
+# string table has duplicate ids, and that English defines every id in the
+# str_id_t enum.
 import re
 import sys
 import unicodedata
@@ -16,6 +17,7 @@ SHAPED_SCOPES = ("ar", "fa", "he", "hi", "bn", "th", "ur", "mr", "ta", "te", "pa
                  "kok", "as", "ti", "yo", "pcm",
                  "pa_arab", "bho", "ps",
                  "or", "sd", "mai")  # pre-shaped by the generator
+FONT_SCOPES = tuple(sorted(CJK_SCOPES + SHAPED_SCOPES, key=len, reverse=True))
 
 
 def parse_enum_ids(i18n_h):
@@ -33,15 +35,19 @@ def literal_chars(line):
 
 
 def scope_of(symbol):
-    for scope in CJK_SCOPES:
+    for scope in FONT_SCOPES:
         if symbol.endswith('_' + scope):
             return scope
     return ''
 
 
 def main():
-    inc = '\n'.join((ROOT / 'main' / 'i18n' / p.name).read_text(encoding='utf-8')
-                    for p in sorted((ROOT / 'main' / 'i18n').glob('*.inc')))
+    inc_parts = [(ROOT / 'main' / 'i18n' / p.name).read_text(encoding='utf-8')
+                 for p in sorted((ROOT / 'main' / 'i18n').glob('*.inc'))]
+    locale_inc = ROOT / 'main' / 'i18n_locale.inc'
+    if locale_inc.exists():
+        inc_parts.append(locale_inc.read_text(encoding='utf-8'))
+    inc = '\n'.join(inc_parts)
     fonts = (ROOT / 'main' / 'fonts.c').read_text(encoding='utf-8')
     i18n_h = (ROOT / 'main' / 'i18n.h').read_text(encoding='utf-8')
     errors = 0
@@ -58,7 +64,7 @@ def main():
     m = re.search(r'font_base_ext_cp = FB16\((\d+)\)', fonts)
     n = re.search(r'font_base_ext_count = (\d+)', fonts)
     coverage[''] = cps_at(int(m.group(1)), int(n.group(1))) if m and n else set()
-    for scope in CJK_SCOPES:
+    for scope in FONT_SCOPES:
         fm = re.search(r'font_' + scope + r' = \{\s*'
                        r'\.codepoints = FB16\((\d+)\),'
                        r'[\s\S]*?\.count = (\d+),', fonts)
@@ -69,6 +75,7 @@ def main():
     scope = ''
     in_block = False
     in_shaped = False
+    in_cldr_source = False
     table_ids = {}
     cur_table = None
     used = {s: set() for s in coverage}
@@ -80,10 +87,14 @@ def main():
             in_shaped = True
         if line.startswith('// <<< shaped-source'):
             in_shaped = False
+        if line.startswith('// >>> cldr-date-source'):
+            in_cldr_source = True
+        if line.startswith('// <<< cldr-date-source'):
+            in_cldr_source = False
         if not in_block:
             scope = ''
             cur_table = None
-            m = re.search(r'(lang|weekdays|months|lang_name|date_year|date_day)_[a-z_]+', line)
+            m = re.search(r'(lang|weekdays|months|lang_name|date_year|date_day|cldr_weekdays|cldr_months|cldr_era|cldr_digits|cldr_literal|cldr_pattern)_[a-z0-9_]+', line)
             if m:
                 scope = scope_of(m.group(0))
                 if m.group(0).startswith('lang_') and '[STR_COUNT]' in line:
@@ -95,7 +106,7 @@ def main():
             sid = re.search(r'\[(STR_\w+)\]', line)
             if sid and sid.group(1) != 'STR_COUNT':
                 table_ids[cur_table].append(sid.group(1))
-        if not in_shaped:
+        if not in_shaped and not in_cldr_source:
             for ch in unicodedata.normalize('NFC', literal_chars(line)):
                 if ord(ch) > 0x7E:
                     used[scope].add((ch, lineno))
@@ -153,6 +164,18 @@ def main():
             print(f"{scope}: shaped tables in fonts.c are STALE - the source in "
                   f"i18n_data.inc changed; rerun tools/gen_fonts.swift on macOS")
             errors += 1
+        ca = inc.find(f'// >>> cldr-date-source {scope}\n')
+        cb = inc.find(f'// <<< cldr-date-source {scope}')
+        if ca >= 0 and cb >= 0:
+            section = inc[ca + len(f'// >>> cldr-date-source {scope}\n'):cb]
+            want = hashlib.sha256(section.encode()).hexdigest()[:16]
+            m = re.search(r'// cldr-date-source-hash ' + scope + r' ([0-9a-f]+)', fonts)
+            if not m:
+                print(f"{scope}: no CLDR date shaped tables in fonts.c - run tools/gen_fonts.swift on macOS")
+                errors += 1
+            elif m.group(1) != want:
+                print(f"{scope}: CLDR date shaped tables in fonts.c are STALE - rerun tools/gen_fonts.swift on macOS")
+                errors += 1
 
     # picker order file must list every language exactly once
     order = re.findall(r'(LANG_\w+),', (ROOT / 'main' / 'lang_order.inc').read_text())
