@@ -287,7 +287,17 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
     }
     // The startup and panic paths can step time before peer selection runs.
     // Apply its server-usability gate here, before any clock mutation.
-    if (!ntp_server_usable(pkt)) return RESP_BAD;
+    if (!ntp_server_usable(pkt)) {
+        // An authenticated/matched announcement of lost synchronization
+        // invalidates the association's old samples immediately. A historical
+        // reach bit must not keep this peer voting in the next selection.
+        p->stratum = 16;
+        p->reach = 0;
+        memset(p->filter, 0, sizeof(p->filter));
+        p->sample_used = false;
+        update_peer_filter(p);
+        return RESP_BAD;
+    }
 
     if ((pkt->xmt_ts_sec | pkt->xmt_ts_frac) == 0 ||
         (pkt->recv_ts_sec | pkt->recv_ts_frac) == 0) return RESP_BAD;

@@ -31,7 +31,8 @@ def main():
                        check=True)
         cases = sys.argv[1:] or ["persist-zero", "persist-positive", "persist-negative",
                                 "server-validation", "intervals", "congestion", "expiry",
-                                "freshness", "frequency-cadence", "holdover"]
+                                "freshness", "frequency-cadence", "holdover",
+                                "unsynchronized-peer"]
         for case in cases:
             subprocess.run([str(binary), case], check=True)
         if not sys.argv[1:]:

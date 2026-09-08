@@ -1,5 +1,24 @@
 #include "ntp_host.h"
 
+static void test_unsynchronized_peer(void) {
+    reset();
+    g.first_sync_done = true;
+    ntp_peer_t *p = make_peer(0);
+    sample(p, 0, 0, 1000, test_ms);
+    select_system_peer();
+    assert(g.selected_peer == 0);
+    ntp_peer_t *backup = make_peer(1);
+    sample(backup, 0, 0, 2000, test_ms);
+    struct timeval t4 = tv_from_us(wall_us+20000);
+    ntp_pkt_t pkt = packet(2, wall_us+10000, wall_us+10000);
+    pkt.li_vn_mode |= 0xc0;
+    assert(process_response(p, &pkt, (uint8_t *)&pkt, sizeof(pkt), &t4) == RESP_BAD);
+    select_system_peer();
+    assert(g.selected_peer == 1);
+    assert(!p->best_sample_valid && p->reach == 0 && p->stratum == 16);
+    assert(step_count == 0);
+}
+
 static void test_holdover(void) {
     reset();
     ntp_sys_stats_t stats = {0};
@@ -184,6 +203,7 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[1], "freshness")) test_freshness();
     else if (!strcmp(argv[1], "frequency-cadence")) test_frequency_cadence();
     else if (!strcmp(argv[1], "holdover")) test_holdover();
+    else if (!strcmp(argv[1], "unsynchronized-peer")) test_unsynchronized_peer();
     else { fprintf(stderr, "Unknown case: %s\n", argv[1]); return 1; }
     printf("PASS %s\n", argv[1]);
     return 0;
