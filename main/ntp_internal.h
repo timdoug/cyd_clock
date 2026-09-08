@@ -281,6 +281,9 @@ static inline void lock_give(void)  { xSemaphoreGive(g.lock); }
 
 void ntp_to_tv(uint32_t sec, uint32_t frac, struct timeval *tv);
 bool ntp_server_usable(const ntp_pkt_t *pkt);
+bool ntp_measurement_delay(const struct timeval *t1, const struct timeval *t2,
+                           const struct timeval *t3, const struct timeval *t4,
+                           int64_t *delay_us);
 static inline int64_t tv_diff_us(const struct timeval *a, const struct timeval *b) {
     return ((int64_t)a->tv_sec - b->tv_sec) * 1000000LL + (a->tv_usec - b->tv_usec);
 }

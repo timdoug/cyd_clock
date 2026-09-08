@@ -125,7 +125,8 @@ static ntp_benchmark_status_t bench_one_addr(const struct sockaddr_storage *addr
         pkt.orig_ts_sec != req_xmt_sec ||
         pkt.orig_ts_frac != req_xmt_frac ||
         !ntp_server_usable(&pkt) ||
-        pkt.xmt_ts_sec == 0) {
+        (pkt.xmt_ts_sec | pkt.xmt_ts_frac) == 0 ||
+        (pkt.recv_ts_sec | pkt.recv_ts_frac) == 0) {
         ESP_LOGW(BENCH_TAG, "hdr reject: mode=%u vn=%u li=%u stratum=%u orig-match=%d",
                  mode, vn, pkt.li_vn_mode >> 6, pkt.stratum,
                  pkt.orig_ts_sec == req_xmt_sec && pkt.orig_ts_frac == req_xmt_frac);
@@ -139,16 +140,11 @@ static ntp_benchmark_status_t bench_one_addr(const struct sockaddr_storage *addr
     struct timeval t2, t3;
     ntp_to_tv(ntohl(pkt.recv_ts_sec), ntohl(pkt.recv_ts_frac), &t2);
     ntp_to_tv(ntohl(pkt.xmt_ts_sec), ntohl(pkt.xmt_ts_frac), &t3);
-    // Reject a server interval that runs backwards (t3 < t2, like the main
-    // response path does): clamping it away would let a broken server win
-    // the ranking with a fabricated delay of zero.
-    int64_t server_us = tv_diff_us(&t3, &t2);
-    if (server_us < 0) {
-        ESP_LOGW(BENCH_TAG, "t3 < t2 reject (%lld us)", (long long)server_us);
+    int64_t delay;
+    if (!ntp_measurement_delay(&t1, &t2, &t3, &t4, &delay)) {
+        ESP_LOGW(BENCH_TAG, "Impossible server interval");
         return NTP_BENCHMARK_BAD_RESPONSE;
     }
-    int64_t delay = tv_diff_us(&t4, &t1) - server_us;
-    if (delay < 0) delay = 0;
     if (delay > INT32_MAX) delay = INT32_MAX;
 
     out->status = NTP_BENCHMARK_OK;

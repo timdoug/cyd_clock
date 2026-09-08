@@ -27,7 +27,7 @@ def main():
                         str(ROOT / "tests/ntp_test.c"), "-lm", "-o", str(binary)],
                        check=True)
         cases = sys.argv[1:] or ["persist-zero", "persist-positive", "persist-negative",
-                                "server-validation"]
+                                "server-validation", "intervals"]
         for case in cases:
             subprocess.run([str(binary), case], check=True)
 

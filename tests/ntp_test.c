@@ -1,5 +1,27 @@
 #include "ntp_host.h"
 
+static void test_intervals(void) {
+    for (int synced = 0; synced < 2; synced++) {
+        reset();
+        g.first_sync_done = synced;
+        ntp_peer_t *p = make_peer(0);
+        int64_t before = wall_us;
+        struct timeval t4 = tv_from_us(wall_us + 20000);
+        ntp_pkt_t pkt = packet(2, wall_us + 10000, wall_us + 1010000);
+        assert(process_response(p, &pkt, (uint8_t *)&pkt, sizeof(pkt), &t4) == RESP_BAD);
+        assert(wall_us == before && step_count == 0);
+        assert(!p->filter[p->filter_head].valid);
+    }
+    struct timeval t1 = tv_from_us(1000000), t2 = tv_from_us(1001000);
+    struct timeval t3 = tv_from_us(1021300), t4 = tv_from_us(1020000);
+    int64_t delay;
+    assert(ntp_measurement_delay(&t1, &t2, &t3, &t4, &delay) && delay == 0);
+    t3 = tv_from_us(1040000);
+    assert(!ntp_measurement_delay(&t1, &t2, &t3, &t4, &delay));
+    t3 = tv_from_us(1000000);
+    assert(!ntp_measurement_delay(&t1, &t2, &t3, &t4, &delay));
+}
+
 static void test_server_validation(void) {
     for (int variant = 0; variant < 6; variant++) {
         reset();
@@ -45,6 +67,7 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[1], "persist-positive")) test_persistence(20000);
     else if (!strcmp(argv[1], "persist-negative")) test_persistence(-20000);
     else if (!strcmp(argv[1], "server-validation")) test_server_validation();
+    else if (!strcmp(argv[1], "intervals")) test_intervals();
     else { fprintf(stderr, "Unknown case: %s\n", argv[1]); return 1; }
     printf("PASS %s\n", argv[1]);
     return 0;

@@ -10,6 +10,22 @@ bool ntp_server_usable(const ntp_pkt_t *pkt) {
            distance <= MAX_ROOT_DIST_US;
 }
 
+bool ntp_measurement_delay(const struct timeval *t1, const struct timeval *t2,
+                           const struct timeval *t3, const struct timeval *t4,
+                           int64_t *delay_us) {
+    int64_t elapsed = tv_diff_us(t4, t1);
+    int64_t server = tv_diff_us(t3, t2);
+    if (elapsed < 0 || server < 0) return false;
+    int64_t delay = elapsed - server;
+    // IDF's fastest phase slew is 1/64. Allow that rate error across the
+    // measurement plus 200 us of capture/rounding uncertainty, but never
+    // turn a grossly impossible interval into a winning zero-delay sample.
+    int64_t tolerance = elapsed / 63 + 2 * SAMPLE_DISP_FLOOR_US;
+    if (delay < -tolerance) return false;
+    *delay_us = delay < 0 ? 0 : delay;
+    return true;
+}
+
 void ntp_to_tv(uint32_t sec, uint32_t frac, struct timeval *tv) {
     // Map the wire value to Unix seconds mod 2^32 (the add wraps by design;
     // see NTP_UNIX_FOLD), then resolve the 136-year era ambiguity against

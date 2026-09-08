@@ -289,7 +289,8 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
     // Apply its server-usability gate here, before any clock mutation.
     if (!ntp_server_usable(pkt)) return RESP_BAD;
 
-    if (pkt->xmt_ts_sec == 0) return RESP_BAD;
+    if ((pkt->xmt_ts_sec | pkt->xmt_ts_frac) == 0 ||
+        (pkt->recv_ts_sec | pkt->recv_ts_frac) == 0) return RESP_BAD;
 
     struct timeval t2, t3;
     ntp_to_tv(ntohl(pkt->recv_ts_sec), ntohl(pkt->recv_ts_frac), &t2);
@@ -346,6 +347,11 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
         }
     }
 
+    int64_t delay;
+    if (!ntp_measurement_delay(&t1_local, &t2, &t3, &t4_local, &delay)) {
+        return RESP_BAD;
+    }
+
     // Cold boot: system time is at epoch, server is decades ahead. Step the
     // clock by the standard NTP offset ((t2-t1)+(t3-t4))/2 - NOT directly to
     // t3. A naive `settimeofday(&t3)` lands our clock at the moment the
@@ -391,7 +397,6 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
     }
 
     int64_t offset = (tv_diff_us(&t2, &t1_local) + tv_diff_us(&t3, &t4_local)) / 2;
-    int64_t delay  = tv_diff_us(&t4_local, &t1_local) - tv_diff_us(&t3, &t2);
 
     if (offset >  (int64_t)PANIC_THRESHOLD_S * 1000000LL ||
         offset < -(int64_t)PANIC_THRESHOLD_S * 1000000LL) {
@@ -471,7 +476,6 @@ static ntp_resp_result_t process_response(ntp_peer_t *p, const ntp_pkt_t *pkt,
         // shift-invariant) and fall through to the normal filter path.
         offset = (tv_diff_us(&t2, &t1_local) + tv_diff_us(&t3, &t4_local)) / 2;
     }
-    if (delay < 0) delay = 0;
     if (delay > 0x7FFFFFFF) delay = 0x7FFFFFFF;
     if (offset > 0x7FFFFFFF) offset = 0x7FFFFFFF;
     if (offset < -0x7FFFFFFF) offset = -0x7FFFFFFF;
