@@ -1,5 +1,26 @@
 #include "ntp_host.h"
 
+static void test_frequency_observation(void) {
+    reset();
+    test_ms = 500000;
+    g.first_sync_done = true;
+    ntp_peer_t *p = make_peer(0);
+    for (int i = 0; i < 8; i++) sample(p, i, i*640, 10000, test_ms-(7-i)*32000);
+    p->cycle_id_when_sent = p->last_settle_cycle_id = 10;
+    assert(try_discipline(10));
+    assert(g.freq_ppm_x1000 > 0 && p->freq_fit_used);
+    int32_t freq = g.freq_ppm_x1000;
+    // Another peer contributes a new phase measurement while the selected
+    // reference has no new observations for its frequency fit.
+    test_ms += 33000;
+    ntp_peer_t *q = make_peer(1);
+    sample(q, 0, p->best_offset_us, 10000, test_ms);
+    p->cycle_id_when_sent = p->last_settle_cycle_id = 11;
+    q->cycle_id_when_sent = q->last_settle_cycle_id = 11;
+    assert(try_discipline(11));
+    assert(g.selected_peer == 0 && g.freq_ppm_x1000 == freq);
+}
+
 static void test_unsynchronized_peer(void) {
     reset();
     g.first_sync_done = true;
@@ -204,6 +225,7 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[1], "frequency-cadence")) test_frequency_cadence();
     else if (!strcmp(argv[1], "holdover")) test_holdover();
     else if (!strcmp(argv[1], "unsynchronized-peer")) test_unsynchronized_peer();
+    else if (!strcmp(argv[1], "frequency-observation")) test_frequency_observation();
     else { fprintf(stderr, "Unknown case: %s\n", argv[1]); return 1; }
     printf("PASS %s\n", argv[1]);
     return 0;

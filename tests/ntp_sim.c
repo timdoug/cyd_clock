@@ -5,16 +5,22 @@ int main(int argc, char **argv) {
     bool vary_delay = strcmp(argv[1], "variable") == 0;
     bool noisy = strcmp(argv[1], "noisy") == 0;
     int drift = strcmp(argv[1], "slow") == 0 ? -20 : 20;
+    if (!strcmp(argv[1], "large-drift")) drift = 100;
     bool adaptive = true;
     reset();
     const int64_t start_wall = wall_us;
     const uint32_t start_ms = test_ms;
     g.first_sync_done = true;
+    if (!strcmp(argv[1], "warm-start")) {
+        g.freq_loaded_from_nvs = true;
+        g.freq_ppm_x1000 = 50000; // stale calibration with the wrong sign
+    }
     ntp_peer_t *p = make_peer(0);
     double square = 0, max_error = 0;
     int measurements = 0;
     int next_sample = 32, cycle = 0;
     for (int second = 1; second <= 43200; second++) {
+        if (second == 21600 && !strcmp(argv[1], "temperature")) drift = 35;
         // Simulated fast crystal: +20 ppm. Each queued slew is fully
         // completed before the next 1s sample (all slews here are small).
         wall_us += 1000000 + drift + pending_us;
@@ -24,9 +30,17 @@ int main(int argc, char **argv) {
         if (second == next_sample) {
             cycle++;
             next_sample = second + g.current_poll_s;
+            if (!strcmp(argv[1], "outage") && second >= 18000 && second <= 21600) {
+                p->reach <<= 1;
+                continue;
+            }
             int32_t offset = (int32_t)(start_wall + (int64_t)second*1000000 - wall_us);
             int delay = vary_delay ? 10000 + (cycle % 8)*100 : 10000;
             int noise = noisy ? ((cycle * 137) % 601) - 300 : 0;
+            if (!strcmp(argv[1], "spike") && cycle == 20) {
+                delay += 100000;
+                noise += 50000;
+            }
             sample(p, cycle % 8, offset + noise, delay, test_ms);
             p->cycle_id_when_sent = p->last_settle_cycle_id = cycle;
             p->next_poll_cycle_id = cycle+1;

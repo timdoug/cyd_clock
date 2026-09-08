@@ -153,6 +153,9 @@ typedef struct {
     bool     best_sample_valid;
     int32_t  freq_error_ppb;
     bool     freq_fit_valid;
+    uint32_t freq_fit_ms;
+    uint32_t last_freq_fit_ms;
+    bool     freq_fit_used;
     bool     sample_used;
     uint32_t last_used_sample_ms;
     uint32_t last_response_ms;

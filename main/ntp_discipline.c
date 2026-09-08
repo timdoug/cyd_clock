@@ -61,8 +61,11 @@ static void discipline_clock(int32_t offset_us, bool fresh) {
             int32_t j = sp->jitter_us;
             if (g.freq_jitter_floor <= 0) g.freq_jitter_floor = j;
             else g.freq_jitter_floor += (j - g.freq_jitter_floor) / 8;
-            uint32_t elapsed_ms = now_ms - g.last_freq_sample_ms;
-            if (g.last_freq_sample_ms != 0 && elapsed_ms >= MIN_POLL_S * 500u) {
+            bool new_fit = !sp->freq_fit_used ||
+                (int32_t)(sp->freq_fit_ms - sp->last_freq_fit_ms) > 0;
+            uint32_t elapsed_ms = sp->freq_fit_used ?
+                sp->freq_fit_ms - sp->last_freq_fit_ms : MIN_POLL_S * 1000u;
+            if (new_fit && elapsed_ms >= MIN_POLL_S * 500u) {
                 // A long outage does not justify a large one-shot gain.
                 if (elapsed_ms > MAX_POLL_S * 1000u) elapsed_ms = MAX_POLL_S * 1000u;
                 freq_step = (int32_t)((int64_t)sp->freq_error_ppb * elapsed_ms /
@@ -72,6 +75,8 @@ static void discipline_clock(int32_t offset_us, bool fresh) {
                                              -MAX_FREQ_PPM_X1000, MAX_FREQ_PPM_X1000);
                 g.freq_learned_this_session = true;
                 learned_freq = true;
+                sp->last_freq_fit_ms = sp->freq_fit_ms;
+                sp->freq_fit_used = true;
                 if (abs(sp->freq_error_ppb) <= 1000) {
                     if (g.freq_stable_runs < 4) g.freq_stable_runs++;
                 } else {

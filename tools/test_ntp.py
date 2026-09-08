@@ -32,7 +32,7 @@ def main():
         cases = sys.argv[1:] or ["persist-zero", "persist-positive", "persist-negative",
                                 "server-validation", "intervals", "congestion", "expiry",
                                 "freshness", "frequency-cadence", "holdover",
-                                "unsynchronized-peer"]
+                                "unsynchronized-peer", "frequency-observation"]
         for case in cases:
             subprocess.run([str(binary), case], check=True)
         if not sys.argv[1:]:
@@ -49,7 +49,8 @@ def main():
                             "-I", str(work), "-I", str(ROOT / "main"),
                             str(ROOT / "tests/ntp_sim.c"), "-lm", "-o", str(simulation)],
                            check=True)
-            for case in ("fast", "slow", "variable", "noisy"):
+            for case in ("fast", "slow", "variable", "noisy", "large-drift",
+                         "warm-start", "temperature", "outage", "spike"):
                 subprocess.run([str(simulation), case], check=True)
 
 

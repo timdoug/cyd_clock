@@ -26,6 +26,7 @@ void update_peer_filter(ntp_peer_t *p) {
         p->dispersion_us = 16000000;
         p->best_sample_ms = 0;
         p->freq_fit_valid = false;
+        p->freq_fit_used = false;
         return;
     }
 
@@ -73,6 +74,7 @@ void update_peer_filter(ntp_peer_t *p) {
     p->freq_fit_valid = valid >= 4 && oldest - newest >= 3 * MIN_POLL_S * 1000 &&
                         fabs(slope * 1000.0) <= MAX_FREQ_PPM_X1000;
     p->freq_error_ppb = p->freq_fit_valid ? (int32_t)(slope * 1000.0) : 0;
+    p->freq_fit_ms = now - newest;
     double sum_sq = 0;
     for (int i = 0; i < NTP_FILTER_SIZE; i++) {
         const ntp_sample_t *s = &p->filter[i];
