@@ -110,7 +110,7 @@ static void discipline_clock(int32_t offset_us, bool fresh) {
         static int32_t  last_saved_freq    = INT32_MIN;
         const  uint32_t SAVE_INTERVAL_MS   = 30 * 60 * 1000;
         const  int32_t  SAVE_DELTA_PPB     = 10;
-        int32_t  freq_delta = g.freq_ppm_x1000 - last_saved_freq;
+        int64_t  freq_delta = (int64_t)g.freq_ppm_x1000 - last_saved_freq;
         if (freq_delta < 0) freq_delta = -freq_delta;
         bool freq_known = g.freq_loaded_from_nvs || g.freq_learned_this_session;
         if (freq_known &&
