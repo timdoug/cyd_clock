@@ -301,14 +301,10 @@ static void refresh_dynamic(void) {
         } else {
             ui_fmt_signed_x1000(drift_buf, sizeof(drift_buf), sys.freq_ppm_x1000, "ppm");
         }
-        if (sys.sync_count < 1) {
+        if (!sys.time_valid) {
             snprintf(age_buf, sizeof(age_buf), "--");
         } else {
-            time_t now_t;
-            time(&now_t);
-            uint32_t age_sec = (now_t > sys.last_sync_time)
-                               ? (uint32_t)(now_t - sys.last_sync_time) : 0;
-            ui_fmt_duration_full(age_buf, sizeof(age_buf), age_sec);
+            ui_fmt_duration_full(age_buf, sizeof(age_buf), sys.reference_age_s);
         }
         segment_t segs[] = {
             { drift_buf, COLOR_WHITE },
@@ -346,7 +342,7 @@ static void refresh_dynamic(void) {
         // Valid from the FIRST sync: root delay/dispersion come from the
         // selected peer's actual sample, unlike the measured offset/jitter
         // above which need a real discipline pass (sync_count >= 2).
-        if (sys.sync_count < 1 || !sys.synced) {
+        if (!sys.time_valid) {
             snprintf(val, sizeof(val), "---");
         } else {
             char rd_buf[16], disp_buf[16];

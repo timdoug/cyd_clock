@@ -581,6 +581,7 @@ void handle_socket_readable(int sock, const struct timeval *t4) {
 
     ntp_pkt_t pkt;
     memcpy(&pkt, buf, sizeof(pkt));
+    uint32_t generation_before = clock_step_generation;
     ntp_resp_result_t res = process_response(p, &pkt, buf, (size_t)n, t4);
     if (res == RESP_IGNORE) return;
     bool ok = (res == RESP_GOOD);
@@ -599,6 +600,7 @@ void handle_socket_readable(int sock, const struct timeval *t4) {
     if (ok) {
         update_peer_filter(p);
         select_system_peer();
+        if (clock_step_generation != generation_before) ntp_record_reference(0);
     }
 
     // Eviction is event-driven: the falseticker/jittery counters only move

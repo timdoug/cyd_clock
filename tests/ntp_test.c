@@ -1,5 +1,36 @@
 #include "ntp_host.h"
 
+static void test_holdover(void) {
+    reset();
+    ntp_sys_stats_t stats = {0};
+    ntp_fill_clock_quality(&stats);
+    assert(!stats.time_valid && !stats.synced && !stats.holdover);
+    g.first_sync_done = true;
+    ntp_peer_t *p = make_peer(0);
+    sample(p, 0, 0, 1000, test_ms);
+    p->last_response_ms = test_ms;
+    select_system_peer();
+    ntp_record_reference(0);
+    ntp_fill_clock_quality(&stats);
+    assert(stats.time_valid && stats.synced && !stats.holdover);
+    int32_t base = stats.root_dispersion_us;
+    test_ms += 10000;
+    ntp_fill_clock_quality(&stats);
+    assert(stats.root_dispersion_us >= base + 5000); // uncalibrated crystal
+    g.selected_peer = -1;
+    memset(g.peers, 0, sizeof(g.peers));
+    ntp_fill_clock_quality(&stats);
+    assert(stats.time_valid && !stats.synced && stats.holdover);
+    test_ms += 10000;
+    ntp_fill_clock_quality(&stats);
+    assert(stats.reference_age_s == 20 && stats.root_dispersion_us >= base+10000);
+    // Peer-slot resets and even a 32-bit tick wrap cannot freeze uncertainty.
+    test_mono_extra_us = 60LL * 86400 * 1000000;
+    ntp_fill_clock_quality(&stats);
+    assert(stats.root_dispersion_us == INT32_MAX);
+    assert(stats.reference_age_s >= 60u * 86400);
+}
+
 static void test_frequency_cadence(void) {
     for (int sign = -1; sign <= 1; sign += 2) {
         reset();
@@ -152,6 +183,7 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[1], "expiry")) test_expiry();
     else if (!strcmp(argv[1], "freshness")) test_freshness();
     else if (!strcmp(argv[1], "frequency-cadence")) test_frequency_cadence();
+    else if (!strcmp(argv[1], "holdover")) test_holdover();
     else { fprintf(stderr, "Unknown case: %s\n", argv[1]); return 1; }
     printf("PASS %s\n", argv[1]);
     return 0;

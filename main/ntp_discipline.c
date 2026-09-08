@@ -116,6 +116,7 @@ static void discipline_clock(int32_t offset_us, bool fresh) {
     }
 
     shift_filters(applied_us);
+    ntp_record_reference(offset_us - applied_us);
 
     g.first_sync_done = true;
     led_set_pps_enabled(true);

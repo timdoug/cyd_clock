@@ -24,6 +24,9 @@ typedef struct {
 
 typedef struct {
     bool     synced;
+    bool     time_valid;    // clock has an accepted reference, including holdover
+    bool     holdover;
+    uint32_t reference_age_s;
     time_t   last_sync_time;
     uint32_t sync_count;
     uint32_t current_poll_s;

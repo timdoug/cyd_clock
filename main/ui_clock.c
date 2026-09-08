@@ -284,21 +284,23 @@ static void draw_line_cached(int y, char *cache, size_t cache_len,
     str_copy(cache, cache_len, field);
 }
 
-static void draw_ntp_stats(time_t now, int sec) {
+static void draw_ntp_stats(int sec) {
     ntp_sys_stats_t sys;
     ntp_peer_stats_t peers[NTP_MAX_PEERS];
     ntp_get_all_stats(&sys, peers);
     const char *server = sys.server[0] ? sys.server : wifi_get_custom_ntp_server();
 
-    // Line 1 reports clock validity, not whether the current peer set has
-    // completed its first wave. After changing servers the clock is still
-    // synced; line 2 carries the "no sync yet" detail for the new peer set.
+    // A valid clock can be in holdover. Keep displaying time and its growing
+    // uncertainty, but reserve the green synchronized state for a live reference.
     bool synced_here = sys.synced;
     char line1[80];
     uint16_t line1_fg;
     if (synced_here) {
         snprintf(line1, sizeof(line1), tr(STR_FMT_SYNCED), server);
         line1_fg = COLOR_SYNC_OK;
+    } else if (sys.holdover) {
+        snprintf(line1, sizeof(line1), "%s: %s", tr(STR_UNSYNCED), server);
+        line1_fg = COLOR_SYNC_WAIT;
     } else {
         snprintf(line1, sizeof(line1), tr(STR_FMT_SYNCING), server);
         line1_fg = COLOR_SYNC_WAIT;
@@ -312,7 +314,7 @@ static void draw_ntp_stats(time_t now, int sec) {
     if (sec == last_stats_sec) return;
     last_stats_sec = sec;
 
-    if (!sys.synced) {
+    if (!sys.time_valid) {
         char line2[48];
         snprintf(line2, sizeof(line2), tr(STR_FMT_WAITING),
                  (unsigned long)(sys.sync_elapsed_ms / 1000));
@@ -332,18 +334,9 @@ static void draw_ntp_stats(time_t now, int sec) {
     char poll_buf[24], ago_buf[24];  // CJK unit words: up to 3 UTF-8 bytes each
     ui_fmt_duration_full(poll_buf, sizeof(poll_buf), sys.current_poll_s);
     char line2[80];
-    if (sys.sync_count == 0) {
-        // No discipline from the current peer set yet: there is no age to
-        // show. Rendering now - last_sync_time(0) here used to display the
-        // full Unix epoch as "20614d 15h 35m ago".
-        snprintf(line2, sizeof(line2), tr(STR_FMT_PEERS_NOSYNC),
-                 peers_reach, peers_total, poll_buf);
-    } else {
-        ui_fmt_duration_full(ago_buf, sizeof(ago_buf),
-                     (uint32_t)(now > sys.last_sync_time ? now - sys.last_sync_time : 0));
-        snprintf(line2, sizeof(line2), tr(STR_FMT_PEERS_AGO),
-                 peers_reach, peers_total, poll_buf, ago_buf);
-    }
+    ui_fmt_duration_full(ago_buf, sizeof(ago_buf), sys.reference_age_s);
+    snprintf(line2, sizeof(line2), tr(STR_FMT_PEERS_AGO),
+             peers_reach, peers_total, poll_buf, ago_buf);
     draw_line_cached(STATS_LINE2, last_line2, sizeof(last_line2), line2,
                      COLOR_STATS, false);
 
@@ -354,7 +347,7 @@ static void draw_ntp_stats(time_t now, int sec) {
     } else {
         ui_fmt_offset_us(off_buf, sizeof(off_buf), sys.last_offset_us);
     }
-    if (sys.sync_count < 1) {
+    if (!sys.time_valid) {
         snprintf(disp_buf, sizeof(disp_buf), "----");
     } else {
         fmt_pm_us(disp_buf, sizeof(disp_buf),
@@ -504,7 +497,7 @@ void ui_clock_update(void) {
     last_update_digits = update_digits;
     last_draw_had_pixels = drew_pixels;
     if (sec != last_stats_sec || last_line1[0] == '\0') {
-        draw_ntp_stats(now, sec);
+        draw_ntp_stats(sec);
     }
 }
 

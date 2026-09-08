@@ -12,6 +12,7 @@
 #include <time.h>
 #include <arpa/inet.h>
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "esp_netif.h"
 #include "esp_private/wifi.h"
 #include "esp_random.h"
@@ -215,6 +216,11 @@ typedef struct {
     int64_t  last_offset_us;
     uint32_t sync_count;
     uint32_t sync_start_ms;
+    bool     reference_valid;
+    int64_t  reference_mono_us;
+    int32_t  reference_root_delay_us;
+    int32_t  reference_dispersion_us;
+    int32_t  reference_freq_uncertainty_ppb;
 
     int32_t  system_jitter_us;
     int32_t  root_delay_us;
@@ -328,6 +334,8 @@ static inline int32_t fp1616_to_us(uint32_t raw) {
 }
 
 void step_clock(int64_t step_us);
+void ntp_record_reference(int32_t residual_us);
+void ntp_fill_clock_quality(ntp_sys_stats_t *out);
 
 // Shared address helpers (ntp_resolve.c). ntp_resolve_host resolves numeric
 // literals directly and otherwise clears the lwIP DNS cache before querying,

@@ -8,6 +8,7 @@
 #include <sys/time.h>
 
 static uint32_t test_ms;
+static int64_t test_mono_extra_us;
 static int64_t wall_us, pending_us;
 static int step_count, save_count;
 static int32_t saved_freq;
@@ -21,6 +22,7 @@ typedef void *SemaphoreHandle_t;
 #define ESP_LOGW(...) ((void)0)
 #define ESP_LOGD(...) ((void)0)
 #define ESP_LOGE(...) ((void)0)
+static int64_t esp_timer_get_time(void) { return (int64_t)test_ms * 1000 + test_mono_extra_us; }
 #include "ntp_internal_host.h"
 
 static int test_gettimeofday(struct timeval *tv, void *tz) {
@@ -78,6 +80,7 @@ bool ntp_nts_response_uid_matches(const uint8_t *b, size_t l, const uint8_t u[NT
 }
 
 #include "../main/ntp_time.c"
+#include "../main/ntp_quality.c"
 #include "../main/ntp_filter.c"
 #include "../main/ntp_discipline.c"
 #include "../main/ntp_io.c"
@@ -87,6 +90,7 @@ static void reset(void) {
     g.selected_peer = -1;
     g.current_poll_s = 32;
     test_ms = 100000;
+    test_mono_extra_us = 0;
     wall_us = (util_anchor_epoch() + 20000000) * 1000000;
     pending_us = 0;
     step_count = 0;
@@ -116,4 +120,3 @@ static void sample(ntp_peer_t *p, int slot, int offset, int delay, uint32_t when
         .dispersion_us=100, .received_ms=when, .valid=true};
     p->filter_head = slot;
 }
-

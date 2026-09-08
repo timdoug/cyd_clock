@@ -10,6 +10,7 @@ idf_component_register(
         "ntp.c"
         "ntp_benchmark.c"
         "ntp_time.c"
+        "ntp_quality.c"
         "ntp_peers.c"
         "ntp_resolve.c"
         "ntp_io.c"

@@ -302,6 +302,7 @@ void ntp_init(const char *server, bool prefer_ipv6, nts_mode_t nts_mode) {
     g.poll_paused    = false;
     g.last_sync_time = 0;
     g.last_offset_us = 0;
+    g.reference_valid = false;
     g.system_jitter_us = 0;
     g.root_delay_us = 0;
     g.root_dispersion_us = 0;
@@ -454,7 +455,6 @@ bool ntp_nts_ke_in_flight(void) {
 
 
 static void fill_sys_stats(ntp_sys_stats_t *out) {
-    out->synced         = g.first_sync_done;
     out->last_sync_time = g.last_sync_time;
     out->sync_count     = g.sync_count;
     out->current_poll_s = g.current_poll_s;
@@ -462,14 +462,7 @@ static void fill_sys_stats(ntp_sys_stats_t *out) {
     out->last_offset_us = g.last_offset_us;
     out->system_jitter_us    = g.system_jitter_us;
     out->root_delay_us       = g.root_delay_us;
-    // Age dispersion by PHI * seconds since we last heard from the selected
-    // peer so the reported +/- bound grows honestly between polls.
-    out->root_dispersion_us  = g.root_dispersion_us;
-    if (g.selected_peer >= 0) {
-        ntp_peer_t *sp = &g.peers[g.selected_peer];
-        out->root_dispersion_us = fp1616_to_us(sp->root_dispersion_raw) +
-                                  aged_peer_dispersion_us(sp, mono_ms());
-    }
+    ntp_fill_clock_quality(out);
     out->freq_ppm_x1000      = g.freq_ppm_x1000;
     out->freq_known          = g.freq_loaded_from_nvs || g.freq_learned_this_session;
     out->stratum        = g.stratum;
