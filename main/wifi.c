@@ -107,8 +107,10 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                 if (sta) esp_netif_create_ip6_linklocal(sta);
                 break;
             }
-            case WIFI_EVENT_STA_DISCONNECTED:
-                ESP_LOGI(TAG, "WiFi disconnected");
+            case WIFI_EVENT_STA_DISCONNECTED: {
+                const wifi_event_sta_disconnected_t *d = event_data;
+                ESP_LOGI(TAG, "WiFi disconnected (reason %d, rssi %d)",
+                         d->reason, d->rssi);
                 xEventGroupClearBits(wifi_event_group, WIFI_CONNECTED_BIT);
                 if (ignore_next_disconnect) {
                     ignore_next_disconnect = false;
@@ -137,6 +139,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                     schedule_reconnect();
                 }
                 break;
+            }
             case WIFI_EVENT_SCAN_DONE:
                 scan_running = false;
                 xEventGroupSetBits(wifi_event_group, WIFI_SCAN_DONE_BIT);
