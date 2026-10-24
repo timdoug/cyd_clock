@@ -49,10 +49,9 @@ CONFIG_MBEDTLS_ECP_FIXED_POINT_OPTIM=y
 
 # Reproducible builds: no __DATE__/__TIME__ in the app or bootloader
 # descriptors, and host paths remapped in debug info so the image is
-# byte-identical across checkout paths. Builds in the pinned espressif/idf
-# image (as CI does) match exactly; a native build on another host OS loads
-# identical code, but app_elf_sha256 and the image hash differ because that
-# toolchain's prebuilt libraries (libgcc, libc, ...) were built separately.
+# byte-identical across checkout paths. tools/clear_elf_sha256.py also
+# zeroes the app_elf_sha256 stamp, the one field that differed between
+# macOS and Linux builds (their toolchains' prebuilt libraries differ).
 # (the era anchor in util.h is a hardcoded year for the same reason)
 CONFIG_APP_REPRODUCIBLE_BUILD=y
 
