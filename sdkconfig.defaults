@@ -47,10 +47,14 @@ CONFIG_MBEDTLS_SSL_KEYING_MATERIAL_EXPORT=y
 # tables, speeding the ECDHE share and the fixed-point half of ECDSA verify.
 CONFIG_MBEDTLS_ECP_FIXED_POINT_OPTIM=y
 
-# Reproducible builds: don't embed __DATE__/__TIME__ in the app descriptor
+# Reproducible builds: no __DATE__/__TIME__ in the app or bootloader
+# descriptors, and host paths remapped in debug info so the image is
+# byte-identical across checkout paths. Builds in the pinned espressif/idf
+# image (as CI does) match exactly; a native build on another host OS loads
+# identical code, but app_elf_sha256 and the image hash differ because that
+# toolchain's prebuilt libraries (libgcc, libc, ...) were built separately.
 # (the era anchor in util.h is a hardcoded year for the same reason)
-# CONFIG_APP_COMPILE_TIME_DATE is not set
-# CONFIG_BOOTLOADER_COMPILE_TIME_DATE is not set
+CONFIG_APP_REPRODUCIBLE_BUILD=y
 
 # Display tick timer fires via ISR dispatch (semaphore give from the timer
 # interrupt) so the esp_timer task - shared with WiFi's timers - is out of
