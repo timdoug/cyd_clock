@@ -6,6 +6,7 @@ PORT ?= $(firstword $(wildcard /dev/cu.usbserial-* /dev/cu.wchusbserial*))
 BAUD ?= 2000000
 TZDATA_VERSION ?=
 CLDR_VERSION ?= 48.2.0
+CACERT_URL = https://curl.se/ca/cacert.pem
 
 # Board profile, selected from main/boards/<name>.h. Override with the
 # CYD_BOARD env var or `make CYD_BOARD=esp32_2432s024 ...`.
@@ -19,7 +20,7 @@ define check-port
 	@if [ -z "$(PORT)" ]; then echo "Error: No serial port found. Set PORT=/dev/..."; exit 1; fi
 endef
 
-.PHONY: all build flash app-flash monitor run app-run clean fullclean menuconfig setup update-tzdata update-cldr help
+.PHONY: all build flash app-flash monitor run app-run clean fullclean menuconfig setup update-tzdata update-cldr update-certs help
 
 all: build
 build:                ; $(IDF) build
@@ -36,6 +37,13 @@ update-tzdata:        ; python3 tools/extract_posix.py $(if $(TZDATA_VERSION),--
 update-cldr:
 	python3 tools/update_cldr.py --version $(CLDR_VERSION)
 	swift -module-cache-path .cache/swift-module-cache tools/gen_fonts.swift
+update-certs:
+	@set -e; t=$$(mktemp -d); trap 'rm -rf "$$t"' EXIT; \
+	curl -fsSL -o "$$t/cacert.pem" $(CACERT_URL); \
+	curl -fsSL -o "$$t/cacert.pem.sha256" $(CACERT_URL).sha256; \
+	(cd "$$t" && shasum -a 256 -c cacert.pem.sha256); \
+	mv "$$t/cacert.pem" third_party/ca-certificates/cacert.pem; \
+	grep -m1 'as of' third_party/ca-certificates/cacert.pem
 
 help:
 	@echo "Usage: make [target]"
@@ -53,6 +61,7 @@ help:
 	@echo "  menuconfig - Open ESP-IDF configuration menu"
 	@echo "  update-tzdata - Download tzdata and update timezone table"
 	@echo "  update-cldr   - Download CLDR JSON and update generated locale/fonts"
+	@echo "  update-certs  - Download Mozilla CA bundle (curl.se) for TLS"
 	@echo ""
 	@echo "Serial port: $(or $(PORT),<not found>)"
 	@echo "Override with: make flash PORT=/dev/cu.usbserial-XXX"
