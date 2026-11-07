@@ -7,6 +7,10 @@ BAUD ?= 2000000
 TZDATA_VERSION ?=
 CLDR_VERSION ?= 48.2.0
 CACERT_URL = https://curl.se/ca/cacert.pem
+CHRONY_VERSION ?= 4.9
+CHRONY_URL = https://chrony-project.org/releases/chrony-$(CHRONY_VERSION).tar.gz
+# Miroslav Lichvar, chrony release signing key
+CHRONY_KEY = 8F375C7E8D0EE125A3D3BD51537E2B76F7680DAC
 
 # Board profile, selected from main/boards/<name>.h. Override with the
 # CYD_BOARD env var or `make CYD_BOARD=esp32_2432s024 ...`.
@@ -20,7 +24,7 @@ define check-port
 	@if [ -z "$(PORT)" ]; then echo "Error: No serial port found. Set PORT=/dev/..."; exit 1; fi
 endef
 
-.PHONY: all build flash app-flash monitor run app-run clean fullclean menuconfig setup update-tzdata update-cldr update-certs help
+.PHONY: all build flash app-flash monitor run app-run clean fullclean menuconfig setup update-tzdata update-cldr update-certs update-chrony help
 
 all: build
 build:                ; $(IDF) build
@@ -45,6 +49,20 @@ update-certs:
 	mv "$$t/cacert.pem" third_party/ca-certificates/cacert.pem; \
 	grep -m1 'as of' third_party/ca-certificates/cacert.pem
 
+# The signing key is fetched into a throwaway keyring, and the signature
+# must be a valid one by exactly that key's fingerprint.
+update-chrony:
+	@set -e; t=$$(mktemp -d); trap 'rm -rf "$$t"' EXIT; \
+	curl -fsSL -o "$$t/chrony.tar.gz" $(CHRONY_URL); \
+	curl -fsSL -o "$$t/chrony.asc" $(subst .tar.gz,-tar-gz-asc.txt,$(CHRONY_URL)); \
+	mkdir -m 700 "$$t/gnupg"; \
+	gpg -q --homedir "$$t/gnupg" --keyserver hkps://keys.openpgp.org --recv-keys $(CHRONY_KEY); \
+	gpg -q --homedir "$$t/gnupg" --status-fd 1 --verify "$$t/chrony.asc" "$$t/chrony.tar.gz" 2>/dev/null \
+	  | grep -q "^\[GNUPG:\] VALIDSIG $(CHRONY_KEY) "; \
+	mkdir "$$t/src"; tar xzf "$$t/chrony.tar.gz" -C "$$t/src" --strip-components=1; \
+	rm -rf third_party/chrony/src; mv "$$t/src" third_party/chrony/src; \
+	shasum -a 256 "$$t/chrony.tar.gz"; cat third_party/chrony/src/version.txt
+
 help:
 	@echo "Usage: make [target]"
 	@echo ""
@@ -62,6 +80,7 @@ help:
 	@echo "  update-tzdata - Download tzdata and update timezone table"
 	@echo "  update-cldr   - Download CLDR JSON and update generated locale/fonts"
 	@echo "  update-certs  - Download Mozilla CA bundle (curl.se) for TLS"
+	@echo "  update-chrony - Download and verify a chrony release into third_party"
 	@echo ""
 	@echo "Serial port: $(or $(PORT),<not found>)"
 	@echo "Override with: make flash PORT=/dev/cu.usbserial-XXX"
