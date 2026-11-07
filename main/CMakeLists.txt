@@ -8,17 +8,6 @@ idf_component_register(
         "touch.c"
         "wifi.c"
         "ntp.c"
-        "ntp_benchmark.c"
-        "ntp_time.c"
-        "ntp_quality.c"
-        "ntp_peers.c"
-        "ntp_resolve.c"
-        "ntp_io.c"
-        "ntp_wifi_stamp.c"
-        "ntp_filter.c"
-        "ntp_discipline.c"
-        "ntp_siv.c"
-        "ntp_nts.c"
         "ota_update.c"
         "nvs_config.c"
         "i18n.c"
@@ -53,6 +42,7 @@ idf_component_register(
         esp_wifi
         lwip
         nvs_flash
+        chrony
     EMBED_FILES "fonts.bin"
 )
 

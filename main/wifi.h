@@ -47,11 +47,11 @@ void wifi_get_ip_str(char *buf, size_t len);
 
 void wifi_get_ip6_str(char *buf, size_t len);
 
-bool wifi_get_ntp_prefer_ipv6(void);
-void wifi_set_ntp_prefer_ipv6(bool prefer);
+ntp_family_t wifi_get_ntp_family(void);
+void wifi_set_ntp_family(ntp_family_t family);
 
-nts_mode_t wifi_get_nts_mode(void);
-void wifi_set_nts_mode(nts_mode_t mode);
+bool wifi_get_nts(void);
+void wifi_set_nts(bool nts);
 
 int8_t wifi_get_rssi(void);
 

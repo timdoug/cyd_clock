@@ -14,15 +14,25 @@ CONFIG_FREERTOS_HZ=1000
 
 # Performance / display timing: -O2 and 240 MHz shrink compose latency and
 # jitter; the main task (render loop) gets core 1 to itself while WiFi
-# (pinned by default), lwip, and the NTP task stay on core 0, so network
+# (pinned by default), lwip, and the chronyd task stay on core 0, so network
 # bursts can't stretch a display tick mid-draw.
 CONFIG_COMPILER_OPTIMIZATION_PERF=y
 CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
 CONFIG_ESP_MAIN_TASK_AFFINITY_CPU1=y
 CONFIG_LWIP_TCPIP_TASK_AFFINITY_CPU0=y
+# chronyd resolves names in a short-lived pthread (nameserv_async.c); keep
+# it on the network core with the rest of chronyd. The 3 KB default stack
+# leaves little margin under lwIP's getaddrinfo().
+CONFIG_PTHREAD_DEFAULT_CORE_0=y
+CONFIG_PTHREAD_TASK_STACK_SIZE_DEFAULT=4096
 
 # Networking
 CONFIG_LWIP_DNS_MAX_HOST_IP=4
+# chronyd opens a UDP socket per request to each of up to 4 servers (plus a
+# benchmark candidate), a TCP socket per concurrent NTS-KE session, and two
+# loopback pairs that stand in for pipe() (port/chronyd_esp.c), alongside
+# OTA's HTTPS socket.
+CONFIG_LWIP_MAX_SOCKETS=16
 CONFIG_LWIP_CHECKSUM_CHECK_IP=y
 CONFIG_LWIP_CHECKSUM_CHECK_UDP=y
 CONFIG_LWIP_IPV6_AUTOCONFIG=y
@@ -41,6 +51,15 @@ CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_CROSS_SIGNED_VERIFY=y
 # AEAD keys from the handshake. ALPN is already on by default.
 CONFIG_MBEDTLS_SSL_PROTO_TLS1_3=y
 CONFIG_MBEDTLS_SSL_KEYING_MATERIAL_EXPORT=y
+# Check certificate validity dates against the system clock (chronyd's
+# "nocerttimecheck 1" covers NTS-KE before the first clock update; OTA
+# refuses to start until the clock is set).
+CONFIG_MBEDTLS_HAVE_TIME_DATE=y
+# chronyd runs one NTS-KE session per NTS source, concurrently. With
+# dynamic buffers a session holds TLS record buffers only while a record is
+# in flight, not for its whole life (a session can wait up to 16 s on a
+# filtered port 4460), so concurrent sessions do not each pin ~20 KB.
+CONFIG_MBEDTLS_DYNAMIC_BUFFER=y
 # The classic ESP32 has no hardware ECC, so an all-ECDSA chain (e.g.
 # Cloudflare's secp384r1) is verified in software and can race a KE server's
 # handshake idle timeout. Fixed-point optimization precomputes base-point

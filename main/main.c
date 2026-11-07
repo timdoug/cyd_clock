@@ -242,13 +242,13 @@ void app_main(void) {
     if (nvs_config_get_custom_ntp_server(custom_ntp)) {
         wifi_set_custom_ntp_server(custom_ntp);
     }
-    bool ntp_ipv6;
-    if (nvs_config_get_ntp_ipv6(&ntp_ipv6)) {
-        wifi_set_ntp_prefer_ipv6(ntp_ipv6);
+    uint8_t ntp_family;
+    if (nvs_config_get_ntp_family(&ntp_family) && ntp_family <= NTP_FAMILY_IPV6) {
+        wifi_set_ntp_family((ntp_family_t)ntp_family);
     }
-    uint8_t nts_mode;
-    if (nvs_config_get_nts_mode(&nts_mode) && nts_mode <= NTS_MODE_REQUIRE) {
-        wifi_set_nts_mode((nts_mode_t)nts_mode);
+    bool nts;
+    if (nvs_config_get_nts(&nts)) {
+        wifi_set_nts(nts);
     }
 
     if (nvs_config_get_wifi(stored_ssid, stored_password)) {

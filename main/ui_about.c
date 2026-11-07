@@ -1,6 +1,7 @@
 #include "ui_about.h"
 #include <string.h>
 #include <stdio.h>
+#include "chronyd_esp.h"
 #include "esp_idf_version.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -157,7 +158,7 @@ static void draw_screen(void) {
     ui_draw_centered_string(y, "The CYD Clock", COLOR_CYAN, COLOR_BLACK, false);
     y += 18;
     ui_draw_centered_string(y, URL, COLOR_GRAY, COLOR_BLACK, false);
-    y += 34;
+    y += 26;
 
     display_string(20, y, tr(STR_VERSION), COLOR_GRAY, COLOR_BLACK);
     display_string(90, y, VERSION_STRING, COLOR_WHITE, COLOR_BLACK);
@@ -165,6 +166,11 @@ static void draw_screen(void) {
 
     display_string(20, y, "ESP-IDF:", COLOR_GRAY, COLOR_BLACK);
     display_string(90, y, esp_get_idf_version(), COLOR_WHITE, COLOR_BLACK);
+    y += 18;
+
+    // Time sync is chronyd (third_party/chrony); see LICENSE.
+    display_string(20, y, "chrony:", COLOR_GRAY, COLOR_BLACK);
+    display_string(90, y, ces_version(), COLOR_WHITE, COLOR_BLACK);
     y += 18;
 
     char ip_str[16];

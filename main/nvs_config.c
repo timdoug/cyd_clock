@@ -56,14 +56,6 @@ static bool nvs_get_u8_key(const char *key, uint8_t *out) {
     return err == ESP_OK;
 }
 
-static bool nvs_get_i32_key(const char *key, int32_t *out) {
-    nvs_handle_t handle;
-    if (!nvs_open_read(&handle)) return false;
-    esp_err_t err = nvs_get_i32(handle, key, out);
-    nvs_close(handle);
-    return err == ESP_OK;
-}
-
 // Generic single-key setters: open r/w, write one key, commit+close. Return
 // ESP_OK only if the value was both written and committed. Write and commit
 // failures are logged inside the helpers, so silent loss is impossible.
@@ -81,16 +73,6 @@ static esp_err_t nvs_set_u8_key(const char *key, uint8_t value) {
     nvs_handle_t handle;
     if (!nvs_open_write(&handle)) return ESP_FAIL;
     if (!nvs_set_ok(nvs_set_u8(handle, key, value), key)) {
-        nvs_close(handle);
-        return ESP_FAIL;
-    }
-    return nvs_commit_and_close(handle);
-}
-
-static esp_err_t nvs_set_i32_key(const char *key, int32_t value) {
-    nvs_handle_t handle;
-    if (!nvs_open_write(&handle)) return ESP_FAIL;
-    if (!nvs_set_ok(nvs_set_i32(handle, key, value), key)) {
         nvs_close(handle);
         return ESP_FAIL;
     }
@@ -201,23 +183,23 @@ void nvs_config_set_ota_url(const char *url) {
     nvs_set_str_key("ota_url", url);
 }
 
-bool nvs_config_get_ntp_ipv6(bool *prefer) {
+bool nvs_config_get_ntp_family(uint8_t *family) {
+    return nvs_get_u8_key("ntp_family", family);
+}
+
+void nvs_config_set_ntp_family(uint8_t family) {
+    nvs_set_u8_key("ntp_family", family);
+}
+
+bool nvs_config_get_nts(bool *nts) {
     uint8_t value;
-    if (!nvs_get_u8_key("ntp_ipv6", &value)) return false;
-    *prefer = (value != 0);
+    if (!nvs_get_u8_key("nts", &value)) return false;
+    *nts = (value != 0);
     return true;
 }
 
-void nvs_config_set_ntp_ipv6(bool prefer) {
-    nvs_set_u8_key("ntp_ipv6", prefer ? 1 : 0);
-}
-
-bool nvs_config_get_nts_mode(uint8_t *mode) {
-    return nvs_get_u8_key("nts_mode", mode);
-}
-
-void nvs_config_set_nts_mode(uint8_t mode) {
-    nvs_set_u8_key("nts_mode", mode);
+void nvs_config_set_nts(bool nts) {
+    nvs_set_u8_key("nts", nts ? 1 : 0);
 }
 
 bool nvs_config_get_rotation(bool *rotated) {
@@ -251,10 +233,3 @@ void nvs_config_set_led_brightness(uint8_t brightness) {
     nvs_set_u8_key("led_bright", brightness);
 }
 
-bool nvs_config_get_freq_ppm_x1000(int32_t *value) {
-    return nvs_get_i32_key("freq_ppm", value);
-}
-
-void nvs_config_set_freq_ppm_x1000(int32_t value) {
-    nvs_set_i32_key("freq_ppm", value);
-}

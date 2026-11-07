@@ -83,13 +83,13 @@ void wifi_poll_reconnect(void) {
 
 static struct {
     char custom_server[64];
-    bool prefer_ipv6;
-    nts_mode_t nts_mode;
+    ntp_family_t family;
+    bool nts;
     bool started;
 } ntp_cfg = {
     .custom_server = DEFAULT_NTP_SERVER,
-    .prefer_ipv6 = true,
-    .nts_mode = NTS_MODE_OPPORTUNISTIC,
+    .family = NTP_FAMILY_ANY,
+    .nts = false,
     .started = false,
 };
 
@@ -151,10 +151,6 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
         if (event_id == IP_EVENT_STA_GOT_IP) {
             ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
             ESP_LOGI(TAG, "Got IPv4: " IPSTR, IP2STR(&event->ip_info.ip));
-            // wifi-netif registers its STA rxcb on the connect event, AFTER
-            // esp_wifi_start. Install/re-install ours here so we sit on top
-            // of theirs (and so reconnects also re-install).
-            ntp_install_wifi_rx_hook();
             // Under the lock like every other writer: an interleaving
             // schedule_reconnect must not resurrect pending state or leave
             // the doubled delay behind after a successful connect.
@@ -473,15 +469,14 @@ void wifi_restore_connection(const char *ssid, const char *password) {
 
 void wifi_start_ntp(void) {
     const char *server = wifi_get_custom_ntp_server();
-    ESP_LOGI(TAG, "Starting NTP (server: %s, ipv6: %s)",
-             server, ntp_cfg.prefer_ipv6 ? "yes" : "no");
+    ESP_LOGI(TAG, "Starting NTP (server: %s)", server);
 
     if (ntp_cfg.started) {
         ntp_set_server(server);
-        ntp_set_prefer_ipv6(ntp_cfg.prefer_ipv6);
-        ntp_set_nts_mode(ntp_cfg.nts_mode);
+        ntp_set_family(ntp_cfg.family);
+        ntp_set_nts(ntp_cfg.nts);
     } else {
-        ntp_init(server, ntp_cfg.prefer_ipv6, ntp_cfg.nts_mode);
+        ntp_init(server, ntp_cfg.family, ntp_cfg.nts);
         ntp_cfg.started = true;
     }
 }
@@ -503,22 +498,22 @@ void wifi_set_custom_ntp_server(const char *server) {
     if (ntp_cfg.started) ntp_set_server(wifi_get_custom_ntp_server());
 }
 
-bool wifi_get_ntp_prefer_ipv6(void) {
-    return ntp_cfg.prefer_ipv6;
+ntp_family_t wifi_get_ntp_family(void) {
+    return ntp_cfg.family;
 }
 
-void wifi_set_ntp_prefer_ipv6(bool prefer) {
-    ntp_cfg.prefer_ipv6 = prefer;
-    if (ntp_cfg.started) ntp_set_prefer_ipv6(prefer);
+void wifi_set_ntp_family(ntp_family_t family) {
+    ntp_cfg.family = family;
+    if (ntp_cfg.started) ntp_set_family(family);
 }
 
-nts_mode_t wifi_get_nts_mode(void) {
-    return ntp_cfg.nts_mode;
+bool wifi_get_nts(void) {
+    return ntp_cfg.nts;
 }
 
-void wifi_set_nts_mode(nts_mode_t mode) {
-    ntp_cfg.nts_mode = mode;
-    if (ntp_cfg.started) ntp_set_nts_mode(mode);
+void wifi_set_nts(bool nts) {
+    ntp_cfg.nts = nts;
+    if (ntp_cfg.started) ntp_set_nts(nts);
 }
 
 void wifi_get_ip_str(char *buf, size_t len) {

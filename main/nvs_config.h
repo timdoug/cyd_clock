@@ -40,11 +40,12 @@ void nvs_config_set_custom_ntp_server(const char *server);
 bool nvs_config_get_ota_url(char *url);
 void nvs_config_set_ota_url(const char *url);
 
-bool nvs_config_get_ntp_ipv6(bool *prefer);
-void nvs_config_set_ntp_ipv6(bool prefer);
+// ntp_family_t (ntp.h) and chrony's "nts" source option
+bool nvs_config_get_ntp_family(uint8_t *family);
+void nvs_config_set_ntp_family(uint8_t family);
 
-bool nvs_config_get_nts_mode(uint8_t *mode);
-void nvs_config_set_nts_mode(uint8_t mode);
+bool nvs_config_get_nts(bool *nts);
+void nvs_config_set_nts(bool nts);
 
 bool nvs_config_get_rotation(bool *rotated);
 void nvs_config_set_rotation(bool rotated);
@@ -56,10 +57,5 @@ void nvs_config_set_language(const char *code);
 
 bool nvs_config_get_led_brightness(uint8_t *brightness);
 void nvs_config_set_led_brightness(uint8_t brightness);
-
-// NTP frequency-correction estimate (ppm * 1000). Persisted across reboots
-// so the PI loop doesn't have to re-converge from 0 ppm on every cold boot.
-bool nvs_config_get_freq_ppm_x1000(int32_t *value);
-void nvs_config_set_freq_ppm_x1000(int32_t value);
 
 #endif

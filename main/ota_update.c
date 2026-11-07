@@ -1,5 +1,6 @@
 #include "ota_update.h"
 #include <string.h>
+#include <time.h>
 #include "esp_app_desc.h"
 #include "esp_crt_bundle.h"
 #include "esp_err.h"
@@ -301,6 +302,10 @@ bool ota_update_start(const char *url, bool force, char *err_buf, size_t err_len
         precheck_err = "Missing URL";
     } else if (!wifi_is_connected()) {
         precheck_err = "Wi-Fi offline";
+    } else if (time(NULL) < (time_t)util_anchor_epoch()) {
+        // Server certificates are date-checked (MBEDTLS_HAVE_TIME_DATE),
+        // which needs the clock set by chronyd first.
+        precheck_err = "Clock not set";
     }
     if (precheck_err) {
         current_status.state = OTA_UPDATE_FAILED;

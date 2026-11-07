@@ -1,4 +1,5 @@
 #include "ui_clock.h"
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -9,8 +10,8 @@
 #include "esp_timer.h"
 #include "config.h"
 #include "display.h"
+#include "chronyd_esp.h"
 #include "led.h"
-#include "ntp.h"
 #include "nvs_config.h"
 #include "touch.h"
 #include "i18n.h"
@@ -57,6 +58,8 @@ static int last_sec = -1;
 static int last_day = -1;
 static bool colon_visible = true;
 static bool last_synced_state = false;
+// Snapshot for the status lines; too large for the main task's stack.
+static ces_status_t clock_status;
 static int last_stats_sec = -1;
 static int last_centisecond = -1;
 static uint8_t led_brightness = BRIGHTNESS_DEFAULT;
@@ -206,13 +209,6 @@ static bool clear_fraction(void) {
     return true;
 }
 
-static void fmt_pm_us(char *buf, size_t len, int64_t us) {
-    // ui_fmt_offset_us with the sign replaced by "+/-".
-    char t[16];
-    ui_fmt_offset_us(t, sizeof(t), us < 0 ? -us : us);
-    snprintf(buf, len, "+/-%s", t + 1);
-}
-
 static bool clock_text_has_non_ascii(const char *s) {
     while (*s) {
         if ((unsigned char)*s >= 0x80) return true;
@@ -284,81 +280,43 @@ static void draw_line_cached(int y, char *cache, size_t cache_len,
     str_copy(cache, cache_len, field);
 }
 
+// chronyd's tracking report in chronyc's wording ("chronyc tracking"),
+// padding after the labels compacted to fit 40 columns: the reference and
+// its stratum (or "Not synchronised" and the configured server), the
+// current error of the system clock, and the frequency error being
+// corrected.
 static void draw_ntp_stats(int sec) {
-    ntp_sys_stats_t sys;
-    ntp_peer_stats_t peers[NTP_MAX_PEERS];
-    ntp_get_all_stats(&sys, peers);
-    const char *server = sys.server[0] ? sys.server : wifi_get_custom_ntp_server();
+    ces_status_t *st = &clock_status;
+    ces_get_status(st);
 
-    // A valid clock can be in holdover. Keep displaying time and its growing
-    // uncertainty, but reserve the green synchronized state for a live reference.
-    bool synced_here = sys.synced;
+    bool synced_here = st->leap_status != CES_LEAP_UNSYNCHRONISED;
     char line1[80];
-    uint16_t line1_fg;
     if (synced_here) {
-        snprintf(line1, sizeof(line1), tr(STR_FMT_SYNCED), server);
-        line1_fg = COLOR_SYNC_OK;
-    } else if (sys.holdover) {
-        snprintf(line1, sizeof(line1), "%s: %s", tr(STR_UNSYNCED), server);
-        line1_fg = COLOR_SYNC_WAIT;
+        snprintf(line1, sizeof(line1), "%.60s  Stratum %d", st->ref_name, st->stratum);
     } else {
-        snprintf(line1, sizeof(line1), tr(STR_FMT_SYNCING), server);
-        line1_fg = COLOR_SYNC_WAIT;
+        // chronyc's "Not synchronised" (its leap status for this state),
+        // with the configured server that chronyd is trying
+        snprintf(line1, sizeof(line1), "Not synchronised: %.60s", wifi_get_custom_ntp_server());
     }
     // A sync-state flip recolors the line even where the text is unchanged.
     bool line1_force = (synced_here != last_synced_state);
     last_synced_state = synced_here;
-    draw_line_cached(STATS_Y, last_line1, sizeof(last_line1), line1, line1_fg,
-                     line1_force);
+    draw_line_cached(STATS_Y, last_line1, sizeof(last_line1), line1,
+                     synced_here ? COLOR_SYNC_OK : COLOR_SYNC_WAIT, line1_force);
 
     if (sec == last_stats_sec) return;
     last_stats_sec = sec;
 
-    if (!sys.time_valid) {
-        char line2[48];
-        snprintf(line2, sizeof(line2), tr(STR_FMT_WAITING),
-                 (unsigned long)(sys.sync_elapsed_ms / 1000));
-        draw_line_cached(STATS_LINE2, last_line2, sizeof(last_line2), line2,
-                         COLOR_STATS, false);
-        draw_line_cached(STATS_LINE3, last_line3, sizeof(last_line3), "",
-                         COLOR_BLACK, false);
-        return;
-    }
-
-    int peers_reach = 0, peers_total = 0;
-    for (int i = 0; i < NTP_MAX_PEERS; i++) {
-        if (!peers[i].active) continue;
-        peers_total++;
-        if (peers[i].reach) peers_reach++;
-    }
-    char poll_buf[24], ago_buf[24];  // CJK unit words: up to 3 UTF-8 bytes each
-    ui_fmt_duration_full(poll_buf, sizeof(poll_buf), sys.current_poll_s);
-    char line2[80];
-    ui_fmt_duration_full(ago_buf, sizeof(ago_buf), sys.reference_age_s);
-    snprintf(line2, sizeof(line2), tr(STR_FMT_PEERS_AGO),
-             peers_reach, peers_total, poll_buf, ago_buf);
+    // "%.9O of NTP time" without the trailing "of NTP time"
+    char line2[64];
+    snprintf(line2, sizeof(line2), "System time : %.9f seconds %s",
+             fabs(st->current_correction), st->current_correction > 0.0 ? "slow" : "fast");
     draw_line_cached(STATS_LINE2, last_line2, sizeof(last_line2), line2,
                      COLOR_STATS, false);
 
-    char line3[96];
-    char off_buf[20], disp_buf[20], drift_buf[16];
-    if (sys.sync_count < 2) {
-        snprintf(off_buf,  sizeof(off_buf),  "----");
-    } else {
-        ui_fmt_offset_us(off_buf, sizeof(off_buf), sys.last_offset_us);
-    }
-    if (!sys.time_valid) {
-        snprintf(disp_buf, sizeof(disp_buf), "----");
-    } else {
-        fmt_pm_us(disp_buf, sizeof(disp_buf),
-                  (int64_t)sys.root_delay_us / 2 + sys.root_dispersion_us);
-    }
-    if (!sys.freq_known) {
-        snprintf(drift_buf, sizeof(drift_buf), "----");
-    } else {
-        ui_fmt_signed_x1000(drift_buf, sizeof(drift_buf), sys.freq_ppm_x1000, "ppm");
-    }
-    snprintf(line3, sizeof(line3), tr(STR_FMT_OFF_DRIFT), off_buf, disp_buf, drift_buf);
+    char freq[32], line3[64];
+    ces_fmt_frequency(freq, sizeof(freq), st->freq_ppm);
+    snprintf(line3, sizeof(line3), "Frequency : %s", freq);
     draw_line_cached(STATS_LINE3, last_line3, sizeof(last_line3), line3,
                      COLOR_STATS, false);
 }
