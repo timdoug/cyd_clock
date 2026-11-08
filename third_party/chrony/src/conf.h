@@ -91,9 +91,6 @@ extern char *CNF_GetBindCommandPath(void);
 extern int CNF_GetNtpDscp(void);
 extern char *CNF_GetNtpSigndSocket(void);
 extern char *CNF_GetPidFile(void);
-extern REF_LeapMode CNF_GetLeapSecMode(void);
-extern char *CNF_GetLeapSecTimezone(void);
-extern char *CNF_GetLeapSecList(void);
 
 /* Value returned in ppm, as read from file */
 extern double CNF_GetMaxUpdateSkew(void);
@@ -123,7 +120,7 @@ extern int CNF_GetLockMemory(void);
 extern int CNF_GetNTPRateLimit(int *interval, int *burst, int *leak, int *kod);
 extern int CNF_GetNtsRateLimit(int *interval, int *burst, int *leak);
 extern int CNF_GetCommandRateLimit(int *interval, int *burst, int *leak);
-extern void CNF_GetSmooth(double *max_freq, double *max_wander, int *leap_only);
+extern void CNF_GetSmooth(double *max_freq, double *max_wander);
 extern void CNF_GetTempComp(char **file, double *interval, char **point_file, double *T0, double *k0, double *k1, double *k2);
 
 extern char *CNF_GetUser(void);

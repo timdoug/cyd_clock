@@ -33,6 +33,7 @@
 #include "privops.h"
 #include "sys_generic.h"
 #include "sys_timex.h"
+#include "util.h"
 #include "logging.h"
 
 #ifdef PRIVOPS_ADJUSTTIMEX
@@ -62,9 +63,6 @@
 
 /* Saved timex status */
 static int sys_status;
-
-/* Saved TAI-UTC offset */
-static int sys_tai_offset;
 
 /* ================================================== */
 
@@ -105,52 +103,6 @@ set_frequency(double freq_ppm)
   SYS_Timex_Adjust(&txc, 0);
 
   return convert_timex_frequency(&txc);
-}
-
-/* ================================================== */
-
-static void
-set_leap(int leap, int tai_offset)
-{
-  struct timex txc;
-  int applied, prev_status;
-
-  txc.modes = 0;
-  applied = SYS_Timex_Adjust(&txc, 0) == TIME_WAIT;
-
-  prev_status = sys_status;
-  sys_status &= ~(STA_INS | STA_DEL);
-
-  if (leap > 0)
-    sys_status |= STA_INS;
-  else if (leap < 0)
-    sys_status |= STA_DEL;
-
-  txc.modes = MOD_STATUS;
-  txc.status = sys_status;
-
-#ifdef MOD_TAI
-  if (tai_offset) {
-    txc.modes |= MOD_TAI;
-    txc.constant = tai_offset;
-
-    if (applied && !(sys_status & (STA_INS | STA_DEL)))
-      sys_tai_offset += prev_status & STA_INS ? 1 : -1;
-
-    if (sys_tai_offset != tai_offset) {
-      sys_tai_offset = tai_offset;
-      LOG(LOGS_INFO, "System clock TAI offset set to %d seconds", tai_offset);
-    }
-  }
-#endif
-
-  SYS_Timex_Adjust(&txc, 0);
-
-  if (prev_status != sys_status) {
-    LOG(LOGS_INFO, "System clock status %s leap second",
-        leap ? (leap > 0 ? "set to insert" : "set to delete") :
-        (applied ? "reset after" : "set to not insert/delete"));
-  }
 }
 
 /* ================================================== */
@@ -199,7 +151,6 @@ initialise_timex(void)
   struct timex txc;
 
   sys_status = STA_UNSYNC;
-  sys_tai_offset = 0;
 
   /* Reset PLL offset */
   txc.modes = MOD_OFFSET | MOD_STATUS;
@@ -211,6 +162,24 @@ initialise_timex(void)
   txc.modes = MOD_STATUS;
   txc.status = sys_status;
   SYS_Timex_Adjust(&txc, 0);
+
+#ifdef MOD_TAI
+#ifdef LINUX
+  /* On Linux ntp_gettime() may not provide tai and ntp_gettimex()
+     may not be available */
+  if (txc.tai == TAI_UTC_OFFSET)
+    return;
+#elif NTP_API >= 4
+  struct ntptimeval ntptv;
+  if (ntp_gettime(&ntptv) >= 0 && ntptv.tai == TAI_UTC_OFFSET)
+    return;
+#endif
+
+  txc.modes = MOD_TAI;
+  txc.constant = TAI_UTC_OFFSET;
+  if (SYS_Timex_Adjust(&txc, 1) >= 0)
+    LOG(LOGS_INFO, "System clock TAI offset set to %d seconds", TAI_UTC_OFFSET);
+#endif
 }
 
 /* ================================================== */
@@ -241,7 +210,7 @@ SYS_Timex_InitialiseWithFunctions(double max_set_freq_ppm, double max_set_freq_d
                                  sys_apply_step_offset,
                                  min_fastslew_offset, max_fastslew_rate,
                                  sys_accrue_offset, sys_get_offset_correction,
-                                 set_leap, set_sync_status);
+                                 set_sync_status);
 }
 
 /* ================================================== */
@@ -278,10 +247,10 @@ SYS_Timex_Adjust(struct timex *txc, int ignore_error)
   /* This a good place to verify that nothing else is touching the clock,
      without making an additional timex call.  A clock update is normally
      expected to have four driver calls:
-     - set_sync_status - primarily updating leap status
+     - set_sync_status - updating sync status and estimated/maximum error
      - set_frequency - correcting frequency error
      - set_frequency - correcting phase error
-     - set_sync_status - updating leap and estimated/maximum error */
+     - set_sync_status - updating sync status and estimated/maximum error */
   if (last_status != -1 &&
       (((last_status ^ txc->status) & STA_PLL && !(txc->modes & MOD_STATUS)) ||
        (last_constant != txc->constant && !(txc->modes & MOD_TIMECONST)) ||

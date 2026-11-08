@@ -351,7 +351,6 @@ SYS_ESP32_Initialise(void)
   lcl_RegisterSystemDrivers(read_frequency, set_frequency,
                             accrue_offset, apply_step_offset,
                             get_offset_correction,
-                            NULL /* set_leap */,
                             set_sync_status);
 
   drift_removal_id = SCH_AddTimeoutByDelay(drift_removal_interval, drift_removal_timeout, NULL);

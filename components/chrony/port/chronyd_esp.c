@@ -62,7 +62,6 @@
 #include "cmdparse.h"
 #include "conf.h"
 #include "keys.h"
-#include "leapdb.h"
 #include "local.h"
 #include "logging.h"
 #include "main.h"
@@ -456,7 +455,6 @@ chronyd_task(void *arg)
   NIO_Initialise();
   NCR_Initialise();
   CNF_SetupAccessRestrictions();
-  LDB_Initialise();
   REF_Initialise();
   SST_Initialise();
   NSR_Initialise();

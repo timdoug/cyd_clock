@@ -10,7 +10,7 @@ set(CHRONY_SRC "${CMAKE_CURRENT_LIST_DIR}/../../third_party/chrony/src")
 # NTS objects), less main.c and sys.c, which port/ replaces, and the NTS
 # server objects, which port/nts_server_stubs.c replaces.
 set(CHRONY_OBJS
-    addrfilt array clientlog cmdparse conf keys leapdb local logging memory
+    addrfilt array clientlog cmdparse conf keys local logging memory
     nameserv nameserv_async ntp_auth ntp_core ntp_ext ntp_io ntp_sources
     quantiles reference regress rtc samplefilt sched socket sources
     sourcestats stubs smooth sys_null tempcomp util hash_intmd5
@@ -43,6 +43,11 @@ idf_component_register(
         pthread
         vfs
 )
+
+# Version from version.txt ("<tag>-<commits>-g<hash>", written by
+# make update-chrony), as chrony's configure reads it.
+file(STRINGS "${CHRONY_SRC}/version.txt" CHRONY_VERSION LIMIT_COUNT 1)
+target_compile_definitions(${COMPONENT_LIB} PRIVATE CHRONY_VERSION="${CHRONY_VERSION}")
 
 # chrony is not on a timing-critical path at the instruction level; size
 # matters more in the OTA slot.

@@ -5,9 +5,9 @@ Found while porting chrony's legacy macOS clock driver to ESP-IDF
 
 Files:
 
-- `sys_macosx-rounding.patch`: one-line fix against chrony 4.9's
-  `sys_macosx.c`. Applies cleanly to the vendored release, and the patched file
-  compiles without warnings in a macOS `./configure` build.
+- `sys_macosx-rounding.patch`: one-line fix to `sys_macosx.c`. Applies
+  cleanly to chrony 4.9 and to main as vendored (4.9-10-gc97d808), and the
+  patched 4.9 file compiles without warnings in a macOS `./configure` build.
 - `drvsim.py`: a model of the driver's bookkeeping, used for the numbers
   below. `python3 drvsim.py [hours [read_interval_s]]`.
 

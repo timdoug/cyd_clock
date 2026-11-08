@@ -7,8 +7,9 @@ ESP32, a 320x240 ILI9341 panel, XPT2046 resistive touch, and an RGB LED.
 
 Highlights:
 
-- Time sync by chrony: chronyd 4.9, built from the unmodified upstream
-  release and ported to ESP-IDF, with authenticated time via NTS (RFC 8915).
+- Time sync by chrony: chronyd from chrony's main branch (4.9 plus the
+  removal of leap second support), built from unmodified upstream source and
+  ported to ESP-IDF, with authenticated time via NTS (RFC 8915).
 - The status lines and stats pages show chronyd's own reports, worded and
   formatted the way `chronyc` prints them.
 - Hundredths of a second on the clock face, timed so that the digits change
@@ -21,9 +22,12 @@ Highlights:
 
 ## Timekeeping
 
-Time is kept by [chrony](https://chrony-project.org/). The release tarball is
-vendored unmodified in `third_party/chrony/src`, checked against its GPG
-signature, and refreshed with `make update-chrony`. Source selection, sample
+Time is kept by [chrony](https://chrony-project.org/). A commit from chrony's
+main branch, after the 4.9 release, is vendored unmodified in
+`third_party/chrony/src`: it drops leap second support, in line with the 2022
+CGPM resolution to discontinue leap seconds by 2035. `make update-chrony` exports
+it from chrony's git repository after checking the GPG signature on the 4.9
+tag it builds on. Source selection, sample
 filtering, the frequency estimate, clock steering, NTS, and pool handling are
 all chronyd's. The configuration follows chrony's own example:
 
@@ -103,7 +107,12 @@ accepting it, which is shorter than a full handshake takes when the ESP32
 verifies their ECDSA certificate chain in software. The TLS backend stores
 a certificate that verified against the root store, for a day, and on the
 next handshake accepts exactly that certificate in place of a chain check, so
-the handshake completes in time.
+the handshake completes in time. When the server has already closed the
+connection by the time the first handshake completes, the backend reports it
+as closed, so chronyd retries after its short interval for a closed handshake
+(16 s) instead of backing off for about 17 minutes, and the retry uses the
+stored certificate. Against Cloudflare, the clock syncs about 26 s after
+boot.
 
 Certificates are checked against Mozilla's root store, which is vendored in
 `third_party/ca-certificates/` and refreshed with `make update-certs`.
@@ -294,7 +303,7 @@ The bundled data has its own refresh targets:
 make update-tzdata   # IANA timezone rules
 make update-cldr     # CLDR date data and the generated fonts (needs macOS)
 make update-certs    # Mozilla CA bundle, via curl.se
-make update-chrony   # chrony release, checked against its GPG signature
+make update-chrony   # chrony source (CHRONY_REF), checked against a signed tag
 ```
 
 ## License

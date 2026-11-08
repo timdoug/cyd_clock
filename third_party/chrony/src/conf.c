@@ -75,7 +75,6 @@ static void parse_fallbackdrift(char *);
 static void parse_hwtimestamp(char *);
 static void parse_include(char *);
 static void parse_initstepslew(char *);
-static void parse_leapsecmode(char *);
 static void parse_local(char *);
 static void parse_log(char *);
 static void parse_mailonchange(char *);
@@ -246,7 +245,6 @@ static int cmd_ratelimit_leak = 2;
 /* Smoothing constants */
 static double smooth_max_freq = 0.0; /* in ppm */
 static double smooth_max_wander = 0.0; /* in ppm/s */
-static int smooth_leap_only = 0;
 
 /* Temperature sensor, update interval and compensation coefficients */
 static char *tempcomp_sensor_file = NULL;
@@ -256,15 +254,6 @@ static double tempcomp_T0, tempcomp_k0, tempcomp_k1, tempcomp_k2;
 
 static int sched_priority = 0;
 static int lock_memory = 0;
-
-/* Leap second handling mode */
-static REF_LeapMode leapsec_mode = REF_LeapModeSystem;
-
-/* Name of a system timezone containing leap seconds occuring at midnight */
-static char *leapsec_tz = NULL;
-
-/* File name of leap seconds list, usually /usr/share/zoneinfo/leap-seconds.list */
-static char *leapsec_list = NULL;
 
 /* Name of the user to which will be dropped root privileges. */
 static char *user;
@@ -520,8 +509,6 @@ CNF_Finalise(void)
   Free(dumpdir);
   Free(hwclock_file);
   Free(keys_file);
-  Free(leapsec_tz);
-  Free(leapsec_list);
   Free(logdir);
   Free(bind_ntp_iface);
   Free(bind_acq_iface);
@@ -667,12 +654,6 @@ CNF_ParseLine(const char *filename, int number, char *line)
     parse_initstepslew(p);
   } else if (!strcasecmp(command, "keyfile")) {
     parse_string(p, &keys_file);
-  } else if (!strcasecmp(command, "leapsecmode")) {
-    parse_leapsecmode(p);
-  } else if (!strcasecmp(command, "leapsectz")) {
-    parse_string(p, &leapsec_tz);
-  } else if (!strcasecmp(command, "leapseclist")) {
-    parse_string(p, &leapsec_list);
   } else if (!strcasecmp(command, "local")) {
     parse_local(p);
   } else if (!strcasecmp(command, "lock_all")) {
@@ -800,9 +781,12 @@ CNF_ParseLine(const char *filename, int number, char *line)
     parse_string(p, &user);
   } else if (!strcasecmp(command, "commandkey") ||
              !strcasecmp(command, "generatecommandkey") ||
+             !strcasecmp(command, "leapseclist") ||
+             !strcasecmp(command, "leapsecmode") ||
+             !strcasecmp(command, "leapsectz") ||
              !strcasecmp(command, "linux_freq_scale") ||
              !strcasecmp(command, "linux_hz")) {
-    LOG(LOGS_WARN, "%s directive is no longer supported", command);
+    LOG(LOGS_WARN, "%s directive %s", command, "is no longer supported");
   } else {
     other_parse_error("Invalid directive %s", command);
   }
@@ -1211,23 +1195,6 @@ parse_initstepslew(char *line)
 /* ================================================== */
 
 static void
-parse_leapsecmode(char *line)
-{
-  if (!strcasecmp(line, "system"))
-    leapsec_mode = REF_LeapModeSystem;
-  else if (!strcasecmp(line, "slew"))
-    leapsec_mode = REF_LeapModeSlew;
-  else if (!strcasecmp(line, "step"))
-    leapsec_mode = REF_LeapModeStep;
-  else if (!strcasecmp(line, "ignore"))
-    leapsec_mode = REF_LeapModeIgnore;
-  else
-    command_parse_error();
-}
-
-/* ================================================== */
-
-static void
 parse_clientloglimit(char *line)
 {
   check_number_of_args(line, 1);
@@ -1555,12 +1522,13 @@ parse_smoothtime(char *line)
   }
 
   line = CPS_SplitWord(CPS_SplitWord(line));
-  smooth_leap_only = 0;
 
   if (*line) {
-    if (!strcasecmp(line, "leaponly"))
-      smooth_leap_only = 1;
-    else
+    /* With no leap second support leaponly completely disables smoothing */
+    if (!strcasecmp(line, "leaponly")) {
+      LOG(LOGS_WARN, "leaponly option %s", "is no longer supported");
+      smooth_max_freq = 0.0;
+    } else
       command_parse_error();
   }
 }
@@ -2617,30 +2585,6 @@ CNF_GetPidFile(void)
 
 /* ================================================== */
 
-REF_LeapMode
-CNF_GetLeapSecMode(void)
-{
-  return leapsec_mode;
-}
-
-/* ================================================== */
-
-char *
-CNF_GetLeapSecTimezone(void)
-{
-  return leapsec_tz;
-}
-
-/* ================================================== */
-
-char *
-CNF_GetLeapSecList(void)
-{
-  return leapsec_list;
-}
-
-/* ================================================== */
-
 int
 CNF_GetSchedPriority(void)
 {
@@ -2689,11 +2633,10 @@ int CNF_GetCommandRateLimit(int *interval, int *burst, int *leak)
 /* ================================================== */
 
 void
-CNF_GetSmooth(double *max_freq, double *max_wander, int *leap_only)
+CNF_GetSmooth(double *max_freq, double *max_wander)
 {
   *max_freq = smooth_max_freq;
   *max_wander = smooth_max_wander;
-  *leap_only = smooth_leap_only;
 }
 
 /* ================================================== */

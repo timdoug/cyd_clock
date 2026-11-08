@@ -86,6 +86,11 @@ sources that were specified in the configuration file, or *chronyc* commands.
 Without the *-n* and *-N* option, the printed hostnames are obtained from
 reverse DNS lookups and can be different from the specified hostnames.
 
+*-E*::
+With this option most floating-point values (e.g. time and frequency offsets)
+will be printed in exponential notation and values in seconds will not be
+converted to other units. This option can be combined with the *-c* option.
+
 *-c*::
 This option enables printing of reports in a comma-separated values (CSV)
 format. Reverse DNS lookups will be disabled, time will be printed as number of
@@ -257,8 +262,7 @@ clock_error <= |system_time_offset| + root_dispersion + (0.5 * root_delay)
 *Update interval*:::
 This is the interval between the last two clock updates.
 *Leap status*:::
-This is the leap status, which can be _Normal_, _Insert second_, _Delete
-second_ or _Not synchronised_.
+This is the leap status, which can be _Normal_ or _Not synchronised_.
 
 [[makestep]]*makestep*::
 *makestep* _threshold_ _limit_::
@@ -542,9 +546,7 @@ expected to contain the true offset of the local clock considering the root
 distance at the time of the selection.
 *Leap*:::
 This column displays the current leap status of the source.
-* _N_ indicates the normal status (no leap second).
-* _+_ indicates that a leap second will be inserted at the end of the month.
-* _-_ indicates that a leap second will be deleted at the end of the month.
+* _N_ indicates the normal status.
 * _?_ indicates the unknown status (i.e. no valid measurement was made).
 
 [[selectopts]]*selectopts* _address|refid_ [_+|-option_]...::
@@ -1335,8 +1337,7 @@ The fields are explained as follows:
 +
 *Active*:::
 This shows if the server time smoothing is currently active. Possible values
-are _Yes_ and _No_. If the *leaponly* option is included in the *smoothtime*
-directive, _(leap second only)_ will be shown on the line.
+are _Yes_ and _No_.
 *Offset*:::
 This is the current offset applied to the time sent to NTP clients. Positive
 value means the clients are getting time that's ahead of true time.
