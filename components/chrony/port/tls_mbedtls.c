@@ -375,6 +375,19 @@ TLS_DestroyCredentials(TLS_Credentials credentials)
 
 /* ================================================== */
 
+/* Concurrent TLS sessions.  Each NTS-KE session holds a 16 KB message
+   buffer (NKE_MAX_MESSAGE_LENGTH, allocated by nts_ke_session.c) and about
+   15 KB of TLS state, plus about 8 KB more during the handshake, and
+   chronyd starts the sessions of all sources of a pool at once.  Four at
+   once exhausted the heap (a failed Malloc() is fatal in chronyd).  A
+   refused session fails NKC_Start(), which chronyd retries after
+   RETRY_INTERVAL_KE_START (2 s), so sessions beyond the limit queue. */
+#define MAX_SESSIONS 2
+
+static int active_sessions;
+
+/* ================================================== */
+
 TLS_Instance
 TLS_CreateInstance(int server_mode, int sock_fd, const char *server_name, const char *label,
                    const char *alpn_name, TLS_Credentials credentials, int disable_time_checks)
@@ -382,7 +395,13 @@ TLS_CreateInstance(int server_mode, int sock_fd, const char *server_name, const 
   struct Credentials *creds = credentials;
   int r = 0, name_len;
 
+  if (active_sessions >= MAX_SESSIONS) {
+    DEBUG_LOG("Deferring TLS session with %s (%d active)", label, active_sessions);
+    return NULL;
+  }
+
   TLS_Instance inst = MallocNew(struct TLS_Instance_Record);
+  active_sessions++;
 
   mbedtls_ssl_config_init(&inst->conf);
   mbedtls_ssl_init(&inst->ssl);
@@ -483,6 +502,7 @@ error:
 void
 TLS_DestroyInstance(TLS_Instance inst)
 {
+  active_sessions--;
   mbedtls_ssl_free(&inst->ssl);
   mbedtls_ssl_config_free(&inst->conf);
 

@@ -32,7 +32,7 @@ filtering, the frequency estimate, clock steering, NTS, and pool handling are
 all chronyd's. The configuration follows chrony's own example:
 
 ```
-pool <server> iburst [maxsources 1 nts] [ipv4|ipv6]
+pool <server> iburst [maxsources 2 nts] [ipv4|ipv6]
 driftfile /chrony/drift
 makestep 1.0 3
 nocerttimecheck 1
@@ -103,9 +103,11 @@ derived from the RFC 8446 exporter, and every packet is authenticated with
 AES-SIV-CMAC-256. NTS is a setting, on or off, which is chrony's `nts` source
 option: when it's on, unauthenticated time is never accepted.
 
-Each NTS source runs its own key exchange, and chronyd allocates a 16 KB buffer
-for each, so NTS pools are limited to one source (`maxsources 1`) to fit the
-heap. Some NTS-KE servers (Cloudflare's) close the connection about 2 s after
+Each NTS source runs its own key exchange, and each costs about 31 KB of heap
+while it runs (chronyd's 16 KB message buffer plus TLS state), on top of about
+10 KB per pool record. So NTS pools use two addresses (`maxsources 2`), and
+the TLS backend runs at most two key exchanges at once; chronyd retries a
+deferred one after 2 s. Some NTS-KE servers (Cloudflare's) close the connection about 2 s after
 accepting it, which is shorter than a full handshake takes when the ESP32
 verifies their ECDSA certificate chain in software. The TLS backend stores
 a certificate that verified against the root store, for a day, and on the

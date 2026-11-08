@@ -11,12 +11,13 @@
 static const char *TAG = "ntp";
 
 #define CONFIG_STACK_BYTES 4096
-// An NTS pool takes one address (two records, one spare): chronyd runs an
-// NTS-KE session per record, concurrently, each allocating a 16 KB message
-// buffer in one block (NKE_MAX_MESSAGE_LENGTH in nts_ke.h), and a failed
-// allocation is fatal in chronyd. On the device, four concurrent sessions
-// exhausted the heap. Plain pools use chrony's default maxsources (4).
-#define NTS_MAX_SOURCES 1
+// An NTS pool takes two addresses. Each pool record costs about 10 KB of
+// heap from the start (a pool holds 2 * maxsources records, unresolved ones
+// included), and each NTS-KE session about 31 KB more while it runs; the TLS
+// backend runs at most two at once (MAX_SESSIONS in tls_mbedtls.c). With 2,
+// the heap low-water mark measured about 54 KB; with chrony's default of 4,
+// the 8 records alone took about 79 KB. Plain pools use the default.
+#define NTS_MAX_SOURCES 2
 
 // Settings changes are applied by a worker task: ces_add_source() and
 // ces_remove_source() wait for chronyd's loop, which can be inside an NTS-KE
