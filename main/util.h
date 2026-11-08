@@ -4,12 +4,12 @@
 #include <stdint.h>
 #include <string.h>
 
-// Era anchor year: "a year the device cannot legitimately observe a time
-// before". Anchors NTP era resolution (ntp.c) and the display's
-// time-validity check (ui_clock.c). Hardcoded rather than parsed from
-// __DATE__ so builds are reproducible; each value is good for ~136 years
-// (one NTP era past the anchor), so bump it whenever you happen to be
-// editing nearby in some future century.
+// Anchor year: "a year the device cannot legitimately observe a time
+// before". A clock earlier than this has not been set yet (it starts in
+// 1970 without a battery): the clock screen shows no time and OTA does not
+// start (certificate dates need the clock). Hardcoded rather than parsed
+// from __DATE__ so builds are reproducible. NTP era resolution is chronyd's
+// (NTP_ERA_SPLIT in components/chrony/port/include/config.h).
 #define UTIL_ANCHOR_YEAR 2026
 
 // Unix seconds at 00:00 UTC on January 1 of UTIL_ANCHOR_YEAR.

@@ -1,10 +1,6 @@
 static const char *const lang_ko[STR_COUNT] = {
     [STR_SETTINGS] = "설정",
     [STR_WIFI] = "Wi-Fi",
-    [STR_UNIT_S] = "초",
-    [STR_UNIT_M] = "분",
-    [STR_UNIT_H] = "시간",
-    [STR_UNIT_D] = "일",
     [STR_TIMEZONE] = "시간대",
     [STR_BRIGHTNESS] = "밝기",
     [STR_LED_BLINK] = "LED 깜박임",

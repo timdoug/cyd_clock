@@ -1,10 +1,6 @@
 static const char *const lang_en[STR_COUNT] = {
     [STR_SETTINGS] = "Settings",
     [STR_WIFI] = "Wi-Fi",
-    [STR_UNIT_S] = "s",
-    [STR_UNIT_M] = "m",
-    [STR_UNIT_H] = "h",
-    [STR_UNIT_D] = "d",
     [STR_TIMEZONE] = "Time zone",
     [STR_BRIGHTNESS] = "Brightness",
     [STR_LED_BLINK] = "LED Blink",

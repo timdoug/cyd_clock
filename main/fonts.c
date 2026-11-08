@@ -22,124 +22,124 @@ const display_glyph_font_t font_hy = {
     .count = 55,
     .glyph_width = 10,
 };
-// ja: 96 glyphs (Hiragino Sans GB)
+// ja: 94 glyphs (Hiragino Sans GB)
 const display_glyph_font_t font_ja = {
     .codepoints = FB16(4950),
-    .glyphs_rle = fonts_blob + 5142,
-    .glyphs_off = FB16(13048),
-    .glyphs_2x_rle = fonts_blob + 13242,
-    .glyphs_2x_off = FB16(15668),
-    .count = 96,
+    .glyphs_rle = fonts_blob + 5138,
+    .glyphs_off = FB16(12844),
+    .glyphs_2x_rle = fonts_blob + 13034,
+    .glyphs_2x_off = FB16(15460),
+    .count = 94,
     .glyph_width = 16,
 };
 // ka: 29 glyphs (Helvetica)
 const display_glyph_font_t font_ka = {
-    .codepoints = FB16(15862),
-    .glyphs_rle = fonts_blob + 15920,
-    .glyphs_off = FB16(17550),
-    .glyphs_2x_rle = fonts_blob + 17610,
-    .glyphs_2x_off = FB16(20526),
+    .codepoints = FB16(15650),
+    .glyphs_rle = fonts_blob + 15708,
+    .glyphs_off = FB16(17338),
+    .glyphs_2x_rle = fonts_blob + 17398,
+    .glyphs_2x_off = FB16(20314),
     .count = 29,
     .glyph_width = 10,
 };
-// ko: 86 glyphs (Apple SD Gothic Neo)
+// ko: 84 glyphs (Apple SD Gothic Neo)
 const display_glyph_font_t font_ko = {
-    .codepoints = FB16(20586),
-    .glyphs_rle = fonts_blob + 20758,
-    .glyphs_off = FB16(27210),
-    .glyphs_2x_rle = fonts_blob + 27384,
-    .glyphs_2x_off = FB16(28878),
-    .count = 86,
+    .codepoints = FB16(20374),
+    .glyphs_rle = fonts_blob + 20542,
+    .glyphs_off = FB16(26840),
+    .glyphs_2x_rle = fonts_blob + 27010,
+    .glyphs_2x_off = FB16(28504),
+    .count = 84,
     .glyph_width = 16,
 };
-// yue: 90 glyphs (PingFang HK)
+// yue: 87 glyphs (PingFang HK)
 const display_glyph_font_t font_yue = {
-    .codepoints = FB16(29052),
-    .glyphs_rle = fonts_blob + 29232,
-    .glyphs_off = FB16(36974),
-    .glyphs_2x_rle = fonts_blob + 37156,
-    .glyphs_2x_off = FB16(39268),
-    .count = 90,
+    .codepoints = FB16(28674),
+    .glyphs_rle = fonts_blob + 28848,
+    .glyphs_off = FB16(36332),
+    .glyphs_2x_rle = fonts_blob + 36508,
+    .glyphs_2x_off = FB16(38620),
+    .count = 87,
     .glyph_width = 16,
 };
-// zh: 92 glyphs (Hiragino Sans GB)
+// zh: 88 glyphs (Hiragino Sans GB)
 const display_glyph_font_t font_zh = {
-    .codepoints = FB16(39450),
-    .glyphs_rle = fonts_blob + 39634,
-    .glyphs_off = FB16(47908),
-    .glyphs_2x_rle = fonts_blob + 48094,
-    .glyphs_2x_off = FB16(50142),
-    .count = 92,
+    .codepoints = FB16(38796),
+    .glyphs_rle = fonts_blob + 38972,
+    .glyphs_off = FB16(46886),
+    .glyphs_2x_rle = fonts_blob + 47064,
+    .glyphs_2x_off = FB16(49112),
+    .count = 88,
     .glyph_width = 16,
 };
-// zh_hant: 93 glyphs (PingFang TC)
+// zh_hant: 89 glyphs (PingFang TC)
 const display_glyph_font_t font_zh_hant = {
-    .codepoints = FB16(50328),
-    .glyphs_rle = fonts_blob + 50514,
-    .glyphs_off = FB16(58588),
-    .glyphs_2x_rle = fonts_blob + 58776,
-    .glyphs_2x_off = FB16(60684),
-    .count = 93,
+    .codepoints = FB16(49290),
+    .glyphs_rle = fonts_blob + 49468,
+    .glyphs_off = FB16(57204),
+    .glyphs_2x_rle = fonts_blob + 57384,
+    .glyphs_2x_off = FB16(59292),
+    .count = 89,
     .glyph_width = 16,
 };
 // base: ASCII plus 264 supplementary glyphs (Menlo)
-const uint8_t *const font_base_ascii_rle = fonts_blob + 60872;
-const uint16_t *const font_base_ascii_off = FB16(64142);
-const uint8_t *const font_base_ascii_2x_rle = fonts_blob + 64334;
-const uint16_t *const font_base_ascii_2x_off = FB16(70284);
-const uint16_t *const font_base_ext_cp = FB16(70476);
-const uint8_t *const font_base_ext_rle = fonts_blob + 71004;
-const uint16_t *const font_base_ext_off = FB16(81888);
-const uint8_t *const font_base_ext_2x_rle = fonts_blob + 82418;
-const uint16_t *const font_base_ext_2x_off = FB16(96174);
+const uint8_t *const font_base_ascii_rle = fonts_blob + 59472;
+const uint16_t *const font_base_ascii_off = FB16(62742);
+const uint8_t *const font_base_ascii_2x_rle = fonts_blob + 62934;
+const uint16_t *const font_base_ascii_2x_off = FB16(68884);
+const uint16_t *const font_base_ext_cp = FB16(69076);
+const uint8_t *const font_base_ext_rle = fonts_blob + 69604;
+const uint16_t *const font_base_ext_off = FB16(80488);
+const uint8_t *const font_base_ext_2x_rle = fonts_blob + 81018;
+const uint16_t *const font_base_ext_2x_off = FB16(94774);
 const uint16_t font_base_ext_count = 264;
 // ar: 176 shaped cluster glyphs (Geeza Pro)
 // shaped-source-hash ar 1748826cad13a341
 const display_glyph_font_t font_ar = {
-    .codepoints = FB16(96704),
-    .glyphs_rle = fonts_blob + 97232,
-    .glyphs_off = FB16(103798),
-    .glyphs_2x_rle = fonts_blob + 104152,
-    .glyphs_2x_off = FB16(109948),
-    .widths = fonts_blob + 97056,
+    .codepoints = FB16(95304),
+    .glyphs_rle = fonts_blob + 95832,
+    .glyphs_off = FB16(102398),
+    .glyphs_2x_rle = fonts_blob + 102752,
+    .glyphs_2x_off = FB16(108548),
+    .widths = fonts_blob + 95656,
     .count = 176,
     .glyph_width = 16,
 };
 const char *const lang_ar_shaped[STR_COUNT] = {
-    [STR_SETTINGS] = FB(110302), [STR_WIFI] = FB(110327), [STR_TIMEZONE] = FB(110333),
-    [STR_BRIGHTNESS] = FB(110376), [STR_LED_BLINK] = FB(110395), [STR_ROTATE] = FB(110420),
-    [STR_ABOUT] = FB(110448), [STR_LANGUAGE] = FB(110458), [STR_DONE] = FB(110474),
-    [STR_BACK] = FB(110481), [STR_CANCEL] = FB(110494), [STR_DEL] = FB(110510),
-    [STR_RUNNING] = FB(110520), [STR_ON] = FB(110533), [STR_OFF] = FB(110546),
-    [STR_WAITING_NTP] = FB(110559), [STR_WIFI_SETUP] = FB(110602), [STR_SCANNING] = FB(110636),
-    [STR_SCAN_FAILED] = FB(110658), [STR_TAP_RETRY] = FB(110686),
-    [STR_SELECT_NETWORK] = FB(110741), [STR_NO_NETWORKS] = FB(110775),
-    [STR_NETWORK_LABEL] = FB(110812), [STR_ENTER_PASSWORD] = FB(110834),
-    [STR_CONNECTING] = FB(110880), [STR_CONNECTING_TO] = FB(110893),
-    [STR_CONNECTED] = FB(110921), [STR_CONNECTION_FAILED] = FB(110937),
-    [STR_KB_SPACE] = FB(110968), [STR_KB_GO] = FB(110984), [STR_VERSION] = FB(110987),
-    [STR_STATUS] = FB(111009), [STR_READ] = FB(111031), [STR_UPDATE] = FB(111044),
-    [STR_RESTARTING] = FB(111060), [STR_OTA_UPDATE] = FB(111094), [STR_NTP_SERVER] = FB(111122),
-    [STR_SERVER_LABEL] = FB(111147), [STR_NTP_SETTINGS] = FB(111169),
-    [STR_NTP_PRESETS] = FB(111203), [STR_PRESETS] = FB(111231), [STR_NONE] = FB(111247),
-    [STR_SELECT_REGION] = FB(111263), [STR_DST] = FB(111297), [STR_NO_DST] = FB(111328),
+    [STR_SETTINGS] = FB(108902), [STR_WIFI] = FB(108927), [STR_TIMEZONE] = FB(108933),
+    [STR_BRIGHTNESS] = FB(108976), [STR_LED_BLINK] = FB(108995), [STR_ROTATE] = FB(109020),
+    [STR_ABOUT] = FB(109048), [STR_LANGUAGE] = FB(109058), [STR_DONE] = FB(109074),
+    [STR_BACK] = FB(109081), [STR_CANCEL] = FB(109094), [STR_DEL] = FB(109110),
+    [STR_RUNNING] = FB(109120), [STR_ON] = FB(109133), [STR_OFF] = FB(109146),
+    [STR_WAITING_NTP] = FB(109159), [STR_WIFI_SETUP] = FB(109202), [STR_SCANNING] = FB(109236),
+    [STR_SCAN_FAILED] = FB(109258), [STR_TAP_RETRY] = FB(109286),
+    [STR_SELECT_NETWORK] = FB(109341), [STR_NO_NETWORKS] = FB(109375),
+    [STR_NETWORK_LABEL] = FB(109412), [STR_ENTER_PASSWORD] = FB(109434),
+    [STR_CONNECTING] = FB(109480), [STR_CONNECTING_TO] = FB(109493),
+    [STR_CONNECTED] = FB(109521), [STR_CONNECTION_FAILED] = FB(109537),
+    [STR_KB_SPACE] = FB(109568), [STR_KB_GO] = FB(109584), [STR_VERSION] = FB(109587),
+    [STR_STATUS] = FB(109609), [STR_READ] = FB(109631), [STR_UPDATE] = FB(109644),
+    [STR_RESTARTING] = FB(109660), [STR_OTA_UPDATE] = FB(109694), [STR_NTP_SERVER] = FB(109722),
+    [STR_SERVER_LABEL] = FB(109747), [STR_NTP_SETTINGS] = FB(109769),
+    [STR_NTP_PRESETS] = FB(109803), [STR_PRESETS] = FB(109831), [STR_NONE] = FB(109847),
+    [STR_SELECT_REGION] = FB(109863), [STR_DST] = FB(109897), [STR_NO_DST] = FB(109928),
 };
 const char *const weekdays_ar_shaped[7] = {
-    FB(111368), FB(111381), FB(111397), FB(111419), FB(111441), FB(111460), FB(111479),
+    FB(109968), FB(109981), FB(109997), FB(110019), FB(110041), FB(110060), FB(110079),
 };
 const char *const months_ar_shaped[12] = {
-    FB(111495), FB(111505), FB(111515), FB(111525), FB(111535), FB(111545), FB(111555),
-    FB(111565), FB(111575), FB(111585), FB(111595), FB(111605),
+    FB(110095), FB(110105), FB(110115), FB(110125), FB(110135), FB(110145), FB(110155),
+    FB(110165), FB(110175), FB(110185), FB(110195), FB(110205),
 };
 const char lang_name_ar_shaped[] = ("\xEE" "\x80" "\x86" "\xEE" "\x80" "\x87" "\xEE" "\x82" "\x93" "\xEE" "\x80" "\x9E" "\xEE" "\x80" "\xB6" "\xEE" "\x80" "\xA8" "\xEE" "\x80" "\xA9");
 
 // cldr-date-source-hash ar 6f9c71461ebb2849
 const char *const cldr_weekdays_ar_shaped[7] = {
-    FB(111615), FB(111628), FB(111644), FB(111666), FB(111688), FB(111707), FB(111726),
+    FB(110215), FB(110228), FB(110244), FB(110266), FB(110288), FB(110307), FB(110326),
 };
 const char *const cldr_months_ar_shaped[12] = {
-    FB(111742), FB(111758), FB(111777), FB(111790), FB(111806), FB(111819), FB(111835),
-    FB(111851), FB(111867), FB(111886), FB(111905), FB(111924),
+    FB(110342), FB(110358), FB(110377), FB(110390), FB(110406), FB(110419), FB(110435),
+    FB(110451), FB(110467), FB(110486), FB(110505), FB(110524),
 };
 const char cldr_era_ar_shaped[] = ("\xEE" "\x82" "\x85");
 const char cldr_literal_ar_0_shaped[] = ("\xEE" "\x80" "\x8C" "\xEE" "\x82" "\xAF");
@@ -147,100 +147,100 @@ const char cldr_literal_ar_0_shaped[] = ("\xEE" "\x80" "\x8C" "\xEE" "\x82" "\xA
 // fa: 199 shaped cluster glyphs (Geeza Pro)
 // shaped-source-hash fa a88c694394642d10
 const display_glyph_font_t font_fa = {
-    .codepoints = FB16(111944),
-    .glyphs_rle = fonts_blob + 112541,
-    .glyphs_off = FB16(120158),
-    .glyphs_2x_rle = fonts_blob + 120558,
-    .glyphs_2x_off = FB16(126352),
-    .widths = fonts_blob + 112342,
+    .codepoints = FB16(110544),
+    .glyphs_rle = fonts_blob + 111141,
+    .glyphs_off = FB16(118758),
+    .glyphs_2x_rle = fonts_blob + 119158,
+    .glyphs_2x_off = FB16(124952),
+    .widths = fonts_blob + 110942,
     .count = 199,
     .glyph_width = 16,
 };
 const char *const lang_fa_shaped[STR_COUNT] = {
-    [STR_SETTINGS] = FB(126752), [STR_WIFI] = FB(126774), [STR_TIMEZONE] = FB(126780),
-    [STR_BRIGHTNESS] = FB(126814), [STR_LED_BLINK] = FB(126836), [STR_ROTATE] = FB(126861),
-    [STR_ABOUT] = FB(126886), [STR_LANGUAGE] = FB(126905), [STR_DONE] = FB(126918),
-    [STR_BACK] = FB(126934), [STR_CANCEL] = FB(126953), [STR_DEL] = FB(126963),
-    [STR_RUNNING] = FB(126973), [STR_ON] = FB(127007), [STR_OFF] = FB(127020),
-    [STR_WAITING_NTP] = FB(127036), [STR_WIFI_SETUP] = FB(127085), [STR_SCANNING] = FB(127119),
-    [STR_SCAN_FAILED] = FB(127144), [STR_TAP_RETRY] = FB(127181),
-    [STR_SELECT_NETWORK] = FB(127245), [STR_NO_NETWORKS] = FB(127279),
-    [STR_NETWORK_LABEL] = FB(127322), [STR_ENTER_PASSWORD] = FB(127338),
-    [STR_CONNECTING] = FB(127399), [STR_CONNECTING_TO] = FB(127436),
-    [STR_CONNECTED] = FB(127461), [STR_CONNECTION_FAILED] = FB(127486),
-    [STR_KB_SPACE] = FB(127523), [STR_KB_GO] = FB(127539), [STR_VERSION] = FB(127542),
-    [STR_STATUS] = FB(127558), [STR_READ] = FB(127577), [STR_UPDATE] = FB(127599),
-    [STR_RESTARTING] = FB(127627), [STR_OTA_UPDATE] = FB(127667), [STR_NTP_SERVER] = FB(127707),
-    [STR_SERVER_LABEL] = FB(127732), [STR_NTP_SETTINGS] = FB(127748),
-    [STR_NTP_PRESETS] = FB(127782), [STR_PRESETS] = FB(127816), [STR_NONE] = FB(127841),
-    [STR_SELECT_REGION] = FB(127851), [STR_DST] = FB(127888), [STR_NO_DST] = FB(127928),
+    [STR_SETTINGS] = FB(125352), [STR_WIFI] = FB(125374), [STR_TIMEZONE] = FB(125380),
+    [STR_BRIGHTNESS] = FB(125414), [STR_LED_BLINK] = FB(125436), [STR_ROTATE] = FB(125461),
+    [STR_ABOUT] = FB(125486), [STR_LANGUAGE] = FB(125505), [STR_DONE] = FB(125518),
+    [STR_BACK] = FB(125534), [STR_CANCEL] = FB(125553), [STR_DEL] = FB(125563),
+    [STR_RUNNING] = FB(125573), [STR_ON] = FB(125607), [STR_OFF] = FB(125620),
+    [STR_WAITING_NTP] = FB(125636), [STR_WIFI_SETUP] = FB(125685), [STR_SCANNING] = FB(125719),
+    [STR_SCAN_FAILED] = FB(125744), [STR_TAP_RETRY] = FB(125781),
+    [STR_SELECT_NETWORK] = FB(125845), [STR_NO_NETWORKS] = FB(125879),
+    [STR_NETWORK_LABEL] = FB(125922), [STR_ENTER_PASSWORD] = FB(125938),
+    [STR_CONNECTING] = FB(125999), [STR_CONNECTING_TO] = FB(126036),
+    [STR_CONNECTED] = FB(126061), [STR_CONNECTION_FAILED] = FB(126086),
+    [STR_KB_SPACE] = FB(126123), [STR_KB_GO] = FB(126139), [STR_VERSION] = FB(126142),
+    [STR_STATUS] = FB(126158), [STR_READ] = FB(126177), [STR_UPDATE] = FB(126199),
+    [STR_RESTARTING] = FB(126227), [STR_OTA_UPDATE] = FB(126267), [STR_NTP_SERVER] = FB(126307),
+    [STR_SERVER_LABEL] = FB(126332), [STR_NTP_SETTINGS] = FB(126348),
+    [STR_NTP_PRESETS] = FB(126382), [STR_PRESETS] = FB(126416), [STR_NONE] = FB(126441),
+    [STR_SELECT_REGION] = FB(126451), [STR_DST] = FB(126488), [STR_NO_DST] = FB(126528),
 };
 const char *const weekdays_fa_shaped[7] = {
-    FB(127983), FB(128002), FB(128021), FB(128037), FB(128062), FB(128084), FB(128097),
+    FB(126583), FB(126602), FB(126621), FB(126637), FB(126662), FB(126684), FB(126697),
 };
 const char *const months_fa_shaped[12] = {
-    FB(128110), FB(128132), FB(128157), FB(128173), FB(128183), FB(128199), FB(128218),
-    FB(128228), FB(128241), FB(128251), FB(128258), FB(128271),
+    FB(126710), FB(126732), FB(126757), FB(126773), FB(126783), FB(126799), FB(126818),
+    FB(126828), FB(126841), FB(126851), FB(126858), FB(126871),
 };
 const char lang_name_fa_shaped[] = ("\xEE" "\x80" "\x87" "\xEE" "\x82" "\xBA" "\xEE" "\x82" "\x95" "\xEE" "\x80" "\x81" "\xEE" "\x81" "\xA6");
 
 // cldr-date-source-hash fa ce7e7d54441bfa00
 const char *const cldr_weekdays_fa_shaped[7] = {
-    FB(128287), FB(128306), FB(128325), FB(128341), FB(128366), FB(128388), FB(128401),
+    FB(126887), FB(126906), FB(126925), FB(126941), FB(126966), FB(126988), FB(127001),
 };
 const char *const cldr_months_fa_shaped[12] = {
-    FB(128414), FB(128436), FB(128461), FB(128477), FB(128487), FB(128503), FB(128522),
-    FB(128532), FB(128545), FB(128555), FB(128562), FB(128575),
+    FB(127014), FB(127036), FB(127061), FB(127077), FB(127087), FB(127103), FB(127122),
+    FB(127132), FB(127145), FB(127155), FB(127162), FB(127175),
 };
 const char cldr_era_fa_shaped[] = ("\xEE" "\x81" "\x81" "\xEE" "\x82" "\xBB" "\xEE" "\x82" "\xBC");
 
 // he: 95 shaped cluster glyphs (Arial Hebrew)
 // shaped-source-hash he bc54b2693a899b92
 const display_glyph_font_t font_he = {
-    .codepoints = FB16(128592),
-    .glyphs_rle = fonts_blob + 128877,
-    .glyphs_off = FB16(132480),
-    .glyphs_2x_rle = fonts_blob + 132672,
-    .glyphs_2x_off = FB16(136128),
-    .widths = fonts_blob + 128782,
+    .codepoints = FB16(127192),
+    .glyphs_rle = fonts_blob + 127477,
+    .glyphs_off = FB16(131080),
+    .glyphs_2x_rle = fonts_blob + 131272,
+    .glyphs_2x_off = FB16(134728),
+    .widths = fonts_blob + 127382,
     .count = 95,
     .glyph_width = 16,
 };
 const char *const lang_he_shaped[STR_COUNT] = {
-    [STR_SETTINGS] = FB(136320), [STR_WIFI] = FB(136339), [STR_TIMEZONE] = FB(136345),
-    [STR_BRIGHTNESS] = FB(136370), [STR_LED_BLINK] = FB(136389), [STR_ROTATE] = FB(136417),
-    [STR_ABOUT] = FB(136445), [STR_LANGUAGE] = FB(136461), [STR_DONE] = FB(136471),
-    [STR_BACK] = FB(136484), [STR_CANCEL] = FB(136497), [STR_DEL] = FB(136513),
-    [STR_RUNNING] = FB(136523), [STR_ON] = FB(136536), [STR_OFF] = FB(136549),
-    [STR_WAITING_NTP] = FB(136562), [STR_WIFI_SETUP] = FB(136605), [STR_SCANNING] = FB(136639),
-    [STR_SCAN_FAILED] = FB(136661), [STR_TAP_RETRY] = FB(136698),
-    [STR_SELECT_NETWORK] = FB(136747), [STR_NO_NETWORKS] = FB(136769),
-    [STR_NETWORK_LABEL] = FB(136812), [STR_ENTER_PASSWORD] = FB(136825),
-    [STR_CONNECTING] = FB(136853), [STR_CONNECTING_TO] = FB(136869),
-    [STR_CONNECTED] = FB(136894), [STR_CONNECTION_FAILED] = FB(136913),
-    [STR_KB_SPACE] = FB(136947), [STR_KB_GO] = FB(136960), [STR_VERSION] = FB(136963),
-    [STR_STATUS] = FB(136979), [STR_READ] = FB(136992), [STR_UPDATE] = FB(137008),
-    [STR_RESTARTING] = FB(137021), [STR_OTA_UPDATE] = FB(137052), [STR_NTP_SERVER] = FB(137080),
-    [STR_SERVER_LABEL] = FB(137102), [STR_NTP_SETTINGS] = FB(137115),
-    [STR_NTP_PRESETS] = FB(137146), [STR_PRESETS] = FB(137180), [STR_NONE] = FB(137205),
-    [STR_SELECT_REGION] = FB(137215), [STR_DST] = FB(137240), [STR_NO_DST] = FB(137265),
+    [STR_SETTINGS] = FB(134920), [STR_WIFI] = FB(134939), [STR_TIMEZONE] = FB(134945),
+    [STR_BRIGHTNESS] = FB(134970), [STR_LED_BLINK] = FB(134989), [STR_ROTATE] = FB(135017),
+    [STR_ABOUT] = FB(135045), [STR_LANGUAGE] = FB(135061), [STR_DONE] = FB(135071),
+    [STR_BACK] = FB(135084), [STR_CANCEL] = FB(135097), [STR_DEL] = FB(135113),
+    [STR_RUNNING] = FB(135123), [STR_ON] = FB(135136), [STR_OFF] = FB(135149),
+    [STR_WAITING_NTP] = FB(135162), [STR_WIFI_SETUP] = FB(135205), [STR_SCANNING] = FB(135239),
+    [STR_SCAN_FAILED] = FB(135261), [STR_TAP_RETRY] = FB(135298),
+    [STR_SELECT_NETWORK] = FB(135347), [STR_NO_NETWORKS] = FB(135369),
+    [STR_NETWORK_LABEL] = FB(135412), [STR_ENTER_PASSWORD] = FB(135425),
+    [STR_CONNECTING] = FB(135453), [STR_CONNECTING_TO] = FB(135469),
+    [STR_CONNECTED] = FB(135494), [STR_CONNECTION_FAILED] = FB(135513),
+    [STR_KB_SPACE] = FB(135547), [STR_KB_GO] = FB(135560), [STR_VERSION] = FB(135563),
+    [STR_STATUS] = FB(135579), [STR_READ] = FB(135592), [STR_UPDATE] = FB(135608),
+    [STR_RESTARTING] = FB(135621), [STR_OTA_UPDATE] = FB(135652), [STR_NTP_SERVER] = FB(135680),
+    [STR_SERVER_LABEL] = FB(135702), [STR_NTP_SETTINGS] = FB(135715),
+    [STR_NTP_PRESETS] = FB(135746), [STR_PRESETS] = FB(135780), [STR_NONE] = FB(135805),
+    [STR_SELECT_REGION] = FB(135815), [STR_DST] = FB(135840), [STR_NO_DST] = FB(135865),
 };
 const char *const weekdays_he_shaped[7] = {
-    FB(137302), FB(137321), FB(137340), FB(137359), FB(137378), FB(137397), FB(137416),
+    FB(135902), FB(135921), FB(135940), FB(135959), FB(135978), FB(135997), FB(136016),
 };
 const char *const months_he_shaped[12] = {
-    FB(137426), FB(137436), FB(137446), FB(137456), FB(137466), FB(137476), FB(137486),
-    FB(137496), FB(137506), FB(137516), FB(137526), FB(137536),
+    FB(136026), FB(136036), FB(136046), FB(136056), FB(136066), FB(136076), FB(136086),
+    FB(136096), FB(136106), FB(136116), FB(136126), FB(136136),
 };
 const char lang_name_he_shaped[] = ("\xEE" "\x80" "\x80" "\xEE" "\x80" "\x98" "\xEE" "\x80" "\x82" "\xEE" "\x80" "\x94" "\xEE" "\x80" "\xA4");
 
 // cldr-date-source-hash he 72f6b24df0fa65f4
 const char *const cldr_weekdays_he_shaped[7] = {
-    FB(137546), FB(137565), FB(137584), FB(137603), FB(137622), FB(137641), FB(137660),
+    FB(136146), FB(136165), FB(136184), FB(136203), FB(136222), FB(136241), FB(136260),
 };
 const char *const cldr_months_he_shaped[12] = {
-    FB(137670), FB(137683), FB(137696), FB(137706), FB(137719), FB(137729), FB(137742),
-    FB(137755), FB(137768), FB(137781), FB(137794), FB(137807),
+    FB(136270), FB(136283), FB(136296), FB(136306), FB(136319), FB(136329), FB(136342),
+    FB(136355), FB(136368), FB(136381), FB(136394), FB(136407),
 };
 const char cldr_era_he_shaped[] = ("\xEE" "\x80" "\x8E" "\xEE" "\x80" "\x82" "\xEE" "\x80" "\x8D" "\xEE" "\x80" "\x9B" "\xEE" "\x80" "\xBE" "\xEE" "\x80" "\xAE");
 const char cldr_literal_he_0_shaped[] = ("\xEE" "\x80" "\x8F" "\xEE" "\x81" "\x81");
@@ -248,200 +248,200 @@ const char cldr_literal_he_0_shaped[] = ("\xEE" "\x80" "\x8F" "\xEE" "\x81" "\x8
 // hi: 165 shaped cluster glyphs (Kohinoor Devanagari)
 // shaped-source-hash hi 2acd27847aeabdb8
 const display_glyph_font_t font_hi = {
-    .codepoints = FB16(137820),
-    .glyphs_rle = fonts_blob + 138315,
-    .glyphs_off = FB16(145788),
-    .glyphs_2x_rle = fonts_blob + 146120,
-    .glyphs_2x_off = FB16(150736),
-    .widths = fonts_blob + 138150,
+    .codepoints = FB16(136420),
+    .glyphs_rle = fonts_blob + 136915,
+    .glyphs_off = FB16(144388),
+    .glyphs_2x_rle = fonts_blob + 144720,
+    .glyphs_2x_off = FB16(149336),
+    .widths = fonts_blob + 136750,
     .count = 165,
     .glyph_width = 16,
 };
 const char *const lang_hi_shaped[STR_COUNT] = {
-    [STR_SETTINGS] = FB(151068), [STR_WIFI] = FB(151081), [STR_TIMEZONE] = FB(151087),
-    [STR_BRIGHTNESS] = FB(151103), [STR_LED_BLINK] = FB(151113), [STR_ROTATE] = FB(151138),
-    [STR_ABOUT] = FB(151163), [STR_LANGUAGE] = FB(151185), [STR_DONE] = FB(151198),
-    [STR_BACK] = FB(151217), [STR_CANCEL] = FB(151230), [STR_DEL] = FB(151237),
-    [STR_RUNNING] = FB(151253), [STR_ON] = FB(151272), [STR_OFF] = FB(151282),
-    [STR_WAITING_NTP] = FB(151286), [STR_WIFI_SETUP] = FB(151332), [STR_SCANNING] = FB(151360),
-    [STR_SCAN_FAILED] = FB(151391), [STR_TAP_RETRY] = FB(151416),
-    [STR_SELECT_NETWORK] = FB(151459), [STR_NO_NETWORKS] = FB(151478),
-    [STR_NETWORK_LABEL] = FB(151515), [STR_ENTER_PASSWORD] = FB(151531),
-    [STR_CONNECTING] = FB(151559), [STR_CONNECTING_TO] = FB(151581),
-    [STR_CONNECTED] = FB(151606), [STR_CONNECTION_FAILED] = FB(151625),
-    [STR_KB_SPACE] = FB(151653), [STR_KB_GO] = FB(151660), [STR_VERSION] = FB(151663),
-    [STR_STATUS] = FB(151679), [STR_READ] = FB(151695), [STR_UPDATE] = FB(151708),
-    [STR_RESTARTING] = FB(151718), [STR_OTA_UPDATE] = FB(151734), [STR_NTP_SERVER] = FB(151756),
-    [STR_SERVER_LABEL] = FB(151775), [STR_NTP_SETTINGS] = FB(151785),
-    [STR_NTP_PRESETS] = FB(151810), [STR_PRESETS] = FB(151841), [STR_NONE] = FB(151860),
-    [STR_SELECT_REGION] = FB(151882), [STR_DST] = FB(151892), [STR_NO_DST] = FB(151914),
+    [STR_SETTINGS] = FB(149668), [STR_WIFI] = FB(149681), [STR_TIMEZONE] = FB(149687),
+    [STR_BRIGHTNESS] = FB(149703), [STR_LED_BLINK] = FB(149713), [STR_ROTATE] = FB(149738),
+    [STR_ABOUT] = FB(149763), [STR_LANGUAGE] = FB(149785), [STR_DONE] = FB(149798),
+    [STR_BACK] = FB(149817), [STR_CANCEL] = FB(149830), [STR_DEL] = FB(149837),
+    [STR_RUNNING] = FB(149853), [STR_ON] = FB(149872), [STR_OFF] = FB(149882),
+    [STR_WAITING_NTP] = FB(149886), [STR_WIFI_SETUP] = FB(149932), [STR_SCANNING] = FB(149960),
+    [STR_SCAN_FAILED] = FB(149991), [STR_TAP_RETRY] = FB(150016),
+    [STR_SELECT_NETWORK] = FB(150059), [STR_NO_NETWORKS] = FB(150078),
+    [STR_NETWORK_LABEL] = FB(150115), [STR_ENTER_PASSWORD] = FB(150131),
+    [STR_CONNECTING] = FB(150159), [STR_CONNECTING_TO] = FB(150181),
+    [STR_CONNECTED] = FB(150206), [STR_CONNECTION_FAILED] = FB(150225),
+    [STR_KB_SPACE] = FB(150253), [STR_KB_GO] = FB(150260), [STR_VERSION] = FB(150263),
+    [STR_STATUS] = FB(150279), [STR_READ] = FB(150295), [STR_UPDATE] = FB(150308),
+    [STR_RESTARTING] = FB(150318), [STR_OTA_UPDATE] = FB(150334), [STR_NTP_SERVER] = FB(150356),
+    [STR_SERVER_LABEL] = FB(150375), [STR_NTP_SETTINGS] = FB(150385),
+    [STR_NTP_PRESETS] = FB(150410), [STR_PRESETS] = FB(150441), [STR_NONE] = FB(150460),
+    [STR_SELECT_REGION] = FB(150482), [STR_DST] = FB(150492), [STR_NO_DST] = FB(150514),
 };
 const char *const weekdays_hi_shaped[7] = {
-    FB(151948), FB(151958), FB(151968), FB(151975), FB(151979), FB(151983), FB(151990),
+    FB(150548), FB(150558), FB(150568), FB(150575), FB(150579), FB(150583), FB(150590),
 };
 const char *const months_hi_shaped[12] = {
-    FB(152000), FB(152010), FB(152020), FB(152030), FB(152037), FB(152044), FB(152048),
-    FB(152058), FB(152068), FB(152081), FB(152094), FB(152104),
+    FB(150600), FB(150610), FB(150620), FB(150630), FB(150637), FB(150644), FB(150648),
+    FB(150658), FB(150668), FB(150681), FB(150694), FB(150704),
 };
 const char lang_name_hi_shaped[] = ("\xEE" "\x81" "\x86" "\xEE" "\x80" "\xA1" "\xEE" "\x82" "\xA2" "\xEE" "\x80" "\x9D");
 
 // cldr-date-source-hash hi ef2de38308945e5e
 const char *const cldr_weekdays_hi_shaped[7] = {
-    FB(152117), FB(152127), FB(152137), FB(152144), FB(152148), FB(152152), FB(152159),
+    FB(150717), FB(150727), FB(150737), FB(150744), FB(150748), FB(150752), FB(150759),
 };
 const char *const cldr_months_hi_shaped[12] = {
-    FB(152169), FB(152179), FB(152189), FB(152199), FB(152206), FB(152213), FB(152217),
-    FB(152227), FB(152237), FB(152250), FB(152263), FB(152273),
+    FB(150769), FB(150779), FB(150789), FB(150799), FB(150806), FB(150813), FB(150817),
+    FB(150827), FB(150837), FB(150850), FB(150863), FB(150873),
 };
 const char cldr_era_hi_shaped[] = ("\xEE" "\x82" "\xA3" "\xEE" "\x82" "\xA4" "\xEE" "\x80" "\x9D");
 
 // bn: 165 shaped cluster glyphs (Kohinoor Bangla)
 // shaped-source-hash bn 0cca27d214d73923
 const display_glyph_font_t font_bn = {
-    .codepoints = FB16(152286),
-    .glyphs_rle = fonts_blob + 152781,
-    .glyphs_off = FB16(159840),
-    .glyphs_2x_rle = fonts_blob + 160172,
-    .glyphs_2x_off = FB16(166496),
-    .widths = fonts_blob + 152616,
+    .codepoints = FB16(150886),
+    .glyphs_rle = fonts_blob + 151381,
+    .glyphs_off = FB16(158440),
+    .glyphs_2x_rle = fonts_blob + 158772,
+    .glyphs_2x_off = FB16(165096),
+    .widths = fonts_blob + 151216,
     .count = 165,
     .glyph_width = 16,
 };
 const char *const lang_bn_shaped[STR_COUNT] = {
-    [STR_SETTINGS] = FB(166828), [STR_WIFI] = FB(166844), [STR_TIMEZONE] = FB(166850),
-    [STR_BRIGHTNESS] = FB(166872), [STR_LED_BLINK] = FB(166888), [STR_ROTATE] = FB(166910),
-    [STR_ABOUT] = FB(166941), [STR_LANGUAGE] = FB(166957), [STR_DONE] = FB(166970),
-    [STR_BACK] = FB(166980), [STR_CANCEL] = FB(166996), [STR_DEL] = FB(167012),
-    [STR_RUNNING] = FB(167022), [STR_ON] = FB(167035), [STR_OFF] = FB(167045),
-    [STR_WAITING_NTP] = FB(167052), [STR_WIFI_SETUP] = FB(167092), [STR_SCANNING] = FB(167126),
-    [STR_SCAN_FAILED] = FB(167148), [STR_TAP_RETRY] = FB(167173),
-    [STR_SELECT_NETWORK] = FB(167228), [STR_NO_NETWORKS] = FB(167271),
-    [STR_NETWORK_LABEL] = FB(167308), [STR_ENTER_PASSWORD] = FB(167336),
-    [STR_CONNECTING] = FB(167373), [STR_CONNECTING_TO] = FB(167404),
-    [STR_CONNECTED] = FB(167438), [STR_CONNECTION_FAILED] = FB(167457),
-    [STR_KB_SPACE] = FB(167488), [STR_KB_GO] = FB(167498), [STR_VERSION] = FB(167501),
-    [STR_STATUS] = FB(167520), [STR_READ] = FB(167536), [STR_UPDATE] = FB(167549),
-    [STR_RESTARTING] = FB(167565), [STR_OTA_UPDATE] = FB(167590), [STR_NTP_SERVER] = FB(167618),
-    [STR_SERVER_LABEL] = FB(167649), [STR_NTP_SETTINGS] = FB(167671),
-    [STR_NTP_PRESETS] = FB(167699), [STR_PRESETS] = FB(167733), [STR_NONE] = FB(167755),
-    [STR_SELECT_REGION] = FB(167780), [STR_DST] = FB(167808), [STR_NO_DST] = FB(167830),
+    [STR_SETTINGS] = FB(165428), [STR_WIFI] = FB(165444), [STR_TIMEZONE] = FB(165450),
+    [STR_BRIGHTNESS] = FB(165472), [STR_LED_BLINK] = FB(165488), [STR_ROTATE] = FB(165510),
+    [STR_ABOUT] = FB(165541), [STR_LANGUAGE] = FB(165557), [STR_DONE] = FB(165570),
+    [STR_BACK] = FB(165580), [STR_CANCEL] = FB(165596), [STR_DEL] = FB(165612),
+    [STR_RUNNING] = FB(165622), [STR_ON] = FB(165635), [STR_OFF] = FB(165645),
+    [STR_WAITING_NTP] = FB(165652), [STR_WIFI_SETUP] = FB(165692), [STR_SCANNING] = FB(165726),
+    [STR_SCAN_FAILED] = FB(165748), [STR_TAP_RETRY] = FB(165773),
+    [STR_SELECT_NETWORK] = FB(165828), [STR_NO_NETWORKS] = FB(165871),
+    [STR_NETWORK_LABEL] = FB(165908), [STR_ENTER_PASSWORD] = FB(165936),
+    [STR_CONNECTING] = FB(165973), [STR_CONNECTING_TO] = FB(166004),
+    [STR_CONNECTED] = FB(166038), [STR_CONNECTION_FAILED] = FB(166057),
+    [STR_KB_SPACE] = FB(166088), [STR_KB_GO] = FB(166098), [STR_VERSION] = FB(166101),
+    [STR_STATUS] = FB(166120), [STR_READ] = FB(166136), [STR_UPDATE] = FB(166149),
+    [STR_RESTARTING] = FB(166165), [STR_OTA_UPDATE] = FB(166190), [STR_NTP_SERVER] = FB(166218),
+    [STR_SERVER_LABEL] = FB(166249), [STR_NTP_SETTINGS] = FB(166271),
+    [STR_NTP_PRESETS] = FB(166299), [STR_PRESETS] = FB(166333), [STR_NONE] = FB(166355),
+    [STR_SELECT_REGION] = FB(166380), [STR_DST] = FB(166408), [STR_NO_DST] = FB(166430),
 };
 const char *const weekdays_bn_shaped[7] = {
-    FB(167864), FB(167874), FB(167887), FB(167897), FB(167907), FB(167917), FB(167924),
+    FB(166464), FB(166474), FB(166487), FB(166497), FB(166507), FB(166517), FB(166524),
 };
 const char *const months_bn_shaped[12] = {
-    FB(167934), FB(167944), FB(167954), FB(167967), FB(167977), FB(167984), FB(167991),
-    FB(168001), FB(168008), FB(168018), FB(168031), FB(168041),
+    FB(166534), FB(166544), FB(166554), FB(166567), FB(166577), FB(166584), FB(166591),
+    FB(166601), FB(166608), FB(166618), FB(166631), FB(166641),
 };
 const char lang_name_bn_shaped[] = ("\xEE" "\x80" "\xA7" "\xEE" "\x80" "\x95" "\xEE" "\x81" "\x9C" "\xEE" "\x80" "\x89" "\xEE" "\x80" "\x95");
 
 // cldr-date-source-hash bn 3e69f97696dd056c
 const char *const cldr_weekdays_bn_shaped[7] = {
-    FB(168054), FB(168064), FB(168077), FB(168087), FB(168097), FB(168116), FB(168123),
+    FB(166654), FB(166664), FB(166677), FB(166687), FB(166697), FB(166716), FB(166723),
 };
 const char *const cldr_months_bn_shaped[12] = {
-    FB(168133), FB(168143), FB(168153), FB(168166), FB(168176), FB(168183), FB(168190),
-    FB(168197), FB(168204), FB(168214), FB(168227), FB(168237),
+    FB(166733), FB(166743), FB(166753), FB(166766), FB(166776), FB(166783), FB(166790),
+    FB(166797), FB(166804), FB(166814), FB(166827), FB(166837),
 };
 const char cldr_era_bn_shaped[] = ("\xEE" "\x80" "\xA3" "\xEE" "\x82" "\x9A" "\xEE" "\x80" "\xB6");
 
 // th: 150 shaped cluster glyphs (Thonburi)
 // shaped-source-hash th 04a8f398fa9985be
 const display_glyph_font_t font_th = {
-    .codepoints = FB16(168250),
-    .glyphs_rle = fonts_blob + 168700,
-    .glyphs_off = FB16(174092),
-    .glyphs_2x_rle = fonts_blob + 174394,
-    .glyphs_2x_off = FB16(178212),
-    .widths = fonts_blob + 168550,
+    .codepoints = FB16(166850),
+    .glyphs_rle = fonts_blob + 167300,
+    .glyphs_off = FB16(172692),
+    .glyphs_2x_rle = fonts_blob + 172994,
+    .glyphs_2x_off = FB16(176812),
+    .widths = fonts_blob + 167150,
     .count = 150,
     .glyph_width = 16,
 };
 const char *const lang_th_shaped[STR_COUNT] = {
-    [STR_SETTINGS] = FB(178514), [STR_WIFI] = FB(178536), [STR_TIMEZONE] = FB(178542),
-    [STR_BRIGHTNESS] = FB(178564), [STR_LED_BLINK] = FB(178589), [STR_ROTATE] = FB(178617),
-    [STR_ABOUT] = FB(178639), [STR_LANGUAGE] = FB(178658), [STR_DONE] = FB(178671),
-    [STR_BACK] = FB(178684), [STR_CANCEL] = FB(178694), [STR_DEL] = FB(178710),
-    [STR_RUNNING] = FB(178717), [STR_ON] = FB(178739), [STR_OFF] = FB(178749),
-    [STR_WAITING_NTP] = FB(178756), [STR_WIFI_SETUP] = FB(178784), [STR_SCANNING] = FB(178815),
-    [STR_SCAN_FAILED] = FB(178846), [STR_TAP_RETRY] = FB(178877),
-    [STR_SELECT_NETWORK] = FB(178914), [STR_NO_NETWORKS] = FB(178948),
-    [STR_NETWORK_LABEL] = FB(178982), [STR_ENTER_PASSWORD] = FB(179007),
-    [STR_CONNECTING] = FB(179032), [STR_CONNECTING_TO] = FB(179060),
-    [STR_CONNECTED] = FB(179085), [STR_CONNECTION_FAILED] = FB(179116),
-    [STR_KB_SPACE] = FB(179153), [STR_KB_GO] = FB(179175), [STR_VERSION] = FB(179178),
-    [STR_STATUS] = FB(179200), [STR_READ] = FB(179219), [STR_UPDATE] = FB(179232),
-    [STR_RESTARTING] = FB(179248), [STR_OTA_UPDATE] = FB(179276), [STR_NTP_SERVER] = FB(179304),
-    [STR_SERVER_LABEL] = FB(179341), [STR_NTP_SETTINGS] = FB(179369),
-    [STR_NTP_PRESETS] = FB(179394), [STR_PRESETS] = FB(179425), [STR_NONE] = FB(179444),
-    [STR_SELECT_REGION] = FB(179454), [STR_DST] = FB(179482), [STR_NO_DST] = FB(179513),
+    [STR_SETTINGS] = FB(177114), [STR_WIFI] = FB(177136), [STR_TIMEZONE] = FB(177142),
+    [STR_BRIGHTNESS] = FB(177164), [STR_LED_BLINK] = FB(177189), [STR_ROTATE] = FB(177217),
+    [STR_ABOUT] = FB(177239), [STR_LANGUAGE] = FB(177258), [STR_DONE] = FB(177271),
+    [STR_BACK] = FB(177284), [STR_CANCEL] = FB(177294), [STR_DEL] = FB(177310),
+    [STR_RUNNING] = FB(177317), [STR_ON] = FB(177339), [STR_OFF] = FB(177349),
+    [STR_WAITING_NTP] = FB(177356), [STR_WIFI_SETUP] = FB(177384), [STR_SCANNING] = FB(177415),
+    [STR_SCAN_FAILED] = FB(177446), [STR_TAP_RETRY] = FB(177477),
+    [STR_SELECT_NETWORK] = FB(177514), [STR_NO_NETWORKS] = FB(177548),
+    [STR_NETWORK_LABEL] = FB(177582), [STR_ENTER_PASSWORD] = FB(177607),
+    [STR_CONNECTING] = FB(177632), [STR_CONNECTING_TO] = FB(177660),
+    [STR_CONNECTED] = FB(177685), [STR_CONNECTION_FAILED] = FB(177716),
+    [STR_KB_SPACE] = FB(177753), [STR_KB_GO] = FB(177775), [STR_VERSION] = FB(177778),
+    [STR_STATUS] = FB(177800), [STR_READ] = FB(177819), [STR_UPDATE] = FB(177832),
+    [STR_RESTARTING] = FB(177848), [STR_OTA_UPDATE] = FB(177876), [STR_NTP_SERVER] = FB(177904),
+    [STR_SERVER_LABEL] = FB(177941), [STR_NTP_SETTINGS] = FB(177969),
+    [STR_NTP_PRESETS] = FB(177994), [STR_PRESETS] = FB(178025), [STR_NONE] = FB(178044),
+    [STR_SELECT_REGION] = FB(178054), [STR_DST] = FB(178082), [STR_NO_DST] = FB(178113),
 };
 const char *const weekdays_th_shaped[7] = {
-    FB(179553), FB(179563), FB(179570), FB(179577), FB(179584), FB(179594), FB(179601),
+    FB(178153), FB(178163), FB(178170), FB(178177), FB(178184), FB(178194), FB(178201),
 };
 const char *const months_th_shaped[12] = {
-    FB(179608), FB(179621), FB(179634), FB(179647), FB(179663), FB(179676), FB(179689),
-    FB(179702), FB(179715), FB(179728), FB(179741), FB(179754),
+    FB(178208), FB(178221), FB(178234), FB(178247), FB(178263), FB(178276), FB(178289),
+    FB(178302), FB(178315), FB(178328), FB(178341), FB(178354),
 };
 const char lang_name_th_shaped[] = ("\xEE" "\x81" "\x94" "\xEE" "\x82" "\x8F" "\xEE" "\x82" "\x8C");
 
 // cldr-date-source-hash th 474f56d2ba9660d4
 const char *const cldr_weekdays_th_shaped[7] = {
-    FB(179767), FB(179783), FB(179796), FB(179812), FB(179819), FB(179832), FB(179842),
+    FB(178367), FB(178383), FB(178396), FB(178412), FB(178419), FB(178432), FB(178442),
 };
 const char *const cldr_months_th_shaped[12] = {
-    FB(179855), FB(179868), FB(179881), FB(179894), FB(179910), FB(179923), FB(179936),
-    FB(179949), FB(179962), FB(179975), FB(179988), FB(180001),
+    FB(178455), FB(178468), FB(178481), FB(178494), FB(178510), FB(178523), FB(178536),
+    FB(178549), FB(178562), FB(178575), FB(178588), FB(178601),
 };
 const char cldr_era_th_shaped[] = ("\xEE" "\x82" "\x88" "\xEE" "\x80" "\xBC" "\xEE" "\x82" "\x95" "\xEE" "\x80" "\xBB");
 
 // ur: 180 shaped cluster glyphs (Geeza Pro)
 // shaped-source-hash ur 9c9f9afed50974e1
 const display_glyph_font_t font_ur = {
-    .codepoints = FB16(180014),
-    .glyphs_rle = fonts_blob + 180554,
-    .glyphs_off = FB16(186896),
-    .glyphs_2x_rle = fonts_blob + 187258,
-    .glyphs_2x_off = FB16(191670),
-    .widths = fonts_blob + 180374,
+    .codepoints = FB16(178614),
+    .glyphs_rle = fonts_blob + 179154,
+    .glyphs_off = FB16(185496),
+    .glyphs_2x_rle = fonts_blob + 185858,
+    .glyphs_2x_off = FB16(190270),
+    .widths = fonts_blob + 178974,
     .count = 180,
     .glyph_width = 16,
 };
 const char *const lang_ur_shaped[STR_COUNT] = {
-    [STR_SETTINGS] = FB(192032), [STR_WIFI] = FB(192054), [STR_TIMEZONE] = FB(192060),
-    [STR_BRIGHTNESS] = FB(192085), [STR_LED_BLINK] = FB(192095), [STR_ROTATE] = FB(192120),
-    [STR_ABOUT] = FB(192154), [STR_LANGUAGE] = FB(192170), [STR_DONE] = FB(192183),
-    [STR_BACK] = FB(192202), [STR_CANCEL] = FB(192215), [STR_DEL] = FB(192231),
-    [STR_RUNNING] = FB(192250), [STR_ON] = FB(192278), [STR_OFF] = FB(192285),
-    [STR_WAITING_NTP] = FB(192292), [STR_WIFI_SETUP] = FB(192341), [STR_SCANNING] = FB(192378),
-    [STR_SCAN_FAILED] = FB(192412), [STR_TAP_RETRY] = FB(192440),
-    [STR_SELECT_NETWORK] = FB(192528), [STR_NO_NETWORKS] = FB(192565),
-    [STR_NETWORK_LABEL] = FB(192617), [STR_ENTER_PASSWORD] = FB(192642),
-    [STR_CONNECTING] = FB(192691), [STR_CONNECTING_TO] = FB(192737),
-    [STR_CONNECTED] = FB(192786), [STR_CONNECTION_FAILED] = FB(192805),
-    [STR_KB_SPACE] = FB(192839), [STR_KB_GO] = FB(192864), [STR_VERSION] = FB(192867),
-    [STR_STATUS] = FB(192883), [STR_READ] = FB(192899), [STR_UPDATE] = FB(192915),
-    [STR_RESTARTING] = FB(192934), [STR_OTA_UPDATE] = FB(192968), [STR_NTP_SERVER] = FB(192999),
-    [STR_SERVER_LABEL] = FB(193024), [STR_NTP_SETTINGS] = FB(193040),
-    [STR_NTP_PRESETS] = FB(193074), [STR_PRESETS] = FB(193108), [STR_NONE] = FB(193130),
-    [STR_SELECT_REGION] = FB(193155), [STR_DST] = FB(193180), [STR_NO_DST] = FB(193211),
+    [STR_SETTINGS] = FB(190632), [STR_WIFI] = FB(190654), [STR_TIMEZONE] = FB(190660),
+    [STR_BRIGHTNESS] = FB(190685), [STR_LED_BLINK] = FB(190695), [STR_ROTATE] = FB(190720),
+    [STR_ABOUT] = FB(190754), [STR_LANGUAGE] = FB(190770), [STR_DONE] = FB(190783),
+    [STR_BACK] = FB(190802), [STR_CANCEL] = FB(190815), [STR_DEL] = FB(190831),
+    [STR_RUNNING] = FB(190850), [STR_ON] = FB(190878), [STR_OFF] = FB(190885),
+    [STR_WAITING_NTP] = FB(190892), [STR_WIFI_SETUP] = FB(190941), [STR_SCANNING] = FB(190978),
+    [STR_SCAN_FAILED] = FB(191012), [STR_TAP_RETRY] = FB(191040),
+    [STR_SELECT_NETWORK] = FB(191128), [STR_NO_NETWORKS] = FB(191165),
+    [STR_NETWORK_LABEL] = FB(191217), [STR_ENTER_PASSWORD] = FB(191242),
+    [STR_CONNECTING] = FB(191291), [STR_CONNECTING_TO] = FB(191337),
+    [STR_CONNECTED] = FB(191386), [STR_CONNECTION_FAILED] = FB(191405),
+    [STR_KB_SPACE] = FB(191439), [STR_KB_GO] = FB(191464), [STR_VERSION] = FB(191467),
+    [STR_STATUS] = FB(191483), [STR_READ] = FB(191499), [STR_UPDATE] = FB(191515),
+    [STR_RESTARTING] = FB(191534), [STR_OTA_UPDATE] = FB(191568), [STR_NTP_SERVER] = FB(191599),
+    [STR_SERVER_LABEL] = FB(191624), [STR_NTP_SETTINGS] = FB(191640),
+    [STR_NTP_PRESETS] = FB(191674), [STR_PRESETS] = FB(191708), [STR_NONE] = FB(191730),
+    [STR_SELECT_REGION] = FB(191755), [STR_DST] = FB(191780), [STR_NO_DST] = FB(191811),
 };
 const char *const weekdays_ur_shaped[7] = {
-    FB(193257), FB(193273), FB(193283), FB(193296), FB(193306), FB(193325), FB(193338),
+    FB(191857), FB(191873), FB(191883), FB(191896), FB(191906), FB(191925), FB(191938),
 };
 const char *const months_ur_shaped[12] = {
-    FB(193351), FB(193367), FB(193383), FB(193396), FB(193412), FB(193422), FB(193432),
-    FB(193448), FB(193461), FB(193477), FB(193496), FB(193512),
+    FB(191951), FB(191967), FB(191983), FB(191996), FB(192012), FB(192022), FB(192032),
+    FB(192048), FB(192061), FB(192077), FB(192096), FB(192112),
 };
 const char lang_name_ur_shaped[] = ("\xEE" "\x80" "\x88" "\xEE" "\x82" "\xB1" "\xEE" "\x80" "\xB9" "\xEE" "\x80" "\xBD");
 
 // cldr-date-source-hash ur ac6fb650d3b44417
 const char *const cldr_weekdays_ur_shaped[7] = {
-    FB(193528), FB(193544), FB(193554), FB(193567), FB(193577), FB(193596), FB(193609),
+    FB(192128), FB(192144), FB(192154), FB(192167), FB(192177), FB(192196), FB(192209),
 };
 const char *const cldr_months_ur_shaped[12] = {
-    FB(193622), FB(193638), FB(193654), FB(193667), FB(193683), FB(193693), FB(193703),
-    FB(193719), FB(193732), FB(193748), FB(193767), FB(193783),
+    FB(192222), FB(192238), FB(192254), FB(192267), FB(192283), FB(192293), FB(192303),
+    FB(192319), FB(192332), FB(192348), FB(192367), FB(192383),
 };
 const char cldr_era_ur_shaped[] = ("\xEE" "\x82" "\xA7" "\xEE" "\x82" "\x9F" "\xEE" "\x81" "\xB2" "\xEE" "\x80" "\x9D" "\xEE" "\x82" "\xB2");
 const char cldr_literal_ur_0_shaped[] = ("\xEE" "\x80" "\x8A" "\xEE" "\x82" "\xB3");
@@ -449,600 +449,600 @@ const char cldr_literal_ur_0_shaped[] = ("\xEE" "\x80" "\x8A" "\xEE" "\x82" "\xB
 // mr: 167 shaped cluster glyphs (Kohinoor Devanagari)
 // shaped-source-hash mr 69ae00b56933e4ba
 const display_glyph_font_t font_mr = {
-    .codepoints = FB16(193800),
-    .glyphs_rle = fonts_blob + 194301,
-    .glyphs_off = FB16(201960),
-    .glyphs_2x_rle = fonts_blob + 202296,
-    .glyphs_2x_off = FB16(208188),
-    .widths = fonts_blob + 194134,
+    .codepoints = FB16(192400),
+    .glyphs_rle = fonts_blob + 192901,
+    .glyphs_off = FB16(200560),
+    .glyphs_2x_rle = fonts_blob + 200896,
+    .glyphs_2x_off = FB16(206788),
+    .widths = fonts_blob + 192734,
     .count = 167,
     .glyph_width = 16,
 };
 const char *const lang_mr_shaped[STR_COUNT] = {
-    [STR_SETTINGS] = FB(208524), [STR_WIFI] = FB(208537), [STR_TIMEZONE] = FB(208543),
-    [STR_BRIGHTNESS] = FB(208553), [STR_LED_BLINK] = FB(208563), [STR_ROTATE] = FB(208588),
-    [STR_ABOUT] = FB(208616), [STR_LANGUAGE] = FB(208635), [STR_DONE] = FB(208648),
-    [STR_BACK] = FB(208658), [STR_CANCEL] = FB(208668), [STR_DEL] = FB(208675),
-    [STR_RUNNING] = FB(208688), [STR_ON] = FB(208701), [STR_OFF] = FB(208711),
-    [STR_WAITING_NTP] = FB(208715), [STR_WIFI_SETUP] = FB(208761), [STR_SCANNING] = FB(208789),
-    [STR_SCAN_FAILED] = FB(208820), [STR_TAP_RETRY] = FB(208848),
-    [STR_SELECT_NETWORK] = FB(208906), [STR_NO_NETWORKS] = FB(208937),
-    [STR_NETWORK_LABEL] = FB(208965), [STR_ENTER_PASSWORD] = FB(208981),
-    [STR_CONNECTING] = FB(209009), [STR_CONNECTING_TO] = FB(209031),
-    [STR_CONNECTED] = FB(209056), [STR_CONNECTION_FAILED] = FB(209069),
-    [STR_KB_SPACE] = FB(209100), [STR_KB_GO] = FB(209107), [STR_VERSION] = FB(209110),
-    [STR_STATUS] = FB(209123), [STR_READ] = FB(209139), [STR_UPDATE] = FB(209152),
-    [STR_RESTARTING] = FB(209162), [STR_OTA_UPDATE] = FB(209175), [STR_NTP_SERVER] = FB(209197),
-    [STR_SERVER_LABEL] = FB(209219), [STR_NTP_SETTINGS] = FB(209232),
-    [STR_NTP_PRESETS] = FB(209257), [STR_PRESETS] = FB(209288), [STR_NONE] = FB(209307),
-    [STR_SELECT_REGION] = FB(209335), [STR_DST] = FB(209363), [STR_NO_DST] = FB(209385),
+    [STR_SETTINGS] = FB(207124), [STR_WIFI] = FB(207137), [STR_TIMEZONE] = FB(207143),
+    [STR_BRIGHTNESS] = FB(207153), [STR_LED_BLINK] = FB(207163), [STR_ROTATE] = FB(207188),
+    [STR_ABOUT] = FB(207216), [STR_LANGUAGE] = FB(207235), [STR_DONE] = FB(207248),
+    [STR_BACK] = FB(207258), [STR_CANCEL] = FB(207268), [STR_DEL] = FB(207275),
+    [STR_RUNNING] = FB(207288), [STR_ON] = FB(207301), [STR_OFF] = FB(207311),
+    [STR_WAITING_NTP] = FB(207315), [STR_WIFI_SETUP] = FB(207361), [STR_SCANNING] = FB(207389),
+    [STR_SCAN_FAILED] = FB(207420), [STR_TAP_RETRY] = FB(207448),
+    [STR_SELECT_NETWORK] = FB(207506), [STR_NO_NETWORKS] = FB(207537),
+    [STR_NETWORK_LABEL] = FB(207565), [STR_ENTER_PASSWORD] = FB(207581),
+    [STR_CONNECTING] = FB(207609), [STR_CONNECTING_TO] = FB(207631),
+    [STR_CONNECTED] = FB(207656), [STR_CONNECTION_FAILED] = FB(207669),
+    [STR_KB_SPACE] = FB(207700), [STR_KB_GO] = FB(207707), [STR_VERSION] = FB(207710),
+    [STR_STATUS] = FB(207723), [STR_READ] = FB(207739), [STR_UPDATE] = FB(207752),
+    [STR_RESTARTING] = FB(207762), [STR_OTA_UPDATE] = FB(207775), [STR_NTP_SERVER] = FB(207797),
+    [STR_SERVER_LABEL] = FB(207819), [STR_NTP_SETTINGS] = FB(207832),
+    [STR_NTP_PRESETS] = FB(207857), [STR_PRESETS] = FB(207888), [STR_NONE] = FB(207907),
+    [STR_SELECT_REGION] = FB(207935), [STR_DST] = FB(207963), [STR_NO_DST] = FB(207985),
 };
 const char *const weekdays_mr_shaped[7] = {
-    FB(209422), FB(209432), FB(209442), FB(209449), FB(209453), FB(209457), FB(209464),
+    FB(208022), FB(208032), FB(208042), FB(208049), FB(208053), FB(208057), FB(208064),
 };
 const char *const months_mr_shaped[12] = {
-    FB(209474), FB(209484), FB(209494), FB(209504), FB(209514), FB(209518), FB(209522),
-    FB(209529), FB(209536), FB(209543), FB(209553), FB(209563),
+    FB(208074), FB(208084), FB(208094), FB(208104), FB(208114), FB(208118), FB(208122),
+    FB(208129), FB(208136), FB(208143), FB(208153), FB(208163),
 };
 const char lang_name_mr_shaped[] = ("\xEE" "\x80" "\x98" "\xEE" "\x80" "\x92" "\xEE" "\x80" "\x99" "\xEE" "\x82" "\x9B" "\xEE" "\x81" "\x8B");
 
 // cldr-date-source-hash mr b8273f2203ff58fd
 const char *const cldr_weekdays_mr_shaped[7] = {
-    FB(209573), FB(209583), FB(209593), FB(209600), FB(209604), FB(209608), FB(209615),
+    FB(208173), FB(208183), FB(208193), FB(208200), FB(208204), FB(208208), FB(208215),
 };
 const char *const cldr_months_mr_shaped[12] = {
-    FB(209625), FB(209635), FB(209645), FB(209655), FB(209665), FB(209669), FB(209673),
-    FB(209680), FB(209687), FB(209694), FB(209704), FB(209714),
+    FB(208225), FB(208235), FB(208245), FB(208255), FB(208265), FB(208269), FB(208273),
+    FB(208280), FB(208287), FB(208294), FB(208304), FB(208314),
 };
 const char cldr_era_mr_shaped[] = ("\xEE" "\x81" "\xBA" "\xEE" "\x80" "\xB6" "\xEE" "\x80" "\x85" "\xEE" "\x82" "\x9C" "\xEE" "\x80" "\xB5");
 
 // ta: 151 shaped cluster glyphs (Tamil Sangam MN)
 // shaped-source-hash ta 99e8790306dc2fb0
 const display_glyph_font_t font_ta = {
-    .codepoints = FB16(209724),
-    .glyphs_rle = fonts_blob + 210177,
-    .glyphs_off = FB16(217232),
-    .glyphs_2x_rle = fonts_blob + 217536,
-    .glyphs_2x_off = FB16(223028),
-    .widths = fonts_blob + 210026,
+    .codepoints = FB16(208324),
+    .glyphs_rle = fonts_blob + 208777,
+    .glyphs_off = FB16(215832),
+    .glyphs_2x_rle = fonts_blob + 216136,
+    .glyphs_2x_off = FB16(221628),
+    .widths = fonts_blob + 208626,
     .count = 151,
     .glyph_width = 16,
 };
 const char *const lang_ta_shaped[STR_COUNT] = {
-    [STR_SETTINGS] = FB(223332), [STR_WIFI] = FB(223354), [STR_TIMEZONE] = FB(223360),
-    [STR_BRIGHTNESS] = FB(223388), [STR_LED_BLINK] = FB(223401), [STR_ROTATE] = FB(223426),
-    [STR_ABOUT] = FB(223451), [STR_LANGUAGE] = FB(223461), [STR_DONE] = FB(223474),
-    [STR_BACK] = FB(223490), [STR_CANCEL] = FB(223497), [STR_DEL] = FB(223507),
-    [STR_RUNNING] = FB(223517), [STR_ON] = FB(223539), [STR_OFF] = FB(223552),
-    [STR_WAITING_NTP] = FB(223562), [STR_WIFI_SETUP] = FB(223605), [STR_SCANNING] = FB(223639),
-    [STR_SCAN_FAILED] = FB(223667), [STR_TAP_RETRY] = FB(223698),
-    [STR_SELECT_NETWORK] = FB(223741), [STR_NO_NETWORKS] = FB(223781),
-    [STR_NETWORK_LABEL] = FB(223821), [STR_ENTER_PASSWORD] = FB(223849),
-    [STR_CONNECTING] = FB(223895), [STR_CONNECTING_TO] = FB(223917),
-    [STR_CONNECTED] = FB(223942), [STR_CONNECTION_FAILED] = FB(223964),
-    [STR_KB_SPACE] = FB(223998), [STR_KB_GO] = FB(224017), [STR_VERSION] = FB(224020),
-    [STR_STATUS] = FB(224036), [STR_READ] = FB(224049), [STR_UPDATE] = FB(224068),
-    [STR_RESTARTING] = FB(224081), [STR_OTA_UPDATE] = FB(224109), [STR_NTP_SERVER] = FB(224140),
-    [STR_SERVER_LABEL] = FB(224174), [STR_NTP_SETTINGS] = FB(224199),
-    [STR_NTP_PRESETS] = FB(224233), [STR_PRESETS] = FB(224270), [STR_NONE] = FB(224295),
-    [STR_SELECT_REGION] = FB(224314), [STR_DST] = FB(224339), [STR_NO_DST] = FB(224370),
+    [STR_SETTINGS] = FB(221932), [STR_WIFI] = FB(221954), [STR_TIMEZONE] = FB(221960),
+    [STR_BRIGHTNESS] = FB(221988), [STR_LED_BLINK] = FB(222001), [STR_ROTATE] = FB(222026),
+    [STR_ABOUT] = FB(222051), [STR_LANGUAGE] = FB(222061), [STR_DONE] = FB(222074),
+    [STR_BACK] = FB(222090), [STR_CANCEL] = FB(222097), [STR_DEL] = FB(222107),
+    [STR_RUNNING] = FB(222117), [STR_ON] = FB(222139), [STR_OFF] = FB(222152),
+    [STR_WAITING_NTP] = FB(222162), [STR_WIFI_SETUP] = FB(222205), [STR_SCANNING] = FB(222239),
+    [STR_SCAN_FAILED] = FB(222267), [STR_TAP_RETRY] = FB(222298),
+    [STR_SELECT_NETWORK] = FB(222341), [STR_NO_NETWORKS] = FB(222381),
+    [STR_NETWORK_LABEL] = FB(222421), [STR_ENTER_PASSWORD] = FB(222449),
+    [STR_CONNECTING] = FB(222495), [STR_CONNECTING_TO] = FB(222517),
+    [STR_CONNECTED] = FB(222542), [STR_CONNECTION_FAILED] = FB(222564),
+    [STR_KB_SPACE] = FB(222598), [STR_KB_GO] = FB(222617), [STR_VERSION] = FB(222620),
+    [STR_STATUS] = FB(222636), [STR_READ] = FB(222649), [STR_UPDATE] = FB(222668),
+    [STR_RESTARTING] = FB(222681), [STR_OTA_UPDATE] = FB(222709), [STR_NTP_SERVER] = FB(222740),
+    [STR_SERVER_LABEL] = FB(222774), [STR_NTP_SETTINGS] = FB(222799),
+    [STR_NTP_PRESETS] = FB(222833), [STR_PRESETS] = FB(222870), [STR_NONE] = FB(222895),
+    [STR_SELECT_REGION] = FB(222914), [STR_DST] = FB(222939), [STR_NO_DST] = FB(222970),
 };
 const char *const weekdays_ta_shaped[7] = {
-    FB(224416), FB(224429), FB(224439), FB(224452), FB(224462), FB(224475), FB(224488),
+    FB(223016), FB(223029), FB(223039), FB(223052), FB(223062), FB(223075), FB(223088),
 };
 const char *const months_ta_shaped[12] = {
-    FB(224495), FB(224505), FB(224515), FB(224528), FB(224538), FB(224545), FB(224552),
-    FB(224562), FB(224572), FB(224585), FB(224595), FB(224605),
+    FB(223095), FB(223105), FB(223115), FB(223128), FB(223138), FB(223145), FB(223152),
+    FB(223162), FB(223172), FB(223185), FB(223195), FB(223205),
 };
 const char lang_name_ta_shaped[] = ("\xEE" "\x81" "\x91" "\xEE" "\x80" "\x97" "\xEE" "\x82" "\x94");
 
 // cldr-date-source-hash ta 2cb20d9198ab3e62
 const char *const cldr_weekdays_ta_shaped[7] = {
-    FB(224615), FB(224628), FB(224638), FB(224651), FB(224661), FB(224674), FB(224687),
+    FB(223215), FB(223228), FB(223238), FB(223251), FB(223261), FB(223274), FB(223287),
 };
 const char *const cldr_months_ta_shaped[12] = {
-    FB(224694), FB(224704), FB(224714), FB(224727), FB(224737), FB(224744), FB(224751),
-    FB(224761), FB(224771), FB(224784), FB(224794), FB(224804),
+    FB(223294), FB(223304), FB(223314), FB(223327), FB(223337), FB(223344), FB(223351),
+    FB(223361), FB(223371), FB(223384), FB(223394), FB(223404),
 };
 const char cldr_era_ta_shaped[] = ("\xEE" "\x82" "\x95" "\xEE" "\x81" "\x86" "\xEE" "\x82" "\x96" "\xEE" "\x81" "\x86");
 
 // te: 194 shaped cluster glyphs (Kohinoor Telugu)
 // shaped-source-hash te ed99543d44f5fae8
 const display_glyph_font_t font_te = {
-    .codepoints = FB16(224814),
-    .glyphs_rle = fonts_blob + 225396,
-    .glyphs_off = FB16(233710),
-    .glyphs_2x_rle = fonts_blob + 234100,
-    .glyphs_2x_off = FB16(239824),
-    .widths = fonts_blob + 225202,
+    .codepoints = FB16(223414),
+    .glyphs_rle = fonts_blob + 223996,
+    .glyphs_off = FB16(232310),
+    .glyphs_2x_rle = fonts_blob + 232700,
+    .glyphs_2x_off = FB16(238424),
+    .widths = fonts_blob + 223802,
     .count = 194,
     .glyph_width = 16,
 };
 const char *const lang_te_shaped[STR_COUNT] = {
-    [STR_SETTINGS] = FB(240214), [STR_WIFI] = FB(240233), [STR_TIMEZONE] = FB(240239),
-    [STR_BRIGHTNESS] = FB(240267), [STR_LED_BLINK] = FB(240283), [STR_ROTATE] = FB(240305),
-    [STR_ABOUT] = FB(240327), [STR_LANGUAGE] = FB(240340), [STR_DONE] = FB(240347),
-    [STR_BACK] = FB(240357), [STR_CANCEL] = FB(240370), [STR_DEL] = FB(240380),
-    [STR_RUNNING] = FB(240396), [STR_ON] = FB(240415), [STR_OFF] = FB(240422),
-    [STR_WAITING_NTP] = FB(240429), [STR_WIFI_SETUP] = FB(240469), [STR_SCANNING] = FB(240497),
-    [STR_SCAN_FAILED] = FB(240525), [STR_TAP_RETRY] = FB(240550),
-    [STR_SELECT_NETWORK] = FB(240602), [STR_NO_NETWORKS] = FB(240636),
-    [STR_NETWORK_LABEL] = FB(240658), [STR_ENTER_PASSWORD] = FB(240674),
-    [STR_CONNECTING] = FB(240699), [STR_CONNECTING_TO] = FB(240730),
-    [STR_CONNECTED] = FB(240764), [STR_CONNECTION_FAILED] = FB(240795),
-    [STR_KB_SPACE] = FB(240826), [STR_KB_GO] = FB(240833), [STR_VERSION] = FB(240836),
-    [STR_STATUS] = FB(240852), [STR_READ] = FB(240865), [STR_UPDATE] = FB(240884),
-    [STR_RESTARTING] = FB(240900), [STR_OTA_UPDATE] = FB(240928), [STR_NTP_SERVER] = FB(240956),
-    [STR_SERVER_LABEL] = FB(240981), [STR_NTP_SETTINGS] = FB(240997),
-    [STR_NTP_PRESETS] = FB(241028), [STR_PRESETS] = FB(241056), [STR_NONE] = FB(241072),
-    [STR_SELECT_REGION] = FB(241088), [STR_DST] = FB(241125), [STR_NO_DST] = FB(241150),
+    [STR_SETTINGS] = FB(238814), [STR_WIFI] = FB(238833), [STR_TIMEZONE] = FB(238839),
+    [STR_BRIGHTNESS] = FB(238867), [STR_LED_BLINK] = FB(238883), [STR_ROTATE] = FB(238905),
+    [STR_ABOUT] = FB(238927), [STR_LANGUAGE] = FB(238940), [STR_DONE] = FB(238947),
+    [STR_BACK] = FB(238957), [STR_CANCEL] = FB(238970), [STR_DEL] = FB(238980),
+    [STR_RUNNING] = FB(238996), [STR_ON] = FB(239015), [STR_OFF] = FB(239022),
+    [STR_WAITING_NTP] = FB(239029), [STR_WIFI_SETUP] = FB(239069), [STR_SCANNING] = FB(239097),
+    [STR_SCAN_FAILED] = FB(239125), [STR_TAP_RETRY] = FB(239150),
+    [STR_SELECT_NETWORK] = FB(239202), [STR_NO_NETWORKS] = FB(239236),
+    [STR_NETWORK_LABEL] = FB(239258), [STR_ENTER_PASSWORD] = FB(239274),
+    [STR_CONNECTING] = FB(239299), [STR_CONNECTING_TO] = FB(239330),
+    [STR_CONNECTED] = FB(239364), [STR_CONNECTION_FAILED] = FB(239395),
+    [STR_KB_SPACE] = FB(239426), [STR_KB_GO] = FB(239433), [STR_VERSION] = FB(239436),
+    [STR_STATUS] = FB(239452), [STR_READ] = FB(239465), [STR_UPDATE] = FB(239484),
+    [STR_RESTARTING] = FB(239500), [STR_OTA_UPDATE] = FB(239528), [STR_NTP_SERVER] = FB(239556),
+    [STR_SERVER_LABEL] = FB(239581), [STR_NTP_SETTINGS] = FB(239597),
+    [STR_NTP_PRESETS] = FB(239628), [STR_PRESETS] = FB(239656), [STR_NONE] = FB(239672),
+    [STR_SELECT_REGION] = FB(239688), [STR_DST] = FB(239725), [STR_NO_DST] = FB(239750),
 };
 const char *const weekdays_te_shaped[7] = {
-    FB(241184), FB(241191), FB(241198), FB(241211), FB(241218), FB(241225), FB(241235),
+    FB(239784), FB(239791), FB(239798), FB(239811), FB(239818), FB(239825), FB(239835),
 };
 const char *const months_te_shaped[12] = {
-    FB(241242), FB(241249), FB(241259), FB(241269), FB(241279), FB(241283), FB(241290),
-    FB(241297), FB(241304), FB(241317), FB(241327), FB(241337),
+    FB(239842), FB(239849), FB(239859), FB(239869), FB(239879), FB(239883), FB(239890),
+    FB(239897), FB(239904), FB(239917), FB(239927), FB(239937),
 };
 const char lang_name_te_shaped[] = ("\xEE" "\x82" "\xBF" "\xEE" "\x83" "\x80" "\xEE" "\x80" "\x9D");
 
 // cldr-date-source-hash te 5ee6e211978f9c7a
 const char *const cldr_weekdays_te_shaped[7] = {
-    FB(241347), FB(241354), FB(241361), FB(241374), FB(241381), FB(241388), FB(241398),
+    FB(239947), FB(239954), FB(239961), FB(239974), FB(239981), FB(239988), FB(239998),
 };
 const char *const cldr_months_te_shaped[12] = {
-    FB(241405), FB(241412), FB(241422), FB(241432), FB(241442), FB(241446), FB(241453),
-    FB(241460), FB(241467), FB(241480), FB(241490), FB(241500),
+    FB(240005), FB(240012), FB(240022), FB(240032), FB(240042), FB(240046), FB(240053),
+    FB(240060), FB(240067), FB(240080), FB(240090), FB(240100),
 };
 const char cldr_era_te_shaped[] = ("\xEE" "\x83" "\x81" "\xEE" "\x82" "\xAC" "\xEE" "\x80" "\x90");
 
 // pa: 148 shaped cluster glyphs (Gurmukhi Sangam MN)
 // shaped-source-hash pa 339b6a52bf8f5564
 const display_glyph_font_t font_pa = {
-    .codepoints = FB16(241510),
-    .glyphs_rle = fonts_blob + 241954,
-    .glyphs_off = FB16(249524),
-    .glyphs_2x_rle = fonts_blob + 249822,
-    .glyphs_2x_off = FB16(254432),
-    .widths = fonts_blob + 241806,
+    .codepoints = FB16(240110),
+    .glyphs_rle = fonts_blob + 240554,
+    .glyphs_off = FB16(248124),
+    .glyphs_2x_rle = fonts_blob + 248422,
+    .glyphs_2x_off = FB16(253032),
+    .widths = fonts_blob + 240406,
     .count = 148,
     .glyph_width = 16,
 };
 const char *const lang_pa_shaped[STR_COUNT] = {
-    [STR_SETTINGS] = FB(254730), [STR_WIFI] = FB(254740), [STR_TIMEZONE] = FB(254746),
-    [STR_BRIGHTNESS] = FB(254765), [STR_LED_BLINK] = FB(254775), [STR_ROTATE] = FB(254797),
-    [STR_ABOUT] = FB(254819), [STR_LANGUAGE] = FB(254829), [STR_DONE] = FB(254842),
-    [STR_BACK] = FB(254855), [STR_CANCEL] = FB(254862), [STR_DEL] = FB(254866),
-    [STR_RUNNING] = FB(254882), [STR_ON] = FB(254901), [STR_OFF] = FB(254911),
-    [STR_WAITING_NTP] = FB(254915), [STR_WIFI_SETUP] = FB(254946), [STR_SCANNING] = FB(254971),
-    [STR_SCAN_FAILED] = FB(254999), [STR_TAP_RETRY] = FB(255018),
-    [STR_SELECT_NETWORK] = FB(255067), [STR_NO_NETWORKS] = FB(255089),
-    [STR_NETWORK_LABEL] = FB(255126), [STR_ENTER_PASSWORD] = FB(255145),
-    [STR_CONNECTING] = FB(255173), [STR_CONNECTING_TO] = FB(255192),
-    [STR_CONNECTED] = FB(255214), [STR_CONNECTION_FAILED] = FB(255233),
-    [STR_KB_SPACE] = FB(255261), [STR_KB_GO] = FB(255268), [STR_VERSION] = FB(255271),
-    [STR_STATUS] = FB(255287), [STR_READ] = FB(255306), [STR_UPDATE] = FB(255322),
-    [STR_RESTARTING] = FB(255329), [STR_OTA_UPDATE] = FB(255339), [STR_NTP_SERVER] = FB(255358),
-    [STR_SERVER_LABEL] = FB(255383), [STR_NTP_SETTINGS] = FB(255399),
-    [STR_NTP_PRESETS] = FB(255418), [STR_PRESETS] = FB(255440), [STR_NONE] = FB(255453),
-    [STR_SELECT_REGION] = FB(255469), [STR_DST] = FB(255482), [STR_NO_DST] = FB(255507),
+    [STR_SETTINGS] = FB(253330), [STR_WIFI] = FB(253340), [STR_TIMEZONE] = FB(253346),
+    [STR_BRIGHTNESS] = FB(253365), [STR_LED_BLINK] = FB(253375), [STR_ROTATE] = FB(253397),
+    [STR_ABOUT] = FB(253419), [STR_LANGUAGE] = FB(253429), [STR_DONE] = FB(253442),
+    [STR_BACK] = FB(253455), [STR_CANCEL] = FB(253462), [STR_DEL] = FB(253466),
+    [STR_RUNNING] = FB(253482), [STR_ON] = FB(253501), [STR_OFF] = FB(253511),
+    [STR_WAITING_NTP] = FB(253515), [STR_WIFI_SETUP] = FB(253546), [STR_SCANNING] = FB(253571),
+    [STR_SCAN_FAILED] = FB(253599), [STR_TAP_RETRY] = FB(253618),
+    [STR_SELECT_NETWORK] = FB(253667), [STR_NO_NETWORKS] = FB(253689),
+    [STR_NETWORK_LABEL] = FB(253726), [STR_ENTER_PASSWORD] = FB(253745),
+    [STR_CONNECTING] = FB(253773), [STR_CONNECTING_TO] = FB(253792),
+    [STR_CONNECTED] = FB(253814), [STR_CONNECTION_FAILED] = FB(253833),
+    [STR_KB_SPACE] = FB(253861), [STR_KB_GO] = FB(253868), [STR_VERSION] = FB(253871),
+    [STR_STATUS] = FB(253887), [STR_READ] = FB(253906), [STR_UPDATE] = FB(253922),
+    [STR_RESTARTING] = FB(253929), [STR_OTA_UPDATE] = FB(253939), [STR_NTP_SERVER] = FB(253958),
+    [STR_SERVER_LABEL] = FB(253983), [STR_NTP_SETTINGS] = FB(253999),
+    [STR_NTP_PRESETS] = FB(254018), [STR_PRESETS] = FB(254040), [STR_NONE] = FB(254053),
+    [STR_SELECT_REGION] = FB(254069), [STR_DST] = FB(254082), [STR_NO_DST] = FB(254107),
 };
 const char *const weekdays_pa_shaped[7] = {
-    FB(255544), FB(255551), FB(255555), FB(255562), FB(255566), FB(255576), FB(255583),
+    FB(254144), FB(254151), FB(254155), FB(254162), FB(254166), FB(254176), FB(254183),
 };
 const char *const months_pa_shaped[12] = {
-    FB(255593), FB(255600), FB(255607), FB(255620), FB(255627), FB(255634), FB(255638),
-    FB(255645), FB(255652), FB(255659), FB(255669), FB(255676),
+    FB(254193), FB(254200), FB(254207), FB(254220), FB(254227), FB(254234), FB(254238),
+    FB(254245), FB(254252), FB(254259), FB(254269), FB(254276),
 };
 const char lang_name_pa_shaped[] = ("\xEE" "\x82" "\x90" "\xEE" "\x80" "\x90" "\xEE" "\x82" "\x91" "\xEE" "\x82" "\x92");
 
 // cldr-date-source-hash pa bf811eaea3ec48c8
 const char *const cldr_weekdays_pa_shaped[7] = {
-    FB(255683), FB(255690), FB(255694), FB(255701), FB(255705), FB(255715), FB(255722),
+    FB(254283), FB(254290), FB(254294), FB(254301), FB(254305), FB(254315), FB(254322),
 };
 const char *const cldr_months_pa_shaped[12] = {
-    FB(255732), FB(255739), FB(255746), FB(255759), FB(255766), FB(255773), FB(255777),
-    FB(255784), FB(255791), FB(255798), FB(255808), FB(255815),
+    FB(254332), FB(254339), FB(254346), FB(254359), FB(254366), FB(254373), FB(254377),
+    FB(254384), FB(254391), FB(254398), FB(254408), FB(254415),
 };
 const char cldr_era_pa_shaped[] = ("\xEE" "\x82" "\x93");
 
 // gu: 165 shaped cluster glyphs (Kohinoor Gujarati)
 // shaped-source-hash gu 950b7d7c59aee984
 const display_glyph_font_t font_gu = {
-    .codepoints = FB16(255822),
-    .glyphs_rle = fonts_blob + 256317,
-    .glyphs_off = FB16(263834),
-    .glyphs_2x_rle = fonts_blob + 264166,
-    .glyphs_2x_off = FB16(269332),
-    .widths = fonts_blob + 256152,
+    .codepoints = FB16(254422),
+    .glyphs_rle = fonts_blob + 254917,
+    .glyphs_off = FB16(262434),
+    .glyphs_2x_rle = fonts_blob + 262766,
+    .glyphs_2x_off = FB16(267932),
+    .widths = fonts_blob + 254752,
     .count = 165,
     .glyph_width = 16,
 };
 const char *const lang_gu_shaped[STR_COUNT] = {
-    [STR_SETTINGS] = FB(269664), [STR_WIFI] = FB(269680), [STR_TIMEZONE] = FB(269686),
-    [STR_BRIGHTNESS] = FB(269705), [STR_LED_BLINK] = FB(269709), [STR_ROTATE] = FB(269740),
-    [STR_ABOUT] = FB(269765), [STR_LANGUAGE] = FB(269775), [STR_DONE] = FB(269788),
-    [STR_BACK] = FB(269804), [STR_CANCEL] = FB(269817), [STR_DEL] = FB(269824),
-    [STR_RUNNING] = FB(269837), [STR_ON] = FB(269859), [STR_OFF] = FB(269869),
-    [STR_WAITING_NTP] = FB(269876), [STR_WIFI_SETUP] = FB(269916), [STR_SCANNING] = FB(269944),
-    [STR_SCAN_FAILED] = FB(269969), [STR_TAP_RETRY] = FB(269991),
-    [STR_SELECT_NETWORK] = FB(270055), [STR_NO_NETWORKS] = FB(270089),
-    [STR_NETWORK_LABEL] = FB(270123), [STR_ENTER_PASSWORD] = FB(270139),
-    [STR_CONNECTING] = FB(270185), [STR_CONNECTING_TO] = FB(270204),
-    [STR_CONNECTED] = FB(270223), [STR_CONNECTION_FAILED] = FB(270233),
-    [STR_KB_SPACE] = FB(270258), [STR_KB_GO] = FB(270265), [STR_VERSION] = FB(270268),
-    [STR_STATUS] = FB(270281), [STR_READ] = FB(270297), [STR_UPDATE] = FB(270307),
-    [STR_RESTARTING] = FB(270323), [STR_OTA_UPDATE] = FB(270342), [STR_NTP_SERVER] = FB(270370),
-    [STR_SERVER_LABEL] = FB(270389), [STR_NTP_SETTINGS] = FB(270399),
-    [STR_NTP_PRESETS] = FB(270427), [STR_PRESETS] = FB(270455), [STR_NONE] = FB(270471),
-    [STR_SELECT_REGION] = FB(270493), [STR_DST] = FB(270527), [STR_NO_DST] = FB(270549),
+    [STR_SETTINGS] = FB(268264), [STR_WIFI] = FB(268280), [STR_TIMEZONE] = FB(268286),
+    [STR_BRIGHTNESS] = FB(268305), [STR_LED_BLINK] = FB(268309), [STR_ROTATE] = FB(268340),
+    [STR_ABOUT] = FB(268365), [STR_LANGUAGE] = FB(268375), [STR_DONE] = FB(268388),
+    [STR_BACK] = FB(268404), [STR_CANCEL] = FB(268417), [STR_DEL] = FB(268424),
+    [STR_RUNNING] = FB(268437), [STR_ON] = FB(268459), [STR_OFF] = FB(268469),
+    [STR_WAITING_NTP] = FB(268476), [STR_WIFI_SETUP] = FB(268516), [STR_SCANNING] = FB(268544),
+    [STR_SCAN_FAILED] = FB(268569), [STR_TAP_RETRY] = FB(268591),
+    [STR_SELECT_NETWORK] = FB(268655), [STR_NO_NETWORKS] = FB(268689),
+    [STR_NETWORK_LABEL] = FB(268723), [STR_ENTER_PASSWORD] = FB(268739),
+    [STR_CONNECTING] = FB(268785), [STR_CONNECTING_TO] = FB(268804),
+    [STR_CONNECTED] = FB(268823), [STR_CONNECTION_FAILED] = FB(268833),
+    [STR_KB_SPACE] = FB(268858), [STR_KB_GO] = FB(268865), [STR_VERSION] = FB(268868),
+    [STR_STATUS] = FB(268881), [STR_READ] = FB(268897), [STR_UPDATE] = FB(268907),
+    [STR_RESTARTING] = FB(268923), [STR_OTA_UPDATE] = FB(268942), [STR_NTP_SERVER] = FB(268970),
+    [STR_SERVER_LABEL] = FB(268989), [STR_NTP_SETTINGS] = FB(268999),
+    [STR_NTP_PRESETS] = FB(269027), [STR_PRESETS] = FB(269055), [STR_NONE] = FB(269071),
+    [STR_SELECT_REGION] = FB(269093), [STR_DST] = FB(269127), [STR_NO_DST] = FB(269149),
 };
 const char *const weekdays_gu_shaped[7] = {
-    FB(270583), FB(270593), FB(270600), FB(270607), FB(270614), FB(270618), FB(270622),
+    FB(269183), FB(269193), FB(269200), FB(269207), FB(269214), FB(269218), FB(269222),
 };
 const char *const months_gu_shaped[12] = {
-    FB(270632), FB(270639), FB(270649), FB(270659), FB(270669), FB(270673), FB(270683),
-    FB(270699), FB(270709), FB(270719), FB(270729), FB(270736),
+    FB(269232), FB(269239), FB(269249), FB(269259), FB(269269), FB(269273), FB(269283),
+    FB(269299), FB(269309), FB(269319), FB(269329), FB(269336),
 };
 const char lang_name_gu_shaped[] = ("\xEE" "\x82" "\xA4" "\xEE" "\x80" "\x91" "\xEE" "\x80" "\x90" "\xEE" "\x81" "\xAC" "\xEE" "\x82" "\x85");
 
 // cldr-date-source-hash gu 4404fab38e17e7e2
 const char *const cldr_weekdays_gu_shaped[7] = {
-    FB(270746), FB(270756), FB(270763), FB(270770), FB(270777), FB(270781), FB(270785),
+    FB(269346), FB(269356), FB(269363), FB(269370), FB(269377), FB(269381), FB(269385),
 };
 const char *const cldr_months_gu_shaped[12] = {
-    FB(270795), FB(270802), FB(270812), FB(270822), FB(270832), FB(270836), FB(270846),
-    FB(270862), FB(270872), FB(270882), FB(270892), FB(270899),
+    FB(269395), FB(269402), FB(269412), FB(269422), FB(269432), FB(269436), FB(269446),
+    FB(269462), FB(269472), FB(269482), FB(269492), FB(269499),
 };
 const char cldr_era_gu_shaped[] = ("\xEE" "\x80" "\xA1" "\xEE" "\x80" "\xB9" "\xEE" "\x80" "\x84" "\xEE" "\x80" "\xBA");
 
 // kn: 187 shaped cluster glyphs (Kannada Sangam MN)
 // shaped-source-hash kn 1b207ce79b194584
 const display_glyph_font_t font_kn = {
-    .codepoints = FB16(270910),
-    .glyphs_rle = fonts_blob + 271471,
-    .glyphs_off = FB16(281588),
-    .glyphs_2x_rle = fonts_blob + 281964,
-    .glyphs_2x_off = FB16(289346),
-    .widths = fonts_blob + 271284,
+    .codepoints = FB16(269510),
+    .glyphs_rle = fonts_blob + 270071,
+    .glyphs_off = FB16(280188),
+    .glyphs_2x_rle = fonts_blob + 280564,
+    .glyphs_2x_off = FB16(287946),
+    .widths = fonts_blob + 269884,
     .count = 187,
     .glyph_width = 16,
 };
 const char *const lang_kn_shaped[STR_COUNT] = {
-    [STR_SETTINGS] = FB(289722), [STR_WIFI] = FB(289744), [STR_TIMEZONE] = FB(289750),
-    [STR_BRIGHTNESS] = FB(289772), [STR_LED_BLINK] = FB(289788), [STR_ROTATE] = FB(289816),
-    [STR_ABOUT] = FB(289841), [STR_LANGUAGE] = FB(289857), [STR_DONE] = FB(289867),
-    [STR_BACK] = FB(289880), [STR_CANCEL] = FB(289890), [STR_DEL] = FB(289900),
-    [STR_RUNNING] = FB(289910), [STR_ON] = FB(289923), [STR_OFF] = FB(289930),
-    [STR_WAITING_NTP] = FB(289937), [STR_WIFI_SETUP] = FB(289983), [STR_SCANNING] = FB(290011),
-    [STR_SCAN_FAILED] = FB(290042), [STR_TAP_RETRY] = FB(290076),
-    [STR_SELECT_NETWORK] = FB(290110), [STR_NO_NETWORKS] = FB(290135),
-    [STR_NETWORK_LABEL] = FB(290160), [STR_ENTER_PASSWORD] = FB(290179),
-    [STR_CONNECTING] = FB(290216), [STR_CONNECTING_TO] = FB(290241),
-    [STR_CONNECTED] = FB(290266), [STR_CONNECTION_FAILED] = FB(290294),
-    [STR_KB_SPACE] = FB(290322), [STR_KB_GO] = FB(290332), [STR_VERSION] = FB(290335),
-    [STR_STATUS] = FB(290348), [STR_READ] = FB(290355), [STR_UPDATE] = FB(290368),
-    [STR_RESTARTING] = FB(290384), [STR_OTA_UPDATE] = FB(290412), [STR_NTP_SERVER] = FB(290440),
-    [STR_SERVER_LABEL] = FB(290465), [STR_NTP_SETTINGS] = FB(290481),
-    [STR_NTP_PRESETS] = FB(290515), [STR_PRESETS] = FB(290540), [STR_NONE] = FB(290553),
-    [STR_SELECT_REGION] = FB(290572), [STR_DST] = FB(290594), [STR_NO_DST] = FB(290613),
+    [STR_SETTINGS] = FB(288322), [STR_WIFI] = FB(288344), [STR_TIMEZONE] = FB(288350),
+    [STR_BRIGHTNESS] = FB(288372), [STR_LED_BLINK] = FB(288388), [STR_ROTATE] = FB(288416),
+    [STR_ABOUT] = FB(288441), [STR_LANGUAGE] = FB(288457), [STR_DONE] = FB(288467),
+    [STR_BACK] = FB(288480), [STR_CANCEL] = FB(288490), [STR_DEL] = FB(288500),
+    [STR_RUNNING] = FB(288510), [STR_ON] = FB(288523), [STR_OFF] = FB(288530),
+    [STR_WAITING_NTP] = FB(288537), [STR_WIFI_SETUP] = FB(288583), [STR_SCANNING] = FB(288611),
+    [STR_SCAN_FAILED] = FB(288642), [STR_TAP_RETRY] = FB(288676),
+    [STR_SELECT_NETWORK] = FB(288710), [STR_NO_NETWORKS] = FB(288735),
+    [STR_NETWORK_LABEL] = FB(288760), [STR_ENTER_PASSWORD] = FB(288779),
+    [STR_CONNECTING] = FB(288816), [STR_CONNECTING_TO] = FB(288841),
+    [STR_CONNECTED] = FB(288866), [STR_CONNECTION_FAILED] = FB(288894),
+    [STR_KB_SPACE] = FB(288922), [STR_KB_GO] = FB(288932), [STR_VERSION] = FB(288935),
+    [STR_STATUS] = FB(288948), [STR_READ] = FB(288955), [STR_UPDATE] = FB(288968),
+    [STR_RESTARTING] = FB(288984), [STR_OTA_UPDATE] = FB(289012), [STR_NTP_SERVER] = FB(289040),
+    [STR_SERVER_LABEL] = FB(289065), [STR_NTP_SETTINGS] = FB(289081),
+    [STR_NTP_PRESETS] = FB(289115), [STR_PRESETS] = FB(289140), [STR_NONE] = FB(289153),
+    [STR_SELECT_REGION] = FB(289172), [STR_DST] = FB(289194), [STR_NO_DST] = FB(289213),
 };
 const char *const weekdays_kn_shaped[7] = {
-    FB(290641), FB(290654), FB(290664), FB(290677), FB(290687), FB(290700), FB(290713),
+    FB(289241), FB(289254), FB(289264), FB(289277), FB(289287), FB(289300), FB(289313),
 };
 const char *const months_kn_shaped[12] = {
-    FB(290720), FB(290727), FB(290737), FB(290750), FB(290757), FB(290764), FB(290774),
-    FB(290784), FB(290791), FB(290801), FB(290814), FB(290824),
+    FB(289320), FB(289327), FB(289337), FB(289350), FB(289357), FB(289364), FB(289374),
+    FB(289384), FB(289391), FB(289401), FB(289414), FB(289424),
 };
 const char lang_name_kn_shaped[] = ("\xEE" "\x80" "\x9F" "\xEE" "\x82" "\xB6" "\xEE" "\x82" "\xB7");
 
 // cldr-date-source-hash kn 12bb6309622a31c7
 const char *const cldr_weekdays_kn_shaped[7] = {
-    FB(290831), FB(290844), FB(290854), FB(290867), FB(290877), FB(290890), FB(290903),
+    FB(289431), FB(289444), FB(289454), FB(289467), FB(289477), FB(289490), FB(289503),
 };
 const char *const cldr_months_kn_shaped[12] = {
-    FB(290910), FB(290917), FB(290927), FB(290940), FB(290947), FB(290954), FB(290964),
-    FB(290974), FB(290981), FB(290991), FB(291004), FB(291014),
+    FB(289510), FB(289517), FB(289527), FB(289540), FB(289547), FB(289554), FB(289564),
+    FB(289574), FB(289581), FB(289591), FB(289604), FB(289614),
 };
 const char cldr_era_kn_shaped[] = ("\xEE" "\x82" "\xB8" "\xEE" "\x82" "\xB9" "\xEE" "\x82" "\xBA");
 
 // ml: 175 shaped cluster glyphs (Malayalam Sangam MN)
 // shaped-source-hash ml 0663a0b6a92f6d64
 const display_glyph_font_t font_ml = {
-    .codepoints = FB16(291022),
-    .glyphs_rle = fonts_blob + 291547,
-    .glyphs_off = FB16(299876),
-    .glyphs_2x_rle = fonts_blob + 300228,
-    .glyphs_2x_off = FB16(307816),
-    .widths = fonts_blob + 291372,
+    .codepoints = FB16(289622),
+    .glyphs_rle = fonts_blob + 290147,
+    .glyphs_off = FB16(298476),
+    .glyphs_2x_rle = fonts_blob + 298828,
+    .glyphs_2x_off = FB16(306416),
+    .widths = fonts_blob + 289972,
     .count = 175,
     .glyph_width = 16,
 };
 const char *const lang_ml_shaped[STR_COUNT] = {
-    [STR_SETTINGS] = FB(308168), [STR_WIFI] = FB(308196), [STR_TIMEZONE] = FB(308202),
-    [STR_BRIGHTNESS] = FB(308227), [STR_LED_BLINK] = FB(308246), [STR_ROTATE] = FB(308271),
-    [STR_ABOUT] = FB(308305), [STR_LANGUAGE] = FB(308321), [STR_DONE] = FB(308331),
-    [STR_BACK] = FB(308350), [STR_CANCEL] = FB(308369), [STR_DEL] = FB(308376),
-    [STR_RUNNING] = FB(308392), [STR_ON] = FB(308426), [STR_OFF] = FB(308433),
-    [STR_WAITING_NTP] = FB(308440), [STR_WIFI_SETUP] = FB(308483), [STR_SCANNING] = FB(308526),
-    [STR_SCAN_FAILED] = FB(308557), [STR_TAP_RETRY] = FB(308597),
-    [STR_SELECT_NETWORK] = FB(308658), [STR_NO_NETWORKS] = FB(308710),
-    [STR_NETWORK_LABEL] = FB(308735), [STR_ENTER_PASSWORD] = FB(308754),
-    [STR_CONNECTING] = FB(308788), [STR_CONNECTING_TO] = FB(308816),
-    [STR_CONNECTED] = FB(308847), [STR_CONNECTION_FAILED] = FB(308872),
-    [STR_KB_SPACE] = FB(308906), [STR_KB_GO] = FB(308919), [STR_VERSION] = FB(308922),
-    [STR_STATUS] = FB(308935), [STR_READ] = FB(308948), [STR_UPDATE] = FB(308970),
-    [STR_RESTARTING] = FB(308983), [STR_OTA_UPDATE] = FB(309011), [STR_NTP_SERVER] = FB(309036),
-    [STR_SERVER_LABEL] = FB(309064), [STR_NTP_SETTINGS] = FB(309083),
-    [STR_NTP_PRESETS] = FB(309120), [STR_PRESETS] = FB(309154), [STR_NONE] = FB(309176),
-    [STR_SELECT_REGION] = FB(309195), [STR_DST] = FB(309250), [STR_NO_DST] = FB(309278),
+    [STR_SETTINGS] = FB(306768), [STR_WIFI] = FB(306796), [STR_TIMEZONE] = FB(306802),
+    [STR_BRIGHTNESS] = FB(306827), [STR_LED_BLINK] = FB(306846), [STR_ROTATE] = FB(306871),
+    [STR_ABOUT] = FB(306905), [STR_LANGUAGE] = FB(306921), [STR_DONE] = FB(306931),
+    [STR_BACK] = FB(306950), [STR_CANCEL] = FB(306969), [STR_DEL] = FB(306976),
+    [STR_RUNNING] = FB(306992), [STR_ON] = FB(307026), [STR_OFF] = FB(307033),
+    [STR_WAITING_NTP] = FB(307040), [STR_WIFI_SETUP] = FB(307083), [STR_SCANNING] = FB(307126),
+    [STR_SCAN_FAILED] = FB(307157), [STR_TAP_RETRY] = FB(307197),
+    [STR_SELECT_NETWORK] = FB(307258), [STR_NO_NETWORKS] = FB(307310),
+    [STR_NETWORK_LABEL] = FB(307335), [STR_ENTER_PASSWORD] = FB(307354),
+    [STR_CONNECTING] = FB(307388), [STR_CONNECTING_TO] = FB(307416),
+    [STR_CONNECTED] = FB(307447), [STR_CONNECTION_FAILED] = FB(307472),
+    [STR_KB_SPACE] = FB(307506), [STR_KB_GO] = FB(307519), [STR_VERSION] = FB(307522),
+    [STR_STATUS] = FB(307535), [STR_READ] = FB(307548), [STR_UPDATE] = FB(307570),
+    [STR_RESTARTING] = FB(307583), [STR_OTA_UPDATE] = FB(307611), [STR_NTP_SERVER] = FB(307636),
+    [STR_SERVER_LABEL] = FB(307664), [STR_NTP_SETTINGS] = FB(307683),
+    [STR_NTP_PRESETS] = FB(307720), [STR_PRESETS] = FB(307754), [STR_NONE] = FB(307776),
+    [STR_SELECT_REGION] = FB(307795), [STR_DST] = FB(307850), [STR_NO_DST] = FB(307878),
 };
 const char *const weekdays_ml_shaped[7] = {
-    FB(309315), FB(309328), FB(309341), FB(309354), FB(309367), FB(309383), FB(309396),
+    FB(307915), FB(307928), FB(307941), FB(307954), FB(307967), FB(307983), FB(307996),
 };
 const char *const months_ml_shaped[12] = {
-    FB(309406), FB(309416), FB(309432), FB(309442), FB(309455), FB(309465), FB(309475),
-    FB(309488), FB(309495), FB(309508), FB(309521), FB(309531),
+    FB(308006), FB(308016), FB(308032), FB(308042), FB(308055), FB(308065), FB(308075),
+    FB(308088), FB(308095), FB(308108), FB(308121), FB(308131),
 };
 const char lang_name_ml_shaped[] = ("\xEE" "\x80" "\x82" "\xEE" "\x82" "\xAC" "\xEE" "\x80" "\x8A" "\xEE" "\x80" "\xA9" "\xEE" "\x82" "\xAD" "\xEE" "\x81" "\x9B");
 
 // cldr-date-source-hash ml 54cb312985f57aa1
 const char *const cldr_weekdays_ml_shaped[7] = {
-    FB(309544), FB(309557), FB(309570), FB(309583), FB(309596), FB(309612), FB(309625),
+    FB(308144), FB(308157), FB(308170), FB(308183), FB(308196), FB(308212), FB(308225),
 };
 const char *const cldr_months_ml_shaped[12] = {
-    FB(309635), FB(309645), FB(309661), FB(309671), FB(309684), FB(309694), FB(309704),
-    FB(309717), FB(309724), FB(309737), FB(309750), FB(309760),
+    FB(308235), FB(308245), FB(308261), FB(308271), FB(308284), FB(308294), FB(308304),
+    FB(308317), FB(308324), FB(308337), FB(308350), FB(308360),
 };
 const char cldr_era_ml_shaped[] = ("\xEE" "\x82" "\xAE" "\xEE" "\x82" "\x86" "\xEE" "\x80" "\x9E");
 
 // ne: 182 shaped cluster glyphs (Kohinoor Devanagari)
 // shaped-source-hash ne 477bb73ab6b76b13
 const display_glyph_font_t font_ne = {
-    .codepoints = FB16(309774),
-    .glyphs_rle = fonts_blob + 310320,
-    .glyphs_off = FB16(318528),
-    .glyphs_2x_rle = fonts_blob + 318894,
-    .glyphs_2x_off = FB16(325738),
-    .widths = fonts_blob + 310138,
+    .codepoints = FB16(308374),
+    .glyphs_rle = fonts_blob + 308920,
+    .glyphs_off = FB16(317128),
+    .glyphs_2x_rle = fonts_blob + 317494,
+    .glyphs_2x_off = FB16(324338),
+    .widths = fonts_blob + 308738,
     .count = 182,
     .glyph_width = 16,
 };
 const char *const lang_ne_shaped[STR_COUNT] = {
-    [STR_SETTINGS] = FB(326104), [STR_WIFI] = FB(326120), [STR_TIMEZONE] = FB(326126),
-    [STR_BRIGHTNESS] = FB(326142), [STR_LED_BLINK] = FB(326152), [STR_ROTATE] = FB(326183),
-    [STR_ABOUT] = FB(326205), [STR_LANGUAGE] = FB(326221), [STR_DONE] = FB(326234),
-    [STR_BACK] = FB(326244), [STR_CANCEL] = FB(326260), [STR_DEL] = FB(326267),
-    [STR_RUNNING] = FB(326277), [STR_ON] = FB(326299), [STR_OFF] = FB(326306),
-    [STR_WAITING_NTP] = FB(326313), [STR_WIFI_SETUP] = FB(326341), [STR_SCANNING] = FB(326369),
-    [STR_SCAN_FAILED] = FB(326388), [STR_TAP_RETRY] = FB(326416),
-    [STR_SELECT_NETWORK] = FB(326477), [STR_NO_NETWORKS] = FB(326508),
-    [STR_NETWORK_LABEL] = FB(326533), [STR_ENTER_PASSWORD] = FB(326549),
-    [STR_CONNECTING] = FB(326583), [STR_CONNECTING_TO] = FB(326608),
-    [STR_CONNECTED] = FB(326636), [STR_CONNECTION_FAILED] = FB(326664),
-    [STR_KB_SPACE] = FB(326692), [STR_KB_GO] = FB(326699), [STR_VERSION] = FB(326702),
-    [STR_STATUS] = FB(326718), [STR_READ] = FB(326734), [STR_UPDATE] = FB(326753),
-    [STR_RESTARTING] = FB(326763), [STR_OTA_UPDATE] = FB(326776), [STR_NTP_SERVER] = FB(326798),
-    [STR_SERVER_LABEL] = FB(326817), [STR_NTP_SETTINGS] = FB(326827),
-    [STR_NTP_PRESETS] = FB(326849), [STR_PRESETS] = FB(326880), [STR_NONE] = FB(326899),
-    [STR_SELECT_REGION] = FB(326924), [STR_DST] = FB(326946), [STR_NO_DST] = FB(326968),
+    [STR_SETTINGS] = FB(324704), [STR_WIFI] = FB(324720), [STR_TIMEZONE] = FB(324726),
+    [STR_BRIGHTNESS] = FB(324742), [STR_LED_BLINK] = FB(324752), [STR_ROTATE] = FB(324783),
+    [STR_ABOUT] = FB(324805), [STR_LANGUAGE] = FB(324821), [STR_DONE] = FB(324834),
+    [STR_BACK] = FB(324844), [STR_CANCEL] = FB(324860), [STR_DEL] = FB(324867),
+    [STR_RUNNING] = FB(324877), [STR_ON] = FB(324899), [STR_OFF] = FB(324906),
+    [STR_WAITING_NTP] = FB(324913), [STR_WIFI_SETUP] = FB(324941), [STR_SCANNING] = FB(324969),
+    [STR_SCAN_FAILED] = FB(324988), [STR_TAP_RETRY] = FB(325016),
+    [STR_SELECT_NETWORK] = FB(325077), [STR_NO_NETWORKS] = FB(325108),
+    [STR_NETWORK_LABEL] = FB(325133), [STR_ENTER_PASSWORD] = FB(325149),
+    [STR_CONNECTING] = FB(325183), [STR_CONNECTING_TO] = FB(325208),
+    [STR_CONNECTED] = FB(325236), [STR_CONNECTION_FAILED] = FB(325264),
+    [STR_KB_SPACE] = FB(325292), [STR_KB_GO] = FB(325299), [STR_VERSION] = FB(325302),
+    [STR_STATUS] = FB(325318), [STR_READ] = FB(325334), [STR_UPDATE] = FB(325353),
+    [STR_RESTARTING] = FB(325363), [STR_OTA_UPDATE] = FB(325376), [STR_NTP_SERVER] = FB(325398),
+    [STR_SERVER_LABEL] = FB(325417), [STR_NTP_SETTINGS] = FB(325427),
+    [STR_NTP_PRESETS] = FB(325449), [STR_PRESETS] = FB(325480), [STR_NONE] = FB(325499),
+    [STR_SELECT_REGION] = FB(325524), [STR_DST] = FB(325546), [STR_NO_DST] = FB(325568),
 };
 const char *const weekdays_ne_shaped[7] = {
-    FB(327002), FB(327012), FB(327022), FB(327038), FB(327042), FB(327055), FB(327062),
+    FB(325602), FB(325612), FB(325622), FB(325638), FB(325642), FB(325655), FB(325662),
 };
 const char *const months_ne_shaped[12] = {
-    FB(327072), FB(327088), FB(327104), FB(327114), FB(327127), FB(327131), FB(327135),
-    FB(327148), FB(327158), FB(327168), FB(327184), FB(327200),
+    FB(325672), FB(325688), FB(325704), FB(325714), FB(325727), FB(325731), FB(325735),
+    FB(325748), FB(325758), FB(325768), FB(325784), FB(325800),
 };
 const char lang_name_ne_shaped[] = ("\xEE" "\x82" "\xAA" "\xEE" "\x80" "\x98" "\xEE" "\x80" "\xAE" "\xEE" "\x81" "\x86");
 
 // cldr-date-source-hash ne 77efbd40e0c384ef
 const char *const cldr_weekdays_ne_shaped[7] = {
-    FB(327216), FB(327226), FB(327236), FB(327252), FB(327256), FB(327269), FB(327276),
+    FB(325816), FB(325826), FB(325836), FB(325852), FB(325856), FB(325869), FB(325876),
 };
 const char *const cldr_months_ne_shaped[12] = {
-    FB(327286), FB(327302), FB(327318), FB(327328), FB(327341), FB(327345), FB(327349),
-    FB(327362), FB(327372), FB(327382), FB(327398), FB(327414),
+    FB(325886), FB(325902), FB(325918), FB(325928), FB(325941), FB(325945), FB(325949),
+    FB(325962), FB(325972), FB(325982), FB(325998), FB(326014),
 };
 const char cldr_era_ne_shaped[] = ("\xEE" "\x80" "\x85" "\xEE" "\x82" "\xAB");
 
 // si: 155 shaped cluster glyphs (Sinhala Sangam MN)
 // shaped-source-hash si 8709d7dbf5ca3136
 const display_glyph_font_t font_si = {
-    .codepoints = FB16(327430),
-    .glyphs_rle = fonts_blob + 327895,
-    .glyphs_off = FB16(335530),
-    .glyphs_2x_rle = fonts_blob + 335842,
-    .glyphs_2x_off = FB16(345130),
-    .widths = fonts_blob + 327740,
+    .codepoints = FB16(326030),
+    .glyphs_rle = fonts_blob + 326495,
+    .glyphs_off = FB16(334130),
+    .glyphs_2x_rle = fonts_blob + 334442,
+    .glyphs_2x_off = FB16(343730),
+    .widths = fonts_blob + 326340,
     .count = 155,
     .glyph_width = 16,
 };
 const char *const lang_si_shaped[STR_COUNT] = {
-    [STR_SETTINGS] = FB(345442), [STR_WIFI] = FB(345455), [STR_TIMEZONE] = FB(345461),
-    [STR_BRIGHTNESS] = FB(345492), [STR_LED_BLINK] = FB(345505), [STR_ROTATE] = FB(345530),
-    [STR_ABOUT] = FB(345561), [STR_LANGUAGE] = FB(345574), [STR_DONE] = FB(345590),
-    [STR_BACK] = FB(345603), [STR_CANCEL] = FB(345613), [STR_DEL] = FB(345629),
-    [STR_RUNNING] = FB(345642), [STR_ON] = FB(345667), [STR_OFF] = FB(345677),
-    [STR_WAITING_NTP] = FB(345687), [STR_WIFI_SETUP] = FB(345751), [STR_SCANNING] = FB(345782),
-    [STR_SCAN_FAILED] = FB(345810), [STR_TAP_RETRY] = FB(345847),
-    [STR_SELECT_NETWORK] = FB(345908), [STR_NO_NETWORKS] = FB(345942),
-    [STR_NETWORK_LABEL] = FB(345973), [STR_ENTER_PASSWORD] = FB(345989),
-    [STR_CONNECTING] = FB(346029), [STR_CONNECTING_TO] = FB(346060),
-    [STR_CONNECTED] = FB(346094), [STR_CONNECTION_FAILED] = FB(346116),
-    [STR_KB_SPACE] = FB(346165), [STR_KB_GO] = FB(346172), [STR_VERSION] = FB(346175),
-    [STR_STATUS] = FB(346194), [STR_READ] = FB(346213), [STR_UPDATE] = FB(346223),
-    [STR_RESTARTING] = FB(346248), [STR_OTA_UPDATE] = FB(346279), [STR_NTP_SERVER] = FB(346316),
-    [STR_SERVER_LABEL] = FB(346356), [STR_NTP_SETTINGS] = FB(346387),
-    [STR_NTP_PRESETS] = FB(346412), [STR_PRESETS] = FB(346440), [STR_NONE] = FB(346456),
-    [STR_SELECT_REGION] = FB(346481), [STR_DST] = FB(346518), [STR_NO_DST] = FB(346552),
+    [STR_SETTINGS] = FB(344042), [STR_WIFI] = FB(344055), [STR_TIMEZONE] = FB(344061),
+    [STR_BRIGHTNESS] = FB(344092), [STR_LED_BLINK] = FB(344105), [STR_ROTATE] = FB(344130),
+    [STR_ABOUT] = FB(344161), [STR_LANGUAGE] = FB(344174), [STR_DONE] = FB(344190),
+    [STR_BACK] = FB(344203), [STR_CANCEL] = FB(344213), [STR_DEL] = FB(344229),
+    [STR_RUNNING] = FB(344242), [STR_ON] = FB(344267), [STR_OFF] = FB(344277),
+    [STR_WAITING_NTP] = FB(344287), [STR_WIFI_SETUP] = FB(344351), [STR_SCANNING] = FB(344382),
+    [STR_SCAN_FAILED] = FB(344410), [STR_TAP_RETRY] = FB(344447),
+    [STR_SELECT_NETWORK] = FB(344508), [STR_NO_NETWORKS] = FB(344542),
+    [STR_NETWORK_LABEL] = FB(344573), [STR_ENTER_PASSWORD] = FB(344589),
+    [STR_CONNECTING] = FB(344629), [STR_CONNECTING_TO] = FB(344660),
+    [STR_CONNECTED] = FB(344694), [STR_CONNECTION_FAILED] = FB(344716),
+    [STR_KB_SPACE] = FB(344765), [STR_KB_GO] = FB(344772), [STR_VERSION] = FB(344775),
+    [STR_STATUS] = FB(344794), [STR_READ] = FB(344813), [STR_UPDATE] = FB(344823),
+    [STR_RESTARTING] = FB(344848), [STR_OTA_UPDATE] = FB(344879), [STR_NTP_SERVER] = FB(344916),
+    [STR_SERVER_LABEL] = FB(344956), [STR_NTP_SETTINGS] = FB(344987),
+    [STR_NTP_PRESETS] = FB(345012), [STR_PRESETS] = FB(345040), [STR_NONE] = FB(345056),
+    [STR_SELECT_REGION] = FB(345081), [STR_DST] = FB(345118), [STR_NO_DST] = FB(345152),
 };
 const char *const weekdays_si_shaped[7] = {
-    FB(346598), FB(346611), FB(346624), FB(346634), FB(346650), FB(346660), FB(346667),
+    FB(345198), FB(345211), FB(345224), FB(345234), FB(345250), FB(345260), FB(345267),
 };
 const char *const months_si_shaped[12] = {
-    FB(346677), FB(346684), FB(346694), FB(346704), FB(346714), FB(346724), FB(346728),
-    FB(346732), FB(346745), FB(346755), FB(346762), FB(346778),
+    FB(345277), FB(345284), FB(345294), FB(345304), FB(345314), FB(345324), FB(345328),
+    FB(345332), FB(345345), FB(345355), FB(345362), FB(345378),
 };
 const char lang_name_si_shaped[] = ("\xEE" "\x82" "\x86" "\xEE" "\x80" "\xAA" "\xEE" "\x81" "\x8D" "\xEE" "\x80" "\x89");
 
 // cldr-date-source-hash si a264d9bad8e19230
 const char *const cldr_weekdays_si_shaped[7] = {
-    FB(346791), FB(346804), FB(346817), FB(346827), FB(346843), FB(346853), FB(346860),
+    FB(345391), FB(345404), FB(345417), FB(345427), FB(345443), FB(345453), FB(345460),
 };
 const char *const cldr_months_si_shaped[12] = {
-    FB(346870), FB(346880), FB(346890), FB(346903), FB(346910), FB(346923), FB(346945),
-    FB(346955), FB(346965), FB(346975), FB(346982), FB(346989),
+    FB(345470), FB(345480), FB(345490), FB(345503), FB(345510), FB(345523), FB(345545),
+    FB(345555), FB(345565), FB(345575), FB(345582), FB(345589),
 };
 const char cldr_era_si_shaped[] = ("\xEE" "\x82" "\x9A" "\xEE" "\x80" "\xBB" "\xEE" "\x80" "\x99" "\xEE" "\x80" "\xBB");
 
 // km: 171 shaped cluster glyphs (Khmer Sangam MN)
 // shaped-source-hash km 7778afb70bec81e9
 const display_glyph_font_t font_km = {
-    .codepoints = FB16(347002),
-    .glyphs_rle = fonts_blob + 347515,
-    .glyphs_off = FB16(356038),
-    .glyphs_2x_rle = fonts_blob + 356382,
-    .glyphs_2x_off = FB16(361440),
-    .widths = fonts_blob + 347344,
+    .codepoints = FB16(345602),
+    .glyphs_rle = fonts_blob + 346115,
+    .glyphs_off = FB16(354638),
+    .glyphs_2x_rle = fonts_blob + 354982,
+    .glyphs_2x_off = FB16(360040),
+    .widths = fonts_blob + 345944,
     .count = 171,
     .glyph_width = 16,
 };
 const char *const lang_km_shaped[STR_COUNT] = {
-    [STR_SETTINGS] = FB(361784), [STR_WIFI] = FB(361797), [STR_TIMEZONE] = FB(361803),
-    [STR_BRIGHTNESS] = FB(361816), [STR_LED_BLINK] = FB(361823), [STR_ROTATE] = FB(361845),
-    [STR_ABOUT] = FB(361864), [STR_LANGUAGE] = FB(361868), [STR_DONE] = FB(361875),
-    [STR_BACK] = FB(361882), [STR_CANCEL] = FB(361901), [STR_DEL] = FB(361914),
-    [STR_RUNNING] = FB(361918), [STR_ON] = FB(361934), [STR_OFF] = FB(361941),
-    [STR_WAITING_NTP] = FB(361945), [STR_WIFI_SETUP] = FB(361973), [STR_SCANNING] = FB(362004),
-    [STR_SCAN_FAILED] = FB(362032), [STR_TAP_RETRY] = FB(362054),
-    [STR_SELECT_NETWORK] = FB(362088), [STR_NO_NETWORKS] = FB(362113),
-    [STR_NETWORK_LABEL] = FB(362126), [STR_ENTER_PASSWORD] = FB(362139),
-    [STR_CONNECTING] = FB(362161), [STR_CONNECTING_TO] = FB(362171),
-    [STR_CONNECTED] = FB(362184), [STR_CONNECTION_FAILED] = FB(362191),
-    [STR_KB_SPACE] = FB(362207), [STR_KB_GO] = FB(362217), [STR_VERSION] = FB(362220),
-    [STR_STATUS] = FB(362230), [STR_READ] = FB(362243), [STR_UPDATE] = FB(362253),
-    [STR_RESTARTING] = FB(362269), [STR_OTA_UPDATE] = FB(362288), [STR_NTP_SERVER] = FB(362316),
-    [STR_SERVER_LABEL] = FB(362341), [STR_NTP_SETTINGS] = FB(362357),
-    [STR_NTP_PRESETS] = FB(362379), [STR_PRESETS] = FB(362401), [STR_NONE] = FB(362414),
-    [STR_SELECT_REGION] = FB(362418), [STR_DST] = FB(362440), [STR_NO_DST] = FB(362459),
+    [STR_SETTINGS] = FB(360384), [STR_WIFI] = FB(360397), [STR_TIMEZONE] = FB(360403),
+    [STR_BRIGHTNESS] = FB(360416), [STR_LED_BLINK] = FB(360423), [STR_ROTATE] = FB(360445),
+    [STR_ABOUT] = FB(360464), [STR_LANGUAGE] = FB(360468), [STR_DONE] = FB(360475),
+    [STR_BACK] = FB(360482), [STR_CANCEL] = FB(360501), [STR_DEL] = FB(360514),
+    [STR_RUNNING] = FB(360518), [STR_ON] = FB(360534), [STR_OFF] = FB(360541),
+    [STR_WAITING_NTP] = FB(360545), [STR_WIFI_SETUP] = FB(360573), [STR_SCANNING] = FB(360604),
+    [STR_SCAN_FAILED] = FB(360632), [STR_TAP_RETRY] = FB(360654),
+    [STR_SELECT_NETWORK] = FB(360688), [STR_NO_NETWORKS] = FB(360713),
+    [STR_NETWORK_LABEL] = FB(360726), [STR_ENTER_PASSWORD] = FB(360739),
+    [STR_CONNECTING] = FB(360761), [STR_CONNECTING_TO] = FB(360771),
+    [STR_CONNECTED] = FB(360784), [STR_CONNECTION_FAILED] = FB(360791),
+    [STR_KB_SPACE] = FB(360807), [STR_KB_GO] = FB(360817), [STR_VERSION] = FB(360820),
+    [STR_STATUS] = FB(360830), [STR_READ] = FB(360843), [STR_UPDATE] = FB(360853),
+    [STR_RESTARTING] = FB(360869), [STR_OTA_UPDATE] = FB(360888), [STR_NTP_SERVER] = FB(360916),
+    [STR_SERVER_LABEL] = FB(360941), [STR_NTP_SETTINGS] = FB(360957),
+    [STR_NTP_PRESETS] = FB(360979), [STR_PRESETS] = FB(361001), [STR_NONE] = FB(361014),
+    [STR_SELECT_REGION] = FB(361018), [STR_DST] = FB(361040), [STR_NO_DST] = FB(361059),
 };
 const char *const weekdays_km_shaped[7] = {
-    FB(362481), FB(362491), FB(362498), FB(362505), FB(362509), FB(362519), FB(362526),
+    FB(361081), FB(361091), FB(361098), FB(361105), FB(361109), FB(361119), FB(361126),
 };
 const char *const months_km_shaped[12] = {
-    FB(362533), FB(362543), FB(362547), FB(362551), FB(362561), FB(362571), FB(362578),
-    FB(362585), FB(362592), FB(362599), FB(362606), FB(362613),
+    FB(361133), FB(361143), FB(361147), FB(361151), FB(361161), FB(361171), FB(361178),
+    FB(361185), FB(361192), FB(361199), FB(361206), FB(361213),
 };
 const char lang_name_km_shaped[] = ("\xEE" "\x80" "\x84" "\xEE" "\x82" "\xA9");
 
 // cldr-date-source-hash km 8257a2a4ea9736ae
 const char *const cldr_weekdays_km_shaped[7] = {
-    FB(362617), FB(362627), FB(362634), FB(362641), FB(362645), FB(362655), FB(362662),
+    FB(361217), FB(361227), FB(361234), FB(361241), FB(361245), FB(361255), FB(361262),
 };
 const char *const cldr_months_km_shaped[12] = {
-    FB(362669), FB(362679), FB(362683), FB(362687), FB(362697), FB(362707), FB(362714),
-    FB(362721), FB(362728), FB(362735), FB(362742), FB(362749),
+    FB(361269), FB(361279), FB(361283), FB(361287), FB(361297), FB(361307), FB(361314),
+    FB(361321), FB(361328), FB(361335), FB(361342), FB(361349),
 };
 const char cldr_era_km_shaped[] = ("\xEE" "\x82" "\xAA" "\xEE" "\x80" "\xBC" "\xEE" "\x82" "\x9C" "\xEE" "\x80" "\xBD");
 
 // lo: 145 shaped cluster glyphs (Lao Sangam MN)
 // shaped-source-hash lo 342630e3e6bcefc0
 const display_glyph_font_t font_lo = {
-    .codepoints = FB16(362754),
-    .glyphs_rle = fonts_blob + 363189,
-    .glyphs_off = FB16(370636),
-    .glyphs_2x_rle = fonts_blob + 370928,
-    .glyphs_2x_off = FB16(375738),
-    .widths = fonts_blob + 363044,
+    .codepoints = FB16(361354),
+    .glyphs_rle = fonts_blob + 361789,
+    .glyphs_off = FB16(369236),
+    .glyphs_2x_rle = fonts_blob + 369528,
+    .glyphs_2x_off = FB16(374338),
+    .widths = fonts_blob + 361644,
     .count = 145,
     .glyph_width = 16,
 };
 const char *const lang_lo_shaped[STR_COUNT] = {
-    [STR_SETTINGS] = FB(376030), [STR_WIFI] = FB(376046), [STR_TIMEZONE] = FB(376052),
-    [STR_BRIGHTNESS] = FB(376074), [STR_LED_BLINK] = FB(376093), [STR_ROTATE] = FB(376115),
-    [STR_ABOUT] = FB(376134), [STR_LANGUAGE] = FB(376144), [STR_DONE] = FB(376157),
-    [STR_BACK] = FB(376164), [STR_CANCEL] = FB(376171), [STR_DEL] = FB(376181),
-    [STR_RUNNING] = FB(376185), [STR_ON] = FB(376207), [STR_OFF] = FB(376214),
-    [STR_WAITING_NTP] = FB(376218), [STR_WIFI_SETUP] = FB(376246), [STR_SCANNING] = FB(376271),
-    [STR_SCAN_FAILED] = FB(376296), [STR_TAP_RETRY] = FB(376324),
-    [STR_SELECT_NETWORK] = FB(376355), [STR_NO_NETWORKS] = FB(376377),
-    [STR_NETWORK_LABEL] = FB(376396), [STR_ENTER_PASSWORD] = FB(376412),
-    [STR_CONNECTING] = FB(376431), [STR_CONNECTING_TO] = FB(376450),
-    [STR_CONNECTED] = FB(376466), [STR_CONNECTION_FAILED] = FB(376485),
-    [STR_KB_SPACE] = FB(376510), [STR_KB_GO] = FB(376517), [STR_VERSION] = FB(376520),
-    [STR_STATUS] = FB(376533), [STR_READ] = FB(376555), [STR_UPDATE] = FB(376565),
-    [STR_RESTARTING] = FB(376578), [STR_OTA_UPDATE] = FB(376597), [STR_NTP_SERVER] = FB(376622),
-    [STR_SERVER_LABEL] = FB(376644), [STR_NTP_SETTINGS] = FB(376657),
-    [STR_NTP_PRESETS] = FB(376676), [STR_PRESETS] = FB(376710), [STR_NONE] = FB(376732),
-    [STR_SELECT_REGION] = FB(376736), [STR_DST] = FB(376755), [STR_NO_DST] = FB(376783),
+    [STR_SETTINGS] = FB(374630), [STR_WIFI] = FB(374646), [STR_TIMEZONE] = FB(374652),
+    [STR_BRIGHTNESS] = FB(374674), [STR_LED_BLINK] = FB(374693), [STR_ROTATE] = FB(374715),
+    [STR_ABOUT] = FB(374734), [STR_LANGUAGE] = FB(374744), [STR_DONE] = FB(374757),
+    [STR_BACK] = FB(374764), [STR_CANCEL] = FB(374771), [STR_DEL] = FB(374781),
+    [STR_RUNNING] = FB(374785), [STR_ON] = FB(374807), [STR_OFF] = FB(374814),
+    [STR_WAITING_NTP] = FB(374818), [STR_WIFI_SETUP] = FB(374846), [STR_SCANNING] = FB(374871),
+    [STR_SCAN_FAILED] = FB(374896), [STR_TAP_RETRY] = FB(374924),
+    [STR_SELECT_NETWORK] = FB(374955), [STR_NO_NETWORKS] = FB(374977),
+    [STR_NETWORK_LABEL] = FB(374996), [STR_ENTER_PASSWORD] = FB(375012),
+    [STR_CONNECTING] = FB(375031), [STR_CONNECTING_TO] = FB(375050),
+    [STR_CONNECTED] = FB(375066), [STR_CONNECTION_FAILED] = FB(375085),
+    [STR_KB_SPACE] = FB(375110), [STR_KB_GO] = FB(375117), [STR_VERSION] = FB(375120),
+    [STR_STATUS] = FB(375133), [STR_READ] = FB(375155), [STR_UPDATE] = FB(375165),
+    [STR_RESTARTING] = FB(375178), [STR_OTA_UPDATE] = FB(375197), [STR_NTP_SERVER] = FB(375222),
+    [STR_SERVER_LABEL] = FB(375244), [STR_NTP_SETTINGS] = FB(375257),
+    [STR_NTP_PRESETS] = FB(375276), [STR_PRESETS] = FB(375310), [STR_NONE] = FB(375332),
+    [STR_SELECT_REGION] = FB(375336), [STR_DST] = FB(375355), [STR_NO_DST] = FB(375383),
 };
 const char *const weekdays_lo_shaped[7] = {
-    FB(376814), FB(376824), FB(376828), FB(376841), FB(376845), FB(376855), FB(376859),
+    FB(375414), FB(375424), FB(375428), FB(375441), FB(375445), FB(375455), FB(375459),
 };
 const char *const months_lo_shaped[12] = {
-    FB(376866), FB(376879), FB(376892), FB(376905), FB(376918), FB(376931), FB(376941),
-    FB(376954), FB(376967), FB(376980), FB(376993), FB(377006),
+    FB(375466), FB(375479), FB(375492), FB(375505), FB(375518), FB(375531), FB(375541),
+    FB(375554), FB(375567), FB(375580), FB(375593), FB(375606),
 };
 const char lang_name_lo_shaped[] = ("\xEE" "\x80" "\x8A" "\xEE" "\x80" "\x8B" "\xEE" "\x80" "\x89");
 
 // cldr-date-source-hash lo 46bf98bdcaa166b5
 const char *const cldr_weekdays_lo_shaped[7] = {
-    FB(377019), FB(377029), FB(377033), FB(377046), FB(377050), FB(377060), FB(377064),
+    FB(375619), FB(375629), FB(375633), FB(375646), FB(375650), FB(375660), FB(375664),
 };
 const char *const cldr_months_lo_shaped[12] = {
-    FB(377071), FB(377084), FB(377097), FB(377110), FB(377123), FB(377136), FB(377146),
-    FB(377159), FB(377172), FB(377185), FB(377198), FB(377211),
+    FB(375671), FB(375684), FB(375697), FB(375710), FB(375723), FB(375736), FB(375746),
+    FB(375759), FB(375772), FB(375785), FB(375798), FB(375811),
 };
 const char cldr_era_lo_shaped[] = ("\xEE" "\x80" "\x8C" "\xEE" "\x80" "\xB3" "\xEE" "\x80" "\xA0" "\xEE" "\x80" "\xB3");
 
 // my: 172 shaped cluster glyphs (Myanmar Sangam MN)
 // shaped-source-hash my 3415aef773996085
 const display_glyph_font_t font_my = {
-    .codepoints = FB16(377224),
-    .glyphs_rle = fonts_blob + 377740,
-    .glyphs_off = FB16(385656),
-    .glyphs_2x_rle = fonts_blob + 386002,
-    .glyphs_2x_off = FB16(392298),
-    .widths = fonts_blob + 377568,
+    .codepoints = FB16(375824),
+    .glyphs_rle = fonts_blob + 376340,
+    .glyphs_off = FB16(384256),
+    .glyphs_2x_rle = fonts_blob + 384602,
+    .glyphs_2x_off = FB16(390898),
+    .widths = fonts_blob + 376168,
     .count = 172,
     .glyph_width = 16,
 };
 const char *const lang_my_shaped[STR_COUNT] = {
-    [STR_SETTINGS] = FB(392644), [STR_WIFI] = FB(392666), [STR_TIMEZONE] = FB(392672),
-    [STR_BRIGHTNESS] = FB(392685), [STR_LED_BLINK] = FB(392704), [STR_ROTATE] = FB(392726),
-    [STR_ABOUT] = FB(392742), [STR_LANGUAGE] = FB(392761), [STR_DONE] = FB(392774),
-    [STR_BACK] = FB(392787), [STR_CANCEL] = FB(392803), [STR_DEL] = FB(392819),
-    [STR_RUNNING] = FB(392829), [STR_ON] = FB(392848), [STR_OFF] = FB(392852),
-    [STR_WAITING_NTP] = FB(392859), [STR_WIFI_SETUP] = FB(392896), [STR_SCANNING] = FB(392927),
-    [STR_SCAN_FAILED] = FB(392952), [STR_TAP_RETRY] = FB(392986),
-    [STR_SELECT_NETWORK] = FB(393011), [STR_NO_NETWORKS] = FB(393033),
-    [STR_NETWORK_LABEL] = FB(393049), [STR_ENTER_PASSWORD] = FB(393059),
-    [STR_CONNECTING] = FB(393087), [STR_CONNECTING_TO] = FB(393106),
-    [STR_CONNECTED] = FB(393128), [STR_CONNECTION_FAILED] = FB(393147),
-    [STR_KB_SPACE] = FB(393184), [STR_KB_GO] = FB(393203), [STR_VERSION] = FB(393206),
-    [STR_STATUS] = FB(393225), [STR_READ] = FB(393250), [STR_UPDATE] = FB(393263),
-    [STR_RESTARTING] = FB(393273), [STR_OTA_UPDATE] = FB(393289), [STR_NTP_SERVER] = FB(393311),
-    [STR_SERVER_LABEL] = FB(393336), [STR_NTP_SETTINGS] = FB(393352),
-    [STR_NTP_PRESETS] = FB(393377), [STR_PRESETS] = FB(393399), [STR_NONE] = FB(393409),
-    [STR_SELECT_REGION] = FB(393416), [STR_DST] = FB(393438), [STR_NO_DST] = FB(393460),
+    [STR_SETTINGS] = FB(391244), [STR_WIFI] = FB(391266), [STR_TIMEZONE] = FB(391272),
+    [STR_BRIGHTNESS] = FB(391285), [STR_LED_BLINK] = FB(391304), [STR_ROTATE] = FB(391326),
+    [STR_ABOUT] = FB(391342), [STR_LANGUAGE] = FB(391361), [STR_DONE] = FB(391374),
+    [STR_BACK] = FB(391387), [STR_CANCEL] = FB(391403), [STR_DEL] = FB(391419),
+    [STR_RUNNING] = FB(391429), [STR_ON] = FB(391448), [STR_OFF] = FB(391452),
+    [STR_WAITING_NTP] = FB(391459), [STR_WIFI_SETUP] = FB(391496), [STR_SCANNING] = FB(391527),
+    [STR_SCAN_FAILED] = FB(391552), [STR_TAP_RETRY] = FB(391586),
+    [STR_SELECT_NETWORK] = FB(391611), [STR_NO_NETWORKS] = FB(391633),
+    [STR_NETWORK_LABEL] = FB(391649), [STR_ENTER_PASSWORD] = FB(391659),
+    [STR_CONNECTING] = FB(391687), [STR_CONNECTING_TO] = FB(391706),
+    [STR_CONNECTED] = FB(391728), [STR_CONNECTION_FAILED] = FB(391747),
+    [STR_KB_SPACE] = FB(391784), [STR_KB_GO] = FB(391803), [STR_VERSION] = FB(391806),
+    [STR_STATUS] = FB(391825), [STR_READ] = FB(391850), [STR_UPDATE] = FB(391863),
+    [STR_RESTARTING] = FB(391873), [STR_OTA_UPDATE] = FB(391889), [STR_NTP_SERVER] = FB(391911),
+    [STR_SERVER_LABEL] = FB(391936), [STR_NTP_SETTINGS] = FB(391952),
+    [STR_NTP_PRESETS] = FB(391977), [STR_PRESETS] = FB(391999), [STR_NONE] = FB(392009),
+    [STR_SELECT_REGION] = FB(392016), [STR_DST] = FB(392038), [STR_NO_DST] = FB(392060),
 };
 const char *const weekdays_my_shaped[7] = {
-    FB(393485), FB(393498), FB(393508), FB(393515), FB(393522), FB(393547), FB(393566),
+    FB(392085), FB(392098), FB(392108), FB(392115), FB(392122), FB(392147), FB(392166),
 };
 const char *const months_my_shaped[12] = {
-    FB(393576), FB(393583), FB(393590), FB(393597), FB(393601), FB(393608), FB(393612),
-    FB(393616), FB(393620), FB(393627), FB(393640), FB(393644),
+    FB(392176), FB(392183), FB(392190), FB(392197), FB(392201), FB(392208), FB(392212),
+    FB(392216), FB(392220), FB(392227), FB(392240), FB(392244),
 };
 const char lang_name_my_shaped[] = ("\xEE" "\x80" "\xA2" "\xEE" "\x81" "\x8C" "\xEE" "\x82" "\xA0" "\xEE" "\x80" "\x9E");
 
 // cldr-date-source-hash my cf9835cdee94f529
 const char *const cldr_weekdays_my_shaped[7] = {
-    FB(393648), FB(393661), FB(393671), FB(393678), FB(393685), FB(393710), FB(393729),
+    FB(392248), FB(392261), FB(392271), FB(392278), FB(392285), FB(392310), FB(392329),
 };
 const char *const cldr_months_my_shaped[12] = {
-    FB(393739), FB(393746), FB(393753), FB(393760), FB(393764), FB(393771), FB(393775),
-    FB(393779), FB(393783), FB(393790), FB(393803), FB(393807),
+    FB(392339), FB(392346), FB(392353), FB(392360), FB(392364), FB(392371), FB(392375),
+    FB(392379), FB(392383), FB(392390), FB(392403), FB(392407),
 };
 const char cldr_era_my_shaped[] = ("\xEE" "\x80" "\x8B" "\xEE" "\x81" "\xAF" "\xEE" "\x82" "\x9F");
 const char cldr_literal_my_0_shaped[] = ("\xEE" "\x82" "\xA1" "\xEE" "\x80" "\x93");
@@ -1050,50 +1050,50 @@ const char cldr_literal_my_0_shaped[] = ("\xEE" "\x82" "\xA1" "\xEE" "\x80" "\x9
 // am: 164 shaped cluster glyphs (Kefa)
 // shaped-source-hash am 4cb474553011eada
 const display_glyph_font_t font_am = {
-    .codepoints = FB16(393812),
-    .glyphs_rle = fonts_blob + 394304,
-    .glyphs_off = FB16(402452),
-    .glyphs_2x_rle = fonts_blob + 402782,
-    .glyphs_2x_off = FB16(410194),
-    .widths = fonts_blob + 394140,
+    .codepoints = FB16(392412),
+    .glyphs_rle = fonts_blob + 392904,
+    .glyphs_off = FB16(401052),
+    .glyphs_2x_rle = fonts_blob + 401382,
+    .glyphs_2x_off = FB16(408794),
+    .widths = fonts_blob + 392740,
     .count = 164,
     .glyph_width = 16,
 };
 const char *const lang_am_shaped[STR_COUNT] = {
-    [STR_SETTINGS] = FB(410524), [STR_WIFI] = FB(410540), [STR_TIMEZONE] = FB(410546),
-    [STR_BRIGHTNESS] = FB(410568), [STR_LED_BLINK] = FB(410584), [STR_ROTATE] = FB(410609),
-    [STR_ABOUT] = FB(410631), [STR_LANGUAGE] = FB(410638), [STR_DONE] = FB(410648),
-    [STR_BACK] = FB(410664), [STR_CANCEL] = FB(410677), [STR_DEL] = FB(410687),
-    [STR_RUNNING] = FB(410697), [STR_ON] = FB(410719), [STR_OFF] = FB(410732),
-    [STR_WAITING_NTP] = FB(410745), [STR_WIFI_SETUP] = FB(410782), [STR_SCANNING] = FB(410813),
-    [STR_SCAN_FAILED] = FB(410838), [STR_TAP_RETRY] = FB(410869),
-    [STR_SELECT_NETWORK] = FB(410912), [STR_NO_NETWORKS] = FB(410949),
-    [STR_NETWORK_LABEL] = FB(410986), [STR_ENTER_PASSWORD] = FB(411002),
-    [STR_CONNECTING] = FB(411039), [STR_CONNECTING_TO] = FB(411058),
-    [STR_CONNECTED] = FB(411080), [STR_CONNECTION_FAILED] = FB(411102),
-    [STR_KB_SPACE] = FB(411139), [STR_KB_GO] = FB(411152), [STR_VERSION] = FB(411155),
-    [STR_STATUS] = FB(411168), [STR_READ] = FB(411181), [STR_UPDATE] = FB(411200),
-    [STR_RESTARTING] = FB(411213), [STR_OTA_UPDATE] = FB(411247), [STR_NTP_SERVER] = FB(411272),
-    [STR_SERVER_LABEL] = FB(411300), [STR_NTP_SETTINGS] = FB(411319),
-    [STR_NTP_PRESETS] = FB(411347), [STR_PRESETS] = FB(411378), [STR_NONE] = FB(411394),
-    [STR_SELECT_REGION] = FB(411404), [STR_DST] = FB(411426), [STR_NO_DST] = FB(411448),
+    [STR_SETTINGS] = FB(409124), [STR_WIFI] = FB(409140), [STR_TIMEZONE] = FB(409146),
+    [STR_BRIGHTNESS] = FB(409168), [STR_LED_BLINK] = FB(409184), [STR_ROTATE] = FB(409209),
+    [STR_ABOUT] = FB(409231), [STR_LANGUAGE] = FB(409238), [STR_DONE] = FB(409248),
+    [STR_BACK] = FB(409264), [STR_CANCEL] = FB(409277), [STR_DEL] = FB(409287),
+    [STR_RUNNING] = FB(409297), [STR_ON] = FB(409319), [STR_OFF] = FB(409332),
+    [STR_WAITING_NTP] = FB(409345), [STR_WIFI_SETUP] = FB(409382), [STR_SCANNING] = FB(409413),
+    [STR_SCAN_FAILED] = FB(409438), [STR_TAP_RETRY] = FB(409469),
+    [STR_SELECT_NETWORK] = FB(409512), [STR_NO_NETWORKS] = FB(409549),
+    [STR_NETWORK_LABEL] = FB(409586), [STR_ENTER_PASSWORD] = FB(409602),
+    [STR_CONNECTING] = FB(409639), [STR_CONNECTING_TO] = FB(409658),
+    [STR_CONNECTED] = FB(409680), [STR_CONNECTION_FAILED] = FB(409702),
+    [STR_KB_SPACE] = FB(409739), [STR_KB_GO] = FB(409752), [STR_VERSION] = FB(409755),
+    [STR_STATUS] = FB(409768), [STR_READ] = FB(409781), [STR_UPDATE] = FB(409800),
+    [STR_RESTARTING] = FB(409813), [STR_OTA_UPDATE] = FB(409847), [STR_NTP_SERVER] = FB(409872),
+    [STR_SERVER_LABEL] = FB(409900), [STR_NTP_SETTINGS] = FB(409919),
+    [STR_NTP_PRESETS] = FB(409947), [STR_PRESETS] = FB(409978), [STR_NONE] = FB(409994),
+    [STR_SELECT_REGION] = FB(410004), [STR_DST] = FB(410026), [STR_NO_DST] = FB(410048),
 };
 const char *const weekdays_am_shaped[7] = {
-    FB(411482), FB(411492), FB(411499), FB(411509), FB(411519), FB(411529), FB(411539),
+    FB(410082), FB(410092), FB(410099), FB(410109), FB(410119), FB(410129), FB(410139),
 };
 const char *const months_am_shaped[12] = {
-    FB(411549), FB(411556), FB(411563), FB(411573), FB(411583), FB(411590), FB(411597),
-    FB(411607), FB(411617), FB(411627), FB(411637), FB(411647),
+    FB(410149), FB(410156), FB(410163), FB(410173), FB(410183), FB(410190), FB(410197),
+    FB(410207), FB(410217), FB(410227), FB(410237), FB(410247),
 };
 const char lang_name_am_shaped[] = ("\xEE" "\x80" "\x98" "\xEE" "\x81" "\xB7" "\xEE" "\x80" "\xAB" "\xEE" "\x82" "\xA1");
 
 // cldr-date-source-hash am 8114af5b45b3412e
 const char *const cldr_weekdays_am_shaped[7] = {
-    FB(411657), FB(411667), FB(411674), FB(411684), FB(411694), FB(411704), FB(411714),
+    FB(410257), FB(410267), FB(410274), FB(410284), FB(410294), FB(410304), FB(410314),
 };
 const char *const cldr_months_am_shaped[12] = {
-    FB(411724), FB(411731), FB(411738), FB(411748), FB(411758), FB(411765), FB(411772),
-    FB(411782), FB(411792), FB(411802), FB(411812), FB(411822),
+    FB(410324), FB(410331), FB(410338), FB(410348), FB(410358), FB(410365), FB(410372),
+    FB(410382), FB(410392), FB(410402), FB(410412), FB(410422),
 };
 const char cldr_era_am_shaped[] = ("\xEE" "\x80" "\x87" "\xEE" "\x82" "\xA2" "\xEE" "\x82" "\x83");
 const char cldr_literal_am_0_shaped[] = ("\xEE" "\x82" "\xA3" "\xEE" "\x80" "\x89");
@@ -1101,550 +1101,550 @@ const char cldr_literal_am_0_shaped[] = ("\xEE" "\x82" "\xA3" "\xEE" "\x80" "\x8
 // kok: 152 shaped cluster glyphs (Kohinoor Devanagari)
 // shaped-source-hash kok ef90a4254a263f44
 const display_glyph_font_t font_kok = {
-    .codepoints = FB16(411832),
-    .glyphs_rle = fonts_blob + 412288,
-    .glyphs_off = FB16(419368),
-    .glyphs_2x_rle = fonts_blob + 419674,
-    .glyphs_2x_off = FB16(424914),
-    .widths = fonts_blob + 412136,
+    .codepoints = FB16(410432),
+    .glyphs_rle = fonts_blob + 410888,
+    .glyphs_off = FB16(417968),
+    .glyphs_2x_rle = fonts_blob + 418274,
+    .glyphs_2x_off = FB16(423514),
+    .widths = fonts_blob + 410736,
     .count = 152,
     .glyph_width = 16,
 };
 const char *const lang_kok_shaped[STR_COUNT] = {
-    [STR_WIFI] = FB(425220), [STR_SETTINGS] = FB(425226), [STR_TIMEZONE] = FB(425239),
-    [STR_BRIGHTNESS] = FB(425261), [STR_LED_BLINK] = FB(425277), [STR_ROTATE] = FB(425302),
-    [STR_ABOUT] = FB(425327), [STR_LANGUAGE] = FB(425340), [STR_DONE] = FB(425350),
-    [STR_BACK] = FB(425360), [STR_CANCEL] = FB(425373), [STR_DEL] = FB(425380),
-    [STR_RUNNING] = FB(425390), [STR_ON] = FB(425409), [STR_OFF] = FB(425419),
-    [STR_WAITING_NTP] = FB(425423), [STR_WIFI_SETUP] = FB(425478), [STR_SCANNING] = FB(425512),
-    [STR_SCAN_FAILED] = FB(425537), [STR_TAP_RETRY] = FB(425556),
-    [STR_SELECT_NETWORK] = FB(425611), [STR_NO_NETWORKS] = FB(425636),
-    [STR_NETWORK_LABEL] = FB(425667), [STR_ENTER_PASSWORD] = FB(425683),
-    [STR_CONNECTING] = FB(425714), [STR_CONNECTING_TO] = FB(425730),
-    [STR_CONNECTED] = FB(425749), [STR_CONNECTION_FAILED] = FB(425762),
-    [STR_KB_SPACE] = FB(425787), [STR_KB_GO] = FB(425800), [STR_VERSION] = FB(425803),
-    [STR_STATUS] = FB(425816), [STR_READ] = FB(425832), [STR_UPDATE] = FB(425845),
-    [STR_RESTARTING] = FB(425855), [STR_OTA_UPDATE] = FB(425886), [STR_NTP_SERVER] = FB(425908),
-    [STR_SERVER_LABEL] = FB(425927), [STR_NTP_SETTINGS] = FB(425937),
-    [STR_NTP_PRESETS] = FB(425962), [STR_PRESETS] = FB(425987), [STR_NONE] = FB(426000),
-    [STR_SELECT_REGION] = FB(426007), [STR_DST] = FB(426029), [STR_NO_DST] = FB(426054),
+    [STR_WIFI] = FB(423820), [STR_SETTINGS] = FB(423826), [STR_TIMEZONE] = FB(423839),
+    [STR_BRIGHTNESS] = FB(423861), [STR_LED_BLINK] = FB(423877), [STR_ROTATE] = FB(423902),
+    [STR_ABOUT] = FB(423927), [STR_LANGUAGE] = FB(423940), [STR_DONE] = FB(423950),
+    [STR_BACK] = FB(423960), [STR_CANCEL] = FB(423973), [STR_DEL] = FB(423980),
+    [STR_RUNNING] = FB(423990), [STR_ON] = FB(424009), [STR_OFF] = FB(424019),
+    [STR_WAITING_NTP] = FB(424023), [STR_WIFI_SETUP] = FB(424078), [STR_SCANNING] = FB(424112),
+    [STR_SCAN_FAILED] = FB(424137), [STR_TAP_RETRY] = FB(424156),
+    [STR_SELECT_NETWORK] = FB(424211), [STR_NO_NETWORKS] = FB(424236),
+    [STR_NETWORK_LABEL] = FB(424267), [STR_ENTER_PASSWORD] = FB(424283),
+    [STR_CONNECTING] = FB(424314), [STR_CONNECTING_TO] = FB(424330),
+    [STR_CONNECTED] = FB(424349), [STR_CONNECTION_FAILED] = FB(424362),
+    [STR_KB_SPACE] = FB(424387), [STR_KB_GO] = FB(424400), [STR_VERSION] = FB(424403),
+    [STR_STATUS] = FB(424416), [STR_READ] = FB(424432), [STR_UPDATE] = FB(424445),
+    [STR_RESTARTING] = FB(424455), [STR_OTA_UPDATE] = FB(424486), [STR_NTP_SERVER] = FB(424508),
+    [STR_SERVER_LABEL] = FB(424527), [STR_NTP_SETTINGS] = FB(424537),
+    [STR_NTP_PRESETS] = FB(424562), [STR_PRESETS] = FB(424587), [STR_NONE] = FB(424600),
+    [STR_SELECT_REGION] = FB(424607), [STR_DST] = FB(424629), [STR_NO_DST] = FB(424654),
 };
 const char *const weekdays_kok_shaped[7] = {
-    FB(426088), FB(426104), FB(426120), FB(426133), FB(426146), FB(426165), FB(426178),
+    FB(424688), FB(424704), FB(424720), FB(424733), FB(424746), FB(424765), FB(424778),
 };
 const char *const months_kok_shaped[12] = {
-    FB(426191), FB(426201), FB(426211), FB(426221), FB(426231), FB(426235), FB(426239),
-    FB(426246), FB(426253), FB(426260), FB(426270), FB(426280),
+    FB(424791), FB(424801), FB(424811), FB(424821), FB(424831), FB(424835), FB(424839),
+    FB(424846), FB(424853), FB(424860), FB(424870), FB(424880),
 };
 const char lang_name_kok_shaped[] = ("\xEE" "\x80" "\xA8" "\xEE" "\x82" "\x96" "\xEE" "\x81" "\xB5" "\xEE" "\x81" "\x9A" "\xEE" "\x80" "\xB5");
 
 // cldr-date-source-hash kok e4a19ab65cb5c052
 const char *const cldr_weekdays_kok_shaped[7] = {
-    FB(426290), FB(426306), FB(426322), FB(426335), FB(426348), FB(426367), FB(426380),
+    FB(424890), FB(424906), FB(424922), FB(424935), FB(424948), FB(424967), FB(424980),
 };
 const char *const cldr_months_kok_shaped[12] = {
-    FB(426393), FB(426403), FB(426413), FB(426423), FB(426433), FB(426437), FB(426441),
-    FB(426448), FB(426455), FB(426462), FB(426472), FB(426482),
+    FB(424993), FB(425003), FB(425013), FB(425023), FB(425033), FB(425037), FB(425041),
+    FB(425048), FB(425055), FB(425062), FB(425072), FB(425082),
 };
 const char cldr_era_kok_shaped[] = ("\xEE" "\x80" "\x9C" "\xEE" "\x82" "\x97" "\xEE" "\x80" "\xB8" "\xEE" "\x81" "\xBA" "\xEE" "\x80" "\xB7");
 
 // as: 159 shaped cluster glyphs (Kohinoor Bangla)
 // shaped-source-hash as 5eeb232e7b8d5683
 const display_glyph_font_t font_as = {
-    .codepoints = FB16(426492),
-    .glyphs_rle = fonts_blob + 426969,
-    .glyphs_off = FB16(433582),
-    .glyphs_2x_rle = fonts_blob + 433902,
-    .glyphs_2x_off = FB16(440644),
-    .widths = fonts_blob + 426810,
+    .codepoints = FB16(425092),
+    .glyphs_rle = fonts_blob + 425569,
+    .glyphs_off = FB16(432182),
+    .glyphs_2x_rle = fonts_blob + 432502,
+    .glyphs_2x_off = FB16(439244),
+    .widths = fonts_blob + 425410,
     .count = 159,
     .glyph_width = 16,
 };
 const char *const lang_as_shaped[STR_COUNT] = {
-    [STR_WIFI] = FB(440964), [STR_SETTINGS] = FB(440970), [STR_TIMEZONE] = FB(440986),
-    [STR_BRIGHTNESS] = FB(441008), [STR_LED_BLINK] = FB(441024), [STR_ROTATE] = FB(441058),
-    [STR_ABOUT] = FB(441089), [STR_LANGUAGE] = FB(441105), [STR_DONE] = FB(441118),
-    [STR_BACK] = FB(441128), [STR_CANCEL] = FB(441141), [STR_DEL] = FB(441157),
-    [STR_RUNNING] = FB(441167), [STR_ON] = FB(441189), [STR_OFF] = FB(441196),
-    [STR_WAITING_NTP] = FB(441203), [STR_WIFI_SETUP] = FB(441249), [STR_SCANNING] = FB(441283),
-    [STR_SCAN_FAILED] = FB(441323), [STR_TAP_RETRY] = FB(441348),
-    [STR_SELECT_NETWORK] = FB(441406), [STR_NO_NETWORKS] = FB(441440),
-    [STR_NETWORK_LABEL] = FB(441492), [STR_ENTER_PASSWORD] = FB(441514),
-    [STR_CONNECTING] = FB(441548), [STR_CONNECTING_TO] = FB(441582),
-    [STR_CONNECTED] = FB(441604), [STR_CONNECTION_FAILED] = FB(441623),
-    [STR_KB_SPACE] = FB(441657), [STR_KB_GO] = FB(441670), [STR_VERSION] = FB(441673),
-    [STR_STATUS] = FB(441692), [STR_READ] = FB(441708), [STR_UPDATE] = FB(441733),
-    [STR_RESTARTING] = FB(441749), [STR_OTA_UPDATE] = FB(441768), [STR_NTP_SERVER] = FB(441796),
-    [STR_SERVER_LABEL] = FB(441827), [STR_NTP_SETTINGS] = FB(441849),
-    [STR_NTP_PRESETS] = FB(441877), [STR_PRESETS] = FB(441902), [STR_NONE] = FB(441915),
-    [STR_SELECT_REGION] = FB(441925), [STR_DST] = FB(441950), [STR_NO_DST] = FB(441972),
+    [STR_WIFI] = FB(439564), [STR_SETTINGS] = FB(439570), [STR_TIMEZONE] = FB(439586),
+    [STR_BRIGHTNESS] = FB(439608), [STR_LED_BLINK] = FB(439624), [STR_ROTATE] = FB(439658),
+    [STR_ABOUT] = FB(439689), [STR_LANGUAGE] = FB(439705), [STR_DONE] = FB(439718),
+    [STR_BACK] = FB(439728), [STR_CANCEL] = FB(439741), [STR_DEL] = FB(439757),
+    [STR_RUNNING] = FB(439767), [STR_ON] = FB(439789), [STR_OFF] = FB(439796),
+    [STR_WAITING_NTP] = FB(439803), [STR_WIFI_SETUP] = FB(439849), [STR_SCANNING] = FB(439883),
+    [STR_SCAN_FAILED] = FB(439923), [STR_TAP_RETRY] = FB(439948),
+    [STR_SELECT_NETWORK] = FB(440006), [STR_NO_NETWORKS] = FB(440040),
+    [STR_NETWORK_LABEL] = FB(440092), [STR_ENTER_PASSWORD] = FB(440114),
+    [STR_CONNECTING] = FB(440148), [STR_CONNECTING_TO] = FB(440182),
+    [STR_CONNECTED] = FB(440204), [STR_CONNECTION_FAILED] = FB(440223),
+    [STR_KB_SPACE] = FB(440257), [STR_KB_GO] = FB(440270), [STR_VERSION] = FB(440273),
+    [STR_STATUS] = FB(440292), [STR_READ] = FB(440308), [STR_UPDATE] = FB(440333),
+    [STR_RESTARTING] = FB(440349), [STR_OTA_UPDATE] = FB(440368), [STR_NTP_SERVER] = FB(440396),
+    [STR_SERVER_LABEL] = FB(440427), [STR_NTP_SETTINGS] = FB(440449),
+    [STR_NTP_PRESETS] = FB(440477), [STR_PRESETS] = FB(440502), [STR_NONE] = FB(440515),
+    [STR_SELECT_REGION] = FB(440525), [STR_DST] = FB(440550), [STR_NO_DST] = FB(440572),
 };
 const char *const weekdays_as_shaped[7] = {
-    FB(442006), FB(442016), FB(442029), FB(442039), FB(442049), FB(442059), FB(442066),
+    FB(440606), FB(440616), FB(440629), FB(440639), FB(440649), FB(440659), FB(440666),
 };
 const char *const months_as_shaped[12] = {
-    FB(442076), FB(442086), FB(442099), FB(442112), FB(442125), FB(442135), FB(442142),
-    FB(442155), FB(442162), FB(442175), FB(442188), FB(442198),
+    FB(440676), FB(440686), FB(440699), FB(440712), FB(440725), FB(440735), FB(440742),
+    FB(440755), FB(440762), FB(440775), FB(440788), FB(440798),
 };
 const char lang_name_as_shaped[] = ("\xEE" "\x80" "\x89" "\xEE" "\x82" "\x92" "\xEE" "\x80" "\x86" "\xEE" "\x81" "\xB7" "\xEE" "\x80" "\x87" "\xEE" "\x80" "\xA6");
 
 // cldr-date-source-hash as a248accf2df990aa
 const char *const cldr_weekdays_as_shaped[7] = {
-    FB(442211), FB(442221), FB(442234), FB(442244), FB(442254), FB(442264), FB(442271),
+    FB(440811), FB(440821), FB(440834), FB(440844), FB(440854), FB(440864), FB(440871),
 };
 const char *const cldr_months_as_shaped[12] = {
-    FB(442281), FB(442291), FB(442304), FB(442317), FB(442330), FB(442340), FB(442347),
-    FB(442360), FB(442367), FB(442380), FB(442393), FB(442403),
+    FB(440881), FB(440891), FB(440904), FB(440917), FB(440930), FB(440940), FB(440947),
+    FB(440960), FB(440967), FB(440980), FB(440993), FB(441003),
 };
 const char cldr_era_as_shaped[] = ("\xEE" "\x82" "\x93" "\xEE" "\x81" "\xB7" "\xEE" "\x82" "\x94");
 
 // ti: 152 shaped cluster glyphs (Kefa)
 // shaped-source-hash ti 83ac228741c9546b
 const display_glyph_font_t font_ti = {
-    .codepoints = FB16(442416),
-    .glyphs_rle = fonts_blob + 442872,
-    .glyphs_off = FB16(450436),
-    .glyphs_2x_rle = fonts_blob + 450742,
-    .glyphs_2x_off = FB16(455360),
-    .widths = fonts_blob + 442720,
+    .codepoints = FB16(441016),
+    .glyphs_rle = fonts_blob + 441472,
+    .glyphs_off = FB16(449036),
+    .glyphs_2x_rle = fonts_blob + 449342,
+    .glyphs_2x_off = FB16(453960),
+    .widths = fonts_blob + 441320,
     .count = 152,
     .glyph_width = 16,
 };
 const char *const lang_ti_shaped[STR_COUNT] = {
-    [STR_WIFI] = FB(455666), [STR_SETTINGS] = FB(455672), [STR_TIMEZONE] = FB(455688),
-    [STR_BRIGHTNESS] = FB(455707), [STR_LED_BLINK] = FB(455720), [STR_ROTATE] = FB(455745),
-    [STR_ABOUT] = FB(455767), [STR_LANGUAGE] = FB(455780), [STR_DONE] = FB(455790),
-    [STR_BACK] = FB(455803), [STR_CANCEL] = FB(455816), [STR_DEL] = FB(455826),
-    [STR_RUNNING] = FB(455839), [STR_ON] = FB(455852), [STR_OFF] = FB(455862),
-    [STR_WAITING_NTP] = FB(455872), [STR_WIFI_SETUP] = FB(455903), [STR_SCANNING] = FB(455934),
-    [STR_SCAN_FAILED] = FB(455953), [STR_TAP_RETRY] = FB(455978),
-    [STR_SELECT_NETWORK] = FB(456024), [STR_NO_NETWORKS] = FB(456049),
-    [STR_NETWORK_LABEL] = FB(456086), [STR_ENTER_PASSWORD] = FB(456102),
-    [STR_CONNECTING] = FB(456136), [STR_CONNECTING_TO] = FB(456149),
-    [STR_CONNECTED] = FB(456171), [STR_CONNECTION_FAILED] = FB(456187),
-    [STR_KB_SPACE] = FB(456209), [STR_KB_GO] = FB(456222), [STR_VERSION] = FB(456225),
-    [STR_STATUS] = FB(456238), [STR_READ] = FB(456254), [STR_UPDATE] = FB(456270),
-    [STR_RESTARTING] = FB(456283), [STR_OTA_UPDATE] = FB(456311), [STR_NTP_SERVER] = FB(456336),
-    [STR_SERVER_LABEL] = FB(456361), [STR_NTP_SETTINGS] = FB(456377),
-    [STR_NTP_PRESETS] = FB(456405), [STR_PRESETS] = FB(456436), [STR_NONE] = FB(456446),
-    [STR_SELECT_REGION] = FB(456456), [STR_DST] = FB(456475), [STR_NO_DST] = FB(456506),
+    [STR_WIFI] = FB(454266), [STR_SETTINGS] = FB(454272), [STR_TIMEZONE] = FB(454288),
+    [STR_BRIGHTNESS] = FB(454307), [STR_LED_BLINK] = FB(454320), [STR_ROTATE] = FB(454345),
+    [STR_ABOUT] = FB(454367), [STR_LANGUAGE] = FB(454380), [STR_DONE] = FB(454390),
+    [STR_BACK] = FB(454403), [STR_CANCEL] = FB(454416), [STR_DEL] = FB(454426),
+    [STR_RUNNING] = FB(454439), [STR_ON] = FB(454452), [STR_OFF] = FB(454462),
+    [STR_WAITING_NTP] = FB(454472), [STR_WIFI_SETUP] = FB(454503), [STR_SCANNING] = FB(454534),
+    [STR_SCAN_FAILED] = FB(454553), [STR_TAP_RETRY] = FB(454578),
+    [STR_SELECT_NETWORK] = FB(454624), [STR_NO_NETWORKS] = FB(454649),
+    [STR_NETWORK_LABEL] = FB(454686), [STR_ENTER_PASSWORD] = FB(454702),
+    [STR_CONNECTING] = FB(454736), [STR_CONNECTING_TO] = FB(454749),
+    [STR_CONNECTED] = FB(454771), [STR_CONNECTION_FAILED] = FB(454787),
+    [STR_KB_SPACE] = FB(454809), [STR_KB_GO] = FB(454822), [STR_VERSION] = FB(454825),
+    [STR_STATUS] = FB(454838), [STR_READ] = FB(454854), [STR_UPDATE] = FB(454870),
+    [STR_RESTARTING] = FB(454883), [STR_OTA_UPDATE] = FB(454911), [STR_NTP_SERVER] = FB(454936),
+    [STR_SERVER_LABEL] = FB(454961), [STR_NTP_SETTINGS] = FB(454977),
+    [STR_NTP_PRESETS] = FB(455005), [STR_PRESETS] = FB(455036), [STR_NONE] = FB(455046),
+    [STR_SELECT_REGION] = FB(455056), [STR_DST] = FB(455075), [STR_NO_DST] = FB(455106),
 };
 const char *const weekdays_ti_shaped[7] = {
-    FB(456549), FB(456556), FB(456563), FB(456570), FB(456577), FB(456584), FB(456591),
+    FB(455149), FB(455156), FB(455163), FB(455170), FB(455177), FB(455184), FB(455191),
 };
 const char *const months_ti_shaped[12] = {
-    FB(456598), FB(456605), FB(456612), FB(456619), FB(456626), FB(456633), FB(456640),
-    FB(456647), FB(456654), FB(456661), FB(456668), FB(456675),
+    FB(455198), FB(455205), FB(455212), FB(455219), FB(455226), FB(455233), FB(455240),
+    FB(455247), FB(455254), FB(455261), FB(455268), FB(455275),
 };
 const char lang_name_ti_shaped[] = ("\xEE" "\x82" "\x95" "\xEE" "\x81" "\xAF" "\xEE" "\x80" "\x9A" "\xEE" "\x82" "\x96");
 
 // cldr-date-source-hash ti 9bc9bd78f554722a
 const char *const cldr_weekdays_ti_shaped[7] = {
-    FB(456682), FB(456689), FB(456696), FB(456703), FB(456710), FB(456717), FB(456724),
+    FB(455282), FB(455289), FB(455296), FB(455303), FB(455310), FB(455317), FB(455324),
 };
 const char *const cldr_months_ti_shaped[12] = {
-    FB(456731), FB(456738), FB(456745), FB(456752), FB(456759), FB(456766), FB(456773),
-    FB(456780), FB(456787), FB(456794), FB(456801), FB(456808),
+    FB(455331), FB(455338), FB(455345), FB(455352), FB(455359), FB(455366), FB(455373),
+    FB(455380), FB(455387), FB(455394), FB(455401), FB(455408),
 };
 const char cldr_era_ti_shaped[] = ("\xEE" "\x80" "\x89" "\xEE" "\x82" "\x97" "\xEE" "\x81" "\x84");
 
 // yo: 160 shaped cluster glyphs (Menlo)
 // shaped-source-hash yo 6064cf2ee723befc
 const display_glyph_font_t font_yo = {
-    .codepoints = FB16(456816),
-    .glyphs_rle = fonts_blob + 457296,
-    .glyphs_off = FB16(464128),
-    .glyphs_2x_rle = fonts_blob + 464450,
-    .glyphs_2x_off = FB16(472586),
-    .widths = fonts_blob + 457136,
+    .codepoints = FB16(455416),
+    .glyphs_rle = fonts_blob + 455896,
+    .glyphs_off = FB16(462728),
+    .glyphs_2x_rle = fonts_blob + 463050,
+    .glyphs_2x_off = FB16(471186),
+    .widths = fonts_blob + 455736,
     .count = 160,
     .glyph_width = 16,
 };
 const char *const lang_yo_shaped[STR_COUNT] = {
-    [STR_WIFI] = FB(472908), [STR_SETTINGS] = FB(472914), [STR_TIMEZONE] = FB(472924),
-    [STR_BRIGHTNESS] = FB(472964), [STR_LED_BLINK] = FB(472980), [STR_ROTATE] = FB(473014),
-    [STR_ABOUT] = FB(473033), [STR_LANGUAGE] = FB(473046), [STR_DONE] = FB(473056),
-    [STR_BACK] = FB(473069), [STR_CANCEL] = FB(473082), [STR_DEL] = FB(473101),
-    [STR_RUNNING] = FB(473114), [STR_ON] = FB(473130), [STR_OFF] = FB(473140),
-    [STR_WAITING_NTP] = FB(473143), [STR_WIFI_SETUP] = FB(473192), [STR_SCANNING] = FB(473223),
-    [STR_SCAN_FAILED] = FB(473245), [STR_TAP_RETRY] = FB(473279),
-    [STR_SELECT_NETWORK] = FB(473340), [STR_NO_NETWORKS] = FB(473377),
-    [STR_NETWORK_LABEL] = FB(473420), [STR_ENTER_PASSWORD] = FB(473448),
-    [STR_CONNECTING] = FB(473491), [STR_CONNECTING_TO] = FB(473516),
-    [STR_CONNECTED] = FB(473547), [STR_CONNECTION_FAILED] = FB(473575),
-    [STR_KB_SPACE] = FB(473609), [STR_KB_GO] = FB(473619), [STR_VERSION] = FB(473622),
-    [STR_STATUS] = FB(473638), [STR_READ] = FB(473651), [STR_UPDATE] = FB(473670),
-    [STR_RESTARTING] = FB(473689), [STR_OTA_UPDATE] = FB(473726), [STR_NTP_SERVER] = FB(473757),
-    [STR_SERVER_LABEL] = FB(473782), [STR_NTP_SETTINGS] = FB(473798),
-    [STR_NTP_PRESETS] = FB(473820), [STR_PRESETS] = FB(473851), [STR_NONE] = FB(473870),
-    [STR_SELECT_REGION] = FB(473886), [STR_DST] = FB(473920), [STR_NO_DST] = FB(473924),
+    [STR_WIFI] = FB(471508), [STR_SETTINGS] = FB(471514), [STR_TIMEZONE] = FB(471524),
+    [STR_BRIGHTNESS] = FB(471564), [STR_LED_BLINK] = FB(471580), [STR_ROTATE] = FB(471614),
+    [STR_ABOUT] = FB(471633), [STR_LANGUAGE] = FB(471646), [STR_DONE] = FB(471656),
+    [STR_BACK] = FB(471669), [STR_CANCEL] = FB(471682), [STR_DEL] = FB(471701),
+    [STR_RUNNING] = FB(471714), [STR_ON] = FB(471730), [STR_OFF] = FB(471740),
+    [STR_WAITING_NTP] = FB(471743), [STR_WIFI_SETUP] = FB(471792), [STR_SCANNING] = FB(471823),
+    [STR_SCAN_FAILED] = FB(471845), [STR_TAP_RETRY] = FB(471879),
+    [STR_SELECT_NETWORK] = FB(471940), [STR_NO_NETWORKS] = FB(471977),
+    [STR_NETWORK_LABEL] = FB(472020), [STR_ENTER_PASSWORD] = FB(472048),
+    [STR_CONNECTING] = FB(472091), [STR_CONNECTING_TO] = FB(472116),
+    [STR_CONNECTED] = FB(472147), [STR_CONNECTION_FAILED] = FB(472175),
+    [STR_KB_SPACE] = FB(472209), [STR_KB_GO] = FB(472219), [STR_VERSION] = FB(472222),
+    [STR_STATUS] = FB(472238), [STR_READ] = FB(472251), [STR_UPDATE] = FB(472270),
+    [STR_RESTARTING] = FB(472289), [STR_OTA_UPDATE] = FB(472326), [STR_NTP_SERVER] = FB(472357),
+    [STR_SERVER_LABEL] = FB(472382), [STR_NTP_SETTINGS] = FB(472398),
+    [STR_NTP_PRESETS] = FB(472420), [STR_PRESETS] = FB(472451), [STR_NONE] = FB(472470),
+    [STR_SELECT_REGION] = FB(472486), [STR_DST] = FB(472520), [STR_NO_DST] = FB(472524),
 };
 const char *const weekdays_yo_shaped[7] = {
-    FB(473952), FB(473965), FB(473975), FB(473991), FB(474004), FB(474017), FB(474027),
+    FB(472552), FB(472565), FB(472575), FB(472591), FB(472604), FB(472617), FB(472627),
 };
 const char *const months_yo_shaped[12] = {
-    FB(474046), FB(474053), FB(474069), FB(474088), FB(474101), FB(474120), FB(474136),
-    FB(474152), FB(474165), FB(474171), FB(474190), FB(474203),
+    FB(472646), FB(472653), FB(472669), FB(472688), FB(472701), FB(472720), FB(472736),
+    FB(472752), FB(472765), FB(472771), FB(472790), FB(472803),
 };
 const char lang_name_yo_shaped[] = ("\xEE" "\x80" "\x9E" "\xEE" "\x82" "\x90" "\xEE" "\x80" "\xAA" "\xEE" "\x81" "\x8F" "\xEE" "\x81" "\x93" "\xEE" "\x80" "\x9C");
 
 // cldr-date-source-hash yo 4b4707f35e92e389
 const char *const cldr_weekdays_yo_shaped[7] = {
-    FB(474219), FB(474232), FB(474242), FB(474258), FB(474271), FB(474284), FB(474294),
+    FB(472819), FB(472832), FB(472842), FB(472858), FB(472871), FB(472884), FB(472894),
 };
 const char *const cldr_months_yo_shaped[12] = {
-    FB(474313), FB(474332), FB(474360), FB(474391), FB(474416), FB(474447), FB(474475),
-    FB(474503), FB(474528), FB(474556), FB(474587), FB(474612),
+    FB(472913), FB(472932), FB(472960), FB(472991), FB(473016), FB(473047), FB(473075),
+    FB(473103), FB(473128), FB(473156), FB(473187), FB(473212),
 };
 const char cldr_era_yo_shaped[] = "AD";
 
 // pcm: 76 shaped cluster glyphs (Menlo)
 // shaped-source-hash pcm e4d7cb3d10d885a3
 const display_glyph_font_t font_pcm = {
-    .codepoints = FB16(474640),
-    .glyphs_rle = fonts_blob + 474868,
-    .glyphs_off = FB16(478314),
-    .glyphs_2x_rle = fonts_blob + 478468,
-    .glyphs_2x_off = FB16(481972),
-    .widths = fonts_blob + 474792,
+    .codepoints = FB16(473240),
+    .glyphs_rle = fonts_blob + 473468,
+    .glyphs_off = FB16(476914),
+    .glyphs_2x_rle = fonts_blob + 477068,
+    .glyphs_2x_off = FB16(480572),
+    .widths = fonts_blob + 473392,
     .count = 76,
     .glyph_width = 16,
 };
 const char *const lang_pcm_shaped[STR_COUNT] = {
-    [STR_WIFI] = FB(482126), [STR_SETTINGS] = FB(482132), [STR_TIMEZONE] = FB(482151),
-    [STR_BRIGHTNESS] = FB(482160), [STR_LED_BLINK] = FB(482185), [STR_ROTATE] = FB(482195),
-    [STR_ABOUT] = FB(482204), [STR_LANGUAGE] = FB(482210), [STR_DONE] = FB(482218),
-    [STR_BACK] = FB(482222), [STR_CANCEL] = FB(482226), [STR_DEL] = FB(482245),
-    [STR_RUNNING] = FB(482250), [STR_ON] = FB(482257), [STR_OFF] = FB(482260),
-    [STR_WAITING_NTP] = FB(482263), [STR_WIFI_SETUP] = FB(482281), [STR_SCANNING] = FB(482291),
-    [STR_SCAN_FAILED] = FB(482302), [STR_TAP_RETRY] = FB(482315),
-    [STR_SELECT_NETWORK] = FB(482337), [STR_NO_NETWORKS] = FB(482365),
-    [STR_NETWORK_LABEL] = FB(482402), [STR_ENTER_PASSWORD] = FB(482421),
-    [STR_CONNECTING] = FB(482452), [STR_CONNECTING_TO] = FB(482461),
-    [STR_CONNECTED] = FB(482473), [STR_CONNECTION_FAILED] = FB(482484),
-    [STR_KB_SPACE] = FB(482498), [STR_KB_GO] = FB(482503), [STR_VERSION] = FB(482506),
-    [STR_STATUS] = FB(482525), [STR_READ] = FB(482536), [STR_UPDATE] = FB(482545),
-    [STR_RESTARTING] = FB(482561), [STR_OTA_UPDATE] = FB(482575), [STR_NTP_SERVER] = FB(482586),
-    [STR_SERVER_LABEL] = FB(482595), [STR_NTP_SETTINGS] = FB(482601),
-    [STR_NTP_PRESETS] = FB(482632), [STR_PRESETS] = FB(482642), [STR_NONE] = FB(482648),
-    [STR_SELECT_REGION] = FB(482664), [STR_DST] = FB(482692), [STR_NO_DST] = FB(482696),
+    [STR_WIFI] = FB(480726), [STR_SETTINGS] = FB(480732), [STR_TIMEZONE] = FB(480751),
+    [STR_BRIGHTNESS] = FB(480760), [STR_LED_BLINK] = FB(480785), [STR_ROTATE] = FB(480795),
+    [STR_ABOUT] = FB(480804), [STR_LANGUAGE] = FB(480810), [STR_DONE] = FB(480818),
+    [STR_BACK] = FB(480822), [STR_CANCEL] = FB(480826), [STR_DEL] = FB(480845),
+    [STR_RUNNING] = FB(480850), [STR_ON] = FB(480857), [STR_OFF] = FB(480860),
+    [STR_WAITING_NTP] = FB(480863), [STR_WIFI_SETUP] = FB(480881), [STR_SCANNING] = FB(480891),
+    [STR_SCAN_FAILED] = FB(480902), [STR_TAP_RETRY] = FB(480915),
+    [STR_SELECT_NETWORK] = FB(480937), [STR_NO_NETWORKS] = FB(480965),
+    [STR_NETWORK_LABEL] = FB(481002), [STR_ENTER_PASSWORD] = FB(481021),
+    [STR_CONNECTING] = FB(481052), [STR_CONNECTING_TO] = FB(481061),
+    [STR_CONNECTED] = FB(481073), [STR_CONNECTION_FAILED] = FB(481084),
+    [STR_KB_SPACE] = FB(481098), [STR_KB_GO] = FB(481103), [STR_VERSION] = FB(481106),
+    [STR_STATUS] = FB(481125), [STR_READ] = FB(481136), [STR_UPDATE] = FB(481145),
+    [STR_RESTARTING] = FB(481161), [STR_OTA_UPDATE] = FB(481175), [STR_NTP_SERVER] = FB(481186),
+    [STR_SERVER_LABEL] = FB(481195), [STR_NTP_SETTINGS] = FB(481201),
+    [STR_NTP_PRESETS] = FB(481232), [STR_PRESETS] = FB(481242), [STR_NONE] = FB(481248),
+    [STR_SELECT_REGION] = FB(481264), [STR_DST] = FB(481292), [STR_NO_DST] = FB(481296),
 };
 const char *const weekdays_pcm_shaped[7] = {
-    FB(482703), FB(482710), FB(482717), FB(482727), FB(482734), FB(482741), FB(482754),
+    FB(481303), FB(481310), FB(481317), FB(481327), FB(481334), FB(481341), FB(481354),
 };
 const char *const months_pcm_shaped[12] = {
-    FB(482764), FB(482774), FB(482781), FB(482786), FB(482796), FB(482800), FB(482804),
-    FB(482808), FB(482818), FB(482828), FB(482838), FB(482848),
+    FB(481364), FB(481374), FB(481381), FB(481386), FB(481396), FB(481400), FB(481404),
+    FB(481408), FB(481418), FB(481428), FB(481438), FB(481448),
 };
 const char lang_name_pcm_shaped[] = ("\xEE" "\x80" "\x9B" "\xEE" "\x80" "\x8F" "\xEE" "\x81" "\x89" "\xEE" "\x81" "\x8A" "\xEE" "\x81" "\x8B");
 
 // cldr-date-source-hash pcm e80827bd2b708c2f
 const char *const cldr_weekdays_pcm_shaped[7] = {
-    FB(482852), FB(482859), FB(482866), FB(482876), FB(482883), FB(482890), FB(482903),
+    FB(481452), FB(481459), FB(481466), FB(481476), FB(481483), FB(481490), FB(481503),
 };
 const char *const cldr_months_pcm_shaped[12] = {
-    FB(482913), FB(482923), FB(482930), FB(482935), FB(482945), FB(482949), FB(482953),
-    FB(482957), FB(482967), FB(482977), FB(482987), FB(482997),
+    FB(481513), FB(481523), FB(481530), FB(481535), FB(481545), FB(481549), FB(481553),
+    FB(481557), FB(481567), FB(481577), FB(481587), FB(481597),
 };
 const char cldr_era_pcm_shaped[] = "KIY";
 
 // pa_arab: 182 shaped cluster glyphs (Geeza Pro)
 // shaped-source-hash pa_arab 5b268be3d63326cf
 const display_glyph_font_t font_pa_arab = {
-    .codepoints = FB16(483002),
-    .glyphs_rle = fonts_blob + 483548,
-    .glyphs_off = FB16(490042),
-    .glyphs_2x_rle = fonts_blob + 490408,
-    .glyphs_2x_off = FB16(495812),
-    .widths = fonts_blob + 483366,
+    .codepoints = FB16(481602),
+    .glyphs_rle = fonts_blob + 482148,
+    .glyphs_off = FB16(488642),
+    .glyphs_2x_rle = fonts_blob + 489008,
+    .glyphs_2x_off = FB16(494412),
+    .widths = fonts_blob + 481966,
     .count = 182,
     .glyph_width = 16,
 };
 const char *const lang_pa_arab_shaped[STR_COUNT] = {
-    [STR_WIFI] = FB(496178), [STR_SETTINGS] = FB(496184), [STR_TIMEZONE] = FB(496206),
-    [STR_BRIGHTNESS] = FB(496240), [STR_LED_BLINK] = FB(496250), [STR_ROTATE] = FB(496275),
-    [STR_ABOUT] = FB(496303), [STR_LANGUAGE] = FB(496325), [STR_DONE] = FB(496338),
-    [STR_BACK] = FB(496357), [STR_CANCEL] = FB(496370), [STR_DEL] = FB(496386),
-    [STR_RUNNING] = FB(496399), [STR_ON] = FB(496430), [STR_OFF] = FB(496443),
-    [STR_WAITING_NTP] = FB(496453), [STR_WIFI_SETUP] = FB(496496), [STR_SCANNING] = FB(496533),
-    [STR_SCAN_FAILED] = FB(496576), [STR_TAP_RETRY] = FB(496619),
-    [STR_SELECT_NETWORK] = FB(496674), [STR_NO_NETWORKS] = FB(496705),
-    [STR_NETWORK_LABEL] = FB(496754), [STR_ENTER_PASSWORD] = FB(496776),
-    [STR_CONNECTING] = FB(496810), [STR_CONNECTING_TO] = FB(496841),
-    [STR_CONNECTED] = FB(496875), [STR_CONNECTION_FAILED] = FB(496897),
-    [STR_KB_SPACE] = FB(496931), [STR_KB_GO] = FB(496944), [STR_VERSION] = FB(496947),
-    [STR_STATUS] = FB(496963), [STR_READ] = FB(496979), [STR_UPDATE] = FB(496998),
-    [STR_RESTARTING] = FB(497017), [STR_OTA_UPDATE] = FB(497066), [STR_NTP_SERVER] = FB(497097),
-    [STR_SERVER_LABEL] = FB(497122), [STR_NTP_SETTINGS] = FB(497138),
-    [STR_NTP_PRESETS] = FB(497172), [STR_PRESETS] = FB(497203), [STR_NONE] = FB(497222),
-    [STR_SELECT_REGION] = FB(497250), [STR_DST] = FB(497272), [STR_NO_DST] = FB(497312),
+    [STR_WIFI] = FB(494778), [STR_SETTINGS] = FB(494784), [STR_TIMEZONE] = FB(494806),
+    [STR_BRIGHTNESS] = FB(494840), [STR_LED_BLINK] = FB(494850), [STR_ROTATE] = FB(494875),
+    [STR_ABOUT] = FB(494903), [STR_LANGUAGE] = FB(494925), [STR_DONE] = FB(494938),
+    [STR_BACK] = FB(494957), [STR_CANCEL] = FB(494970), [STR_DEL] = FB(494986),
+    [STR_RUNNING] = FB(494999), [STR_ON] = FB(495030), [STR_OFF] = FB(495043),
+    [STR_WAITING_NTP] = FB(495053), [STR_WIFI_SETUP] = FB(495096), [STR_SCANNING] = FB(495133),
+    [STR_SCAN_FAILED] = FB(495176), [STR_TAP_RETRY] = FB(495219),
+    [STR_SELECT_NETWORK] = FB(495274), [STR_NO_NETWORKS] = FB(495305),
+    [STR_NETWORK_LABEL] = FB(495354), [STR_ENTER_PASSWORD] = FB(495376),
+    [STR_CONNECTING] = FB(495410), [STR_CONNECTING_TO] = FB(495441),
+    [STR_CONNECTED] = FB(495475), [STR_CONNECTION_FAILED] = FB(495497),
+    [STR_KB_SPACE] = FB(495531), [STR_KB_GO] = FB(495544), [STR_VERSION] = FB(495547),
+    [STR_STATUS] = FB(495563), [STR_READ] = FB(495579), [STR_UPDATE] = FB(495598),
+    [STR_RESTARTING] = FB(495617), [STR_OTA_UPDATE] = FB(495666), [STR_NTP_SERVER] = FB(495697),
+    [STR_SERVER_LABEL] = FB(495722), [STR_NTP_SETTINGS] = FB(495738),
+    [STR_NTP_PRESETS] = FB(495772), [STR_PRESETS] = FB(495803), [STR_NONE] = FB(495822),
+    [STR_SELECT_REGION] = FB(495850), [STR_DST] = FB(495872), [STR_NO_DST] = FB(495912),
 };
 const char *const weekdays_pa_arab_shaped[7] = {
-    FB(497349), FB(497365), FB(497375), FB(497388), FB(497395), FB(497414), FB(497427),
+    FB(495949), FB(495965), FB(495975), FB(495988), FB(495995), FB(496014), FB(496027),
 };
 const char *const months_pa_arab_shaped[12] = {
-    FB(497440), FB(497456), FB(497472), FB(497485), FB(497501), FB(497508), FB(497518),
-    FB(497534), FB(497547), FB(497563), FB(497582), FB(497598),
+    FB(496040), FB(496056), FB(496072), FB(496085), FB(496101), FB(496108), FB(496118),
+    FB(496134), FB(496147), FB(496163), FB(496182), FB(496198),
 };
 const char lang_name_pa_arab_shaped[] = ("\xEE" "\x80" "\xA7" "\xEE" "\x82" "\xA9" "\xEE" "\x80" "\x9B" "\xEE" "\x82" "\xAA" "\xEE" "\x80" "\x83" "\xEE" "\x82" "\xAB");
 
 // cldr-date-source-hash pa_arab f860ccba1b3e5a09
 const char *const cldr_weekdays_pa_arab_shaped[7] = {
-    FB(497614), FB(497630), FB(497640), FB(497653), FB(497660), FB(497679), FB(497692),
+    FB(496214), FB(496230), FB(496240), FB(496253), FB(496260), FB(496279), FB(496292),
 };
 const char *const cldr_months_pa_arab_shaped[12] = {
-    FB(497705), FB(497721), FB(497737), FB(497750), FB(497766), FB(497773), FB(497783),
-    FB(497799), FB(497812), FB(497828), FB(497847), FB(497863),
+    FB(496305), FB(496321), FB(496337), FB(496350), FB(496366), FB(496373), FB(496383),
+    FB(496399), FB(496412), FB(496428), FB(496447), FB(496463),
 };
 const char cldr_era_pa_arab_shaped[] = ("\xEE" "\x81" "\x9E" "\xEE" "\x81" "\x88");
 
 // bho: 174 shaped cluster glyphs (Kohinoor Devanagari)
 // shaped-source-hash bho 767b59d3221f12d5
 const display_glyph_font_t font_bho = {
-    .codepoints = FB16(497880),
-    .glyphs_rle = fonts_blob + 498402,
-    .glyphs_off = FB16(506284),
-    .glyphs_2x_rle = fonts_blob + 506634,
-    .glyphs_2x_off = FB16(512838),
-    .widths = fonts_blob + 498228,
+    .codepoints = FB16(496480),
+    .glyphs_rle = fonts_blob + 497002,
+    .glyphs_off = FB16(504884),
+    .glyphs_2x_rle = fonts_blob + 505234,
+    .glyphs_2x_off = FB16(511438),
+    .widths = fonts_blob + 496828,
     .count = 174,
     .glyph_width = 16,
 };
 const char *const lang_bho_shaped[STR_COUNT] = {
-    [STR_WIFI] = FB(513188), [STR_SETTINGS] = FB(513194), [STR_TIMEZONE] = FB(513207),
-    [STR_BRIGHTNESS] = FB(513223), [STR_LED_BLINK] = FB(513233), [STR_ROTATE] = FB(513255),
-    [STR_ABOUT] = FB(513277), [STR_LANGUAGE] = FB(513293), [STR_DONE] = FB(513306),
-    [STR_BACK] = FB(513322), [STR_CANCEL] = FB(513335), [STR_DEL] = FB(513342),
-    [STR_RUNNING] = FB(513352), [STR_ON] = FB(513371), [STR_OFF] = FB(513381),
-    [STR_WAITING_NTP] = FB(513385), [STR_WIFI_SETUP] = FB(513434), [STR_SCANNING] = FB(513462),
-    [STR_SCAN_FAILED] = FB(513493), [STR_TAP_RETRY] = FB(513518),
-    [STR_SELECT_NETWORK] = FB(513579), [STR_NO_NETWORKS] = FB(513601),
-    [STR_NETWORK_LABEL] = FB(513626), [STR_ENTER_PASSWORD] = FB(513642),
-    [STR_CONNECTING] = FB(513670), [STR_CONNECTING_TO] = FB(513686),
-    [STR_CONNECTED] = FB(513705), [STR_CONNECTION_FAILED] = FB(513724),
-    [STR_KB_SPACE] = FB(513752), [STR_KB_GO] = FB(513759), [STR_VERSION] = FB(513762),
-    [STR_STATUS] = FB(513778), [STR_READ] = FB(513794), [STR_UPDATE] = FB(513807),
-    [STR_RESTARTING] = FB(513817), [STR_OTA_UPDATE] = FB(513848), [STR_NTP_SERVER] = FB(513870),
-    [STR_SERVER_LABEL] = FB(513889), [STR_NTP_SETTINGS] = FB(513899),
-    [STR_NTP_PRESETS] = FB(513924), [STR_PRESETS] = FB(513949), [STR_NONE] = FB(513962),
-    [STR_SELECT_REGION] = FB(513987), [STR_DST] = FB(514000), [STR_NO_DST] = FB(514034),
+    [STR_WIFI] = FB(511788), [STR_SETTINGS] = FB(511794), [STR_TIMEZONE] = FB(511807),
+    [STR_BRIGHTNESS] = FB(511823), [STR_LED_BLINK] = FB(511833), [STR_ROTATE] = FB(511855),
+    [STR_ABOUT] = FB(511877), [STR_LANGUAGE] = FB(511893), [STR_DONE] = FB(511906),
+    [STR_BACK] = FB(511922), [STR_CANCEL] = FB(511935), [STR_DEL] = FB(511942),
+    [STR_RUNNING] = FB(511952), [STR_ON] = FB(511971), [STR_OFF] = FB(511981),
+    [STR_WAITING_NTP] = FB(511985), [STR_WIFI_SETUP] = FB(512034), [STR_SCANNING] = FB(512062),
+    [STR_SCAN_FAILED] = FB(512093), [STR_TAP_RETRY] = FB(512118),
+    [STR_SELECT_NETWORK] = FB(512179), [STR_NO_NETWORKS] = FB(512201),
+    [STR_NETWORK_LABEL] = FB(512226), [STR_ENTER_PASSWORD] = FB(512242),
+    [STR_CONNECTING] = FB(512270), [STR_CONNECTING_TO] = FB(512286),
+    [STR_CONNECTED] = FB(512305), [STR_CONNECTION_FAILED] = FB(512324),
+    [STR_KB_SPACE] = FB(512352), [STR_KB_GO] = FB(512359), [STR_VERSION] = FB(512362),
+    [STR_STATUS] = FB(512378), [STR_READ] = FB(512394), [STR_UPDATE] = FB(512407),
+    [STR_RESTARTING] = FB(512417), [STR_OTA_UPDATE] = FB(512448), [STR_NTP_SERVER] = FB(512470),
+    [STR_SERVER_LABEL] = FB(512489), [STR_NTP_SETTINGS] = FB(512499),
+    [STR_NTP_PRESETS] = FB(512524), [STR_PRESETS] = FB(512549), [STR_NONE] = FB(512562),
+    [STR_SELECT_REGION] = FB(512587), [STR_DST] = FB(512600), [STR_NO_DST] = FB(512634),
 };
 const char *const weekdays_bho_shaped[7] = {
-    FB(514071), FB(514090), FB(514109), FB(514125), FB(514138), FB(514151), FB(514167),
+    FB(512671), FB(512690), FB(512709), FB(512725), FB(512738), FB(512751), FB(512767),
 };
 const char *const months_bho_shaped[12] = {
-    FB(514183), FB(514199), FB(514215), FB(514225), FB(514232), FB(514239), FB(514243),
-    FB(514256), FB(514266), FB(514282), FB(514298), FB(514308),
+    FB(512783), FB(512799), FB(512815), FB(512825), FB(512832), FB(512839), FB(512843),
+    FB(512856), FB(512866), FB(512882), FB(512898), FB(512908),
 };
 const char lang_name_bho_shaped[] = ("\xEE" "\x80" "\x9C" "\xEE" "\x80" "\xB8" "\xEE" "\x80" "\xAD" "\xEE" "\x82" "\xA1" "\xEE" "\x82" "\x8B");
 
 // cldr-date-source-hash bho 0a8c9c01beda2645
 const char *const cldr_weekdays_bho_shaped[7] = {
-    FB(514321), FB(514340), FB(514359), FB(514375), FB(514388), FB(514410), FB(514426),
+    FB(512921), FB(512940), FB(512959), FB(512975), FB(512988), FB(513010), FB(513026),
 };
 const char *const cldr_months_bho_shaped[12] = {
-    FB(514442), FB(514458), FB(514474), FB(514484), FB(514491), FB(514498), FB(514502),
-    FB(514515), FB(514525), FB(514541), FB(514557), FB(514567),
+    FB(513042), FB(513058), FB(513074), FB(513084), FB(513091), FB(513098), FB(513102),
+    FB(513115), FB(513125), FB(513141), FB(513157), FB(513167),
 };
 const char cldr_era_bho_shaped[] = "CE";
 
 // ps: 193 shaped cluster glyphs (Geeza Pro)
 // shaped-source-hash ps 0d6a4187d318c65a
 const display_glyph_font_t font_ps = {
-    .codepoints = FB16(514580),
-    .glyphs_rle = fonts_blob + 515159,
-    .glyphs_off = FB16(522028),
-    .glyphs_2x_rle = fonts_blob + 522416,
-    .glyphs_2x_off = FB16(530234),
-    .widths = fonts_blob + 514966,
+    .codepoints = FB16(513180),
+    .glyphs_rle = fonts_blob + 513759,
+    .glyphs_off = FB16(520628),
+    .glyphs_2x_rle = fonts_blob + 521016,
+    .glyphs_2x_off = FB16(528834),
+    .widths = fonts_blob + 513566,
     .count = 193,
     .glyph_width = 16,
 };
 const char *const lang_ps_shaped[STR_COUNT] = {
-    [STR_WIFI] = FB(530622), [STR_SETTINGS] = FB(530628), [STR_TIMEZONE] = FB(530647),
-    [STR_BRIGHTNESS] = FB(530678), [STR_LED_BLINK] = FB(530697), [STR_ROTATE] = FB(530725),
-    [STR_ABOUT] = FB(530753), [STR_LANGUAGE] = FB(530772), [STR_DONE] = FB(530782),
-    [STR_BACK] = FB(530795), [STR_CANCEL] = FB(530808), [STR_DEL] = FB(530821),
-    [STR_RUNNING] = FB(530831), [STR_ON] = FB(530853), [STR_OFF] = FB(530866),
-    [STR_WAITING_NTP] = FB(530876), [STR_WIFI_SETUP] = FB(530922), [STR_SCANNING] = FB(530962),
-    [STR_SCAN_FAILED] = FB(530984), [STR_TAP_RETRY] = FB(531015),
-    [STR_SELECT_NETWORK] = FB(531079), [STR_NO_NETWORKS] = FB(531110),
-    [STR_NETWORK_LABEL] = FB(531165), [STR_ENTER_PASSWORD] = FB(531181),
-    [STR_CONNECTING] = FB(531215), [STR_CONNECTING_TO] = FB(531234),
-    [STR_CONNECTED] = FB(531265), [STR_CONNECTION_FAILED] = FB(531287),
-    [STR_KB_SPACE] = FB(531324), [STR_KB_GO] = FB(531334), [STR_VERSION] = FB(531337),
-    [STR_STATUS] = FB(531353), [STR_READ] = FB(531369), [STR_UPDATE] = FB(531400),
-    [STR_RESTARTING] = FB(531413), [STR_OTA_UPDATE] = FB(531444), [STR_NTP_SERVER] = FB(531475),
-    [STR_SERVER_LABEL] = FB(531506), [STR_NTP_SETTINGS] = FB(531522),
-    [STR_NTP_PRESETS] = FB(531559), [STR_PRESETS] = FB(531593), [STR_NONE] = FB(531609),
-    [STR_SELECT_REGION] = FB(531619), [STR_DST] = FB(531650), [STR_NO_DST] = FB(531681),
+    [STR_WIFI] = FB(529222), [STR_SETTINGS] = FB(529228), [STR_TIMEZONE] = FB(529247),
+    [STR_BRIGHTNESS] = FB(529278), [STR_LED_BLINK] = FB(529297), [STR_ROTATE] = FB(529325),
+    [STR_ABOUT] = FB(529353), [STR_LANGUAGE] = FB(529372), [STR_DONE] = FB(529382),
+    [STR_BACK] = FB(529395), [STR_CANCEL] = FB(529408), [STR_DEL] = FB(529421),
+    [STR_RUNNING] = FB(529431), [STR_ON] = FB(529453), [STR_OFF] = FB(529466),
+    [STR_WAITING_NTP] = FB(529476), [STR_WIFI_SETUP] = FB(529522), [STR_SCANNING] = FB(529562),
+    [STR_SCAN_FAILED] = FB(529584), [STR_TAP_RETRY] = FB(529615),
+    [STR_SELECT_NETWORK] = FB(529679), [STR_NO_NETWORKS] = FB(529710),
+    [STR_NETWORK_LABEL] = FB(529765), [STR_ENTER_PASSWORD] = FB(529781),
+    [STR_CONNECTING] = FB(529815), [STR_CONNECTING_TO] = FB(529834),
+    [STR_CONNECTED] = FB(529865), [STR_CONNECTION_FAILED] = FB(529887),
+    [STR_KB_SPACE] = FB(529924), [STR_KB_GO] = FB(529934), [STR_VERSION] = FB(529937),
+    [STR_STATUS] = FB(529953), [STR_READ] = FB(529969), [STR_UPDATE] = FB(530000),
+    [STR_RESTARTING] = FB(530013), [STR_OTA_UPDATE] = FB(530044), [STR_NTP_SERVER] = FB(530075),
+    [STR_SERVER_LABEL] = FB(530106), [STR_NTP_SETTINGS] = FB(530122),
+    [STR_NTP_PRESETS] = FB(530159), [STR_PRESETS] = FB(530193), [STR_NONE] = FB(530209),
+    [STR_SELECT_REGION] = FB(530219), [STR_DST] = FB(530250), [STR_NO_DST] = FB(530281),
 };
 const char *const weekdays_ps_shaped[7] = {
-    FB(531727), FB(531740), FB(531753), FB(531769), FB(531785), FB(531804), FB(531817),
+    FB(530327), FB(530340), FB(530353), FB(530369), FB(530385), FB(530404), FB(530417),
 };
 const char *const months_ps_shaped[12] = {
-    FB(531830), FB(531846), FB(531865), FB(531878), FB(531894), FB(531901), FB(531911),
-    FB(531924), FB(531937), FB(531959), FB(531978), FB(531994),
+    FB(530430), FB(530446), FB(530465), FB(530478), FB(530494), FB(530501), FB(530511),
+    FB(530524), FB(530537), FB(530559), FB(530578), FB(530594),
 };
 const char lang_name_ps_shaped[] = ("\xEE" "\x80" "\xAE" "\xEE" "\x80" "\x82" "\xEE" "\x82" "\xA0" "\xEE" "\x80" "\xA5");
 
 // cldr-date-source-hash ps ceaf4105bfcd2c02
 const char *const cldr_weekdays_ps_shaped[7] = {
-    FB(532010), FB(532029), FB(532048), FB(532070), FB(532095), FB(532120), FB(532133),
+    FB(530610), FB(530629), FB(530648), FB(530670), FB(530695), FB(530720), FB(530733),
 };
 const char *const cldr_months_ps_shaped[12] = {
-    FB(532146), FB(532156), FB(532169), FB(532191), FB(532207), FB(532220), FB(532230),
-    FB(532240), FB(532250), FB(532266), FB(532285), FB(532304),
+    FB(530746), FB(530756), FB(530769), FB(530791), FB(530807), FB(530820), FB(530830),
+    FB(530840), FB(530850), FB(530866), FB(530885), FB(530904),
 };
 const char cldr_era_ps_shaped[] = "AP";
 
 // or: 175 shaped cluster glyphs (Oriya Sangam MN)
 // shaped-source-hash or 70e797ae2d1032cb
 const display_glyph_font_t font_or = {
-    .codepoints = FB16(532312),
-    .glyphs_rle = fonts_blob + 532837,
-    .glyphs_off = FB16(540188),
-    .glyphs_2x_rle = fonts_blob + 540540,
-    .glyphs_2x_off = FB16(546970),
-    .widths = fonts_blob + 532662,
+    .codepoints = FB16(530912),
+    .glyphs_rle = fonts_blob + 531437,
+    .glyphs_off = FB16(538788),
+    .glyphs_2x_rle = fonts_blob + 539140,
+    .glyphs_2x_off = FB16(545570),
+    .widths = fonts_blob + 531262,
     .count = 175,
     .glyph_width = 16,
 };
 const char *const lang_or_shaped[STR_COUNT] = {
-    [STR_WIFI] = FB(547322), [STR_SETTINGS] = FB(547328), [STR_TIMEZONE] = FB(547344),
-    [STR_BRIGHTNESS] = FB(547366), [STR_LED_BLINK] = FB(547388), [STR_ROTATE] = FB(547410),
-    [STR_ABOUT] = FB(547441), [STR_LANGUAGE] = FB(547460), [STR_DONE] = FB(547473),
-    [STR_BACK] = FB(547495), [STR_CANCEL] = FB(547508), [STR_DEL] = FB(547524),
-    [STR_RUNNING] = FB(547540), [STR_ON] = FB(547559), [STR_OFF] = FB(547572),
-    [STR_WAITING_NTP] = FB(547579), [STR_WIFI_SETUP] = FB(547625), [STR_SCANNING] = FB(547659),
-    [STR_SCAN_FAILED] = FB(547690), [STR_TAP_RETRY] = FB(547721),
-    [STR_SELECT_NETWORK] = FB(547773), [STR_NO_NETWORKS] = FB(547804),
-    [STR_NETWORK_LABEL] = FB(547853), [STR_ENTER_PASSWORD] = FB(547869),
-    [STR_CONNECTING] = FB(547903), [STR_CONNECTING_TO] = FB(547940),
-    [STR_CONNECTED] = FB(547971), [STR_CONNECTION_FAILED] = FB(547990),
-    [STR_KB_SPACE] = FB(548024), [STR_KB_GO] = FB(548037), [STR_VERSION] = FB(548040),
-    [STR_STATUS] = FB(548062), [STR_READ] = FB(548075), [STR_UPDATE] = FB(548097),
-    [STR_RESTARTING] = FB(548113), [STR_OTA_UPDATE] = FB(548138), [STR_NTP_SERVER] = FB(548166),
-    [STR_SERVER_LABEL] = FB(548188), [STR_NTP_SETTINGS] = FB(548201),
-    [STR_NTP_PRESETS] = FB(548229), [STR_PRESETS] = FB(548257), [STR_NONE] = FB(548273),
-    [STR_SELECT_REGION] = FB(548286), [STR_DST] = FB(548314), [STR_NO_DST] = FB(548339),
+    [STR_WIFI] = FB(545922), [STR_SETTINGS] = FB(545928), [STR_TIMEZONE] = FB(545944),
+    [STR_BRIGHTNESS] = FB(545966), [STR_LED_BLINK] = FB(545988), [STR_ROTATE] = FB(546010),
+    [STR_ABOUT] = FB(546041), [STR_LANGUAGE] = FB(546060), [STR_DONE] = FB(546073),
+    [STR_BACK] = FB(546095), [STR_CANCEL] = FB(546108), [STR_DEL] = FB(546124),
+    [STR_RUNNING] = FB(546140), [STR_ON] = FB(546159), [STR_OFF] = FB(546172),
+    [STR_WAITING_NTP] = FB(546179), [STR_WIFI_SETUP] = FB(546225), [STR_SCANNING] = FB(546259),
+    [STR_SCAN_FAILED] = FB(546290), [STR_TAP_RETRY] = FB(546321),
+    [STR_SELECT_NETWORK] = FB(546373), [STR_NO_NETWORKS] = FB(546404),
+    [STR_NETWORK_LABEL] = FB(546453), [STR_ENTER_PASSWORD] = FB(546469),
+    [STR_CONNECTING] = FB(546503), [STR_CONNECTING_TO] = FB(546540),
+    [STR_CONNECTED] = FB(546571), [STR_CONNECTION_FAILED] = FB(546590),
+    [STR_KB_SPACE] = FB(546624), [STR_KB_GO] = FB(546637), [STR_VERSION] = FB(546640),
+    [STR_STATUS] = FB(546662), [STR_READ] = FB(546675), [STR_UPDATE] = FB(546697),
+    [STR_RESTARTING] = FB(546713), [STR_OTA_UPDATE] = FB(546738), [STR_NTP_SERVER] = FB(546766),
+    [STR_SERVER_LABEL] = FB(546788), [STR_NTP_SETTINGS] = FB(546801),
+    [STR_NTP_PRESETS] = FB(546829), [STR_PRESETS] = FB(546857), [STR_NONE] = FB(546873),
+    [STR_SELECT_REGION] = FB(546886), [STR_DST] = FB(546914), [STR_NO_DST] = FB(546939),
 };
 const char *const weekdays_or_shaped[7] = {
-    FB(548379), FB(548389), FB(548402), FB(548412), FB(548422), FB(548435), FB(548445),
+    FB(546979), FB(546989), FB(547002), FB(547012), FB(547022), FB(547035), FB(547045),
 };
 const char *const months_or_shaped[12] = {
-    FB(548455), FB(548477), FB(548499), FB(548509), FB(548522), FB(548529), FB(548539),
-    FB(548555), FB(548565), FB(548587), FB(548609), FB(548625),
+    FB(547055), FB(547077), FB(547099), FB(547109), FB(547122), FB(547129), FB(547139),
+    FB(547155), FB(547165), FB(547187), FB(547209), FB(547225),
 };
 const char lang_name_or_shaped[] = ("\xEE" "\x82" "\xAC" "\xEE" "\x82" "\xAD" "\xEE" "\x80" "\x83" "\xEE" "\x82" "\xAE");
 
 // cldr-date-source-hash or 2c49f05d1162e779
 const char *const cldr_weekdays_or_shaped[7] = {
-    FB(548644), FB(548654), FB(548667), FB(548677), FB(548687), FB(548700), FB(548710),
+    FB(547244), FB(547254), FB(547267), FB(547277), FB(547287), FB(547300), FB(547310),
 };
 const char *const cldr_months_or_shaped[12] = {
-    FB(548720), FB(548742), FB(548764), FB(548774), FB(548787), FB(548794), FB(548804),
-    FB(548820), FB(548830), FB(548852), FB(548874), FB(548890),
+    FB(547320), FB(547342), FB(547364), FB(547374), FB(547387), FB(547394), FB(547404),
+    FB(547420), FB(547430), FB(547452), FB(547474), FB(547490),
 };
 const char cldr_era_or_shaped[] = "AD";
 
 // sd: 176 shaped cluster glyphs (Geeza Pro)
 // shaped-source-hash sd 8ff3c948d28ee0b3
 const display_glyph_font_t font_sd = {
-    .codepoints = FB16(548910),
-    .glyphs_rle = fonts_blob + 549438,
-    .glyphs_off = FB16(555762),
-    .glyphs_2x_rle = fonts_blob + 556116,
-    .glyphs_2x_off = FB16(561642),
-    .widths = fonts_blob + 549262,
+    .codepoints = FB16(547510),
+    .glyphs_rle = fonts_blob + 548038,
+    .glyphs_off = FB16(554362),
+    .glyphs_2x_rle = fonts_blob + 554716,
+    .glyphs_2x_off = FB16(560242),
+    .widths = fonts_blob + 547862,
     .count = 176,
     .glyph_width = 16,
 };
 const char *const lang_sd_shaped[STR_COUNT] = {
-    [STR_WIFI] = FB(561996), [STR_SETTINGS] = FB(562002), [STR_TIMEZONE] = FB(562024),
-    [STR_BRIGHTNESS] = FB(562061), [STR_LED_BLINK] = FB(562071), [STR_ROTATE] = FB(562096),
-    [STR_ABOUT] = FB(562127), [STR_LANGUAGE] = FB(562140), [STR_DONE] = FB(562153),
-    [STR_BACK] = FB(562172), [STR_CANCEL] = FB(562188), [STR_DEL] = FB(562204),
-    [STR_RUNNING] = FB(562220), [STR_ON] = FB(562257), [STR_OFF] = FB(562270),
-    [STR_WAITING_NTP] = FB(562280), [STR_WIFI_SETUP] = FB(562329), [STR_SCANNING] = FB(562366),
-    [STR_SCAN_FAILED] = FB(562403), [STR_TAP_RETRY] = FB(562431),
-    [STR_SELECT_NETWORK] = FB(562477), [STR_NO_NETWORKS] = FB(562520),
-    [STR_NETWORK_LABEL] = FB(562566), [STR_ENTER_PASSWORD] = FB(562591),
-    [STR_CONNECTING] = FB(562643), [STR_CONNECTING_TO] = FB(562674),
-    [STR_CONNECTED] = FB(562720), [STR_CONNECTION_FAILED] = FB(562751),
-    [STR_KB_SPACE] = FB(562788), [STR_KB_GO] = FB(562804), [STR_VERSION] = FB(562807),
-    [STR_STATUS] = FB(562823), [STR_READ] = FB(562839), [STR_UPDATE] = FB(562870),
-    [STR_RESTARTING] = FB(562886), [STR_OTA_UPDATE] = FB(562935), [STR_NTP_SERVER] = FB(562963),
-    [STR_SERVER_LABEL] = FB(562988), [STR_NTP_SETTINGS] = FB(563004),
-    [STR_NTP_PRESETS] = FB(563038), [STR_PRESETS] = FB(563069), [STR_NONE] = FB(563088),
-    [STR_SELECT_REGION] = FB(563116), [STR_DST] = FB(563153), [STR_NO_DST] = FB(563196),
+    [STR_WIFI] = FB(560596), [STR_SETTINGS] = FB(560602), [STR_TIMEZONE] = FB(560624),
+    [STR_BRIGHTNESS] = FB(560661), [STR_LED_BLINK] = FB(560671), [STR_ROTATE] = FB(560696),
+    [STR_ABOUT] = FB(560727), [STR_LANGUAGE] = FB(560740), [STR_DONE] = FB(560753),
+    [STR_BACK] = FB(560772), [STR_CANCEL] = FB(560788), [STR_DEL] = FB(560804),
+    [STR_RUNNING] = FB(560820), [STR_ON] = FB(560857), [STR_OFF] = FB(560870),
+    [STR_WAITING_NTP] = FB(560880), [STR_WIFI_SETUP] = FB(560929), [STR_SCANNING] = FB(560966),
+    [STR_SCAN_FAILED] = FB(561003), [STR_TAP_RETRY] = FB(561031),
+    [STR_SELECT_NETWORK] = FB(561077), [STR_NO_NETWORKS] = FB(561120),
+    [STR_NETWORK_LABEL] = FB(561166), [STR_ENTER_PASSWORD] = FB(561191),
+    [STR_CONNECTING] = FB(561243), [STR_CONNECTING_TO] = FB(561274),
+    [STR_CONNECTED] = FB(561320), [STR_CONNECTION_FAILED] = FB(561351),
+    [STR_KB_SPACE] = FB(561388), [STR_KB_GO] = FB(561404), [STR_VERSION] = FB(561407),
+    [STR_STATUS] = FB(561423), [STR_READ] = FB(561439), [STR_UPDATE] = FB(561470),
+    [STR_RESTARTING] = FB(561486), [STR_OTA_UPDATE] = FB(561535), [STR_NTP_SERVER] = FB(561563),
+    [STR_SERVER_LABEL] = FB(561588), [STR_NTP_SETTINGS] = FB(561604),
+    [STR_NTP_PRESETS] = FB(561638), [STR_PRESETS] = FB(561669), [STR_NONE] = FB(561688),
+    [STR_SELECT_REGION] = FB(561716), [STR_DST] = FB(561753), [STR_NO_DST] = FB(561796),
 };
 const char *const weekdays_sd_shaped[7] = {
-    FB(563245), FB(563255), FB(563268), FB(563284), FB(563297), FB(563310), FB(563323),
+    FB(561845), FB(561855), FB(561868), FB(561884), FB(561897), FB(561910), FB(561923),
 };
 const char *const months_sd_shaped[12] = {
-    FB(563336), FB(563352), FB(563374), FB(563387), FB(563403), FB(563413), FB(563423),
-    FB(563436), FB(563449), FB(563471), FB(563490), FB(563506),
+    FB(561936), FB(561952), FB(561974), FB(561987), FB(562003), FB(562013), FB(562023),
+    FB(562036), FB(562049), FB(562071), FB(562090), FB(562106),
 };
 const char lang_name_sd_shaped[] = ("\xEE" "\x82" "\x91" "\xEE" "\x82" "\xA4" "\xEE" "\x80" "\xB1" "\xEE" "\x80" "\x86");
 
 // cldr-date-source-hash sd 2b7ae08df8c0e9e0
 const char *const cldr_weekdays_sd_shaped[7] = {
-    FB(563522), FB(563532), FB(563545), FB(563561), FB(563574), FB(563587), FB(563600),
+    FB(562122), FB(562132), FB(562145), FB(562161), FB(562174), FB(562187), FB(562200),
 };
 const char *const cldr_months_sd_shaped[12] = {
-    FB(563613), FB(563629), FB(563651), FB(563664), FB(563680), FB(563690), FB(563700),
-    FB(563713), FB(563726), FB(563748), FB(563767), FB(563783),
+    FB(562213), FB(562229), FB(562251), FB(562264), FB(562280), FB(562290), FB(562300),
+    FB(562313), FB(562326), FB(562348), FB(562367), FB(562383),
 };
 const char cldr_era_sd_shaped[] = ("\xEE" "\x82" "\xA5");
 
 // mai: 172 shaped cluster glyphs (Kohinoor Devanagari)
 // shaped-source-hash mai 89df00d2cda20779
 const display_glyph_font_t font_mai = {
-    .codepoints = FB16(563800),
-    .glyphs_rle = fonts_blob + 564316,
-    .glyphs_off = FB16(572200),
-    .glyphs_2x_rle = fonts_blob + 572546,
-    .glyphs_2x_off = FB16(577388),
-    .widths = fonts_blob + 564144,
+    .codepoints = FB16(562400),
+    .glyphs_rle = fonts_blob + 562916,
+    .glyphs_off = FB16(570800),
+    .glyphs_2x_rle = fonts_blob + 571146,
+    .glyphs_2x_off = FB16(575988),
+    .widths = fonts_blob + 562744,
     .count = 172,
     .glyph_width = 16,
 };
 const char *const lang_mai_shaped[STR_COUNT] = {
-    [STR_WIFI] = FB(577734), [STR_SETTINGS] = FB(577740), [STR_TIMEZONE] = FB(577753),
-    [STR_BRIGHTNESS] = FB(577769), [STR_LED_BLINK] = FB(577779), [STR_ROTATE] = FB(577801),
-    [STR_ABOUT] = FB(577823), [STR_LANGUAGE] = FB(577836), [STR_DONE] = FB(577849),
-    [STR_BACK] = FB(577862), [STR_CANCEL] = FB(577875), [STR_DEL] = FB(577882),
-    [STR_RUNNING] = FB(577892), [STR_ON] = FB(577926), [STR_OFF] = FB(577936),
-    [STR_WAITING_NTP] = FB(577943), [STR_WIFI_SETUP] = FB(577986), [STR_SCANNING] = FB(578014),
-    [STR_SCAN_FAILED] = FB(578048), [STR_TAP_RETRY] = FB(578073),
-    [STR_SELECT_NETWORK] = FB(578122), [STR_NO_NETWORKS] = FB(578141),
-    [STR_NETWORK_LABEL] = FB(578175), [STR_ENTER_PASSWORD] = FB(578191),
-    [STR_CONNECTING] = FB(578216), [STR_CONNECTING_TO] = FB(578235),
-    [STR_CONNECTED] = FB(578260), [STR_CONNECTION_FAILED] = FB(578276),
-    [STR_KB_SPACE] = FB(578304), [STR_KB_GO] = FB(578311), [STR_VERSION] = FB(578314),
-    [STR_STATUS] = FB(578330), [STR_READ] = FB(578346), [STR_UPDATE] = FB(578365),
-    [STR_RESTARTING] = FB(578375), [STR_OTA_UPDATE] = FB(578415), [STR_NTP_SERVER] = FB(578437),
-    [STR_SERVER_LABEL] = FB(578456), [STR_NTP_SETTINGS] = FB(578466),
-    [STR_NTP_PRESETS] = FB(578491), [STR_PRESETS] = FB(578516), [STR_NONE] = FB(578529),
-    [STR_SELECT_REGION] = FB(578554), [STR_DST] = FB(578564), [STR_NO_DST] = FB(578586),
+    [STR_WIFI] = FB(576334), [STR_SETTINGS] = FB(576340), [STR_TIMEZONE] = FB(576353),
+    [STR_BRIGHTNESS] = FB(576369), [STR_LED_BLINK] = FB(576379), [STR_ROTATE] = FB(576401),
+    [STR_ABOUT] = FB(576423), [STR_LANGUAGE] = FB(576436), [STR_DONE] = FB(576449),
+    [STR_BACK] = FB(576462), [STR_CANCEL] = FB(576475), [STR_DEL] = FB(576482),
+    [STR_RUNNING] = FB(576492), [STR_ON] = FB(576526), [STR_OFF] = FB(576536),
+    [STR_WAITING_NTP] = FB(576543), [STR_WIFI_SETUP] = FB(576586), [STR_SCANNING] = FB(576614),
+    [STR_SCAN_FAILED] = FB(576648), [STR_TAP_RETRY] = FB(576673),
+    [STR_SELECT_NETWORK] = FB(576722), [STR_NO_NETWORKS] = FB(576741),
+    [STR_NETWORK_LABEL] = FB(576775), [STR_ENTER_PASSWORD] = FB(576791),
+    [STR_CONNECTING] = FB(576816), [STR_CONNECTING_TO] = FB(576835),
+    [STR_CONNECTED] = FB(576860), [STR_CONNECTION_FAILED] = FB(576876),
+    [STR_KB_SPACE] = FB(576904), [STR_KB_GO] = FB(576911), [STR_VERSION] = FB(576914),
+    [STR_STATUS] = FB(576930), [STR_READ] = FB(576946), [STR_UPDATE] = FB(576965),
+    [STR_RESTARTING] = FB(576975), [STR_OTA_UPDATE] = FB(577015), [STR_NTP_SERVER] = FB(577037),
+    [STR_SERVER_LABEL] = FB(577056), [STR_NTP_SETTINGS] = FB(577066),
+    [STR_NTP_PRESETS] = FB(577091), [STR_PRESETS] = FB(577116), [STR_NONE] = FB(577129),
+    [STR_SELECT_REGION] = FB(577154), [STR_DST] = FB(577164), [STR_NO_DST] = FB(577186),
 };
 const char *const weekdays_mai_shaped[7] = {
-    FB(578620), FB(578630), FB(578640), FB(578647), FB(578651), FB(578655), FB(578662),
+    FB(577220), FB(577230), FB(577240), FB(577247), FB(577251), FB(577255), FB(577262),
 };
 const char *const months_mai_shaped[12] = {
-    FB(578672), FB(578682), FB(578692), FB(578702), FB(578709), FB(578716), FB(578720),
-    FB(578730), FB(578740), FB(578753), FB(578763), FB(578773),
+    FB(577272), FB(577282), FB(577292), FB(577302), FB(577309), FB(577316), FB(577320),
+    FB(577330), FB(577340), FB(577353), FB(577363), FB(577373),
 };
 const char lang_name_mai_shaped[] = ("\xEE" "\x82" "\xA7" "\xEE" "\x82" "\xA8" "\xEE" "\x82" "\xA9" "\xEE" "\x80" "\xB4");
 
 // cldr-date-source-hash mai c01eea08ccb01f8f
 const char *const cldr_weekdays_mai_shaped[7] = {
-    FB(578786), FB(578796), FB(578806), FB(578813), FB(578817), FB(578821), FB(578828),
+    FB(577386), FB(577396), FB(577406), FB(577413), FB(577417), FB(577421), FB(577428),
 };
 const char *const cldr_months_mai_shaped[12] = {
-    FB(578838), FB(578848), FB(578858), FB(578868), FB(578875), FB(578882), FB(578886),
-    FB(578896), FB(578906), FB(578919), FB(578929), FB(578939),
+    FB(577438), FB(577448), FB(577458), FB(577468), FB(577475), FB(577482), FB(577486),
+    FB(577496), FB(577506), FB(577519), FB(577529), FB(577539),
 };
 const char cldr_era_mai_shaped[] = ("\xEE" "\x82" "\xAA" "\xEE" "\x81" "\x8C" "\xEE" "\x82" "\x84" "\xEE" "\x82" "\xAB");
 

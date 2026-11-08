@@ -1,10 +1,6 @@
 static const char *const lang_ja[STR_COUNT] = {
     [STR_SETTINGS] = "設定",
     [STR_WIFI] = "Wi-Fi",
-    [STR_UNIT_S] = "秒",
-    [STR_UNIT_M] = "分",
-    [STR_UNIT_H] = "時間",
-    [STR_UNIT_D] = "日",
     [STR_TIMEZONE] = "タイムゾーン",
     [STR_BRIGHTNESS] = "明るさ",
     [STR_LED_BLINK] = "LED点滅",

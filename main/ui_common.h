@@ -156,24 +156,4 @@ bool ui_read_touch(touch_point_t *touch, uint32_t *last_time_ticks);
 bool ui_read_touch_ex(touch_point_t *touch, uint32_t *last_time_ticks,
                       bool *pressed_out);
 
-// Signed microsecond quantity with adaptive precision, at most 7 chars for
-// int32-range magnitudes: "+0.99ms", "+9.99ms", "+99.9ms", "+9999ms",
-// "+99.9s", "+2147s". Shared by the clock stats line and the NTP stats
-// rows, whose fixed-width columns rely on the 7-char cap.
-void ui_fmt_offset_us(char *buf, size_t len, int64_t us);
-
-// x1000 fixed-point value with unit suffix and adaptive decimals:
-// "+9.99ppm", "+99.9ppm", "+500ppm".
-void ui_fmt_signed_x1000(char *buf, size_t len, int32_t val_x1000, const char *unit);
-
-// Compound two-unit form:
-//   <60s    -> "Xs"
-//   <3600   -> "Xm Ys"
-//   <86400  -> "Xh Ym"
-//   else    -> "Xd Yh"
-// Worst case 8 chars ("365d 23h") for ages up to ~3 years. Capped at two
-// units so the clock screen's peers/poll/ago line fits 40 columns in every
-// language (the wordiest translations leave 10 columns for this field).
-void ui_fmt_duration_full(char *buf, size_t len, uint32_t seconds);
-
 #endif

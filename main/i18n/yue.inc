@@ -44,10 +44,6 @@ static const char *const lang_yue[STR_COUNT] = {
     [STR_SELECT_REGION] = "揀地區",
     [STR_DST] = "夏令時間",
     [STR_NO_DST] = "無夏令時間",
-    [STR_UNIT_S] = "秒",
-    [STR_UNIT_M] = "分",
-    [STR_UNIT_H] = "小時",
-    [STR_UNIT_D] = "日",
 };
 // CLDR yue "short" weekday width; the abbreviated forms (three chars,
 // 星期日) overflow the 320px 2x date line.

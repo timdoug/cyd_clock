@@ -1,10 +1,6 @@
 static const char *const lang_zh_hant[STR_COUNT] = {
     [STR_SETTINGS] = "設定",
     [STR_WIFI] = "Wi-Fi",
-    [STR_UNIT_S] = "秒",
-    [STR_UNIT_M] = "分",
-    [STR_UNIT_H] = "小時",
-    [STR_UNIT_D] = "天",
     [STR_TIMEZONE] = "時區",
     [STR_BRIGHTNESS] = "亮度",
     [STR_LED_BLINK] = "LED閃爍",

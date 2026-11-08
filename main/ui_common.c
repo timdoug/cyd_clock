@@ -9,7 +9,7 @@
 #include "display.h"
 #include "touch.h"
 
-// Byte-oriented windowing: assumes ASCII input (peer addresses, server
+// Byte-oriented windowing: assumes ASCII input (source addresses, server
 // names). A UTF-8 string that overflows the window would have sequences
 // split at the wrap point and render '?' cells at the window edges.
 int ui_marquee_window(char *out, int width, const char *s, int scroll) {
@@ -586,79 +586,5 @@ void ui_draw_slider_value_delta(int y, uint8_t old_value, uint8_t new_value,
     } else if (new_fill < old_fill) {
         display_fill_rect(inner_x + new_fill, inner_y,
                           old_fill - new_fill, inner_h, COLOR_BLACK);
-    }
-}
-
-void ui_fmt_offset_us(char *buf, size_t len, int64_t us) {
-    char sign = (us < 0) ? '-' : '+';
-    int64_t av = us < 0 ? -us : us;
-
-    // Each bucket is chosen AFTER rounding to its precision, so a value that
-    // rounds up to the next width falls into the next bucket instead of
-    // overflowing the 7-char cap (9999 us used to render as "+10.00ms").
-    // Sub-millisecond values render in ms too ("+0.99ms") so the column
-    // reads in a single unit.
-    int64_t hund_ms = (av + 5) / 10;
-    if (hund_ms < 1000) {
-        snprintf(buf, len, "%c%lld.%02lldms", sign,
-                 (long long)(hund_ms / 100), (long long)(hund_ms % 100));
-        return;
-    }
-    int64_t tenth_ms = (av + 50) / 100;
-    if (tenth_ms < 1000) {
-        snprintf(buf, len, "%c%lld.%lldms", sign,
-                 (long long)(tenth_ms / 10), (long long)(tenth_ms % 10));
-        return;
-    }
-    int64_t ms = (av + 500) / 1000;
-    if (ms < 10000) {
-        snprintf(buf, len, "%c%lldms", sign, (long long)ms);
-        return;
-    }
-    int64_t tenth_s = (av + 50000) / 100000;
-    if (tenth_s < 1000) {
-        snprintf(buf, len, "%c%lld.%llds", sign,
-                 (long long)(tenth_s / 10), (long long)(tenth_s % 10));
-        return;
-    }
-    snprintf(buf, len, "%c%llds", sign, (long long)((av + 500000) / 1000000));
-}
-
-void ui_fmt_signed_x1000(char *buf, size_t len, int32_t val_x1000, const char *unit) {
-    char sign = (val_x1000 < 0) ? '-' : '+';
-    uint32_t av = val_x1000 < 0 ? (uint32_t)-val_x1000 : (uint32_t)val_x1000;
-
-    uint32_t hund = (av + 5) / 10;
-    if (hund < 1000) {
-        snprintf(buf, len, "%c%lu.%02lu%s", sign,
-                 (unsigned long)(hund / 100), (unsigned long)(hund % 100), unit);
-        return;
-    }
-    uint32_t tenth = (av + 50) / 100;
-    if (tenth < 1000) {
-        snprintf(buf, len, "%c%lu.%lu%s", sign,
-                 (unsigned long)(tenth / 10), (unsigned long)(tenth % 10), unit);
-        return;
-    }
-    snprintf(buf, len, "%c%lu%s", sign, (unsigned long)((av + 500) / 1000), unit);
-}
-
-void ui_fmt_duration_full(char *buf, size_t len, uint32_t seconds) {
-    // Unit suffixes go through tr(): CJK shows native units, everyone
-    // else falls back to the English SI-style symbols.
-    if (seconds < 60) {
-        snprintf(buf, len, "%lu%s", (unsigned long)seconds, tr(STR_UNIT_S));
-    } else if (seconds < 3600) {
-        snprintf(buf, len, "%lu%s %lu%s",
-                 (unsigned long)(seconds / 60), tr(STR_UNIT_M),
-                 (unsigned long)(seconds % 60), tr(STR_UNIT_S));
-    } else if (seconds < 86400) {
-        snprintf(buf, len, "%lu%s %lu%s",
-                 (unsigned long)(seconds / 3600), tr(STR_UNIT_H),
-                 (unsigned long)((seconds % 3600) / 60), tr(STR_UNIT_M));
-    } else {
-        snprintf(buf, len, "%lu%s %lu%s",
-                 (unsigned long)(seconds / 86400), tr(STR_UNIT_D),
-                 (unsigned long)((seconds % 86400) / 3600), tr(STR_UNIT_H));
     }
 }

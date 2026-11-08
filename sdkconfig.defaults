@@ -27,11 +27,12 @@ CONFIG_PTHREAD_DEFAULT_CORE_0=y
 CONFIG_PTHREAD_TASK_STACK_SIZE_DEFAULT=4096
 
 # Networking
+# Up to 4 addresses per family from one DNS answer, for chronyd's pool.
 CONFIG_LWIP_DNS_MAX_HOST_IP=4
-# chronyd opens a UDP socket per request to each of up to 4 servers (plus a
-# benchmark candidate), a TCP socket per concurrent NTS-KE session, and two
-# loopback pairs that stand in for pipe() (port/chronyd_esp.c), alongside
-# OTA's HTTPS socket.
+# chronyd opens a UDP socket per request to each source (a pool holds up to
+# 8 records while it confirms 4), a TCP socket per concurrent NTS-KE session,
+# and two loopback pairs that stand in for pipe() (port/chronyd_esp.c),
+# alongside OTA's HTTPS socket.
 CONFIG_LWIP_MAX_SOCKETS=16
 CONFIG_LWIP_CHECKSUM_CHECK_IP=y
 CONFIG_LWIP_CHECKSUM_CHECK_UDP=y
