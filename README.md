@@ -76,7 +76,10 @@ The status lines under the clock show the reference and its stratum (or
 error (`System time`), and the crystal's frequency error (`Frequency`), all
 in chronyc's wording. Tapping the status area opens three pages, `chronyc
 tracking`, `chronyc sources`, and `chronyc authdata`, folded into 40 columns;
-tap to go to the next page.
+tap to go to the next page. On the tracking page, `Ref time` drops the
+weekday, `System time` reads `0.000012345 sec fast`, and `Leap status`, which
+only tells synchronised from not now that chronyd has no leap seconds, is
+labelled `Sync status`.
 
 ### Servers and networking
 

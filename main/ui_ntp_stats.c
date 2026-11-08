@@ -1,4 +1,5 @@
 #include "ui_ntp_stats.h"
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -16,7 +17,8 @@
 // chronyd's reports as chronyc prints them, one command per page: tracking,
 // sources, authdata. A tap shows the next page; past the last, back to the
 // clock. chronyc's 80-column tables are folded into 40 columns: each source
-// takes two rows, and long names/values scroll in place.
+// takes two rows, and long names/values scroll in place. Three tracking lines
+// are shortened to fit (see render_tracking()).
 
 static const char *TAG = "ui_ntp_stats";
 
@@ -110,14 +112,32 @@ static uint16_t state_color(char state) {
     }
 }
 
+// ces_fmt_tracking() line order, as in chronyc
+#define TRACK_REF_TIME    2
+#define TRACK_SYSTEM_TIME 3
+#define TRACK_LEAP        12
+
 static void render_tracking(row_t rows[ROWS]) {
     static char labels[CES_TRACKING_LINES][16], values[CES_TRACKING_LINES][64];
     ces_fmt_tracking(&status, labels, values);
+
+    // Fit the 23-column value field without scrolling: no weekday in Ref
+    // time, "sec fast/slow" without "of NTP time" in System time. With
+    // leap seconds gone from chronyd, the leap status only tells
+    // synchronised ("Normal") from not, so its label says that.
+    struct tm tm;
+    if (gmtime_r(&status.ref_time.tv_sec, &tm))
+        strftime(values[TRACK_REF_TIME], sizeof(values[0]), "%b %d %T %Y", &tm);
+    snprintf(values[TRACK_SYSTEM_TIME], sizeof(values[0]), "%.9f sec %s",
+             fabs(status.current_correction),
+             status.current_correction > 0.0 ? "slow" : "fast");
+    snprintf(labels[TRACK_LEAP], sizeof(labels[0]), "Sync status");
+
     for (int i = 0; i < CES_TRACKING_LINES && i < ROWS; i++) {
         char label[20];
         snprintf(label, sizeof(label), "%-15.15s: ", labels[i]);
         row_put(&rows[i], 0, label, -1, COLOR_GRAY);
-        bool unsynced = i == CES_TRACKING_LINES - 1 &&
+        bool unsynced = i == TRACK_LEAP &&
                         status.leap_status == CES_LEAP_UNSYNCHRONISED;
         row_put_scrolling(&rows[i], i, 17, values[i], COLS - 17,
                           unsynced ? COLOR_ORANGE : COLOR_WHITE);
