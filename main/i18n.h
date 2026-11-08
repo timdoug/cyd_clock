@@ -56,18 +56,9 @@ typedef enum {
     STR_RUNNING,
     STR_ON,
     STR_OFF,
-    STR_NTS_NO,
-    STR_NTS_ATTEMPT,
-    STR_NTS_REQUIRE,
 
     // Clock face
     STR_WAITING_NTP,
-    STR_FMT_SYNCED,         // "Synced: %s"
-    STR_FMT_SYNCING,        // "Syncing: %s"
-    STR_FMT_WAITING,        // "Waiting: %lus"
-    STR_FMT_PEERS_NOSYNC,   // "%d/%d peers  poll %s  no sync yet"
-    STR_FMT_PEERS_AGO,      // "%d/%d peers  poll %s  %s ago"
-    STR_FMT_OFF_DRIFT,      // "off %s %s drift %s"
 
     // WiFi setup
     STR_WIFI_SETUP,
@@ -95,6 +86,7 @@ typedef enum {
     STR_UPDATE,
     STR_RESTARTING,
     STR_OTA_UPDATE,
+    STR_NONE,
 
     // NTP settings
     STR_NTP_SERVER,
@@ -102,24 +94,6 @@ typedef enum {
     STR_NTP_SETTINGS,
     STR_NTP_PRESETS,
     STR_PRESETS,
-    STR_BENCHMARK,
-    STR_STOPPING,
-    STR_FAIL,
-
-    // NTP stats
-    STR_NTP_STATS,
-    STR_UNSYNCED,
-    STR_STRATUM_LABEL,
-    STR_POLL_LABEL,
-    STR_SYNCS_LABEL,
-    STR_DRIFT_LABEL,
-    STR_AGE_LABEL,
-    STR_OFFSET_LABEL,
-    STR_JITTER_LABEL,
-    STR_ROOT_LABEL,
-    STR_FMT_ROOT_DETAIL,
-    STR_PEER_HEADER,
-    STR_NONE,
 
     // Timezone
     STR_SELECT_REGION,
