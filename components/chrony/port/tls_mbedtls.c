@@ -87,12 +87,13 @@ struct Credentials {
    an ECDSA chain cannot reliably fit (a single software P-384 verify
    measures ~1.3 s).  The handshake itself still completes and verifies the
    chain against the certificate bundle - only the request afterwards is
-   lost - so the freshly verified leaf is remembered and the retry runs
+   lost - so the freshly verified leaf is stored and the retry runs
    with mbedTLS chain verification disabled, requiring instead that the
    server presents byte-for-byte the same certificate.  That transfers the
    bundle attempt's chain and hostname verification to the retry, and
    TLS 1.3's CertificateVerify still proves the server holds the
-   certificate's private key.  Pins live only in RAM, expire after a day
+   certificate's private key.  Pins live only in RAM (across TLS_Finalise(),
+   which chronyd calls between sessions), expire after a day
    (forcing a fresh bundle verification, e.g. for certificate expiry), and
    any mismatch clears the pin and falls back to the bundle.
 
@@ -222,6 +223,19 @@ check_pin(TLS_Instance inst)
 
 /* ================================================== */
 
+/* Check for a FIN or RST already received on the socket */
+
+static int
+peer_closed(TLS_Instance inst)
+{
+  char c;
+  int r = recv(inst->sock_fd, &c, 1, MSG_PEEK | MSG_DONTWAIT);
+
+  return r == 0 || (r < 0 && (errno == ECONNRESET || errno == ENOTCONN || errno == EPIPE));
+}
+
+/* ================================================== */
+
 static int
 bio_send(void *ctx, const unsigned char *buf, size_t len)
 {
@@ -306,10 +320,10 @@ TLS_Initialise(time_t (*get_time)(time_t *t))
 void
 TLS_Finalise(void)
 {
-  int i;
-
-  for (i = 0; i < PIN_SLOTS; i++)
-    clear_pin(&pins[i]);
+  /* The pins are kept: chronyd finalises the TLS layer whenever its last
+     NTS-KE session ends (deinit_tls() in nts_ke_session.c), which is
+     exactly before the retry that the pin exists for.  They expire with
+     PIN_TTL instead. */
 }
 
 /* ================================================== */
@@ -530,8 +544,9 @@ TLS_DoHandshake(TLS_Instance inst)
     else
       LOG(LOGS_ERR, "TLS handshake with %s failed : %d", inst->label, r);
 
-    /* A failed pinned session falls back to the bundle on the next try */
-    if (inst->pinned) {
+    /* A pinned session that failed other than by the server closing the
+       connection falls back to the bundle on the next try */
+    if (inst->pinned && !is_closed_error(r)) {
       struct Pin *pin = find_pin(inst->server_name);
       if (pin)
         clear_pin(pin);
@@ -554,6 +569,18 @@ TLS_DoHandshake(TLS_Instance inst)
   if (!check_alpn(inst)) {
     LOG(LOGS_ERR, "NTS-KE not supported by %s", inst->label);
     return TLS_FAILED;
+  }
+
+  /* A server that closes connections shortly after accepting them (see the
+     pin comment above) can do so while the bundle-verified handshake is
+     still being completed here.  The certificate is pinned by now, but
+     reporting success would make chronyd send the request into the closed
+     connection and then back off for 2^NKE_RETRY_FACTOR2_TLS seconds;
+     reporting the close makes it retry with the short interval it uses for
+     a handshake that the other end closed, and the retry uses the pin. */
+  if (!inst->pinned && peer_closed(inst)) {
+    LOG(LOGS_INFO, "%s closed the connection during the handshake", inst->label);
+    return TLS_CLOSED;
   }
 
   return TLS_SUCCESS;
