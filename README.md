@@ -114,17 +114,18 @@ one after 2 s.
 
 Some NTS-KE servers (Cloudflare's) close the connection about 2 s after
 accepting it, which leaves little room for a full handshake when the ESP32
-verifies their ECDSA certificate chain in software. One key exchange at a
-time gives each handshake the whole CPU, which is what lets it finish in
-time; two at once each took long enough to be cut off. The TLS backend also
+verifies their ECDSA certificate chain in software: that handshake takes
+about 2.0-2.05 s, so the request after it gets no response. The TLS backend
 stores a certificate that verified against the root store, for a day, and on
-the next handshake accepts exactly that certificate in place of a chain
-check, which shortens the later key exchanges. If the server has still
-closed the connection by the time a handshake completes, the backend reports
+later handshakes accepts exactly that certificate in place of a chain check;
+those take about 0.8 s. When a chain-checked handshake takes longer than
+1.5 s, or the server has already closed the connection, the backend reports
 it as closed, so chronyd retries after its short interval for a closed
 handshake (16 s) instead of backing off for about 17 minutes, and the retry
-uses the stored certificate. Against Cloudflare, the clock syncs about 11 s
-after boot.
+uses the stored certificate. One key exchange at a time means only the first
+one is chain-checked; the others use the stored certificate. Against
+Cloudflare, the clock syncs about 11 s after boot, with the second source
+about 30 s after boot.
 
 Certificates are checked against Mozilla's root store, which is vendored in
 `third_party/ca-certificates/` and refreshed with `make update-certs`.

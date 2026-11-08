@@ -69,6 +69,7 @@ struct TLS_Instance_Record {
   int pinned;
   int ignore_time_flags;
   int time_checks;
+  double handshake_start;
   char *server_name;
   char *label;
   char *alpn_name;
@@ -102,6 +103,7 @@ struct Credentials {
 #define PIN_SLOTS 4
 #define PIN_MAX_DER 1600
 #define PIN_TTL (24 * 3600.0)
+#define MAX_UNPINNED_HANDSHAKE 1.5
 
 struct Pin {
   char *host;
@@ -219,6 +221,20 @@ check_pin(TLS_Instance inst)
     clear_pin(pin);
 
   return 0;
+}
+
+/* ================================================== */
+
+/* Monotonic time in seconds, read now (SCH_GetLastEventMonoTime() predates
+   the handshake computation done within the current event) */
+
+static double
+mono_now(void)
+{
+  struct timespec ts;
+
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return ts.tv_sec + ts.tv_nsec * 1e-9;
 }
 
 /* ================================================== */
@@ -380,11 +396,12 @@ TLS_DestroyCredentials(TLS_Credentials credentials)
    buffer (NKE_MAX_MESSAGE_LENGTH, allocated by nts_ke_session.c) and about
    15 KB of TLS state, plus about 8 KB more during the handshake; four at
    once exhausted the heap (a failed Malloc() is fatal in chronyd).  The
-   handshakes also share the chronyd task's one core: two at once each took
-   long enough to lose the race against a server that closes connections
-   after about 2 s (see the pin comment above), while one at a time
-   completes in time, and the sessions after it use the pin.  Measured
-   against Cloudflare: sync about 11 s after boot, against about 26 s with
+   handshakes also share the chronyd task's one core, so with two at once
+   both are bundle-verified and both are cut off by a server that closes
+   connections after about 2 s (see the pin comment above).  One at a time,
+   only the first session is bundle-verified and the sessions after it use
+   its pin.  Measured against Cloudflare: one source 11 s after boot and
+   the second by about 30 s, against about 26 s for the first source with
    two at once.  A refused session fails NKC_Start(), which chronyd retries
    after RETRY_INTERVAL_KE_START (2 s), so the sessions queue. */
 #define MAX_SESSIONS 1
@@ -413,6 +430,7 @@ TLS_CreateInstance(int server_mode, int sock_fd, const char *server_name, const 
   inst->sock_fd = sock_fd;
   inst->server = server_mode;
   inst->pinned = 0;
+  inst->handshake_start = 0.0;
   inst->ignore_time_flags = 0;
   inst->time_checks = !disable_time_checks;
   inst->server_name = NULL;
@@ -557,7 +575,14 @@ check_verify_result(TLS_Instance inst)
 TLS_Status
 TLS_DoHandshake(TLS_Instance inst)
 {
-  int r = mbedtls_ssl_handshake(&inst->ssl);
+  double duration;
+  int r;
+
+  /* The first call follows the TCP connection, i.e. the server's accept */
+  if (inst->handshake_start == 0.0)
+    inst->handshake_start = mono_now();
+
+  r = mbedtls_ssl_handshake(&inst->ssl);
 
   if (r != 0) {
     if (is_again_error(r))
@@ -597,14 +622,21 @@ TLS_DoHandshake(TLS_Instance inst)
   }
 
   /* A server that closes connections shortly after accepting them (see the
-     pin comment above) can do so while the bundle-verified handshake is
-     still being completed here.  The certificate is pinned by now, but
-     reporting success would make chronyd send the request into the closed
-     connection and then back off for 2^NKE_RETRY_FACTOR2_TLS seconds;
-     reporting the close makes it retry with the short interval it uses for
-     a handshake that the other end closed, and the retry uses the pin. */
-  if (!inst->pinned && peer_closed(inst)) {
-    LOG(LOGS_INFO, "%s closed the connection during the handshake", inst->label);
+     pin comment above) closes this one during a bundle-verified handshake
+     or just after it: such a handshake measures 2.0-2.05 s against
+     Cloudflare's close at about 2 s, so the request would get no response.
+     The certificate is pinned by now, but reporting success would make
+     chronyd send the request and, when the connection closes before the
+     response, back off for 2^NKE_RETRY_FACTOR2_TLS seconds (about 17
+     minutes).  Reporting the close makes it retry with the short interval
+     it uses for a handshake that the other end closed (16 s), and the retry
+     uses the pin (about 0.8 s).  A handshake longer than
+     MAX_UNPINNED_HANDSHAKE leaves too little of a 2 s window for the
+     request and response, so it is reported the same way. */
+  duration = mono_now() - inst->handshake_start;
+  if (!inst->pinned && (duration > MAX_UNPINNED_HANDSHAKE || peer_closed(inst))) {
+    LOG(LOGS_INFO, "Handshake with %s took %.1f s, retrying with the pinned certificate",
+        inst->label, duration);
     return TLS_CLOSED;
   }
 
