@@ -15,7 +15,7 @@ Highlights:
 - Hundredths of a second on the clock face, timed so that the digits change
   right on the second boundary.
 - A 1PPS output on the red LED and a header pin.
-- 108 interface languages, with dates that are formatted according to Unicode
+- 107 interface languages, with dates that are formatted according to Unicode
   CLDR, including the Persian and Thai Buddhist calendars, native digits, and
   right-to-left scripts.
 - Byte-for-byte reproducible release images.
@@ -149,7 +149,7 @@ pulsing.
 
 ## Languages
 
-The interface is available in 108 languages, each listed in the picker by its
+The interface is available in 107 languages, each listed in the picker by its
 own name and in its own script, ordered by the Unicode root collation.
 
 The date line follows each language's CLDR pattern, which is adopted as-is
@@ -164,7 +164,7 @@ wherever it fits on the screen. Here are a few examples, all for the same day:
 | Persian | ۱۵ تیر ۱۴۰۵ |
 | Thai | 6 ก.ค. 2569 |
 | Hebrew | יום ב׳, 6 ביולי 2026 |
-| Burmese | ၂၀၂၆ ဇူ ၆ တနင်္လာ |
+| Burmese | ၂၀၂၆ ဇူ ၆၊ တနင်္လာ |
 
 Persian and Pashto use the Solar Hijri calendar, Thai uses the Buddhist era,
 and ten languages use their own digits (Bengali, Devanagari, Eastern Arabic,

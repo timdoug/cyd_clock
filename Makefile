@@ -5,7 +5,7 @@
 PORT ?= $(firstword $(wildcard /dev/cu.usbserial-* /dev/cu.wchusbserial*))
 BAUD ?= 2000000
 TZDATA_VERSION ?= 2026f
-CLDR_VERSION ?= 48.2.0
+CLDR_VERSION ?= 49.0.0
 CACERT_URL = https://curl.se/ca/cacert.pem
 CHRONY_GIT = https://gitlab.com/chrony/chrony.git
 # chrony main after 4.9, with leap second support removed; a release tag
@@ -94,4 +94,4 @@ help:
 	@echo "Override with: make flash PORT=/dev/cu.usbserial-XXX"
 	@echo "Board: $(CYD_BOARD) (override: make CYD_BOARD=esp32_2432s024 ...)"
 	@echo "tzdata release: make update-tzdata TZDATA_VERSION=2026f (or latest)"
-	@echo "Pin CLDR:   make update-cldr CLDR_VERSION=48.2.0"
+	@echo "CLDR release:   make update-cldr CLDR_VERSION=49.0.0"

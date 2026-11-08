@@ -100,7 +100,6 @@
 #include "i18n/so.inc"
 #include "i18n/zu.inc"
 #include "i18n/tk.inc"
-#include "i18n/ht.inc"
 #include "i18n/qu.inc"
 #include "i18n/rm.inc"
 #include "i18n/dsb.inc"

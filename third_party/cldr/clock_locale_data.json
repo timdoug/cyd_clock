@@ -1,5 +1,5 @@
 {
-  "cldr_version": "48.2.0",
+  "cldr_version": "49.0.0",
   "generated_by": "tools/update_cldr.py",
   "license": "Unicode-3.0",
   "locales": {
@@ -375,14 +375,14 @@
       ],
       "calendars": {
         "gregorian": {
-          "clock_pattern": "E, d MMM y",
+          "clock_pattern": "y MMM d, E",
           "clock_pattern_source": "availableFormats/yMMMEd",
-          "clock_sample": "সোম, ৬ জুলাই ২০২৬",
+          "clock_sample": "২০২৬ জুলাই ৬, সোম",
           "clock_skeleton": "yMMMEd",
           "date_formats": {
-            "full": "EEEE, d MMMM, y",
+            "full": "y MMMM d, EEEE",
             "long": "d MMMM, y",
-            "medium": "dd-MM-y",
+            "medium": "y MMM d",
             "short": "d-M-y"
           },
           "era_abbr": "খ্ৰীঃ",
@@ -467,17 +467,17 @@
       ],
       "calendars": {
         "gregorian": {
-          "clock_pattern": "d MMM y, E",
+          "clock_pattern": "E, d MMM y",
           "clock_pattern_source": "availableFormats/yMMMEd",
-          "clock_sample": "6 iyl 2026, B.e.",
+          "clock_sample": "B.e., 6 iyl 2026",
           "clock_skeleton": "yMMMEd",
           "date_formats": {
-            "full": "d MMMM y, EEEE",
+            "full": "EEEE, d MMMM y",
             "long": "d MMMM y",
             "medium": "d MMM y",
             "short": "dd.MM.yy"
           },
-          "era_abbr": "y.e.",
+          "era_abbr": "b.e.",
           "months": {
             "abbreviated": [
               "yan",
@@ -528,13 +528,13 @@
               "Ş."
             ],
             "wide": [
-              "bazar",
-              "bazar ertəsi",
-              "çərşənbə axşamı",
-              "çərşənbə",
-              "cümə axşamı",
-              "cümə",
-              "şənbə"
+              "Bazar",
+              "Bazar ertəsi",
+              "Çərşənbə axşamı",
+              "Çərşənbə",
+              "Cümə axşamı",
+              "Cümə",
+              "Şənbə"
             ]
           }
         }
@@ -562,7 +562,7 @@
           "clock_sample": "6 июл., дүш., 2026 й.",
           "clock_skeleton": "yMMMEd",
           "date_formats": {
-            "full": "d MMMM, EEEE, y 'й'.",
+            "full": "EEEE, d MMMM y 'й'.",
             "long": "d MMMM, y 'й'.",
             "medium": "d MMM, y 'й'.",
             "short": "dd.MM.y"
@@ -931,7 +931,7 @@
             "medium": "d MMM, y",
             "short": "d/M/yy"
           },
-          "era_abbr": "খৃষ্টাব্দ",
+          "era_abbr": "খ্রি.",
           "months": {
             "abbreviated": [
               "জানু",
@@ -2007,9 +2007,9 @@
           "clock_skeleton": "yMMMEd",
           "date_formats": {
             "full": "EEEE, 'la' d-'a' 'de' MMMM y",
-            "long": "y-MMMM-dd",
-            "medium": "y-MMM-dd",
-            "short": "yy-MM-dd"
+            "long": "d MMMM y",
+            "medium": "d MMM y",
+            "short": "y-MM-dd"
           },
           "era_abbr": "n.e.",
           "months": {
@@ -2091,7 +2091,7 @@
       ],
       "calendars": {
         "gregorian": {
-          "clock_pattern": "EEE, d MMM y",
+          "clock_pattern": "E, d MMM y",
           "clock_pattern_source": "availableFormats/yMMMEd",
           "clock_sample": "lun, 6 jul 2026",
           "clock_skeleton": "yMMMEd",
@@ -2392,13 +2392,13 @@
               "دسامبر"
             ],
             "wide": [
-              "ژانویهٔ",
-              "فوریهٔ",
+              "ژانویه",
+              "فوریه",
               "مارس",
               "آوریل",
-              "مهٔ",
+              "مه",
               "ژوئن",
-              "ژوئیهٔ",
+              "ژوئیه",
               "اوت",
               "سپتامبر",
               "اکتبر",
@@ -3697,96 +3697,6 @@
         "numbers": "hsb"
       }
     },
-    "ht": {
-      "calendar_preference": [
-        "gregorian"
-      ],
-      "calendars": {
-        "gregorian": {
-          "clock_pattern": "E d MMM y",
-          "clock_pattern_source": "availableFormats/yMMMEd",
-          "clock_sample": "lun. 6 juil. 2026",
-          "clock_skeleton": "yMMMEd",
-          "date_formats": {
-            "full": "EEEE d MMMM y",
-            "long": "d MMMM y",
-            "medium": "d MMM y",
-            "short": "dd/MM/y"
-          },
-          "era_abbr": "ap. J.-C.",
-          "months": {
-            "abbreviated": [
-              "janv.",
-              "févr.",
-              "mars",
-              "avr.",
-              "mai",
-              "juin",
-              "juil.",
-              "août",
-              "sept.",
-              "oct.",
-              "nov.",
-              "déc."
-            ],
-            "wide": [
-              "janvier",
-              "février",
-              "mars",
-              "avril",
-              "mai",
-              "juin",
-              "juillet",
-              "août",
-              "septembre",
-              "octobre",
-              "novembre",
-              "décembre"
-            ]
-          },
-          "weekdays": {
-            "abbreviated": [
-              "dim.",
-              "lun.",
-              "mar.",
-              "mer.",
-              "jeu.",
-              "ven.",
-              "sam."
-            ],
-            "short": [
-              "di",
-              "lu",
-              "ma",
-              "me",
-              "je",
-              "ve",
-              "sa"
-            ],
-            "wide": [
-              "dimanche",
-              "lundi",
-              "mardi",
-              "mercredi",
-              "jeudi",
-              "vendredi",
-              "samedi"
-            ]
-          }
-        }
-      },
-      "character_order": "left-to-right",
-      "cldr_locale": "ht",
-      "clock_default_calendar": "gregorian",
-      "default_numbering_system": "latn",
-      "digits": "0123456789",
-      "likely_territory": "HT",
-      "source_locales": {
-        "gregorian": "ht",
-        "layout": "ht",
-        "numbers": "ht"
-      }
-    },
     "hu": {
       "calendar_preference": [
         "gregorian"
@@ -3889,8 +3799,8 @@
           "clock_skeleton": "yMMMEd",
           "date_formats": {
             "full": "y թ. MMMM d, EEEE",
-            "long": "dd MMMM, y թ.",
-            "medium": "dd MMM, y թ.",
+            "long": "y թ. MMMM d",
+            "medium": "y թ. MMM d",
             "short": "dd.MM.yy"
           },
           "era_abbr": "մ.թ.",
@@ -3984,7 +3894,7 @@
             "full": "EEEE, dd MMMM y",
             "long": "d MMMM y",
             "medium": "d MMM y",
-            "short": "dd/MM/yy"
+            "short": "d/M/yy"
           },
           "era_abbr": "M",
           "months": {
@@ -5071,7 +4981,7 @@
             "full": "y-'ж'., d-MMMM, EEEE",
             "long": "y-'ж'., d-MMMM",
             "medium": "y-'ж'., d-MMM",
-            "short": "d/M/yy"
+            "short": "dd.MM.yy"
           },
           "era_abbr": "б.з.",
           "months": {
@@ -6059,17 +5969,17 @@
       ],
       "calendars": {
         "gregorian": {
-          "clock_pattern": "y MMM d E",
+          "clock_pattern": "y MMM d၊ E",
           "clock_pattern_source": "availableFormats/yMMMEd",
-          "clock_sample": "၂၀၂၆ ဇူ ၆ တနင်္လာ",
+          "clock_sample": "၂၀၂၆ ဇူ ၆၊ တနင်္လာ",
           "clock_skeleton": "yMMMEd",
           "date_formats": {
-            "full": "y MMMM d EEEE",
+            "full": "y MMMM d၊ EEEE",
             "long": "y MMMM d",
             "medium": "y MMM d",
             "short": "d/M/yy"
           },
-          "era_abbr": "အဒေီ",
+          "era_abbr": "အေဒီ",
           "months": {
             "abbreviated": [
               "ဇန်",
@@ -7061,12 +6971,12 @@
         "gregorian": {
           "clock_pattern": "y MMM d, E",
           "clock_pattern_source": "availableFormats/yMMMEd",
-          "clock_sample": "۲۰۲۶ جولای ۶, دونۍ",
+          "clock_sample": "۲۰۲۶ جولای ۶, دوشنبه",
           "clock_skeleton": "yMMMEd",
           "date_formats": {
-            "full": "EEEE د y د MMMM d",
-            "long": "y MMMM d",
-            "medium": "y MMM d",
+            "full": "EEEE d, MMMM, y",
+            "long": "d MMMM y",
+            "medium": "d MMM y",
             "short": "y/M/d"
           },
           "era_abbr": "م.",
@@ -7102,29 +7012,29 @@
           },
           "weekdays": {
             "abbreviated": [
-              "يونۍ",
-              "دونۍ",
-              "درېنۍ",
-              "څلرنۍ",
-              "پينځنۍ",
+              "یکشنبه",
+              "دوشنبه",
+              "سه شنبه",
+              "چهارشنبه",
+              "پنج شنبه",
               "جمعه",
-              "اونۍ"
+              "شنبه"
             ],
             "short": [
-              "يونۍ",
-              "دونۍ",
-              "درېنۍ",
-              "څلرنۍ",
-              "پينځنۍ",
-              "جمعه",
-              "اونۍ"
+              "ی",
+              "د",
+              "س",
+              "چ",
+              "پ",
+              "ج",
+              "ش"
             ],
             "wide": [
-              "يونۍ",
-              "دونۍ",
-              "درېنۍ",
-              "څلرنۍ",
-              "پينځنۍ",
+              "یکشنبه",
+              "دوشنبه",
+              "سه شنبه",
+              "چهارشنبه",
+              "پنج شنبه",
               "جمعه",
               "اونۍ"
             ]
@@ -7174,29 +7084,29 @@
           },
           "weekdays": {
             "abbreviated": [
-              "يونۍ",
-              "دونۍ",
-              "درېنۍ",
-              "څلرنۍ",
-              "پينځنۍ",
+              "یکشنبه",
+              "دوشنبه",
+              "سه شنبه",
+              "چهارشنبه",
+              "پنج شنبه",
               "جمعه",
-              "اونۍ"
+              "شنبه"
             ],
             "short": [
-              "يونۍ",
-              "دونۍ",
-              "درېنۍ",
-              "څلرنۍ",
-              "پينځنۍ",
-              "جمعه",
-              "اونۍ"
+              "ی",
+              "د",
+              "س",
+              "چ",
+              "پ",
+              "ج",
+              "ش"
             ],
             "wide": [
-              "يونۍ",
-              "دونۍ",
-              "درېنۍ",
-              "څلرنۍ",
-              "پينځنۍ",
+              "یکشنبه",
+              "دوشنبه",
+              "سه شنبه",
+              "چهارشنبه",
+              "پنج شنبه",
               "جمعه",
               "اونۍ"
             ]
@@ -8679,7 +8589,7 @@
             "full": "d, MMMM y, EEEE",
             "long": "d MMMM, y",
             "medium": "d MMM, y",
-            "short": "dd-MM-yy"
+            "short": "d/M/yy"
           },
           "era_abbr": "క్రీశ",
           "months": {
@@ -9017,12 +8927,12 @@
       ],
       "calendars": {
         "gregorian": {
-          "clock_pattern": "d MMM y E",
+          "clock_pattern": "d MMM y, E",
           "clock_pattern_source": "availableFormats/yMMMEd",
-          "clock_sample": "6 iýul 2026 duş",
+          "clock_sample": "6 iýul 2026, duş",
           "clock_skeleton": "yMMMEd",
           "date_formats": {
-            "full": "d MMMM y EEEE",
+            "full": "d MMMM y, EEEE",
             "long": "d MMMM y",
             "medium": "d MMM y",
             "short": "dd.MM.y"
@@ -9936,7 +9846,7 @@
             "full": "EEEE, MMMM d, y",
             "long": "MMMM d, y",
             "medium": "MMM d, y",
-            "short": "M/d/yy"
+            "short": "y-MM-dd"
           },
           "era_abbr": "AD",
           "months": {
@@ -10014,6 +9924,6 @@
     }
   },
   "sample_gregorian_date": "2026-07-06",
-  "source_sha256": "084d98b3f01454e7a2af9dbf5fb4adc7205f42a0808a9fd3ecf74ecfb116339a",
-  "source_url": "https://github.com/unicode-org/cldr-json/releases/download/48.2.0/cldr-48.2.0-json-full.zip"
+  "source_sha256": "3b1f5d684d29c541d3acf91fe834b3fe36ae0f34775e3ee50e93558bf14ca174",
+  "source_url": "https://github.com/unicode-org/cldr-json/releases/download/49.0.0/cldr-49.0.0-json-full.zip"
 }

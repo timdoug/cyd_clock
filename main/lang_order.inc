@@ -36,7 +36,6 @@ static const lang_t lang_order[LANG_COUNT] = {
     LANG_IS,
     LANG_IT,  // Italiano
     LANG_SW,  // Kiswahili
-    LANG_HT,
     LANG_LV,
     LANG_LT,
     LANG_HU,  // Magyar
