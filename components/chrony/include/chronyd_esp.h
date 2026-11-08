@@ -95,6 +95,13 @@ bool ces_add_source(const char *directive, uint32_t *group);
    this group id. */
 void ces_remove_source(uint32_t group);
 
+/* The network went down (false) or came up (true), as chronyc's "offline"
+   and "onoffline" commands that NetworkManager's dispatcher sends on Linux:
+   offline sources are not polled (so they are neither counted unreachable
+   nor replaced), and sources coming back online poll at once, with a burst
+   when configured with iburst. */
+void ces_set_online(bool online);
+
 /* Copy the latest snapshot. */
 void ces_get_status(ces_status_t *out);
 

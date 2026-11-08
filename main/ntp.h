@@ -16,6 +16,11 @@ typedef enum {
 
 void ntp_init(const char *server, ntp_family_t family, bool nts);
 
+// The station lost its connection (false) or gained an IPv4/IPv6 address
+// (true); passed to chronyd as chronyc's "offline"/"onoffline" would be.
+// Safe from the Wi-Fi event handler: the change is applied by a worker task.
+void ntp_network_changed(bool up);
+
 void ntp_set_server(const char *server);
 void ntp_set_family(ntp_family_t family);
 void ntp_set_nts(bool nts);

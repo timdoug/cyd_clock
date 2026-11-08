@@ -111,6 +111,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                 const wifi_event_sta_disconnected_t *d = event_data;
                 ESP_LOGI(TAG, "WiFi disconnected (reason %d, rssi %d)",
                          d->reason, d->rssi);
+                ntp_network_changed(false);
                 xEventGroupClearBits(wifi_event_group, WIFI_CONNECTED_BIT);
                 if (ignore_next_disconnect) {
                     ignore_next_disconnect = false;
@@ -161,9 +162,14 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
             portEXIT_CRITICAL(&wifi_state_lock);
             xEventGroupClearBits(wifi_event_group, WIFI_FAIL_BIT);
             xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_BIT);
+            ntp_network_changed(true);
         } else if (event_id == IP_EVENT_GOT_IP6) {
             ip_event_got_ip6_t *event = (ip_event_got_ip6_t *)event_data;
             ESP_LOGI(TAG, "Got IPv6: " IPV6STR, IPV62STR(event->ip6_info.ip));
+            // A link-local address arrives before any route to NTP servers.
+            if (esp_netif_ip6_get_addr_type(&event->ip6_info.ip) == ESP_IP6_ADDR_IS_GLOBAL) {
+                ntp_network_changed(true);
+            }
         }
     }
 }
@@ -219,11 +225,6 @@ void wifi_init(void) {
     // NTP offset by half the buffering time. We're wall-powered; keep the
     // receiver on.
     ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
-
-    // RX hook install moved to the IP_EVENT_STA_GOT_IP handler - wifi-netif
-    // registers its own STA rxcb on the connect event, which would clobber
-    // ours if we installed here. TX-done cb is global and unaffected, but
-    // we register both from the same place to keep them in sync.
 
     wifi_initialized = true;
     ESP_LOGI(TAG, "WiFi initialized");

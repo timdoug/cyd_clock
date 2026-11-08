@@ -116,12 +116,14 @@ static const char *const config_lines[] = {
 typedef enum {
   CMD_ADD_SOURCE,
   CMD_REMOVE_SOURCE,
+  CMD_SET_ONLINE,
 } CommandType;
 
 typedef struct {
   CommandType type;
   const char *directive;
   uint32_t group;
+  int online;
   int result;
 } Command;
 
@@ -370,6 +372,7 @@ add_source(const char *directive)
 static void
 command_handler(int fd, int event, void *arg)
 {
+  IPAddr mask, address;
   char buf[16];
   Command *cmd;
   int i;
@@ -392,6 +395,15 @@ command_handler(int fd, int event, void *arg)
         if (groups[i].conf_id == cmd->group)
           memset(&groups[i], 0, sizeof (groups[i]));
       }
+      cmd->result = 0;
+      break;
+    case CMD_SET_ONLINE:
+      /* As chronyc's "onoffline" and "offline" commands (handle_onoffline()
+         and handle_offline() in cmdmon.c), for all sources */
+      memset(&mask, 0, sizeof (mask));
+      memset(&address, 0, sizeof (address));
+      mask.family = address.family = IPADDR_UNSPEC;
+      NSR_SetConnectivity(&mask, &address, cmd->online ? SRC_MAYBE_ONLINE : SRC_OFFLINE);
       cmd->result = 0;
       break;
   }
@@ -536,6 +548,16 @@ void
 ces_remove_source(uint32_t group)
 {
   Command cmd = { .type = CMD_REMOVE_SOURCE, .group = group };
+
+  run_command(&cmd);
+}
+
+/* ================================================== */
+
+void
+ces_set_online(bool online)
+{
+  Command cmd = { .type = CMD_SET_ONLINE, .online = online };
 
   run_command(&cmd);
 }

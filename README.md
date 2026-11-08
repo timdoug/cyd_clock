@@ -52,7 +52,10 @@ The ESP-IDF port lives in `components/chrony/port`, where chrony's
   implemented on its CMAC and AES-CTR primitives.
 - An entry point in place of `main.c` that runs chronyd in a FreeRTOS task,
   takes configuration changes from the UI, and copies chronyd's reports for
-  the display once a second.
+  the display once a second. WiFi drops and reconnects reach chronyd as
+  chronyc's `offline` and `onoffline` commands, as NetworkManager sends them
+  on Linux: sources stop polling while the network is down and poll again,
+  with a burst, as soon as it is back.
 - A small filesystem in NVS, so that chrony's `driftfile` survives reboots
   and the next boot starts out close to calibrated.
 - Stand-ins for POSIX pieces that newlib and lwIP lack (`pipe()`, `glob()`,

@@ -19,14 +19,18 @@ static const char *TAG = "ntp";
 // the 8 records alone took about 79 KB. Plain pools use the default.
 #define NTS_MAX_SOURCES 2
 
-// Settings changes are applied by a worker task: ces_add_source() and
-// ces_remove_source() wait for chronyd's loop, which can be inside an NTS-KE
-// handshake step, so the UI task only records the change. lock guards the
-// fields below and is never held across a chronyd command.
+// Settings changes and network events are applied by a worker task:
+// chronyd commands wait for chronyd's loop, which can be inside an NTS-KE
+// handshake step, so the UI task and the Wi-Fi event handler only record
+// the change. lock guards the fields below and is never held across a
+// chronyd command.
 static SemaphoreHandle_t lock;
 static TaskHandle_t      worker;
 static struct {
     bool         started;
+    bool         config_pending;
+    bool         network_pending;
+    bool         network_up;
     char         server[64];
     ntp_family_t family;
     bool         nts;
@@ -75,8 +79,22 @@ static void worker_task(void *arg) {
     (void)arg;
     for (;;) {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-        apply_config();
+
+        xSemaphoreTake(lock, portMAX_DELAY);
+        bool config = g.config_pending, network = g.network_pending;
+        g.config_pending = g.network_pending = false;
+        bool up = g.network_up;
+        xSemaphoreGive(lock);
+
+        if (config) apply_config();
+        // A new source starts online; take it offline if the network is down.
+        if (network || (config && !up)) ces_set_online(up);
     }
+}
+
+static void request(bool *pending) {
+    *pending = true;
+    xTaskNotifyGive(worker);
 }
 
 void ntp_init(const char *server, ntp_family_t family, bool nts) {
@@ -86,6 +104,8 @@ void ntp_init(const char *server, ntp_family_t family, bool nts) {
     str_copy(g.server, sizeof(g.server), server ? server : "");
     g.family = family;
     g.nts = nts;
+    g.network_up = true;  // started once the station has an address
+    g.config_pending = true;
 
     if (!ces_start()) {
         ESP_LOGE(TAG, "Failed to start chronyd");
@@ -100,29 +120,41 @@ void ntp_init(const char *server, ntp_family_t family, bool nts) {
     xTaskNotifyGive(worker);
 }
 
+void ntp_network_changed(bool up) {
+    if (!g.started) return;
+    xSemaphoreTake(lock, portMAX_DELAY);
+    g.network_up = up;
+    request(&g.network_pending);
+    xSemaphoreGive(lock);
+}
+
 void ntp_set_server(const char *server) {
     if (!g.started) return;
     xSemaphoreTake(lock, portMAX_DELAY);
     bool changed = strcmp(g.server, server) != 0;
-    if (changed) str_copy(g.server, sizeof(g.server), server);
+    if (changed) {
+        str_copy(g.server, sizeof(g.server), server);
+        request(&g.config_pending);
+    }
     xSemaphoreGive(lock);
-    if (changed) xTaskNotifyGive(worker);
 }
 
 void ntp_set_family(ntp_family_t family) {
     if (!g.started) return;
     xSemaphoreTake(lock, portMAX_DELAY);
-    bool changed = g.family != family;
-    g.family = family;
+    if (g.family != family) {
+        g.family = family;
+        request(&g.config_pending);
+    }
     xSemaphoreGive(lock);
-    if (changed) xTaskNotifyGive(worker);
 }
 
 void ntp_set_nts(bool nts) {
     if (!g.started) return;
     xSemaphoreTake(lock, portMAX_DELAY);
-    bool changed = g.nts != nts;
-    g.nts = nts;
+    if (g.nts != nts) {
+        g.nts = nts;
+        request(&g.config_pending);
+    }
     xSemaphoreGive(lock);
-    if (changed) xTaskNotifyGive(worker);
 }
