@@ -341,9 +341,19 @@ def normalize_posix_tz(posix_tz):
     return "".join(result)
 
 
+def tzdata_version(srcdir):
+    """Release named by the sources' "version" file (e.g. 2026f), or None."""
+    try:
+        with open(os.path.join(srcdir, "version"), encoding="utf-8") as f:
+            return f.read().strip() or None
+    except OSError:
+        return None
+
+
 def generate_timezone_block(srcdir, zic):
     """Generate the C timezone arrays from extracted IANA tzdata sources."""
     zone1970_path = os.path.join(srcdir, "zone1970.tab")
+    version = tzdata_version(srcdir)
 
     zone_ids = read_zone1970_tab(zone1970_path)
 
@@ -421,7 +431,8 @@ def generate_timezone_block(srcdir, zic):
                 seen_regions.append(region)
 
         out = []
-        out.append("// Generated from zone1970.tab - deduplicated within each region by")
+        source = f"tzdata {version} zone1970.tab" if version else "zone1970.tab"
+        out.append(f"// Generated from {source} - deduplicated within each region by")
         out.append("// functional POSIX equivalence, largest city by population as representative.")
         out.append("")
 
@@ -453,7 +464,7 @@ def update_ui_timezone(path, generated_block):
         source = f.read()
 
     pattern = (
-        r"// Generated from zone1970\.tab.*?"
+        r"// Generated from (?:tzdata \S+ )?zone1970\.tab.*?"
         r"#define NUM_TIMEZONES [^\n]*\n(?:\n)?"
     )
     updated, count = re.subn(pattern, generated_block, source, count=1, flags=re.S)

@@ -19,7 +19,7 @@ typedef struct {
     const char *tz;
 } timezone_entry_t;
 
-// Generated from zone1970.tab - deduplicated within each region by
+// Generated from tzdata 2026f zone1970.tab - deduplicated within each region by
 // functional POSIX equivalence, largest city by population as representative.
 
 static const char *regions[] = {
