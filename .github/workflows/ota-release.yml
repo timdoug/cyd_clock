@@ -91,25 +91,27 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
-          COMMON = [
-              (0x1000, Path("build/bootloader/bootloader.bin")),
-              (0x8000, Path("build/partition_table/partition-table.bin")),
-              (0xf000, Path("build/ota_data_initial.bin")),
-          ]
+          # Offsets come from each build's flash_args (what idf.py flash
+          # writes), so the merged image follows the partition table.
+          def pieces(build):
+              out = []
+              for line in Path(build, "flash_args").read_text().splitlines():
+                  fields = line.split()
+                  if len(fields) == 2 and fields[0].startswith("0x"):
+                      out.append((int(fields[0], 16), Path(build, fields[1])))
+              return sorted(out)
 
-          def merge(out, app):
-              pieces = COMMON + [(0x20000, Path(app))]
+          def merge(out, build):
               image = bytearray()
-              for offset, path in pieces:
+              for offset, path in pieces(build):
                   if len(image) > offset:
                       raise SystemExit(f"{path} overlaps previous segment")
                   image.extend(b"\xff" * (offset - len(image)))
                   image.extend(path.read_bytes())
               Path(out).write_bytes(image)
 
-          merge("cyd_clock-full.bin", "build/cyd_clock-esp32_2432s028.bin")
-          merge("cyd_clock-esp32_2432s024-full.bin",
-                "build_024/cyd_clock-esp32_2432s024.bin")
+          merge("cyd_clock-full.bin", "build")
+          merge("cyd_clock-esp32_2432s024-full.bin", "build_024")
           PY
 
           test -s cyd_clock-full.bin
