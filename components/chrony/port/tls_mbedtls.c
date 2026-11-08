@@ -375,14 +375,19 @@ TLS_DestroyCredentials(TLS_Credentials credentials)
 
 /* ================================================== */
 
-/* Concurrent TLS sessions.  Each NTS-KE session holds a 16 KB message
+/* Concurrent TLS sessions, one at a time.  chronyd starts the NTS-KE
+   sessions of all sources of a pool at once.  Each holds a 16 KB message
    buffer (NKE_MAX_MESSAGE_LENGTH, allocated by nts_ke_session.c) and about
-   15 KB of TLS state, plus about 8 KB more during the handshake, and
-   chronyd starts the sessions of all sources of a pool at once.  Four at
-   once exhausted the heap (a failed Malloc() is fatal in chronyd).  A
-   refused session fails NKC_Start(), which chronyd retries after
-   RETRY_INTERVAL_KE_START (2 s), so sessions beyond the limit queue. */
-#define MAX_SESSIONS 2
+   15 KB of TLS state, plus about 8 KB more during the handshake; four at
+   once exhausted the heap (a failed Malloc() is fatal in chronyd).  The
+   handshakes also share the chronyd task's one core: two at once each took
+   long enough to lose the race against a server that closes connections
+   after about 2 s (see the pin comment above), while one at a time
+   completes in time, and the sessions after it use the pin.  Measured
+   against Cloudflare: sync about 11 s after boot, against about 26 s with
+   two at once.  A refused session fails NKC_Start(), which chronyd retries
+   after RETRY_INTERVAL_KE_START (2 s), so the sessions queue. */
+#define MAX_SESSIONS 1
 
 static int active_sessions;
 

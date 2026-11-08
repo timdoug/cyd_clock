@@ -109,18 +109,22 @@ option: when it's on, unauthenticated time is never accepted.
 Each NTS source runs its own key exchange, and each costs about 31 KB of heap
 while it runs (chronyd's 16 KB message buffer plus TLS state), on top of about
 10 KB per pool record. So NTS pools use two addresses (`maxsources 2`), and
-the TLS backend runs at most two key exchanges at once; chronyd retries a
-deferred one after 2 s. Some NTS-KE servers (Cloudflare's) close the connection about 2 s after
-accepting it, which is shorter than a full handshake takes when the ESP32
-verifies their ECDSA certificate chain in software. The TLS backend stores
-a certificate that verified against the root store, for a day, and on the
-next handshake accepts exactly that certificate in place of a chain check, so
-the handshake completes in time. When the server has already closed the
-connection by the time the first handshake completes, the backend reports it
-as closed, so chronyd retries after its short interval for a closed handshake
-(16 s) instead of backing off for about 17 minutes, and the retry uses the
-stored certificate. Against Cloudflare, the clock syncs about 26 s after
-boot.
+the TLS backend runs one key exchange at a time; chronyd retries a deferred
+one after 2 s.
+
+Some NTS-KE servers (Cloudflare's) close the connection about 2 s after
+accepting it, which leaves little room for a full handshake when the ESP32
+verifies their ECDSA certificate chain in software. One key exchange at a
+time gives each handshake the whole CPU, which is what lets it finish in
+time; two at once each took long enough to be cut off. The TLS backend also
+stores a certificate that verified against the root store, for a day, and on
+the next handshake accepts exactly that certificate in place of a chain
+check, which shortens the later key exchanges. If the server has still
+closed the connection by the time a handshake completes, the backend reports
+it as closed, so chronyd retries after its short interval for a closed
+handshake (16 s) instead of backing off for about 17 minutes, and the retry
+uses the stored certificate. Against Cloudflare, the clock syncs about 11 s
+after boot.
 
 Certificates are checked against Mozilla's root store, which is vendored in
 `third_party/ca-certificates/` and refreshed with `make update-certs`.

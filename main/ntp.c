@@ -14,9 +14,9 @@ static const char *TAG = "ntp";
 // An NTS pool takes two addresses. Each pool record costs about 10 KB of
 // heap from the start (a pool holds 2 * maxsources records, unresolved ones
 // included), and each NTS-KE session about 31 KB more while it runs; the TLS
-// backend runs at most two at once (MAX_SESSIONS in tls_mbedtls.c). With 2,
-// the heap low-water mark measured about 54 KB; with chrony's default of 4,
-// the 8 records alone took about 79 KB. Plain pools use the default.
+// backend runs them one at a time (MAX_SESSIONS in tls_mbedtls.c). With
+// chrony's default of 4, the 8 records alone took about 79 KB. Plain pools
+// use the default.
 #define NTS_MAX_SOURCES 2
 
 // Settings changes and network events are applied by a worker task:
