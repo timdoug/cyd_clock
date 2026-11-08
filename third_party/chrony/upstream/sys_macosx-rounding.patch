@@ -1,0 +1,11 @@
+--- a/sys_macosx.c
++++ b/sys_macosx.c
+@@ -178,7 +178,7 @@
+ 
+   old_adjust_remaining = UTI_TimevalToDouble(&oldadj);
+ 
+-  offset_register = rounding_error - old_adjust_remaining - predicted_error;
++  offset_register = -rounding_error - old_adjust_remaining - predicted_error;
+ 
+   T0 = T1;
+ }

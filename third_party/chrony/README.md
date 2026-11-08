@@ -12,6 +12,9 @@ that chrony's `./configure` would select on a Unix host lives in
 - `nts_server_stubs.c`: the device is an NTS client only
 - `include/`: `config.h` and POSIX headers newlib/lwIP lack
 
+`upstream/` holds a fix found in chrony's own code during the port, written
+up for the chrony-dev list and not yet sent.
+
 Source: https://chrony-project.org/releases/chrony-4.9.tar.gz
 Signature: `chrony-4.9-tar-gz-asc.txt`, Miroslav Lichvar
 (8F375C7E8D0EE125A3D3BD51537E2B76F7680DAC)
