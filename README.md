@@ -8,8 +8,8 @@ ESP32, a 320x240 ILI9341 panel, XPT2046 resistive touch, and an RGB LED.
 Highlights:
 
 - Time sync by chrony: chronyd from chrony's main branch (4.9 plus the
-  removal of leap second support), built from unmodified upstream source and
-  ported to ESP-IDF, with authenticated time via NTS (RFC 8915).
+  removal of leap second support), built from upstream source with one
+  interoperability patch and ported to ESP-IDF, with authenticated time via NTS (RFC 8915).
 - The status lines and stats pages show chronyd's own reports, worded and
   formatted the way `chronyc` prints them.
 - Hundredths of a second on the clock face, timed so that the digits change
@@ -23,11 +23,13 @@ Highlights:
 ## Timekeeping
 
 Time is kept by [chrony](https://chrony-project.org/). A commit from chrony's
-main branch, after the 4.9 release, is vendored unmodified in
-`third_party/chrony/src`: it drops leap second support, in line with the 2022
-CGPM resolution to discontinue leap seconds by 2035. `make update-chrony` exports
-it from chrony's git repository after checking the GPG signature on the 4.9
-tag it builds on. Source selection, sample
+main branch, after the 4.9 release, is vendored in `third_party/chrony/src`:
+it drops leap second support, in line with the 2022 CGPM resolution to
+discontinue leap seconds by 2035. `make update-chrony` exports it from
+chrony's git repository after checking the GPG signature on the 4.9 tag it
+builds on, then applies the one patch in `third_party/chrony/patches/`: every
+NTS request asks for at least four cookies, without which the NTS servers of
+PTB and BEV answer only one request in four. Source selection, sample
 filtering, the frequency estimate, clock steering, NTS, and pool handling are
 all chronyd's. The configuration follows chrony's own example:
 

@@ -1,9 +1,15 @@
 # chrony
 
-chronyd, the NTP implementation of the chrony project, vendored unmodified
-in `src/` and built for ESP-IDF by `components/chrony`. The platform code
-that chrony's `./configure` would select on a Unix host lives in
-`components/chrony/port/` instead of being patched into `src/`:
+chronyd, the NTP implementation of the chrony project, vendored in `src/`
+and built for ESP-IDF by `components/chrony`. `src/` is the upstream export
+plus the patches in `patches/`:
+
+- `nts-min-cookies.patch`: every NTS request asks for at least four cookies.
+  The NTS servers of PTB and BEV drop requests too small for a response with
+  four cookies, so with stock chronyd they answer one request in four.
+
+The platform code that chrony's `./configure` would select on a Unix host
+lives in `components/chrony/port/` instead of being patched into `src/`:
 
 - `sys_esp32.c`: system clock driver (adjtime-based, after `sys_macosx.c`)
 - `tls_mbedtls.c`, `siv_mbedtls.c`: NTS-KE TLS and AES-SIV-CMAC on mbedTLS
@@ -28,9 +34,10 @@ Update with:
 make update-chrony CHRONY_REF=<commit or tag>
 ```
 
-The commit is exported with `git archive` into `src/` unmodified, after the
-signature on the nearest release tag behind it is checked, and `version.txt`
-is written from `git describe` (it sets the version chronyd reports). A git
+The commit is exported with `git archive` into `src/` after the signature
+on the nearest release tag behind it is checked, `version.txt` is written
+from `git describe` (it sets the version chronyd reports), and the patches
+in `patches/` are applied; a patch that no longer applies stops the update. A git
 export lacks the generated files of a release tarball (man pages,
 `getdate.c`), none of which the firmware builds. Review
 `components/chrony/CMakeLists.txt` (object list) and `port/include/config.h`

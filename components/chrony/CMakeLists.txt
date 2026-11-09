@@ -1,4 +1,5 @@
-# chronyd (third_party/chrony/src, vendored unmodified) built for ESP-IDF.
+# chronyd (third_party/chrony/src, vendored with third_party/chrony/patches
+# applied) built for ESP-IDF.
 # port/ holds the platform code chrony's ./configure would otherwise pick:
 # the system clock driver, the mbedTLS NTS backends, the entry point that
 # replaces main.c, and POSIX shims (port/include) for headers newlib and

@@ -1,0 +1,31 @@
+NTS: request at least four cookies in every NTS request
+
+Each authenticated request spends one cookie and carries one placeholder
+per further cookie wanted back; chronyd asks only for the cookies it is
+missing, so with a full store (8) a request carries no placeholders.
+The NTS servers of PTB (ptbtime1.ptb.de) and BEV (time.metrologie.at)
+silently drop requests with fewer than three placeholders, i.e. requests
+too small for a response with four cookies.  With stock chronyd they
+answer one request in four (the store drops to four cookies, the request
+then carries three placeholders and is answered, and the store is full
+again), and the source stays unselectable for minutes.  With at least
+four cookies requested, every request is answered and both servers are
+selected 11-12 s after boot.  Surplus cookies are discarded by
+extract_cookies() when the store is full.  Requests and responses grow
+by three placeholders (about 312 bytes with PTB's 100-byte cookies).
+
+Applied to src/ by "make update-chrony".
+
+diff --git a/nts_ntp_client.c b/nts_ntp_client.c
+index 3b92d1a..1bb8940 100644
+--- a/nts_ntp_client.c
++++ b/nts_ntp_client.c
+@@ -371,7 +371,7 @@ NNC_GenerateRequestAuth(NNC_Instance inst, NTP_Packet *packet,
+   inst->num_cookies--;
+   inst->cookie_index = (inst->cookie_index + 1) % NTS_MAX_COOKIES;
+ 
+-  req_cookies = MIN(NTS_MAX_COOKIES - inst->num_cookies,
++  req_cookies = MIN(MAX(NTS_MAX_COOKIES - inst->num_cookies, 4),
+                     MAX_TOTAL_COOKIE_LENGTH / (cookie->length + 4));
+ 
+   if (!NEF_AddField(packet, info, NTP_EF_NTS_UNIQUE_IDENTIFIER,

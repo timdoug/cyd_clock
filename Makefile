@@ -55,7 +55,8 @@ update-certs:
 # so the nearest release tag behind it must carry a valid signature by
 # exactly the release key's fingerprint (checked in a throwaway keyring), and
 # version.txt records "<tag>-<commits>-g<hash>" from git describe, as chrony's
-# make_release does for a release.
+# make_release does for a release.  The patches in third_party/chrony/patches are
+# applied after the export.
 update-chrony:
 	@set -e; t=$$(mktemp -d); trap 'rm -rf "$$t"' EXIT; \
 	git clone -q $(CHRONY_GIT) "$$t/git"; \
@@ -68,6 +69,9 @@ update-chrony:
 	mkdir "$$t/src"; git -C "$$t/git" archive HEAD | tar -x -C "$$t/src"; \
 	git -C "$$t/git" describe --tags HEAD > "$$t/src/version.txt"; \
 	rm -rf third_party/chrony/src; mv "$$t/src" third_party/chrony/src; \
+	for p in third_party/chrony/patches/*.patch; do \
+	  patch -s -p1 -d third_party/chrony/src < "$$p"; echo "applied $$p"; \
+	done; \
 	echo "signed tag $$tag, $$(git -C "$$t/git" rev-list --count "$$tag"..HEAD) commits after it:"; \
 	cat third_party/chrony/src/version.txt
 

@@ -371,7 +371,7 @@ NNC_GenerateRequestAuth(NNC_Instance inst, NTP_Packet *packet,
   inst->num_cookies--;
   inst->cookie_index = (inst->cookie_index + 1) % NTS_MAX_COOKIES;
 
-  req_cookies = MIN(NTS_MAX_COOKIES - inst->num_cookies,
+  req_cookies = MIN(MAX(NTS_MAX_COOKIES - inst->num_cookies, 4),
                     MAX_TOTAL_COOKIE_LENGTH / (cookie->length + 4));
 
   if (!NEF_AddField(packet, info, NTP_EF_NTS_UNIQUE_IDENTIFIER,
